@@ -11,18 +11,15 @@ if (!supabaseUrl || !supabaseAnonKey) {
 // Client Supabase standard pour les opérations côté client
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// IMPORTANT: Ce client ne doit être utilisé qu'en développement local
-// En production, utilisez une fonction Edge ou un backend sécurisé
+// Client Supabase admin pour les opérations d'administration
 const supabaseServiceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY || '';
-const isDevelopment = import.meta.env.DEV || false;
 
-if (isDevelopment && !supabaseServiceKey) {
-  console.error('⚠️ VITE_SUPABASE_SERVICE_ROLE_KEY est manquant dans votre fichier .env.local');
+if (!supabaseServiceKey) {
+  console.error('⚠️ VITE_SUPABASE_SERVICE_ROLE_KEY est manquant dans vos variables d\'environnement');
   console.error('Les fonctionnalités d\'administration ne seront pas disponibles');
 }
 
 // Client Supabase admin pour les opérations d'administration
-// Ce client ne doit jamais être exposé en production !
-export const supabaseAdmin = isDevelopment && supabaseServiceKey 
+export const supabaseAdmin = supabaseServiceKey 
   ? createClient(supabaseUrl, supabaseServiceKey)
   : null; 
