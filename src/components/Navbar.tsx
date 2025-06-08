@@ -59,7 +59,7 @@ const Navbar: React.FC = () => {
             <NavigationMenu>
               <NavigationMenuList>
                 <NavigationMenuItem>
-                  <NavigationMenuTrigger>Accompagnement</NavigationMenuTrigger>
+                  <NavigationMenuTrigger>{t.accompagnement}</NavigationMenuTrigger>
                   <NavigationMenuContent>
                     <ul className="grid gap-3 p-4 w-[400px] md:w-[500px] lg:w-[600px] grid-cols-2">
                       {[
