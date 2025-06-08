@@ -2,6 +2,7 @@ import { useCallback, useState, useEffect } from 'react';
 import { useSupabase } from './useSupabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
+import { useNotificationTriggers } from './useNotificationTriggers';
 
 export interface VideoMeeting {
   id: string;
@@ -295,6 +296,32 @@ export function useVideoMeetings() {
         title: 'Succès',
         description: options?.isInstant ? 'Réunion créée et démarrée' : 'Réunion programmée avec succès'
       });
+
+      // Envoyer des notifications aux participants invités
+      if (participants.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, first_name, last_name, email')
+          .in('id', participants);
+
+        const userName = user.user_metadata?.first_name && user.user_metadata?.last_name 
+          ? `${user.user_metadata.first_name} ${user.user_metadata.last_name}`
+          : user.email;
+
+        // Utiliser les fonctions de notification
+        for (const participant of participants) {
+          try {
+            await supabase.rpc('send_meeting_invitation_notification', {
+              p_participant_id: participant,
+              p_meeting_title: title,
+              p_organizer_name: userName || 'Un organisateur',
+              p_scheduled_time: options?.scheduledTime?.toISOString() || new Date().toISOString()
+            });
+          } catch (notificationError) {
+            console.error('Erreur lors de l\'envoi de notification:', notificationError);
+          }
+        }
+      }
 
       return data.id;
     } catch (error) {

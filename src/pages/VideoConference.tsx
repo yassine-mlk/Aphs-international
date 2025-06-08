@@ -55,69 +55,6 @@ interface UserData {
   }>;
 }
 
-// Données d'exemple pour les réunions
-const meetingsData = [
-  {
-    id: 1,
-    title: "Réunion hebdomadaire équipe Projet Alpha",
-    scheduled: "2025-05-06T14:00:00",
-    duration: 60,
-    type: "scheduled",
-    participants: [
-      { id: 1, name: "Martin Dupont", avatar: "", organizer: true },
-      { id: 2, name: "Julie Martin", avatar: "", organizer: false },
-      { id: 3, name: "Thomas Bernard", avatar: "", organizer: false },
-      { id: 4, name: "Sophie Leroux", avatar: "", organizer: false }
-    ],
-    meetingId: "alpha-123-456",
-    password: "123456"
-  },
-  {
-    id: 2,
-    title: "Point d'avancement Projet Beta",
-    scheduled: "2025-05-07T10:30:00",
-    duration: 30,
-    type: "scheduled",
-    participants: [
-      { id: 2, name: "Julie Martin", avatar: "", organizer: true },
-      { id: 4, name: "Sophie Leroux", avatar: "", organizer: false },
-      { id: 5, name: "Pierre Dubois", avatar: "", organizer: false }
-    ],
-    meetingId: "beta-789-012",
-    password: "654321"
-  },
-  {
-    id: 3,
-    title: "Présentation client Entreprise XYZ",
-    scheduled: "2025-05-08T15:00:00",
-    duration: 90,
-    type: "scheduled",
-    participants: [
-      { id: 1, name: "Martin Dupont", avatar: "", organizer: true },
-      { id: 2, name: "Julie Martin", avatar: "", organizer: false },
-      { id: 6, name: "Jean Client", avatar: "", organizer: false },
-      { id: 7, name: "Anne Cliente", avatar: "", organizer: false }
-    ],
-    meetingId: "xyz-345-678",
-    password: "888999"
-  },
-  {
-    id: 4,
-    title: "Réunion Équipe Marketing Digital (active)",
-    scheduled: "2025-05-05T09:00:00",
-    duration: 45,
-    type: "active",
-    participants: [
-      { id: 5, name: "Pierre Dubois", avatar: "", organizer: true, camera: true, mic: true },
-      { id: 6, name: "Emma Richard", avatar: "", organizer: false, camera: false, mic: true },
-      { id: 7, name: "Lucas Petit", avatar: "", organizer: false, camera: true, mic: false }
-    ],
-    meetingId: "mkt-901-234",
-    password: "112233",
-    timeElapsed: 23
-  }
-];
-
 // Fonction pour formater la date d'une réunion
 const formatMeetingTime = (date: Date) => {
   return format(date, "EEEE d MMMM 'à' HH'h'mm", { locale: fr });
@@ -185,6 +122,8 @@ const VideoConference: React.FC = () => {
   
   // Filtrer les réunions
   const filteredMeetings = useMemo(() => {
+    if (!meetings || meetings.length === 0) return [];
+    
     return meetings.filter(meeting => {
       if (filter === "toutes") return true;
       if (filter === "actives" && meeting.status === "active") return true;
@@ -195,7 +134,7 @@ const VideoConference: React.FC = () => {
   
   // Réunion active (s'il y en a une)
   const activeMeeting = useMemo(() => 
-    meetings.find(meeting => meeting.status === "active"),
+    meetings?.find(meeting => meeting.status === "active"),
   [meetings]);
   
   const handleJoinMeeting = async (meetingId: string) => {
@@ -247,36 +186,26 @@ const VideoConference: React.FC = () => {
         .maybeSingle();
       
       if (error) throw error;
-      
-      if (!data) {
+
+      if (data) {
+        await handleJoinMeeting(data.id);
+      } else {
         toast({
           title: "Réunion introuvable",
-          description: "Aucune réunion trouvée avec cet identifiant",
+          description: "Aucune réunion ne correspond à cet ID",
           variant: "destructive"
         });
-        return;
-      }
-      
-      // Utiliser l'ID de la réunion trouvée
-      const result = await joinMeeting(data.id);
-      
-      if (result) {
-        setActiveJitsiRoom({
-          roomId: result.roomId,
-          meetingId: data.id,
-          isModerator: result.isModerator
-        });
-        setMeetingIdToJoin("");
       }
     } catch (error) {
-      console.error('Error joining meeting by ID:', error);
+      console.error('Error joining meeting with ID:', error);
       toast({
         title: "Erreur",
-        description: error.message || "Impossible de rejoindre la réunion",
+        description: "Impossible de rejoindre la réunion",
         variant: "destructive"
       });
     } finally {
       setLoadingAction(false);
+      setMeetingIdToJoin("");
     }
   };
   

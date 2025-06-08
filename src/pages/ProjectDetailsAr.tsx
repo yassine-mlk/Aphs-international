@@ -1493,13 +1493,28 @@ const ProjectDetails: React.FC = (): ReactNode => {
   const fetchIntervenants = async () => {
     setLoadingIntervenants(true);
     try {
-      const data = await fetchData<Intervenant>('profiles', {
-        columns: 'id,email,first_name,last_name,role',
-        filters: [{ column: 'role', operator: 'eq', value: 'intervenant' }]
+      // Récupérer les intervenants avec user_id comme identifiant
+      const data = await fetchData<any>('profiles', {
+        columns: 'user_id,email,first_name,last_name,role,specialty,is_active',
+        filters: [
+          { column: 'role', operator: 'eq', value: 'intervenant' },
+          { column: 'is_active', operator: 'eq', value: true }
+        ]
       });
       
-      if (data) {
-        setIntervenants(data);
+      // Transformer les données pour utiliser user_id comme id
+      const transformedData = data?.map(profile => ({
+        id: profile.user_id,
+        email: profile.email,
+        first_name: profile.first_name,
+        last_name: profile.last_name,
+        role: profile.role,
+        specialty: profile.specialty
+      })) || [];
+      
+      if (transformedData.length > 0) {
+        console.log('Intervenants récupérés:', transformedData);
+        setIntervenants(transformedData);
       }
     } catch (error) {
       console.error('Erreur lors de la récupération des intervenants:', error);
@@ -1773,34 +1788,11 @@ const ProjectDetails: React.FC = (): ReactNode => {
     
     if (sectionAssignments.length === 0) return 0;
     
-    // Group assignments by subsection
-    const subsectionGroups: Record<string, TaskAssignment[]> = {};
-    sectionAssignments.forEach(assignment => {
-      if (!subsectionGroups[assignment.subsection_id]) {
-        subsectionGroups[assignment.subsection_id] = [];
-      }
-      subsectionGroups[assignment.subsection_id].push(assignment);
-    });
+    // Calculate simply the percentage of validated tasks in this section
+    const totalTasks = sectionAssignments.length;
+    const completedTasks = sectionAssignments.filter(assignment => assignment.status === 'validated').length;
     
-    // For each subsection, calculate the percentage of completed tasks
-    let totalSubsections = Object.keys(subsectionGroups).length;
-    let totalCompletedValue = 0;
-    
-    Object.values(subsectionGroups).forEach(assignments => {
-      const tasksInSubsection = assignments.length;
-      const completedTasks = assignments.filter(a => a.status === 'validated').length;
-      
-      // Calculate completion percentage for this subsection
-      const subsectionCompletionValue = tasksInSubsection > 0 
-        ? (completedTasks / tasksInSubsection) 
-        : 0;
-      
-      // Add to total
-      totalCompletedValue += subsectionCompletionValue;
-    });
-    
-    // Calculate overall section percentage by averaging subsections
-    return Math.round((totalCompletedValue / totalSubsections) * 100);
+    return Math.round((completedTasks / totalTasks) * 100);
   };
   
   // Get color for a status

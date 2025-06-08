@@ -29,6 +29,8 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useSupabase } from '@/hooks/useSupabase';
+import { useTaskMigration } from '@/hooks/useTaskMigration';
+import { LegacyTaskAssignment } from '../types/legacy-migration';
 import {
   Search,
   Calendar,
@@ -61,44 +63,15 @@ interface Intervenant {
 }
 
 // Interface for task assignment
-interface TaskAssignment {
-  id: string;
-  project_id: string;
-  phase_id: string; // "conception" or "realisation"
-  section_id: string; // "A", "B", "C", etc.
-  subsection_id: string; // "A1", "A2", "B1", etc.
-  task_name: string;
-  assigned_to: string; // ID of the intervenant
-  deadline: string;
-  validation_deadline: string;
-  validators: string[]; // IDs of the intervenant validators
-  file_extension: string;
-  comment?: string;
-  status: 'assigned' | 'in_progress' | 'submitted' | 'validated' | 'rejected';
-  created_at: string;
-  updated_at: string;
-  file_url?: string;
-  submitted_at?: string;
-  validated_at?: string;
-  validation_comment?: string;
-  validated_by?: string;
-  
-  // Join fields
-  project?: Project;
-  assigned_user?: {
-    id: string;
-    email: string;
-    first_name?: string;
-    last_name?: string;
-    role?: string;
-  };
-}
+// Utilisation de l'interface LegacyTaskAssignment importée
+type TaskAssignment = LegacyTaskAssignment;
 
 const Tasks: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { fetchData } = useSupabase();
   const { user } = useAuth();
+  const { fetchTasksForUser, loading: taskMigrationLoading, error: taskMigrationError } = useTaskMigration();
   
   const [tasks, setTasks] = useState<TaskAssignment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -127,58 +100,47 @@ const Tasks: React.FC = () => {
       }
       
       try {
-        // Fetch projects relation only - don't try to join with profiles
-        let query = '*,project:projects(id,name)';
+        // Utiliser le nouveau hook de migration pour récupérer les tâches
+        const userTasks = await fetchTasksForUser(user.id);
         
-        // Get tasks assigned to the user
-        const assignedTasks = await fetchData<TaskAssignment>('task_assignments', {
-          columns: query,
-          filters: [{ column: 'assigned_to', operator: 'eq', value: user.id }]
-        });
-        
-        // Get tasks where user is a validator
-        const allTasks = await fetchData<TaskAssignment>('task_assignments', {
-          columns: query
-        });
-        
-        // Filter tasks where user is a validator
-        const validatorTasks = allTasks.filter(task => 
-          task.validators && task.validators.includes(user.id)
-        );
-        
-        // Combine both sets ensuring no duplicates
-        const userTasks = [...assignedTasks];
-        
-        validatorTasks.forEach(validatorTask => {
-          if (!userTasks.some(task => task.id === validatorTask.id)) {
-            userTasks.push(validatorTask);
-          }
-        });
-        
-        // Get unique user IDs from tasks
+        // Récupérer les profils des utilisateurs assignés
         const userIds = Array.from(new Set(
           userTasks.map(task => task.assigned_to)
         )).filter(id => id);
         
-        // Fetch user profiles if we have any user IDs
         if (userIds.length > 0) {
-          // Get user data separately
           const profiles = await fetchData<Intervenant>('profiles', {
-            columns: 'id,email,first_name,last_name,role'
+            columns: 'id,email,first_name,last_name,role',
+            filters: userIds.map(id => ({ column: 'id', operator: 'eq', value: id }))
           });
           
-          // Map profiles to tasks
+          // Mapper les profils aux tâches
           const tasksWithUsers = userTasks.map(task => {
             const userProfile = profiles.find(profile => profile.id === task.assigned_to);
             return {
               ...task,
-              assigned_user: userProfile
+              assigned_user: userProfile ? {
+                id: userProfile.id,
+                email: userProfile.email,
+                first_name: userProfile.first_name,
+                last_name: userProfile.last_name,
+                role: userProfile.role
+              } : undefined
             };
           });
           
           setTasks(tasksWithUsers);
         } else {
           setTasks(userTasks);
+        }
+        
+        // Afficher l'erreur de migration si elle existe
+        if (taskMigrationError) {
+          toast({
+            title: "Avertissement",
+            description: taskMigrationError,
+            variant: "destructive",
+          });
         }
       } catch (error) {
         console.error('Erreur lors de la récupération des tâches:', error);
@@ -193,7 +155,7 @@ const Tasks: React.FC = () => {
     };
     
     fetchTasks();
-  }, [fetchData, toast, user]);
+  }, [fetchTasksForUser, fetchData, toast, user, taskMigrationError]);
   
   // Filter tasks based on search and filters
   const filteredTasks = tasks.filter(task => {

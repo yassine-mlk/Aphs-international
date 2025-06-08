@@ -15,24 +15,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     const loadLanguage = async () => {
       try {
-        // Essayer de récupérer l'utilisateur actuel
-        const { data: userData } = await supabase.auth.getUser();
-        
-        if (userData?.user) {
-          // Essayer de charger les paramètres utilisateur depuis Supabase
-          const { data: settings } = await supabase
-            .from('user_settings')
-            .select('language')
-            .eq('id', userData.user.id)
-            .single();
-          
-          if (settings && settings.language) {
-            setLanguage(settings.language as Language);
-            return;
-          }
-        }
-        
-        // Fallback vers localStorage si aucun paramètre utilisateur n'est trouvé
+        // D'abord, essayer de charger depuis localStorage (plus rapide)
         const savedLanguage = localStorage.getItem('preferredLanguage') as Language;
         if (savedLanguage && ['en', 'fr', 'es', 'ar'].includes(savedLanguage)) {
           setLanguage(savedLanguage);
@@ -42,6 +25,22 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           if (['en', 'fr', 'es', 'ar'].includes(browserLang as Language)) {
             setLanguage(browserLang as Language);
           }
+        }
+
+        // Ensuite, essayer de récupérer l'utilisateur actuel pour la synchronisation
+        const { data: userData } = await supabase.auth.getUser();
+        
+        if (userData?.user) {
+          // Essayer de charger les paramètres utilisateur depuis profiles
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('user_id', userData.user.id)
+            .single();
+          
+          // Pour l'instant, on utilise seulement localStorage car la table profiles
+          // ne stocke pas encore les préférences de langue
+          // Cette fonctionnalité peut être ajoutée plus tard si nécessaire
         }
       } catch (error) {
         console.error('Error loading language preference:', error);
@@ -57,14 +56,36 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     loadLanguage();
   }, []);
 
+  // Fonction améliorée pour changer la langue
+  const handleLanguageChange = async (newLanguage: Language) => {
+    setLanguage(newLanguage);
+    
+    // Sauvegarder immédiatement dans localStorage
+    localStorage.setItem('preferredLanguage', newLanguage);
+    
+    // Mettre à jour la direction du document
+    document.documentElement.dir = newLanguage === 'ar' ? 'rtl' : 'ltr';
+    
+    // Note: Les préférences de langue sont maintenant stockées uniquement en localStorage
+    // Pour éviter les erreurs avec user_settings qui n'existe plus
+    // La sauvegarde en base peut être ajoutée plus tard si nécessaire
+  };
+
   // Update localStorage and document direction when language changes
   useEffect(() => {
     localStorage.setItem('preferredLanguage', language);
     document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr';
+    
+    // Ajouter une classe CSS pour le RTL
+    if (language === 'ar') {
+      document.documentElement.classList.add('rtl');
+    } else {
+      document.documentElement.classList.remove('rtl');
+    }
   }, [language]);
 
   return (
-    <LanguageContext.Provider value={{ language, setLanguage }}>
+    <LanguageContext.Provider value={{ language, setLanguage: handleLanguageChange }}>
       {children}
     </LanguageContext.Provider>
   );

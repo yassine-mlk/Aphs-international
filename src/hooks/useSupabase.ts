@@ -300,21 +300,21 @@ export function useSupabase() {
   }, [toast]);
 
   /**
-   * Récupère les paramètres d'un utilisateur
+   * Récupère les paramètres d'un utilisateur depuis la table profiles
    */
   const getUserSettings = useCallback(async (userId: string): Promise<UserSettings | null> => {
     try {
       const { data, error } = await supabase
-        .from('user_settings')
+        .from('profiles')
         .select('*')
-        .eq('id', userId)
+        .eq('user_id', userId)
         .single();
 
       if (error) {
-        // Si l'erreur est "not found", c'est que les paramètres n'existent pas encore
         if (error.code === 'PGRST116') {
-          // Créer des paramètres par défaut
-          const defaultSettings: Omit<UserSettings, 'id' | 'created_at' | 'updated_at'> = {
+          // Profil non trouvé, retourner des paramètres par défaut
+          return {
+            id: userId,
             first_name: '',
             last_name: '',
             phone: '',
@@ -327,21 +327,30 @@ export function useSupabase() {
               messages: false,
               updates: true
             }
-          };
-
-          const { data: newSettings, error: insertError } = await supabase
-            .from('user_settings')
-            .insert({ id: userId, ...defaultSettings })
-            .select('*')
-            .single();
-
-          if (insertError) throw insertError;
-          return newSettings as UserSettings;
+          } as UserSettings;
         }
         throw error;
       }
 
-      return data as UserSettings;
+      // Convertir les données du profil en format UserSettings
+      return {
+        id: data.user_id,
+        first_name: data.first_name || '',
+        last_name: data.last_name || '',
+        phone: data.phone || '',
+        bio: '',
+        theme: 'light',
+        language: 'fr',
+        specialty: data.specialty,
+        notifications: {
+          email: true,
+          push: true,
+          messages: false,
+          updates: true
+        },
+        created_at: data.created_at,
+        updated_at: data.updated_at
+      } as UserSettings;
     } catch (error) {
       console.error('Erreur lors de la récupération des paramètres utilisateur:', error);
       toast({
@@ -354,17 +363,24 @@ export function useSupabase() {
   }, [toast]);
 
   /**
-   * Met à jour les paramètres d'un utilisateur
+   * Met à jour les paramètres d'un utilisateur dans la table profiles
    */
   const updateUserSettings = useCallback(async (
     userId: string, 
     settings: Partial<UserSettings>
   ): Promise<UserSettings | null> => {
     try {
+      // Mapper les champs UserSettings vers les champs profiles
+      const profileUpdate: any = {};
+      if (settings.first_name !== undefined) profileUpdate.first_name = settings.first_name;
+      if (settings.last_name !== undefined) profileUpdate.last_name = settings.last_name;
+      if (settings.phone !== undefined) profileUpdate.phone = settings.phone;
+      if (settings.specialty !== undefined) profileUpdate.specialty = settings.specialty;
+
       const { data, error } = await supabase
-        .from('user_settings')
-        .update(settings)
-        .eq('id', userId)
+        .from('profiles')
+        .update(profileUpdate)
+        .eq('user_id', userId)
         .select('*')
         .single();
 
@@ -380,7 +396,25 @@ export function useSupabase() {
         description: "Vos paramètres ont été enregistrés avec succès",
       });
 
-      return data as UserSettings;
+      // Reconvertir en format UserSettings
+      return {
+        id: data.user_id,
+        first_name: data.first_name || '',
+        last_name: data.last_name || '',
+        phone: data.phone || '',
+        bio: '',
+        theme: 'light',
+        language: settings.language || 'fr',
+        specialty: data.specialty,
+        notifications: {
+          email: true,
+          push: true,
+          messages: false,
+          updates: true
+        },
+        created_at: data.created_at,
+        updated_at: data.updated_at
+      } as UserSettings;
     } catch (error) {
       console.error('Erreur lors de la mise à jour des paramètres:', error);
       toast({
@@ -467,80 +501,9 @@ export function useSupabase() {
       if (error) throw error;
       
       if (data && data.user) {
-        // Création d'un profil utilisateur dans la table profiles
-        try {
-          console.log('Tentative de création du profil pour:', data.user.id);
-          
-          // Utiliser la fonction RPC create_user_profile_v2
-          const { error: rpcError } = await supabaseAdmin.rpc('create_user_profile_v2', {
-            p_user_id: data.user.id,
-            p_role: role,
-            p_first_name: additionalData.first_name || null,
-            p_last_name: additionalData.last_name || null,
-            p_specialty: additionalData.specialty || null,
-            p_email: data.user.email || null
-          });
-          
-          if (rpcError) {
-            console.error('Erreur lors de la création du profil via RPC:', rpcError);
-            
-            // Si la fonction RPC n'est pas disponible, essayer une méthode plus simple
-            console.log('Tentative alternative de création du profil...');
-            
-            // Tentative avec insertion directe simplifiée
-            try {
-              // Insertion minimale sans colonnes qui pourraient ne pas exister
-              const { error: insertError } = await supabaseAdmin
-                .from('profiles')
-                .insert({
-                  user_id: data.user.id,
-                  role: role
-                });
-                
-              if (insertError) {
-                console.error('Erreur insertion minimale:', insertError);
-                
-                // Dernière tentative: essayer de récupérer la structure de la table
-                const { data: tableInfo, error: tableError } = await supabaseAdmin
-                  .from('profiles')
-                  .select('*')
-                  .limit(1);
-                
-                if (!tableError && tableInfo && tableInfo.length > 0) {
-                  const columnNames = Object.keys(tableInfo[0]);
-                  console.log('Colonnes disponibles:', columnNames);
-                  
-                  // Construire un objet d'insertion avec seulement les colonnes existantes
-                  const insertData: Record<string, any> = {};
-                  
-                  if (columnNames.includes('user_id')) insertData.user_id = data.user.id;
-                  if (columnNames.includes('role')) insertData.role = role;
-                  if (columnNames.includes('first_name')) insertData.first_name = additionalData.first_name;
-                  if (columnNames.includes('last_name')) insertData.last_name = additionalData.last_name;
-                  
-                  // Dernière tentative d'insertion
-                  const { error: finalError } = await supabaseAdmin
-                    .from('profiles')
-                    .insert(insertData);
-                  
-                  if (finalError) {
-                    console.error('Erreur dernière tentative:', finalError);
-                  } else {
-                    console.log('Profil créé avec succès via méthode de dernier recours');
-                  }
-                }
-              } else {
-                console.log('Profil créé avec succès via insertion minimale');
-              }
-            } catch (altError) {
-              console.error('Exception lors de la tentative alternative:', altError);
-            }
-          } else {
-            console.log('Profil créé avec succès via RPC');
-          }
-        } catch (profileError) {
-          console.error('Exception lors de la création du profil:', profileError);
-        }
+        // Note: La création du profil est maintenant gérée par le hook useProfiles.createIntervenant()
+        // Nous ne créons ici que le compte auth, le profil sera créé séparément
+        console.log('Compte auth créé avec succès pour:', data.user.id);
 
         toast({
           title: "Succès",
@@ -637,26 +600,9 @@ export function useSupabase() {
 
       if (error) throw error;
 
-      // Mise à jour du profil utilisateur si nécessaire
-      if (userData.role || userData.first_name || userData.last_name || userData.specialty || userData.email) {
-        try {
-          const profileUpdates: any = {};
-          if (userData.role) profileUpdates.role = userData.role;
-          if (userData.first_name) profileUpdates.first_name = userData.first_name;
-          if (userData.last_name) profileUpdates.last_name = userData.last_name;
-          if (userData.specialty) profileUpdates.specialty = userData.specialty;
-          if (userData.email) profileUpdates.email = userData.email;
-          
-          profileUpdates.updated_at = new Date().toISOString();
-          
-          await supabaseAdmin
-            .from('profiles')
-            .update(profileUpdates)
-            .eq('id', userId);
-        } catch (profileError) {
-          console.error('Erreur lors de la mise à jour du profil:', profileError);
-        }
-      }
+      // Note: La mise à jour du profil est maintenant gérée par le hook useProfiles.updateProfile()
+      // Nous ne mettons à jour ici que les métadonnées auth, le profil sera mis à jour séparément
+      console.log('Utilisateur auth mis à jour avec succès pour:', userId);
 
       toast({
         title: "Succès",
@@ -754,7 +700,7 @@ export function useSupabase() {
         console.warn("Exception lors du traitement des messages:", error);
       }
 
-      // 5. Supprimer le profil utilisateur
+      // 5. Supprimer le profil utilisateur (nouvelle table profiles)
       try {
         console.log("5. Suppression du profil utilisateur...");
         const { error: profileError } = await supabaseAdmin
@@ -769,20 +715,8 @@ export function useSupabase() {
         console.warn("Exception lors de la suppression du profil:", error);
       }
 
-      // 6. Supprimer les paramètres utilisateur
-      try {
-        console.log("6. Suppression des paramètres utilisateur...");
-        const { error: settingsError } = await supabaseAdmin
-          .from('user_settings')
-          .delete()
-          .eq('id', userId);
-        
-        if (settingsError) {
-          console.warn("Erreur lors de la suppression des paramètres:", settingsError);
-        }
-      } catch (error) {
-        console.warn("Exception lors de la suppression des paramètres:", error);
-      }
+      // 6. Les paramètres utilisateur sont maintenant dans la table profiles
+      // (pas besoin de suppression séparée)
 
       // Finalement, supprimer l'utilisateur
       console.log("7. Suppression de l'utilisateur dans auth.users...");
@@ -911,18 +845,19 @@ export function useSupabase() {
     id: string
   ): Promise<{ success: boolean; error?: Error }> => {
     try {
-      // Vérifier d'abord si l'entreprise est utilisée par des intervenants
-      const { data: users, error: usersError } = await supabase
-        .from('profiles')
-        .select('id')
+      // Vérifier d'abord si l'entreprise est utilisée par des projets
+      const { data: projects, error: projectsError } = await supabase
+        .from('projects')
+        .select('id, name')
         .eq('company_id', id);
 
-      if (usersError) throw usersError;
+      if (projectsError) throw projectsError;
       
-      if (users && users.length > 0) {
-        throw new Error(`Impossible de supprimer cette entreprise car elle est utilisée par ${users.length} intervenant(s).`);
+      if (projects && projects.length > 0) {
+        const projectNames = projects.map(p => p.name).join(', ');
+        throw new Error(`Impossible de supprimer cette entreprise car elle est utilisée par ${projects.length} projet(s): ${projectNames}. Supprimez d'abord ces projets ou modifiez leur entreprise.`);
       }
-
+      
       const { error } = await supabase
         .from('companies')
         .delete()

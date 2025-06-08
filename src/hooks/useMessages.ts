@@ -3,6 +3,7 @@ import { useSupabase } from './useSupabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { PostgrestSingleResponse } from '@supabase/supabase-js';
+import { useNotificationTriggers } from './useNotificationTriggers';
 
 /**
  * Helper to add timeout to any promise
@@ -64,6 +65,7 @@ export function useMessages() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState<boolean>(false);
+  const { notifyNewMessage } = useNotificationTriggers();
 
   // Récupérer les contacts disponibles pour l'utilisateur
   const getAvailableContacts = useCallback(async (): Promise<Contact[]> => {
@@ -196,7 +198,7 @@ export function useMessages() {
               // Utiliser directement les profils comme solution principale
               const { data: profilesData, error: profilesError } = await supabase
                 .from('profiles')
-                .select('id, user_id, role, company_id, first_name, last_name, email, specialty')
+                .select('id, user_id, role, first_name, last_name, email, specialty')
                 .in('user_id', participantIds);
               
               if (!profilesError && profilesData && profilesData.length > 0) {
@@ -371,7 +373,7 @@ export function useMessages() {
           
           const { data: profilesData, error: profilesError } = await supabase
             .from('profiles')
-            .select('id, user_id, role, company_id, first_name, last_name, email, specialty')
+            .select('id, user_id, role, first_name, last_name, email, specialty')
             .in('user_id', senderIds);
           
           if (!profilesError && profilesData && profilesData.length > 0) {
@@ -402,8 +404,8 @@ export function useMessages() {
             
             // Fallback - création de valeurs par défaut
             senderIds.forEach(senderId => {
-              senders[senderId] = {
-                id: senderId,
+              senders[senderId as string] = {
+                id: senderId as string,
                 email: '',
                 first_name: 'Utilisateur',
                 last_name: '',
@@ -417,8 +419,8 @@ export function useMessages() {
           
           // Fallback en cas d'erreur
           senderIds.forEach(senderId => {
-            senders[senderId] = {
-              id: senderId,
+            senders[senderId as string] = {
+              id: senderId as string,
               email: '',
               first_name: 'Utilisateur',
               last_name: '',
@@ -485,6 +487,42 @@ export function useMessages() {
         .update({ updated_at: new Date().toISOString() })
         .eq('id', conversationId);
       
+      
+      // Envoyer des notifications aux autres participants
+      try {
+        // Récupérer les participants de la conversation (excepté l'expéditeur)
+        const { data: participants, error: participantsError } = await supabase
+          .from('conversation_participants')
+          .select('user_id')
+          .eq('conversation_id', conversationId)
+          .neq('user_id', user.id);
+        
+        if (!participantsError && participants && participants.length > 0) {
+          // Récupérer le nom de l'expéditeur
+          const { data: senderProfile } = await supabase
+            .from('profiles')
+            .select('first_name, last_name, email')
+            .eq('user_id', user.id)
+            .single();
+          
+          const senderName = senderProfile && (senderProfile.first_name || senderProfile.last_name)
+            ? `${senderProfile.first_name} ${senderProfile.last_name}`.trim()
+            : (senderProfile?.email || user.email || 'Un utilisateur');
+          
+          // Envoyer une notification à chaque participant
+          for (const participant of participants) {
+            await notifyNewMessage(
+              participant.user_id,
+              senderName,
+              content.length > 50 ? `${content.substring(0, 47)}...` : content
+            );
+          }
+        }
+      } catch (notificationError) {
+        console.error('Erreur lors de l\'envoi des notifications:', notificationError);
+        // Ne pas faire échouer l'envoi du message si les notifications échouent
+      }
+      
       // Formater le message
       const message: Message = {
         id: data.id,
@@ -507,7 +545,7 @@ export function useMessages() {
     } finally {
       setLoading(false);
     }
-  }, [user, supabase, toast]);
+  }, [user, supabase, toast, notifyNewMessage]);
 
   // Créer une conversation directe
   const createDirectConversation = useCallback(async (otherUserId: string): Promise<string | null> => {

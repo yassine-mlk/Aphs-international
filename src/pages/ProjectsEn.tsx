@@ -134,8 +134,10 @@ const ProjectsEn: React.FC = () => {
     }
 
     try {
+      // Exclure image_url car cette colonne n'existe pas dans la table projects
+      const { image_url, ...projectData } = newProject;
       const result = await insertData<Project>('projects', {
-        ...newProject,
+        ...projectData,
         created_at: new Date().toISOString()
       });
       
@@ -204,9 +206,9 @@ const ProjectsEn: React.FC = () => {
     }
     
     try {
-      const result = await updateData<Project>('projects', selectedProject.id, {
-        ...selectedProject
-      });
+      // Exclure image_url car cette colonne n'existe pas dans la table projects
+      const { image_url, ...projectData } = selectedProject;
+      const result = await updateData<Project>('projects', projectData);
       
       if (result) {
         toast({

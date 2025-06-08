@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
 import { Label } from '@/components/ui/label';
+import { useNotificationTriggers } from '@/hooks/useNotificationTriggers';
 import { 
   Info, 
   Layers, 
@@ -20,7 +21,9 @@ import {
   Eye,
   UserMinus,
   XCircle,
-  Download
+  Download,
+  Users,
+  Search
 } from 'lucide-react';
 import { useSupabase } from '@/hooks/useSupabase';
 import {
@@ -60,6 +63,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from '@/contexts/AuthContext';
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // Interface pour le type de projet
 interface Project {
@@ -69,6 +75,7 @@ interface Project {
   start_date: string;
   image_url?: string;
   created_at: string;
+  status?: string;
 }
 
 // Interface pour un intervenant
@@ -102,6 +109,26 @@ interface TaskAssignment {
   submitted_at?: string;
   validated_at?: string;
   validated_by?: string;
+}
+
+// Interface pour un membre du projet
+interface ProjectMember {
+  id?: string;
+  project_id: string;
+  user_id: string;
+  role: string;
+  added_at?: string;
+  added_by?: string;
+}
+
+// Interface pour un intervenant avec informations complètes
+interface IntervenantWithDetails {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  role: string;
+  specialty?: string;
 }
 
 // Structure du projet - Phase conception
@@ -1336,8 +1363,9 @@ const ProjectDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { fetchData, deleteData, insertData, updateData } = useSupabase();
+  const { fetchData, deleteData, insertData, updateData, getUsers } = useSupabase();
   const { user } = useAuth();
+  const { notifyTaskAssigned, notifyProjectAdded } = useNotificationTriggers();
   
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1377,6 +1405,17 @@ const ProjectDetails: React.FC = () => {
   const [selectedTaskDetails, setSelectedTaskDetails] = useState<TaskAssignment | null>(null);
   const [isUnassignDialogOpen, setIsUnassignDialogOpen] = useState(false);
   const [taskToUnassign, setTaskToUnassign] = useState<TaskAssignment | null>(null);
+  
+  // États pour la gestion des membres du projet
+  const [projectMembers, setProjectMembers] = useState<ProjectMember[]>([]);
+  const [allIntervenants, setAllIntervenants] = useState<IntervenantWithDetails[]>([]);
+  const [loadingMembers, setLoadingMembers] = useState(false);
+  const [loadingAllIntervenants, setLoadingAllIntervenants] = useState(false);
+  const [isMembersDialogOpen, setIsMembersDialogOpen] = useState(false);
+  const [selectedIntervenants, setSelectedIntervenants] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isRemoveMemberDialogOpen, setIsRemoveMemberDialogOpen] = useState(false);
+  const [memberToRemove, setMemberToRemove] = useState<ProjectMember | null>(null);
   
   // Vérifier si l'utilisateur est admin
   const isAdmin = user?.user_metadata?.role === 'admin' || 
@@ -1420,7 +1459,7 @@ const ProjectDetails: React.FC = () => {
     fetchProjectDetails();
   }, [id, fetchData, navigate, toast]);
   
-  // Charger les assignations de tâches existantes
+  // Charger les assignations de tâches existantes et les intervenants
   useEffect(() => {
     const fetchTaskAssignments = async () => {
       if (!id) return;
@@ -1445,27 +1484,95 @@ const ProjectDetails: React.FC = () => {
     };
     
     fetchTaskAssignments();
+    
+    // Charger aussi les intervenants pour l'affichage des noms
+    if (intervenants.length === 0) {
+      fetchIntervenants();
+    }
   }, [id, fetchData, toast]);
   
-  // Charger les intervenants disponibles
+    // Charger les intervenants disponibles
   const fetchIntervenants = async () => {
     setLoadingIntervenants(true);
     try {
-      const data = await fetchData<Intervenant>('profiles', {
-        columns: 'id,email,first_name,last_name,role',
-        filters: [{ column: 'role', operator: 'eq', value: 'intervenant' }]
-      });
+      console.log('Début du chargement des intervenants...');
       
-      if (data) {
-        setIntervenants(data);
+      // Utiliser la même méthode que dans la page Intervenants - récupérer depuis auth.users
+      const userData = await getUsers();
+      
+      if (userData && userData.users) {
+        console.log('Données utilisateurs récupérées:', userData.users);
+        
+        // Transformer les données des utilisateurs en format Intervenant
+        const formattedUsers = userData.users
+          .filter((user: any) => {
+            // Exclure explicitement admin@aphs et tout utilisateur avec le rôle admin
+            const isAdmin = user.user_metadata?.role === 'admin';
+            const isAdminEmail = user.email?.toLowerCase() === 'admin@aphs.fr' || 
+                                user.email?.toLowerCase() === 'admin@aphs.com' || 
+                                user.email?.toLowerCase() === 'admin@aphs';
+            return !isAdmin && !isAdminEmail && !user.banned;
+          })
+          .map((user: any) => ({
+            id: user.id,
+            email: user.email || '',
+            first_name: user.user_metadata?.first_name || user.user_metadata?.name?.split(' ')[0] || 'Prénom',
+            last_name: user.user_metadata?.last_name || user.user_metadata?.name?.split(' ').slice(1).join(' ') || 'Nom',
+            role: user.user_metadata?.role || 'intervenant',
+            specialty: user.user_metadata?.specialty || 'Non spécifié'
+          }));
+        
+        console.log('Intervenants transformés:', formattedUsers);
+        setIntervenants(formattedUsers);
+        
+        if (formattedUsers.length === 0) {
+          console.warn('Aucun intervenant trouvé');
+          toast({
+            title: "Information",
+            description: "Aucun intervenant actif trouvé dans la base de données",
+            variant: "default",
+          });
+        } else {
+          console.log(`${formattedUsers.length} intervenants chargés avec succès`);
+        }
+      } else {
+        console.warn('Aucune donnée utilisateur récupérée');
+        toast({
+          title: "Information",
+          description: "Aucun utilisateur trouvé dans la base de données",
+          variant: "default",
+        });
       }
     } catch (error) {
       console.error('Erreur lors de la récupération des intervenants:', error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de charger la liste des intervenants",
-        variant: "destructive",
-      });
+      
+      // Essayer une requête de fallback avec la table profiles
+      try {
+        console.log('Tentative de fallback avec la table profiles...');
+        const fallbackData = await fetchData<any>('profiles', {
+          columns: 'user_id,first_name,last_name,email,role,specialty',
+          filters: [{ column: 'role', operator: 'neq', value: 'admin' }]
+        });
+        
+        const fallbackTransformed = fallbackData?.map(profile => ({
+          id: profile.user_id,
+          email: profile.email || '',
+          first_name: profile.first_name || 'Prénom',
+          last_name: profile.last_name || 'Nom',
+          role: profile.role || 'intervenant',
+          specialty: profile.specialty || 'Non spécifié'
+        })) || [];
+        
+        setIntervenants(fallbackTransformed);
+        console.log('Fallback réussi:', fallbackTransformed);
+      } catch (fallbackError) {
+        console.error('Erreur de fallback aussi:', fallbackError);
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger la liste des intervenants. Vérifiez les permissions de la base de données.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setLoadingIntervenants(false);
     }
@@ -1613,6 +1720,31 @@ const ProjectDetails: React.FC = () => {
             ? "L'assignation a été mise à jour avec succès" 
             : "La tâche a été assignée avec succès",
         });
+
+        // Envoyer une notification à l'intervenant assigné (seulement pour les nouvelles assignations)
+        if (!existingAssignment) {
+          try {
+            const adminProfile = await fetchData<{first_name?: string; last_name?: string; email?: string}>('profiles', {
+              columns: 'first_name, last_name, email',
+              filters: [{ column: 'user_id', operator: 'eq', value: user?.id }]
+            });
+            
+            const profile = adminProfile?.[0];
+            const adminName = profile && (profile.first_name || profile.last_name)
+              ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim()
+              : (profile?.email || user?.email || 'Admin');
+
+            await notifyTaskAssigned(
+              assignmentForm.assigned_to,
+              selectedTask.taskName,
+              project.name,
+              adminName
+            );
+          } catch (notificationError) {
+            console.error('Erreur lors de l\'envoi de la notification:', notificationError);
+            // Ne pas faire échouer l'assignation si la notification échoue
+          }
+        }
         
         // Recharger les assignations
         const updatedAssignments = await fetchData<TaskAssignment>('task_assignments', {
@@ -1665,10 +1797,10 @@ const ProjectDetails: React.FC = () => {
     }
   };
   
-  // Rediriger vers la page d'édition
+  // Ouvrir le modal d'édition
   const handleEditProject = () => {
     if (!project) return;
-    navigate(`/dashboard/projets/edit/${project.id}`);
+    navigate('/dashboard/projets');
   };
   
   // Revenir à la liste des projets
@@ -1724,43 +1856,15 @@ const ProjectDetails: React.FC = () => {
     }
   };
   
-  // Calculer la progression par section
-  const calculateSectionProgress = (sectionId: string, phase: 'conception' | 'realisation') => {
-    // Filtrer les assignations appartenant à cette section et phase
-    const sectionAssignments = taskAssignments.filter(
-      assignment => assignment.section_id === sectionId && assignment.phase_id === phase
-    );
+  // Calculer la progression globale du projet
+  const calculateGlobalProgress = () => {
+    if (taskAssignments.length === 0) return 0;
     
-    if (sectionAssignments.length === 0) return 0;
+    // Calculer simplement le pourcentage de tâches validées sur le total
+    const totalTasks = taskAssignments.length;
+    const completedTasks = taskAssignments.filter(assignment => assignment.status === 'validated').length;
     
-    // Regrouper les assignations par sous-section
-    const subsectionGroups: Record<string, TaskAssignment[]> = {};
-    sectionAssignments.forEach(assignment => {
-      if (!subsectionGroups[assignment.subsection_id]) {
-        subsectionGroups[assignment.subsection_id] = [];
-      }
-      subsectionGroups[assignment.subsection_id].push(assignment);
-    });
-    
-    // Pour chaque sous-section, calculer le pourcentage de tâches complétées
-    let totalSubsections = Object.keys(subsectionGroups).length;
-    let totalCompletedValue = 0;
-    
-    Object.values(subsectionGroups).forEach(assignments => {
-      const tasksInSubsection = assignments.length;
-      const completedTasks = assignments.filter(a => a.status === 'validated').length;
-      
-      // Calculer le pourcentage de complétion pour cette sous-section
-      const subsectionCompletionValue = tasksInSubsection > 0 
-        ? (completedTasks / tasksInSubsection) 
-        : 0;
-      
-      // Ajouter au total
-      totalCompletedValue += subsectionCompletionValue;
-    });
-    
-    // Calculer le pourcentage global de la section en faisant la moyenne des sous-sections
-    return Math.round((totalCompletedValue / totalSubsections) * 100);
+    return Math.round((completedTasks / totalTasks) * 100);
   };
   
   // Obtenir la couleur pour un statut
@@ -1899,6 +2003,244 @@ const ProjectDetails: React.FC = () => {
     }
   };
   
+  // Charger les membres du projet
+  useEffect(() => {
+    const fetchProjectMembers = async () => {
+      if (!id) return;
+      
+      setLoadingMembers(true);
+      try {
+        const data = await fetchData<ProjectMember>('membre', {
+          columns: '*',
+          filters: [{ column: 'project_id', operator: 'eq', value: id }]
+        });
+        
+        if (data) {
+          setProjectMembers(data);
+        }
+      } catch (error) {
+        console.error('Erreur lors de la récupération des membres du projet:', error);
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger les membres du projet",
+          variant: "destructive",
+        });
+      } finally {
+        setLoadingMembers(false);
+      }
+    };
+    
+    fetchProjectMembers();
+    
+    // Charger aussi la liste de tous les intervenants pour l'affichage des noms
+    if (allIntervenants.length === 0) {
+      fetchAllIntervenants();
+    }
+  }, [id, fetchData, toast]);
+  
+  // Charger tous les intervenants disponibles
+  const fetchAllIntervenants = async () => {
+    setLoadingAllIntervenants(true);
+    try {
+      const userData = await getUsers();
+      
+      if (userData && userData.users) {
+        const formattedUsers: IntervenantWithDetails[] = userData.users
+          .filter((user: any) => {
+            // Exclure explicitement admin@aphs et tout utilisateur avec le rôle admin
+            const isAdmin = user.user_metadata?.role === 'admin';
+            const isAdminEmail = user.email?.toLowerCase() === 'admin@aphs.fr' || 
+                                user.email?.toLowerCase() === 'admin@aphs.com' || 
+                                user.email?.toLowerCase() === 'admin@aphs';
+            return !isAdmin && !isAdminEmail && !user.banned;
+          })
+          .map((user: any) => ({
+            id: user.id,
+            email: user.email || '',
+            first_name: user.user_metadata?.first_name || user.user_metadata?.name?.split(' ')[0] || '',
+            last_name: user.user_metadata?.last_name || user.user_metadata?.name?.split(' ').slice(1).join(' ') || '',
+            role: user.user_metadata?.role || 'intervenant',
+            specialty: user.user_metadata?.specialty || ''
+          }));
+        
+        setAllIntervenants(formattedUsers);
+      }
+    } catch (error) {
+      console.error('Erreur lors de la récupération des intervenants:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger la liste des intervenants",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingAllIntervenants(false);
+    }
+  };
+  
+  // Ouvrir le dialogue de gestion des membres
+  const handleOpenMembersDialog = () => {
+    if (!isAdmin) {
+      toast({
+        title: "Accès refusé",
+        description: "Seuls les administrateurs peuvent gérer les membres du projet",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setSelectedIntervenants([]);
+    setSearchQuery('');
+    if (allIntervenants.length === 0) {
+      fetchAllIntervenants();
+    }
+    setIsMembersDialogOpen(true);
+  };
+  
+  // Ajouter des membres au projet
+  const handleAddMembers = async () => {
+    if (!id || selectedIntervenants.length === 0) return;
+    
+    try {
+      const membersToAdd = selectedIntervenants.map(userId => ({
+        project_id: id,
+        user_id: userId,
+        role: 'membre',
+        added_by: user?.id,
+        added_at: new Date().toISOString()
+      }));
+      
+      for (const member of membersToAdd) {
+        await insertData<ProjectMember>('membre', member);
+      }
+      
+      toast({
+        title: "Succès",
+        description: `${selectedIntervenants.length} membre(s) ajouté(s) au projet`,
+      });
+
+      // Envoyer des notifications aux nouveaux membres
+      try {
+        const adminProfile = await fetchData<{first_name?: string; last_name?: string; email?: string}>('profiles', {
+          columns: 'first_name, last_name, email',
+          filters: [{ column: 'user_id', operator: 'eq', value: user?.id }]
+        });
+        
+        const profile = adminProfile?.[0];
+        const adminName = profile && (profile.first_name || profile.last_name)
+          ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim()
+          : (profile?.email || user?.email || 'Admin');
+
+        // Envoyer une notification à chaque nouveau membre
+        for (const memberId of selectedIntervenants) {
+          await notifyProjectAdded(
+            memberId,
+            project?.name || 'Projet',
+            adminName
+          );
+        }
+      } catch (notificationError) {
+        console.error('Erreur lors de l\'envoi des notifications:', notificationError);
+        // Ne pas faire échouer l'ajout si les notifications échouent
+      }
+      
+      // Recharger les membres du projet
+      const updatedMembers = await fetchData<ProjectMember>('membre', {
+        columns: '*',
+        filters: [{ column: 'project_id', operator: 'eq', value: id }]
+      });
+      
+      if (updatedMembers) {
+        setProjectMembers(updatedMembers);
+      }
+      
+      setIsMembersDialogOpen(false);
+      setSelectedIntervenants([]);
+    } catch (error) {
+      console.error('Erreur lors de l\'ajout des membres:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible d'ajouter les membres au projet",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  // Préparer la suppression d'un membre
+  const handleRemoveMember = (member: ProjectMember) => {
+    setMemberToRemove(member);
+    setIsRemoveMemberDialogOpen(true);
+  };
+  
+  // Confirmer la suppression d'un membre
+  const confirmRemoveMember = async () => {
+    if (!memberToRemove?.id) return;
+    
+    try {
+      const success = await deleteData('membre', memberToRemove.id);
+      
+      if (success) {
+        toast({
+          title: "Succès",
+          description: "Membre retiré du projet avec succès",
+        });
+        
+        // Mettre à jour la liste des membres
+        setProjectMembers(prev => prev.filter(m => m.id !== memberToRemove.id));
+      }
+    } catch (error) {
+      console.error('Erreur lors de la suppression du membre:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de retirer le membre du projet",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRemoveMemberDialogOpen(false);
+      setMemberToRemove(null);
+    }
+  };
+  
+  // Obtenir les informations d'un intervenant
+  const getIntervenantInfo = (userId: string) => {
+    return allIntervenants.find(i => i.id === userId);
+  };
+  
+  // Obtenir les initiales d'un nom
+  const getInitials = (firstName: string, lastName: string) => {
+    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
+  };
+  
+  // Filtrer les intervenants pour la recherche
+  const filteredIntervenants = allIntervenants.filter(intervenant => {
+    const fullName = `${intervenant.first_name} ${intervenant.last_name}`.toLowerCase();
+    const email = intervenant.email.toLowerCase();
+    const specialty = intervenant.specialty?.toLowerCase() || '';
+    const query = searchQuery.toLowerCase();
+    
+    return fullName.includes(query) || email.includes(query) || specialty.includes(query);
+  });
+  
+  // Vérifier si un intervenant est déjà membre du projet
+  const isAlreadyMember = (userId: string) => {
+    return projectMembers.some(member => member.user_id === userId);
+  };
+  
+  // Calculer la progression par section
+  const calculateSectionProgress = (sectionId: string, phase: 'conception' | 'realisation') => {
+    // Filtrer les assignations appartenant à cette section et phase
+    const sectionAssignments = taskAssignments.filter(
+      assignment => assignment.section_id === sectionId && assignment.phase_id === phase
+    );
+    
+    if (sectionAssignments.length === 0) return 0;
+    
+    // Calculer simplement le pourcentage de tâches validées dans cette section
+    const totalTasks = sectionAssignments.length;
+    const completedTasks = sectionAssignments.filter(assignment => assignment.status === 'validated').length;
+    
+    return Math.round((completedTasks / totalTasks) * 100);
+  };
+  
   if (loading) {
     return (
       <div className="flex justify-center items-center py-12">
@@ -1958,6 +2300,12 @@ const ProjectDetails: React.FC = () => {
             <Layers className="h-4 w-4 mr-2" />
             Structure
           </TabsTrigger>
+          {isAdmin && (
+            <TabsTrigger value="members" className="data-[state=active]:bg-white">
+              <Users className="h-4 w-4 mr-2" />
+              Membres
+            </TabsTrigger>
+          )}
         </TabsList>
         
         {/* Onglet Informations */}
@@ -1977,10 +2325,70 @@ const ProjectDetails: React.FC = () => {
                 </div>
               )}
               
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <div className="grid grid-cols-1 gap-2">
                   <Label className="text-lg font-medium">Description</Label>
                   <p className="text-gray-700 whitespace-pre-line">{project.description}</p>
+                </div>
+                
+                {/* Statistiques du projet */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="text-lg font-semibold text-gray-800 mb-4">Statistiques du projet</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-white rounded-lg p-4 shadow-sm">
+                      <Label className="text-sm font-medium text-gray-600">Statut</Label>
+                      <div className="flex items-center gap-2 mt-2">
+                        <Badge 
+                          variant="outline" 
+                          className={`text-sm ${
+                            project.status === 'active' ? 'bg-green-100 text-green-800 border-green-200' :
+                            project.status === 'completed' ? 'bg-blue-100 text-blue-800 border-blue-200' :
+                            project.status === 'paused' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
+                            'bg-red-100 text-red-800 border-red-200'
+                          }`}
+                        >
+                          {project.status === 'active' ? 'Actif' :
+                           project.status === 'completed' ? 'Terminé' :
+                           project.status === 'paused' ? 'En pause' :
+                           project.status === 'cancelled' ? 'Annulé' : project.status}
+                        </Badge>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-white rounded-lg p-4 shadow-sm">
+                      <Label className="text-sm font-medium text-gray-600">Taux de completion</Label>
+                      <div className="mt-2">
+                        <div className="flex items-center justify-between text-sm mb-1">
+                          <span>Progression</span>
+                          <span className="font-medium text-lg">
+                            {calculateGlobalProgress()}%
+                          </span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div 
+                            className="bg-aphs-teal h-2 rounded-full transition-all duration-300" 
+                            style={{ width: `${calculateGlobalProgress()}%` }}
+                          ></div>
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          {taskAssignments.filter(t => t.status === 'validated').length} / {taskAssignments.length} tâches validées
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-white rounded-lg p-4 shadow-sm">
+                      <Label className="text-sm font-medium text-gray-600">Intervenants assignés</Label>
+                      <div className="flex items-center gap-2 mt-2">
+                        <div className="bg-aphs-teal/10 p-2 rounded">
+                          <Users className="h-5 w-5 text-aphs-teal" />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-2xl font-bold text-gray-900">{projectMembers.length}</span>
+                          <span className="text-xs text-gray-500">membre(s) actif(s)</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -2191,6 +2599,105 @@ const ProjectDetails: React.FC = () => {
             </CardContent>
           </Card>
         </TabsContent>
+        
+        {/* Onglet Membres */}
+        {isAdmin && (
+          <TabsContent value="members" className="space-y-6">
+            <Card className="border-0 shadow-md">
+              <CardContent className="p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-800">MEMBRES DU PROJET</h3>
+                    <p className="text-gray-500 mt-1">
+                      Gérez les intervenants qui ont accès à ce projet
+                    </p>
+                  </div>
+                  <Button onClick={handleOpenMembersDialog} className="bg-aphs-teal hover:bg-aphs-navy">
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    Ajouter des membres
+                  </Button>
+                </div>
+                
+                {loadingMembers ? (
+                  <div className="flex justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-aphs-teal"></div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {projectMembers.length === 0 ? (
+                      <div className="text-center py-8">
+                        <Users className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">Aucun membre</h3>
+                        <p className="text-gray-500 mb-4">
+                          Ce projet n'a pas encore de membres assignés.
+                        </p>
+                        <Button onClick={handleOpenMembersDialog} className="bg-aphs-teal hover:bg-aphs-navy">
+                          <UserPlus className="mr-2 h-4 w-4" />
+                          Ajouter le premier membre
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="grid gap-4">
+                        <div className="text-sm text-gray-600 mb-2">
+                          {projectMembers.length} membre(s) dans ce projet
+                        </div>
+                        <div className="space-y-3">
+                          {projectMembers.map((member) => {
+                            const intervenantInfo = getIntervenantInfo(member.user_id);
+                            return (
+                              <div key={member.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                                <div className="flex items-center space-x-3">
+                                  <Avatar className="h-10 w-10">
+                                    <AvatarFallback className="bg-aphs-teal text-white">
+                                      {intervenantInfo ? 
+                                        getInitials(intervenantInfo.first_name, intervenantInfo.last_name) : 
+                                        'IN'
+                                      }
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div>
+                                    <div className="font-medium text-gray-900">
+                                      {intervenantInfo ? 
+                                        `${intervenantInfo.first_name} ${intervenantInfo.last_name}` : 
+                                        'Utilisateur inconnu'
+                                      }
+                                    </div>
+                                    <div className="text-sm text-gray-500">
+                                      {intervenantInfo?.email || 'Email non disponible'}
+                                    </div>
+                                    {intervenantInfo?.specialty && (
+                                      <div className="text-xs text-gray-400">
+                                        {intervenantInfo.specialty}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Badge variant="outline" className="text-xs">
+                                    {member.role}
+                                  </Badge>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleRemoveMember(member)}
+                                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  >
+                                    <UserMinus className="h-4 w-4 mr-1" />
+                                    Retirer
+                                  </Button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
       </Tabs>
       
       {/* Boîte de dialogue pour confirmer la suppression */}
@@ -2524,6 +3031,143 @@ const ProjectDetails: React.FC = () => {
             <AlertDialogCancel>Annuler</AlertDialogCancel>
             <AlertDialogAction onClick={confirmUnassignTask} className="bg-red-600 hover:bg-red-700">
               Désassigner
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
+      {/* Boîte de dialogue pour ajouter des membres */}
+      <Dialog open={isMembersDialogOpen} onOpenChange={setIsMembersDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Ajouter des membres au projet</DialogTitle>
+            <DialogDescription>
+              Sélectionnez les intervenants qui auront accès à ce projet
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* Barre de recherche */}
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+              <Input
+                placeholder="Rechercher un intervenant..."
+                className="pl-8"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            
+            {/* Liste des intervenants */}
+            <ScrollArea className="h-[400px] border rounded-md p-4">
+              {loadingAllIntervenants ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-aphs-teal"></div>
+                </div>
+              ) : filteredIntervenants.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  Aucun intervenant trouvé
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {filteredIntervenants.map((intervenant) => {
+                    const alreadyMember = isAlreadyMember(intervenant.id);
+                    const isSelected = selectedIntervenants.includes(intervenant.id);
+                    
+                    return (
+                      <div key={intervenant.id} className="flex items-center space-x-3 p-2 rounded hover:bg-gray-50">
+                        <Checkbox
+                          id={`member-${intervenant.id}`}
+                          checked={isSelected}
+                          disabled={alreadyMember}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedIntervenants(prev => [...prev, intervenant.id]);
+                            } else {
+                              setSelectedIntervenants(prev => prev.filter(id => id !== intervenant.id));
+                            }
+                          }}
+                        />
+                        <Avatar className="h-8 w-8">
+                          <AvatarFallback className="bg-gray-200 text-gray-600 text-xs">
+                            {getInitials(intervenant.first_name, intervenant.last_name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <div className={`font-medium ${alreadyMember ? 'text-gray-400' : 'text-gray-900'}`}>
+                            {intervenant.first_name} {intervenant.last_name}
+                          </div>
+                          <div className={`text-sm ${alreadyMember ? 'text-gray-300' : 'text-gray-500'}`}>
+                            {intervenant.email}
+                          </div>
+                          {intervenant.specialty && (
+                            <div className={`text-xs ${alreadyMember ? 'text-gray-300' : 'text-gray-400'}`}>
+                              {intervenant.specialty}
+                            </div>
+                          )}
+                        </div>
+                        {alreadyMember && (
+                          <Badge variant="outline" className="text-xs">
+                            Déjà membre
+                          </Badge>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </ScrollArea>
+            
+            {selectedIntervenants.length > 0 && (
+              <div className="text-sm text-gray-600">
+                {selectedIntervenants.length} intervenant(s) sélectionné(s)
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsMembersDialogOpen(false)}>
+              Annuler
+            </Button>
+            <Button 
+              onClick={handleAddMembers}
+              disabled={selectedIntervenants.length === 0}
+              className="bg-aphs-teal hover:bg-aphs-navy"
+            >
+              <UserPlus className="mr-2 h-4 w-4" />
+              Ajouter {selectedIntervenants.length > 0 ? `(${selectedIntervenants.length})` : ''}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Boîte de dialogue pour confirmer la suppression d'un membre */}
+      <AlertDialog open={isRemoveMemberDialogOpen} onOpenChange={setIsRemoveMemberDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Retirer ce membre du projet ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {memberToRemove && (
+                <>
+                  Êtes-vous sûr de vouloir retirer{' '}
+                  <span className="font-medium">
+                    {(() => {
+                      const info = getIntervenantInfo(memberToRemove.user_id);
+                      return info ? `${info.first_name} ${info.last_name}` : 'cet utilisateur';
+                    })()}
+                  </span>{' '}
+                  du projet ? Cette action est irréversible.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmRemoveMember}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Retirer
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

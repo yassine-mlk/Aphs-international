@@ -23,6 +23,8 @@ import Messages from "./pages/Messages";
 import VideoConference from "./pages/VideoConference";
 import Settings from "./pages/Settings";
 import TestUpload from "./test-upload";
+import IntervenantProjects from "./pages/IntervenantProjects";
+import IntervenantProjectDetails from "./pages/IntervenantProjectDetails";
 import DashboardLayout from "./components/DashboardLayout";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -59,17 +61,8 @@ const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         const { data: userData } = await supabase.auth.getUser();
         
         if (userData?.user) {
-          // Essayer de charger les paramètres utilisateur depuis Supabase
-          const { data: settings } = await supabase
-            .from('user_settings')
-            .select('theme')
-            .eq('id', userData.user.id)
-            .single();
-          
-          if (settings && settings.theme) {
-            setTheme(settings.theme);
-            return;
-          }
+          // Note: Les paramètres de thème sont maintenant stockés uniquement en localStorage
+          // pour éviter les erreurs avec user_settings qui n'existe plus
         }
         
         // Fallback vers localStorage
@@ -226,6 +219,18 @@ const App = () => {
                   <SharedRoute>
                     <TaskDetails />
                   </SharedRoute>
+                } />
+                
+                {/* Routes spécifiques aux intervenants */}
+                <Route path="intervenant/projets" element={
+                  <IntervenantRoute>
+                    <IntervenantProjects />
+                  </IntervenantRoute>
+                } />
+                <Route path="intervenant/projets/:id" element={
+                  <IntervenantRoute>
+                    <IntervenantProjectDetails />
+                  </IntervenantRoute>
                 } />
                 
                 <Route path="intervenants" element={

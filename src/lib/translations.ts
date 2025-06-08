@@ -1,4 +1,3 @@
-
 import { Language } from "@/components/LanguageSelector";
 
 export const translations = {
@@ -9,11 +8,34 @@ export const translations = {
     },
     navbar: {
       home: "Home",
-      features: "Features",
+      accompagnement: "Support",
+      support: "features",
       benefits: "Benefits",
       testimonials: "Testimonials",
       about: "About Us",
       contact: "Contact"
+    },
+    loginPage: {
+      title: "Login",
+      subtitle: "Log in to access your workspace",
+      email: "Email",
+      emailPlaceholder: "your@email.com",
+      password: "Password",
+      passwordPlaceholder: "••••••••",
+      forgotPassword: "Forgot password?",
+      loginButton: "Log in",
+      loadingButton: "Logging in...",
+      contactAdmin: "Contact your administrator if you don't have an account.",
+      welcomeTitle: "Welcome to the platform",
+      welcomeSubtitle: "Manage your projects and collaborate efficiently with all your stakeholders.",
+      projectManagement: "Project Management",
+      projectManagementDesc: "Track the progress of your projects in real time",
+      collaboration: "Collaboration",
+      collaborationDesc: "Work as a team with powerful tools",
+      communication: "Communication",
+      communicationDesc: "Exchange with your collaborators quickly",
+      analysis: "Analysis",
+      analysisDesc: "View detailed reports on your activities"
     },
     heroSection: {
       title: "Simplify Your Construction Projects Management",
@@ -83,10 +105,10 @@ export const translations = {
     },
     aboutSection: {
       title: "Who We Are",
-      subtitle: "Meet the team behind APHS Builder, dedicated to revolutionizing construction project management.",
+      subtitle: "Meet our team, dedicated to revolutionizing construction project management.",
       mission: {
         title: "Our Mission",
-        content: "At APHS Builder, we're committed to simplifying construction project management through innovative technology, helping teams save time, reduce costs, and improve collaboration.",
+        content: "We're committed to simplifying construction project management through innovative technology, helping teams save time, reduce costs, and improve collaboration.",
         vision: "Our vision is to become the industry standard for construction project management worldwide."
       },
       values: {
@@ -124,20 +146,43 @@ export const translations = {
   },
   fr: {
     meta: {
-      title: "APHS Builder | Gestion de Projets de Construction",
+      title: "APHS International | Gestion de Projets de Construction",
       description: "Logiciel avancé de gestion de projets de construction aidant les équipes à livrer des projets à temps et dans les limites du budget."
     },
     navbar: {
       home: "Accueil",
-      features: "Fonctionnalités",
+      accompagnement: "Accompagnement",
+      support: "fonctionalite",
       benefits: "Avantages",
       testimonials: "Témoignages",
       about: "À Propos",
       contact: "Contact"
     },
+    loginPage: {
+      title: "Connexion",
+      subtitle: "Connectez-vous pour accéder à votre espace",
+      email: "Email",
+      emailPlaceholder: "votre@email.com",
+      password: "Mot de passe",
+      passwordPlaceholder: "••••••••",
+      forgotPassword: "Mot de passe oublié?",
+      loginButton: "Se connecter",
+      loadingButton: "Connexion en cours...",
+      contactAdmin: "Contactez votre administrateur si vous n'avez pas de compte.",
+      welcomeTitle: "Bienvenue sur la plateforme",
+      welcomeSubtitle: "Gérez vos projets et collaborez efficacement avec tous vos intervenants.",
+      projectManagement: "Gestion de projets",
+      projectManagementDesc: "Suivez l'avancement de vos projets en temps réel",
+      collaboration: "Collaboration",
+      collaborationDesc: "Travaillez en équipe avec des outils performants",
+      communication: "Communication",
+      communicationDesc: "Échangez avec vos collaborateurs rapidement",
+      analysis: "Analyse",
+      analysisDesc: "Visualisez des rapports détaillés sur vos activités"
+    },
     heroSection: {
       title: "Simplifiez la Gestion de vos Projets de Construction",
-      subtitle: "Rationalisez les flux de travail, améliorez la communication et livrez les projets à temps avec APHS Builder - la solution tout-en-un de gestion de projets de construction.",
+      subtitle: "Rationalisez les flux de travail, améliorez la communication et livrez les projets à temps avec APHS - la solution tout-en-un de gestion de projets de construction.",
       cta: {
         primary: "Essai Gratuit",
         secondary: "Voir la Démo"
@@ -203,10 +248,10 @@ export const translations = {
     },
     aboutSection: {
       title: "Qui Sommes-Nous",
-      subtitle: "Rencontrez l'équipe derrière APHS Builder, dédiée à révolutionner la gestion de projets de construction.",
+      subtitle: "Rencontrez notre équipe, dédiée à révolutionner la gestion de projets de construction.",
       mission: {
         title: "Notre Mission",
-        content: "Chez APHS Builder, nous nous engageons à simplifier la gestion des projets de construction grâce à une technologie innovante, aidant les équipes à gagner du temps, réduire les coûts et améliorer la collaboration.",
+        content: "Nous nous engageons à simplifier la gestion des projets de construction grâce à une technologie innovante, aidant les équipes à gagner du temps, réduire les coûts et améliorer la collaboration.",
         vision: "Notre vision est de devenir la référence mondiale en matière de gestion de projets de construction."
       },
       values: {
@@ -221,7 +266,7 @@ export const translations = {
     },
     ctaSection: {
       title: "Prêt à Transformer Votre Gestion de Construction?",
-      subtitle: "Commencez avec APHS Builder aujourd'hui et rejoignez des centaines d'entreprises de construction qui améliorent déjà leurs résultats de projet.",
+      subtitle: "Commencez avec APHS  aujourd'hui et rejoignez des centaines d'entreprises de construction qui améliorent déjà leurs résultats de projet.",
       buttons: {
         trial: "Démarrer l'Essai Gratuit",
         demo: "Réserver une Démo"
@@ -239,21 +284,44 @@ export const translations = {
       }
     },
     footer: {
-      copyright: "© 2025 APHS Builder. Tous droits réservés."
+      copyright: "© 2025 APHS International. Tous droits réservés."
     }
   },
   es: {
     meta: {
-      title: "APHS Builder | Gestión de Proyectos de Construcción",
+      title: "APHS  | Gestión de Proyectos de Construcción",
       description: "Software avanzado de gestión de proyectos de construcción que ayuda a los equipos a entregar proyectos a tiempo y dentro del presupuesto."
     },
     navbar: {
       home: "Inicio",
-      features: "Características",
+      accompagnement: "acompañamiento",
+      support: "Soporte",
       benefits: "Beneficios",
       testimonials: "Testimonios",
       about: "Nosotros",
       contact: "Contacto"
+    },
+    loginPage: {
+      title: "Iniciar Sesión",
+      subtitle: "Inicie sesión para acceder a su espacio de trabajo",
+      email: "Correo Electrónico",
+      emailPlaceholder: "su@email.com",
+      password: "Contraseña",
+      passwordPlaceholder: "••••••••",
+      forgotPassword: "¿Olvidó su contraseña?",
+      loginButton: "Iniciar Sesión",
+      loadingButton: "Iniciando sesión...",
+      contactAdmin: "Contacte a su administrador si no tiene una cuenta.",
+      welcomeTitle: "Bienvenido a la plataforma",
+      welcomeSubtitle: "Gestione sus proyectos y colabore eficientemente con todos sus interesados.",
+      projectManagement: "Gestión de Proyectos",
+      projectManagementDesc: "Rastree el progreso de sus proyectos en tiempo real",
+      collaboration: "Colaboración",
+      collaborationDesc: "Trabaje en equipo con herramientas poderosas",
+      communication: "Comunicación",
+      communicationDesc: "Intercambie con sus colaboradores rápidamente",
+      analysis: "Análisis",
+      analysisDesc: "Visualice informes detallados sobre sus actividades"
     },
     heroSection: {
       title: "Simplifique la Gestión de sus Proyectos de Construcción",
@@ -364,16 +432,39 @@ export const translations = {
   },
   ar: {
     meta: {
-      title: "APHS Builder | إدارة مشاريع البناء",
+      title: "APHS  | إدارة مشاريع البناء",
       description: "برنامج متقدم لإدارة مشاريع البناء يساعد الفرق على تسليم المشاريع في الوقت المحدد وضمن الميزانية."
     },
     navbar: {
       home: "الرئيسية",
-      features: "المميزات",
+      accompagnement: "مرافقة",
+      support: "الدعم",
       benefits: "الفوائد",
       testimonials: "الشهادات",
       about: "من نحن",
       contact: "اتصل بنا"
+    },
+    loginPage: {
+      title: "تسجيل الدخول",
+      subtitle: "سجل الدخول للوصول إلى مساحة العمل الخاصة بك",
+      email: "البريد الإلكتروني",
+      emailPlaceholder: "بريدك@الإلكتروني.com",
+      password: "كلمة المرور",
+      passwordPlaceholder: "••••••••",
+      forgotPassword: "هل نسيت كلمة المرور؟",
+      loginButton: "تسجيل الدخول",
+      loadingButton: "جاري تسجيل الدخول...",
+      contactAdmin: "اتصل بالمسؤول إذا لم يكن لديك حساب.",
+      welcomeTitle: "مرحباً بك في المنصة",
+      welcomeSubtitle: "قم بإدارة مشاريعك والتعاون بكفاءة مع جميع أصحاب المصلحة.",
+      projectManagement: "إدارة المشاريع",
+      projectManagementDesc: "تتبع تقدم مشاريعك في الوقت الفعلي",
+      collaboration: "التعاون",
+      collaborationDesc: "اعمل كفريق مع أدوات قوية",
+      communication: "التواصل",
+      communicationDesc: "تبادل مع زملائك بسرعة",
+      analysis: "التحليل",
+      analysisDesc: "اعرض تقارير مفصلة عن أنشطتك"
     },
     heroSection: {
       title: "بسّط إدارة مشاريع البناء الخاصة بك",

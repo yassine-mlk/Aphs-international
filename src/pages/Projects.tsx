@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, MoreHorizontal, Calendar } from 'lucide-react';
+import { Plus, Search, MoreHorizontal, Users, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 import { useSupabase } from '@/hooks/useSupabase';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   Dialog,
   DialogContent,
@@ -33,36 +34,34 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { format } from 'date-fns';
+import { Badge } from '@/components/ui/badge';
+
 import { useNavigate } from 'react-router-dom';
 import ProjectsLanguageSelector from '@/components/ProjectsLanguageSelector';
-
-// Interface pour le type de projet
-interface Project {
-  id: string;
-  name: string;
-  description: string;
-  start_date: string;
-  image_url?: string;
-  created_at: string;
-}
+import ImageUpload from '@/components/ImageUpload';
+import { Project, ProjectFormData, PROJECT_STATUSES } from '../types/project';
 
 const Projects: React.FC = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { fetchData, insertData, updateData, deleteData } = useSupabase();
+  const { user } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [projectStats, setProjectStats] = useState<{[projectId: string]: {memberCount: number, taskProgress: number}}>({});
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [newProject, setNewProject] = useState({
+  const [newProject, setNewProject] = useState<ProjectFormData>({
     name: '',
     description: '',
-    start_date: format(new Date(), 'yyyy-MM-dd'),
-    image_url: ''
+    start_date: new Date().toISOString().split('T')[0], // Date d'aujourd'hui par défaut
+    end_date: '',
+    image_url: '',
+    company_id: '',
+    status: 'active'
   });
   
   // Charger les projets au chargement de la page
@@ -79,6 +78,9 @@ const Projects: React.FC = () => {
         order: { column: 'created_at', ascending: false }
       });
       setProjects(data);
+      
+      // Récupérer les statistiques pour chaque projet
+      await fetchProjectStats(data);
     } catch (error) {
       console.error('Erreur lors de la récupération des projets:', error);
       toast({
@@ -89,6 +91,42 @@ const Projects: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Récupérer les statistiques des projets (membres et progression)
+  const fetchProjectStats = async (projectList: Project[]) => {
+    const stats: {[projectId: string]: {memberCount: number, taskProgress: number}} = {};
+    
+    for (const project of projectList) {
+      try {
+        // Récupérer le nombre de membres
+        const members = await fetchData<any>('membre', {
+          columns: 'id',
+          filters: [{ column: 'project_id', operator: 'eq', value: project.id }]
+        });
+        
+        // Récupérer les tâches et leur progression
+        const tasks = await fetchData<any>('task_assignments', {
+          columns: 'status',
+          filters: [{ column: 'project_id', operator: 'eq', value: project.id }]
+        });
+        
+        const memberCount = members ? members.length : 0;
+        const totalTasks = tasks ? tasks.length : 0;
+        const completedTasks = tasks ? tasks.filter((task: any) => task.status === 'validated').length : 0;
+        const taskProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+        
+        stats[project.id] = {
+          memberCount,
+          taskProgress
+        };
+      } catch (error) {
+        console.error(`Erreur lors de la récupération des stats pour le projet ${project.id}:`, error);
+        stats[project.id] = { memberCount: 0, taskProgress: 0 };
+      }
+    }
+    
+    setProjectStats(stats);
   };
 
   // Filtrer les projets selon la recherche
@@ -133,11 +171,29 @@ const Projects: React.FC = () => {
       return;
     }
 
-    try {
-      const result = await insertData<Project>('projects', {
-        ...newProject,
-        created_at: new Date().toISOString()
+    // Validation que la date de fin est après la date de début
+    if (newProject.end_date && newProject.end_date < newProject.start_date) {
+      toast({
+        title: "Erreur",
+        description: "La date de fin doit être postérieure à la date de début",
+        variant: "destructive",
       });
+      return;
+    }
+
+    // Validation des champs de base uniquement
+
+    try {
+      // Préparer les données en convertissant les chaînes vides en null pour les champs UUID
+      const projectData = {
+        ...newProject,
+        company_id: newProject.company_id || null,
+        end_date: newProject.end_date || null,
+        created_by: user?.id || null,
+        created_at: new Date().toISOString()
+      };
+      
+      const result = await insertData<Project>('projects', projectData);
       
       if (result) {
         toast({
@@ -149,8 +205,11 @@ const Projects: React.FC = () => {
         setNewProject({
           name: '',
           description: '',
-          start_date: format(new Date(), 'yyyy-MM-dd'),
-          image_url: ''
+          start_date: new Date().toISOString().split('T')[0],
+          end_date: '',
+          image_url: '',
+          company_id: '',
+          status: 'active'
         });
         // Recharger les projets
         fetchProjects();
@@ -202,11 +261,21 @@ const Projects: React.FC = () => {
       });
       return;
     }
+
+    // Validation que la date de fin est après la date de début
+    if (selectedProject.end_date && selectedProject.end_date < selectedProject.start_date) {
+      toast({
+        title: "Erreur",
+        description: "La date de fin doit être postérieure à la date de début",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validation terminée
     
     try {
-      const result = await updateData<Project>('projects', selectedProject.id, {
-        ...selectedProject
-      });
+      const result = await updateData<Project>('projects', selectedProject);
       
       if (result) {
         toast({
@@ -305,64 +374,105 @@ const Projects: React.FC = () => {
         </div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {filteredProjects.map(project => (
-            <Card key={project.id} className="border-0 shadow-md overflow-hidden hover:shadow-lg transition-shadow cursor-pointer" onClick={() => handleViewProjectDetails(project)}>
-              <CardContent className="p-6">
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className="font-semibold text-lg">{project.name}</h3>
-                </div>
-                
-                {project.image_url && (
-                  <div className="mb-4 rounded overflow-hidden">
-                    <img 
-                      src={project.image_url} 
-                      alt={project.name} 
-                      className="w-full h-40 object-cover"
-                      onError={(e) => {
-                        e.currentTarget.src = 'https://placehold.co/600x400?text=Image+indisponible';
-                      }}
-                    />
-                  </div>
-                )}
-                
-                <p className="text-sm text-gray-500 mb-4">{project.description}</p>
-                
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 text-sm">
-                    <div className="bg-gray-100 p-1 rounded">
-                      <Calendar className="h-4 w-4 text-gray-600" />
-                    </div>
-                    <div className="text-gray-600">
-                      Date de début: {new Date(project.start_date).toLocaleDateString('fr-FR')}
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-              
-              <CardFooter className="flex justify-end py-3 px-6 border-t bg-gray-50">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => e.stopPropagation()}>
-                      <MoreHorizontal className="h-4 w-4" />
-                      <span className="sr-only">Plus d'options</span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={(e) => handleDropdownAction(e, () => handleEditProject(project))}>
-                      Modifier
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem 
-                      onClick={(e) => handleDropdownAction(e, () => handleDeleteProject(project))}
-                      className="text-red-600"
+          {filteredProjects.map(project => {
+            const stats = projectStats[project.id] || { memberCount: 0, taskProgress: 0 };
+            
+            return (
+              <Card key={project.id} className="border-0 shadow-md overflow-hidden hover:shadow-lg transition-shadow cursor-pointer" onClick={() => handleViewProjectDetails(project)}>
+                <CardContent className="p-6">
+                  <div className="flex justify-between items-start mb-3">
+                    <h3 className="font-semibold text-lg">{project.name}</h3>
+                    <Badge 
+                      variant="outline" 
+                      className={`text-xs ${
+                        project.status === 'active' ? 'bg-green-100 text-green-800 border-green-200' :
+                        project.status === 'completed' ? 'bg-blue-100 text-blue-800 border-blue-200' :
+                        project.status === 'paused' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
+                        'bg-red-100 text-red-800 border-red-200'
+                      }`}
                     >
-                      Supprimer
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </CardFooter>
-            </Card>
-          ))}
+                      {project.status === 'active' ? 'Actif' :
+                       project.status === 'completed' ? 'Terminé' :
+                       project.status === 'paused' ? 'En pause' :
+                       project.status === 'cancelled' ? 'Annulé' : project.status}
+                    </Badge>
+                  </div>
+                  
+                  {project.image_url && (
+                    <div className="mb-4 rounded overflow-hidden">
+                      <img 
+                        src={project.image_url} 
+                        alt={project.name} 
+                        className="w-full h-40 object-cover"
+                        onError={(e) => {
+                          e.currentTarget.src = 'https://placehold.co/600x400?text=Image+indisponible';
+                        }}
+                      />
+                    </div>
+                  )}
+                  
+                  <p className="text-sm text-gray-500 mb-4 line-clamp-2">{project.description}</p>
+                  
+                  {/* Statistiques du projet */}
+                  <div className="space-y-3">
+                    {/* Progression des tâches */}
+                    <div>
+                      <div className="flex items-center justify-between text-sm mb-1">
+                        <div className="flex items-center gap-1">
+                          <BarChart3 className="h-3 w-3 text-gray-500" />
+                          <span className="text-gray-600">Progression</span>
+                        </div>
+                        <span className="font-medium">{stats.taskProgress}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-1.5">
+                        <div 
+                          className="bg-aphs-teal h-1.5 rounded-full transition-all duration-300" 
+                          style={{ width: `${stats.taskProgress}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                    
+                    {/* Nombre d'intervenants */}
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-1">
+                        <Users className="h-3 w-3 text-gray-500" />
+                        <span className="text-gray-600">Intervenants</span>
+                      </div>
+                      <span className="font-medium">{stats.memberCount}</span>
+                    </div>
+                    
+                    {/* Date de début */}
+                    <div className="text-xs text-gray-500">
+                      Début: {new Date(project.start_date).toLocaleDateString('fr-FR')}
+                    </div>
+                  </div>
+                </CardContent>
+                
+                <CardFooter className="flex justify-end py-3 px-6 border-t bg-gray-50">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => e.stopPropagation()}>
+                        <MoreHorizontal className="h-4 w-4" />
+                        <span className="sr-only">Plus d'options</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={(e) => handleDropdownAction(e, () => handleEditProject(project))}>
+                        Modifier
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem 
+                        onClick={(e) => handleDropdownAction(e, () => handleDeleteProject(project))}
+                        className="text-red-600"
+                      >
+                        Supprimer
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </CardFooter>
+              </Card>
+            );
+          })}
         </div>
       )}
 
@@ -403,26 +513,51 @@ const Projects: React.FC = () => {
                 required
               />
             </div>
-            <div className="grid grid-cols-1 gap-2">
-              <Label htmlFor="start_date">Date de début<span className="text-red-500">*</span></Label>
-              <Input
-                id="start_date"
-                type="date"
-                value={newProject.start_date}
-                onChange={(e) => setNewProject({...newProject, start_date: e.target.value})}
-                required
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-2">
+                <Label htmlFor="start_date">Date de début<span className="text-red-500">*</span></Label>
+                <Input
+                  id="start_date"
+                  type="date"
+                  value={newProject.start_date}
+                  onChange={(e) => setNewProject({...newProject, start_date: e.target.value})}
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-1 gap-2">
+                <Label htmlFor="end_date">Date de fin</Label>
+                <Input
+                  id="end_date"
+                  type="date"
+                  value={newProject.end_date || ''}
+                  onChange={(e) => setNewProject({...newProject, end_date: e.target.value || undefined})}
+                  min={newProject.start_date}
+                />
+              </div>
             </div>
             <div className="grid grid-cols-1 gap-2">
-              <Label htmlFor="image_url">Image (optionnelle)</Label>
-              <Input
-                id="image_url"
-                type="url"
-                value={newProject.image_url}
-                onChange={(e) => setNewProject({...newProject, image_url: e.target.value})}
-                placeholder="URL de l'image du projet"
-              />
+              <Label htmlFor="status">Statut</Label>
+              <select
+                id="status"
+                value={newProject.status}
+                onChange={(e) => setNewProject({...newProject, status: e.target.value as Project['status']})}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                {PROJECT_STATUSES.map(status => (
+                  <option key={status.value} value={status.value}>
+                    {status.label}
+                  </option>
+                ))}
+              </select>
             </div>
+            <ImageUpload
+              currentImageUrl={newProject.image_url}
+              onImageUploaded={(imageUrl) => setNewProject({...newProject, image_url: imageUrl})}
+              onImageRemoved={() => setNewProject({...newProject, image_url: ''})}
+              bucketName="project-images"
+              folderPath="projects"
+              maxSizeMB={5}
+            />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Annuler</Button>
@@ -461,39 +596,52 @@ const Projects: React.FC = () => {
                   placeholder="Description du projet"
                   required
                 />
-              </div>
-              <div className="grid grid-cols-1 gap-2">
-                <Label htmlFor="edit-start_date">Date de début<span className="text-red-500">*</span></Label>
-                <Input
-                  id="edit-start_date"
-                  type="date"
-                  value={selectedProject.start_date.split('T')[0]}
-                  onChange={(e) => setSelectedProject({...selectedProject, start_date: e.target.value})}
-                  required
-                />
-              </div>
-              <div className="grid grid-cols-1 gap-2">
-                <Label htmlFor="edit-image_url">Image (optionnelle)</Label>
-                <Input
-                  id="edit-image_url"
-                  type="url"
-                  value={selectedProject.image_url || ''}
-                  onChange={(e) => setSelectedProject({...selectedProject, image_url: e.target.value})}
-                  placeholder="URL de l'image du projet"
-                />
-                {selectedProject.image_url && (
-                  <div className="mt-2 rounded overflow-hidden">
-                    <img 
-                      src={selectedProject.image_url} 
-                      alt={selectedProject.name} 
-                      className="w-full h-40 object-cover"
-                      onError={(e) => {
-                        e.currentTarget.src = 'https://placehold.co/600x400?text=Image+indisponible';
-                      }}
+                              </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-2">
+                    <Label htmlFor="edit-start_date">Date de début<span className="text-red-500">*</span></Label>
+                    <Input
+                      id="edit-start_date"
+                      type="date"
+                      value={selectedProject.start_date}
+                      onChange={(e) => setSelectedProject({...selectedProject, start_date: e.target.value})}
+                      required
                     />
                   </div>
-                )}
-              </div>
+                  <div className="grid grid-cols-1 gap-2">
+                    <Label htmlFor="edit-end_date">Date de fin</Label>
+                    <Input
+                      id="edit-end_date"
+                      type="date"
+                      value={selectedProject.end_date || ''}
+                      onChange={(e) => setSelectedProject({...selectedProject, end_date: e.target.value || undefined})}
+                      min={selectedProject.start_date}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 gap-2">
+                  <Label htmlFor="edit-status">Statut</Label>
+                  <select
+                    id="edit-status"
+                    value={selectedProject.status}
+                    onChange={(e) => setSelectedProject({...selectedProject, status: e.target.value as Project['status']})}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  >
+                    {PROJECT_STATUSES.map(status => (
+                      <option key={status.value} value={status.value}>
+                        {status.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <ImageUpload
+                currentImageUrl={selectedProject.image_url}
+                onImageUploaded={(imageUrl) => setSelectedProject({...selectedProject, image_url: imageUrl})}
+                onImageRemoved={() => setSelectedProject({...selectedProject, image_url: ''})}
+                bucketName="project-images"
+                folderPath="projects"
+                maxSizeMB={5}
+              />
             </div>
           )}
           <DialogFooter>

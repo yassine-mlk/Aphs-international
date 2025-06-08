@@ -21,8 +21,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useSupabase, Company } from '../hooks/useSupabase';
+import { Profile } from '../types/project';
 import CompanyForm from '@/components/CompanyForm';
-import { ArrowUpDown, Building, Flag, Briefcase, Image } from "lucide-react";
+import { ArrowUpDown, Building, Flag, Briefcase, Image, Users, Eye } from "lucide-react";
 
 // Type pour les options de tri
 type SortField = 'name' | 'pays' | 'secteur' | 'created_at';
@@ -30,15 +31,18 @@ type SortOrder = 'asc' | 'desc';
 
 const Companies: React.FC = () => {
   const { toast } = useToast();
-  const { getCompanies, deleteCompany } = useSupabase();
+  const { getCompanies, deleteCompany, fetchData, getUsers } = useSupabase();
   
   const [companies, setCompanies] = useState<Company[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [employeesDialogOpen, setEmployeesDialogOpen] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
+  const [companyEmployees, setCompanyEmployees] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingEmployees, setLoadingEmployees] = useState(false);
   
   // Options de tri
   const [sortField, setSortField] = useState<SortField>('name');
@@ -75,6 +79,74 @@ const Companies: React.FC = () => {
   const prepareEdit = (company: Company) => {
     setSelectedCompany(company);
     setEditDialogOpen(true);
+  };
+
+  // Charger les employés d'une entreprise
+  const loadCompanyEmployees = async (companyId: string) => {
+    setLoadingEmployees(true);
+    try {
+      // D'abord essayer avec la table profiles
+      let employees = await fetchData<Profile>('profiles', {
+        filters: [{ column: 'company_id', operator: 'eq', value: companyId }],
+        columns: 'user_id, first_name, last_name, email, role, created_at',
+        order: { column: 'first_name', ascending: true }
+      });
+
+      // Si aucun employé trouvé dans profiles, chercher dans auth.users
+      if (!employees || employees.length === 0) {
+        const userData = await getUsers();
+        
+        if (userData && userData.users) {
+          // Trouver le nom de l'entreprise sélectionnée
+          const selectedCompanyName = companies.find(c => c.id === companyId)?.name;
+          
+          // Filtrer les utilisateurs par company_id ou company name
+          const filteredUsers = userData.users.filter((user: any) => {
+            const userCompanyId = user.user_metadata?.company_id;
+            const userCompanyName = user.user_metadata?.company;
+            
+            // Exclure les admins
+            const isAdmin = user.user_metadata?.role === 'admin';
+            const isAdminEmail = user.email?.toLowerCase()?.includes('admin@aphs');
+            
+            if (isAdmin || isAdminEmail || user.banned) return false;
+            
+            // Correspondance par ID ou nom d'entreprise
+            return userCompanyId === companyId || 
+                   (selectedCompanyName && userCompanyName === selectedCompanyName);
+          });
+
+          // Transformer en format Profile
+          employees = filteredUsers.map((user: any) => ({
+            user_id: user.id,
+            email: user.email || '',
+            first_name: user.user_metadata?.first_name || user.user_metadata?.name?.split(' ')[0] || 'Prénom',
+            last_name: user.user_metadata?.last_name || user.user_metadata?.name?.split(' ').slice(1).join(' ') || 'Nom',
+            role: user.user_metadata?.role || 'intervenant',
+            created_at: user.created_at
+          }));
+        }
+      }
+
+      setCompanyEmployees(employees || []);
+    } catch (error) {
+      console.error('Erreur lors du chargement des employés:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger les employés de cette entreprise",
+        variant: "destructive",
+      });
+      setCompanyEmployees([]);
+    } finally {
+      setLoadingEmployees(false);
+    }
+  };
+
+  // Voir les employés d'une entreprise
+  const viewEmployees = (company: Company) => {
+    setSelectedCompany(company);
+    setEmployeesDialogOpen(true);
+    loadCompanyEmployees(company.id);
   };
 
   // Inversion de l'ordre de tri lorsqu'on clique sur le même champ
@@ -288,8 +360,18 @@ const Companies: React.FC = () => {
                       <Button
                         variant="ghost"
                         size="sm"
+                        onClick={() => viewEmployees(company)}
+                        className="h-7 w-7 p-0"
+                        title="Voir les employés"
+                      >
+                        <Users className="h-4 w-4 text-green-600" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => prepareEdit(company)}
                         className="h-7 w-7 p-0"
+                        title="Modifier"
                       >
                         <svg 
                           xmlns="http://www.w3.org/2000/svg" 
@@ -312,6 +394,7 @@ const Companies: React.FC = () => {
                         size="sm"
                         onClick={() => prepareDelete(company)}
                         className="h-7 w-7 p-0"
+                        title="Supprimer"
                       >
                         <svg 
                           xmlns="http://www.w3.org/2000/svg" 
@@ -358,6 +441,19 @@ const Companies: React.FC = () => {
                       </div>
                     )}
                   </div>
+                  
+                  {/* Bouton détails visible */}
+                  <div className="mt-4 pt-4 border-t border-gray-100">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => viewEmployees(company)}
+                      className="w-full text-teal-600 border-teal-200 hover:bg-teal-50 hover:border-teal-300"
+                    >
+                      <Users className="h-4 w-4 mr-2" />
+                      Voir les intervenants
+                    </Button>
+                  </div>
                 </div>
               </div>
             ))
@@ -383,6 +479,71 @@ const Companies: React.FC = () => {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Dialogue des employés */}
+      <Dialog open={employeesDialogOpen} onOpenChange={setEmployeesDialogOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Employés de {selectedCompany?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Liste des employés travaillant dans cette entreprise.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="max-h-[500px] overflow-y-auto">
+            {loadingEmployees ? (
+              <div className="flex justify-center py-8">
+                <div className="w-8 h-8 border-4 border-t-teal-500 border-r-transparent border-b-teal-500 border-l-transparent rounded-full animate-spin"></div>
+              </div>
+            ) : companyEmployees.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <Users className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                <p>Aucun employé trouvé dans cette entreprise</p>
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                {companyEmployees.map((employee) => (
+                  <div key={employee.user_id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center">
+                        <span className="text-teal-600 font-medium">
+                          {employee.first_name.charAt(0)}{employee.last_name.charAt(0)}
+                        </span>
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-gray-900">
+                          {employee.first_name} {employee.last_name}
+                        </h4>
+                        <p className="text-sm text-gray-500">{employee.email}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        {employee.role}
+                      </span>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Depuis le {new Date(employee.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          
+          <div className="flex justify-between items-center pt-4 border-t">
+            <span className="text-sm text-gray-500">
+              {companyEmployees.length} employé{companyEmployees.length > 1 ? 's' : ''}
+            </span>
+            <Button onClick={() => setEmployeesDialogOpen(false)}>
+              Fermer
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Dialogue de confirmation de suppression */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

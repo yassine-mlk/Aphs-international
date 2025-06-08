@@ -421,6 +421,13 @@ const Settings: React.FC = () => {
             title: "Succès",
             description: "Fiche informative mise à jour avec succès"
           });
+        } else {
+          console.error('Erreur lors de la mise à jour:', result);
+          toast({
+            title: "Erreur",
+            description: "Impossible de mettre à jour la fiche informative",
+            variant: "destructive",
+          });
         }
       } else {
         console.log('Création d\'une nouvelle fiche informative');
@@ -438,13 +445,25 @@ const Settings: React.FC = () => {
         const result = await insertData('task_info_sheets', newInfoSheet);
         console.log('Résultat de l\'insertion:', result);
         
-        if (result) {
+        if (result && Array.isArray(result) && result.length > 0 && result[0]?.id) {
           // Ajouter la nouvelle fiche à la liste locale
-          setTaskInfoSheets(prev => [...prev, { ...newInfoSheet, id: result[0].id, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }]);
+          setTaskInfoSheets(prev => [...prev, { 
+            ...newInfoSheet, 
+            id: result[0].id, 
+            created_at: new Date().toISOString(), 
+            updated_at: new Date().toISOString() 
+          }]);
           
           toast({
             title: "Succès",
             description: "Fiche informative créée avec succès"
+          });
+        } else {
+          console.error('Erreur: Résultat d\'insertion invalide ou ID manquant:', result);
+          toast({
+            title: "Erreur",
+            description: "La fiche a été créée mais il y a eu un problème avec l'ID retourné",
+            variant: "destructive",
           });
         }
       }

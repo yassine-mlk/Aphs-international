@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { translations } from '@/lib/translations';
@@ -18,34 +17,34 @@ interface TeamMember {
 
 const teamMembers: TeamMember[] = [
   {
-    name: "Alexandre Dupont",
+    name: "Said Kharrat",
     title: {
       en: "Chief Executive Officer",
       fr: "Président-directeur général",
       es: "Director Ejecutivo",
       ar: "الرئيس التنفيذي"
     },
-    image: "https://images.unsplash.com/photo-1560250097-0b93528c311a?ixlib=rb-4.0.3&auto=format&fit=crop&w=256&q=80"
+    image: "/team/person1.jpg"
   },
   {
-    name: "Patricia Hernandez",
+    name: "Agnes Barokel",
     title: {
       en: "Chief Operations Officer",
       fr: "Directrice des opérations",
       es: "Directora de Operaciones",
       ar: "مدير العمليات"
     },
-    image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?ixlib=rb-4.0.3&auto=format&fit=crop&w=256&q=80"
+    image: "/team/person2.jpg"
   },
   {
-    name: "Hassan Al-Farsi",
+    name: "Fernando Passareli",
     title: {
       en: "Chief Technology Officer",
       fr: "Directeur technique",
       es: "Director de Tecnología",
       ar: "المدير التقني"
     },
-    image: "https://images.unsplash.com/photo-1566492031773-4f4e44671857?ixlib=rb-4.0.3&auto=format&fit=crop&w=256&q=80"
+    image: "/team/person3.jpg"
   }
 ];
 

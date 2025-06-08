@@ -16,7 +16,8 @@ import {
   XCircle,
   Download,
   Send,
-  MessageSquare
+  MessageSquare,
+  AlertTriangle
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSupabase } from '@/hooks/useSupabase';
@@ -49,6 +50,14 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useLanguage } from '@/contexts/LanguageContext';
+import {
+  TaskSubmissionHistory,
+  TaskSubmissionHistoryWithUser,
+  CreateTaskSubmissionHistoryData,
+  TaskSubmissionActionType,
+  TASK_SUBMISSION_ACTION_LABELS,
+  TASK_SUBMISSION_ACTION_COLORS
+} from '@/types/taskSubmissionHistory';
 
 // Interface for project
 interface Project {
@@ -79,7 +88,7 @@ interface TaskAssignment {
   validators: string[]; // IDs of the intervenant validators
   file_extension: string;
   comment?: string;
-  status: 'assigned' | 'in_progress' | 'submitted' | 'validated' | 'rejected';
+  status: 'assigned' | 'in_progress' | 'submitted' | 'validated' | 'rejected' | 'finalized';
   created_at: string;
   updated_at: string;
   file_url?: string;
@@ -102,6 +111,15 @@ interface TaskInfoSheet {
   updated_at: string;
 }
 
+// Interface pour les données provenant de la table profiles
+interface ProfileData {
+  user_id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  role: string;
+}
+
 const statusLabels = {
   assigned: { label: 'Assignée', color: 'bg-yellow-500' },
   in_progress: { label: 'En cours', color: 'bg-blue-500' },
@@ -114,7 +132,7 @@ const TaskDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { fetchData, updateData, uploadFile, getFileUrl, supabase } = useSupabase();
+  const { fetchData, updateData, uploadFile, getFileUrl, supabase, insertData } = useSupabase();
   const { user } = useAuth();
   const { language } = useLanguage();
   
@@ -124,10 +142,13 @@ const TaskDetails: React.FC = () => {
   const [validators, setValidators] = useState<Intervenant[]>([]);
   const [assignedUser, setAssignedUser] = useState<Intervenant | null>(null);
   const [infoSheet, setInfoSheet] = useState<TaskInfoSheet | null>(null);
+  const [submissionHistory, setSubmissionHistory] = useState<TaskSubmissionHistoryWithUser[]>([]);
+  const [hasPendingSubmission, setHasPendingSubmission] = useState<boolean>(false);
   
   const [isSubmitDialogOpen, setIsSubmitDialogOpen] = useState(false);
   const [isValidateDialogOpen, setIsValidateDialogOpen] = useState(false);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
+  const [isFinalizeDialogOpen, setIsFinalizeDialogOpen] = useState(false);
   
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [submitComment, setSubmitComment] = useState('');
@@ -150,6 +171,91 @@ const TaskDetails: React.FC = () => {
   
   // Determine if the user can take actions on this task
   const canTakeAction = isAssignedUser || isValidator || isAdmin;
+  
+  // Load submission history
+  const loadSubmissionHistory = async (taskId: string) => {
+    try {
+      const historyData = await fetchData<TaskSubmissionHistory>('task_submission_history', {
+        columns: '*',
+        filters: [{ column: 'task_assignment_id', operator: 'eq', value: taskId }],
+        order: { column: 'performed_at', ascending: true }
+      });
+      
+      if (historyData && historyData.length > 0) {
+        // Récupérer les informations des utilisateurs qui ont effectué les actions
+        const userIds = Array.from(new Set(historyData.map(h => h.performed_by)));
+        if (userIds.length > 0) {
+          const usersData = await fetchData<ProfileData>('profiles', {
+            columns: 'user_id,email,first_name,last_name,role',
+            filters: [{ column: 'user_id', operator: 'in', value: `(${userIds.join(',')})` }]
+          });
+          
+          // Mapper les données avec les utilisateurs
+          const historyWithUsers = historyData.map(history => {
+            const user = usersData.find(u => u.user_id === history.performed_by);
+            return {
+              ...history,
+              performer: user ? {
+                id: user.user_id,
+                email: user.email,
+                first_name: user.first_name,
+                last_name: user.last_name,
+                role: user.role
+              } : undefined
+            };
+          });
+          
+          setSubmissionHistory(historyWithUsers);
+          setHasPendingSubmission(checkPendingSubmission(historyWithUsers));
+        } else {
+          setSubmissionHistory(historyData.map(h => ({ ...h, performer: undefined })));
+          setHasPendingSubmission(checkPendingSubmission(historyData.map(h => ({ ...h, performer: undefined }))));
+        }
+      } else {
+        setSubmissionHistory([]);
+        setHasPendingSubmission(false);
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement de l\'historique des soumissions:', error);
+      setSubmissionHistory([]);
+      setHasPendingSubmission(false);
+    }
+  };
+  
+  // Create submission history entry
+  const createSubmissionHistoryEntry = async (data: CreateTaskSubmissionHistoryData) => {
+    try {
+      await insertData('task_submission_history', data);
+    } catch (error) {
+      console.error('Erreur lors de la création de l\'entrée d\'historique:', error);
+    }
+  };
+  
+  // Check if there is a pending submission (submitted but not yet validated/rejected)
+  const checkPendingSubmission = (history: TaskSubmissionHistoryWithUser[]): boolean => {
+    if (history.length === 0) return false;
+    
+    // Sort by performed_at to get the latest actions
+    const sortedHistory = [...history].sort((a, b) => 
+      new Date(b.performed_at).getTime() - new Date(a.performed_at).getTime()
+    );
+    
+    // Find the latest submission action
+    const latestSubmission = sortedHistory.find(entry => 
+      entry.action_type === 'submitted' || entry.action_type === 'resubmitted'
+    );
+    
+    if (!latestSubmission) return false;
+    
+    // Check if there's a validation/rejection after this submission
+    const validationAfterSubmission = sortedHistory.find(entry => 
+      (entry.action_type === 'validated' || entry.action_type === 'rejected') &&
+      new Date(entry.performed_at) > new Date(latestSubmission.performed_at)
+    );
+    
+    // If there's no validation/rejection after the latest submission, it's pending
+    return !validationAfterSubmission;
+  };
   
   // Load task details
   useEffect(() => {
@@ -177,24 +283,37 @@ const TaskDetails: React.FC = () => {
           }
           
           // Fetch assigned user details
-          const userData = await fetchData<Intervenant>('profiles', {
-            columns: 'id,email,first_name,last_name,role',
-            filters: [{ column: 'id', operator: 'eq', value: data[0].assigned_to }]
+          const userData = await fetchData<ProfileData>('profiles', {
+            columns: 'user_id,email,first_name,last_name,role',
+            filters: [{ column: 'user_id', operator: 'eq', value: data[0].assigned_to }]
           });
           
           if (userData && userData.length > 0) {
-            setAssignedUser(userData[0]);
+            setAssignedUser({
+              id: userData[0].user_id,
+              email: userData[0].email,
+              first_name: userData[0].first_name,
+              last_name: userData[0].last_name,
+              role: userData[0].role
+            });
           }
           
           // Fetch validators details
           if (data[0].validators.length > 0) {
-            const validatorsData = await fetchData<Intervenant>('profiles', {
-              columns: 'id,email,first_name,last_name,role',
-              filters: [{ column: 'id', operator: 'in', value: `(${data[0].validators.join(',')})` }]
+            const validatorsData = await fetchData<ProfileData>('profiles', {
+              columns: 'user_id,email,first_name,last_name,role',
+              filters: [{ column: 'user_id', operator: 'in', value: `(${data[0].validators.join(',')})` }]
             });
             
             if (validatorsData) {
-              setValidators(validatorsData);
+              const formattedValidators = validatorsData.map(v => ({
+                id: v.user_id,
+                email: v.email,
+                first_name: v.first_name,
+                last_name: v.last_name,
+                role: v.role
+              }));
+              setValidators(formattedValidators);
             }
           }
           
@@ -229,6 +348,9 @@ const TaskDetails: React.FC = () => {
               setInfoSheet(fallbackInfoSheetData[0]);
             }
           }
+          
+          // Load submission history
+          await loadSubmissionHistory(id);
         } else {
           toast({
             title: "Erreur",
@@ -366,6 +488,21 @@ const TaskDetails: React.FC = () => {
         updated_at: new Date().toISOString()
       });
       
+      // Create submission history entry
+      const isResubmission = task.status === 'rejected';
+      await createSubmissionHistoryEntry({
+        task_assignment_id: task.id,
+        action_type: isResubmission ? 'resubmitted' : 'submitted',
+        file_url: fileUrl,
+        file_name: selectedFile.name,
+        comment: submitComment,
+        performed_by: user!.id,
+        metadata: {
+          file_size: selectedFile.size,
+          file_type: selectedFile.type
+        }
+      });
+
       // Update local state
       setTask({
         ...task,
@@ -382,6 +519,9 @@ const TaskDetails: React.FC = () => {
         title: "Succès",
         description: "La tâche a été soumise avec succès",
       });
+      
+      // Recharger l'historique pour mettre à jour l'affichage
+      await loadSubmissionHistory(task.id);
       
       setIsSubmitDialogOpen(false);
     } catch (error: any) {
@@ -406,19 +546,42 @@ const TaskDetails: React.FC = () => {
     setIsRejectDialogOpen(true);
   };
   
+  const handleOpenFinalizeDialog = () => {
+    setValidationComment('');
+    setIsFinalizeDialogOpen(true);
+  };
+  
   const handleValidateTask = async () => {
     if (!task) return;
     
     try {
+      // First update only the status to satisfy the constraint
       await updateData('task_assignments', {
         id: task.id,
         status: 'validated',
+        updated_at: new Date().toISOString()
+      });
+      
+      // Then update the validation fields
+      await updateData('task_assignments', {
+        id: task.id,
         validated_at: new Date().toISOString(),
         validation_comment: validationComment,
         validated_by: user?.id,
         updated_at: new Date().toISOString()
       });
       
+      // Create submission history entry
+      await createSubmissionHistoryEntry({
+        task_assignment_id: task.id,
+        action_type: 'validated',
+        validation_comment: validationComment,
+        performed_by: user!.id,
+        metadata: {
+          validated_file_url: task.file_url
+        }
+      });
+
       // Update local state
       setTask({
         ...task,
@@ -433,6 +596,9 @@ const TaskDetails: React.FC = () => {
         title: "Succès",
         description: "La tâche a été validée avec succès",
       });
+      
+      // Recharger l'historique pour mettre à jour l'affichage
+      await loadSubmissionHistory(task.id);
       
       setIsValidateDialogOpen(false);
     } catch (error) {
@@ -449,15 +615,33 @@ const TaskDetails: React.FC = () => {
     if (!task) return;
     
     try {
+      // First update only the status to satisfy the constraint
       await updateData('task_assignments', {
         id: task.id,
         status: 'rejected',
+        updated_at: new Date().toISOString()
+      });
+      
+      // Then update the validation fields
+      await updateData('task_assignments', {
+        id: task.id,
         validated_at: new Date().toISOString(),
         validation_comment: validationComment,
         validated_by: user?.id,
         updated_at: new Date().toISOString()
       });
       
+      // Create submission history entry
+      await createSubmissionHistoryEntry({
+        task_assignment_id: task.id,
+        action_type: 'rejected',
+        validation_comment: validationComment,
+        performed_by: user!.id,
+        metadata: {
+          rejected_file_url: task.file_url
+        }
+      });
+
       // Update local state
       setTask({
         ...task,
@@ -473,12 +657,76 @@ const TaskDetails: React.FC = () => {
         description: "La tâche a été rejetée",
       });
       
+      // Recharger l'historique pour mettre à jour l'affichage
+      await loadSubmissionHistory(task.id);
+      
       setIsRejectDialogOpen(false);
     } catch (error) {
       console.error('Erreur lors du rejet de la tâche:', error);
       toast({
         title: "Erreur",
         description: "Impossible de rejeter la tâche",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleFinalizeTask = async () => {
+    if (!task) return;
+    
+    try {
+      // First update only the status to finalized
+      await updateData('task_assignments', {
+        id: task.id,
+        status: 'finalized',
+        updated_at: new Date().toISOString()
+      });
+      
+      // Then update the validation fields for final validation
+      await updateData('task_assignments', {
+        id: task.id,
+        validated_at: new Date().toISOString(),
+        validation_comment: validationComment || 'Validation finale par l\'administrateur',
+        validated_by: user?.id,
+        updated_at: new Date().toISOString()
+      });
+      
+      // Create submission history entry for finalization
+      await createSubmissionHistoryEntry({
+        task_assignment_id: task.id,
+        action_type: 'finalized',
+        validation_comment: validationComment || 'Validation finale par l\'administrateur',
+        performed_by: user!.id,
+        metadata: {
+          finalized_file_url: task.file_url,
+          admin_finalization: true
+        }
+      });
+
+      // Update local state
+      setTask({
+        ...task,
+        status: 'finalized',
+        validated_at: new Date().toISOString(),
+        validation_comment: validationComment || 'Validation finale par l\'administrateur',
+        validated_by: user?.id,
+        updated_at: new Date().toISOString()
+      });
+      
+      toast({
+        title: "Succès",
+        description: "La tâche a été finalisée et clôturée définitivement",
+      });
+      
+      // Recharger l'historique pour mettre à jour l'affichage
+      await loadSubmissionHistory(task.id);
+      
+      setIsFinalizeDialogOpen(false);
+    } catch (error) {
+      console.error('Erreur lors de la finalisation de la tâche:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de finaliser la tâche",
         variant: "destructive",
       });
     }
@@ -521,25 +769,27 @@ const TaskDetails: React.FC = () => {
   };
   
   const getStatusColor = (status: string) => {
-    const statusMap: Record<string, string> = {
-      assigned: 'bg-yellow-500',
-      in_progress: 'bg-blue-500',
-      submitted: 'bg-orange-500',
-      validated: 'bg-green-500',
-      rejected: 'bg-red-500'
-    };
-    return statusMap[status] || 'bg-gray-500';
+    switch (status) {
+      case 'assigned': return 'bg-gray-500';
+      case 'in_progress': return 'bg-blue-500';
+      case 'submitted': return 'bg-yellow-500';
+      case 'validated': return 'bg-green-500';
+      case 'rejected': return 'bg-red-500';
+      case 'finalized': return 'bg-purple-500';
+      default: return 'bg-gray-500';
+    }
   };
   
   const getStatusLabel = (status: string) => {
-    const statusMap: Record<string, string> = {
-      assigned: 'Assignée',
-      in_progress: 'En cours',
-      submitted: 'Soumise',
-      validated: 'Validée',
-      rejected: 'Rejetée'
-    };
-    return statusMap[status] || 'Inconnu';
+    switch (status) {
+      case 'assigned': return 'Assignée';
+      case 'in_progress': return 'En cours';
+      case 'submitted': return 'Soumise';
+      case 'validated': return 'Validée';
+      case 'rejected': return 'Rejetée';
+      case 'finalized': return 'Finalisée';
+      default: return 'Inconnu';
+    }
   };
   
   if (loading) {
@@ -762,7 +1012,7 @@ const TaskDetails: React.FC = () => {
               </Button>
             )}
             
-            {isAssignedUser && (task.status === 'assigned' || task.status === 'in_progress' || task.status === 'rejected') && (
+            {isAssignedUser && (task.status === 'assigned' || task.status === 'in_progress' || task.status === 'rejected') && !hasPendingSubmission && (
               <Button 
                 onClick={handleOpenSubmitDialog}
                 className="bg-green-600 hover:bg-green-700"
@@ -772,8 +1022,23 @@ const TaskDetails: React.FC = () => {
               </Button>
             )}
             
+            {/* Message when submission is pending */}
+            {isAssignedUser && hasPendingSubmission && task.status !== 'finalized' && (
+              <div className="text-sm text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
+                Une soumission est en attente de validation. Vous pourrez soumettre à nouveau après validation ou rejet.
+              </div>
+            )}
+            
+            {/* Message when task is finalized */}
+            {task.status === 'finalized' && (
+              <div className="text-sm text-purple-600 bg-purple-50 p-2 rounded border border-purple-200">
+                <CheckCircle2 className="h-4 w-4 inline mr-2" />
+                Cette tâche a été finalisée et clôturée définitivement par l'administration.
+              </div>
+            )}
+            
             {/* Actions for validators */}
-            {(isValidator || isAdmin) && task.status === 'submitted' && (
+            {(isValidator || isAdmin) && (task.status === 'submitted' || hasPendingSubmission) && task.status !== 'finalized' && (
               <div className="flex gap-2">
                 <Button 
                   onClick={handleOpenValidateDialog}
@@ -790,6 +1055,17 @@ const TaskDetails: React.FC = () => {
                   Rejeter
                 </Button>
               </div>
+            )}
+            
+            {/* Admin final validation */}
+            {isAdmin && task.status === 'validated' && (
+              <Button 
+                onClick={handleOpenFinalizeDialog}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+                Validation finale (Clôturer)
+              </Button>
             )}
           </CardFooter>
         </Card>
@@ -810,41 +1086,53 @@ const TaskDetails: React.FC = () => {
                 </div>
               </div>
               
-              {/* Timeline item for task start */}
-              {(task.status === 'in_progress' || task.status === 'submitted' || task.status === 'validated' || task.status === 'rejected') && (
-                <div className="relative pl-6 pb-6 border-l-2 border-gray-200">
-                  <div className="absolute left-[-9px] top-0 w-4 h-4 rounded-full bg-blue-500 border-4 border-white"></div>
+              {/* Dynamic timeline from submission history */}
+              {submissionHistory.map((entry, index) => (
+                <div key={entry.id} className="relative pl-6 pb-6 border-l-2 border-gray-200">
+                  <div className={`absolute left-[-9px] top-0 w-4 h-4 rounded-full ${TASK_SUBMISSION_ACTION_COLORS[entry.action_type]} border-4 border-white`}></div>
                   <div className="text-sm">
-                    <p className="font-medium">Tâche démarrée</p>
+                    <p className="font-medium">{TASK_SUBMISSION_ACTION_LABELS[entry.action_type]}</p>
                     <p className="text-gray-500">
-                      {/* We don't have exact time for task start, using updated_at as approximation */}
-                      {formatDateTime(task.updated_at)}
+                      {formatDateTime(entry.performed_at)}
+                      {entry.performer && (
+                        <span> par {entry.performer.first_name} {entry.performer.last_name}</span>
+                      )}
                     </p>
+                    
+                    {/* Show file info for submissions */}
+                    {(entry.action_type === 'submitted' || entry.action_type === 'resubmitted') && entry.file_url && (
+                      <div className="mt-2 p-2 bg-gray-50 rounded">
+                        <div className="flex items-center gap-2">
+                          <FileUp className="h-4 w-4 text-gray-500" />
+                          <a 
+                            href={entry.file_url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline text-xs"
+                          >
+                            {entry.file_name || 'Fichier soumis'}
+                          </a>
+                        </div>
+                        {entry.comment && (
+                          <p className="text-xs text-gray-600 mt-1">{entry.comment}</p>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Show validation/rejection comments */}
+                    {(entry.action_type === 'validated' || entry.action_type === 'rejected' || entry.action_type === 'finalized') && entry.validation_comment && (
+                      <div className="mt-2 p-2 bg-gray-50 rounded">
+                        <p className="text-xs text-gray-600">{entry.validation_comment}</p>
+                      </div>
+                    )}
                   </div>
                 </div>
-              )}
+              ))}
               
-              {/* Timeline item for task submission */}
-              {(task.status === 'submitted' || task.status === 'validated' || task.status === 'rejected') && task.submitted_at && (
-                <div className="relative pl-6 pb-6 border-l-2 border-gray-200">
-                  <div className="absolute left-[-9px] top-0 w-4 h-4 rounded-full bg-orange-500 border-4 border-white"></div>
-                  <div className="text-sm">
-                    <p className="font-medium">Livrable soumis</p>
-                    <p className="text-gray-500">{formatDateTime(task.submitted_at)}</p>
-                  </div>
-                </div>
-              )}
-              
-              {/* Timeline item for task validation */}
-              {(task.status === 'validated' || task.status === 'rejected') && task.validated_at && (
-                <div className="relative pl-6 pb-6 border-l-2 border-gray-200">
-                  <div className={`absolute left-[-9px] top-0 w-4 h-4 rounded-full ${task.status === 'validated' ? 'bg-green-500' : 'bg-red-500'} border-4 border-white`}></div>
-                  <div className="text-sm">
-                    <p className="font-medium">
-                      {task.status === 'validated' ? 'Livrable validé' : 'Livrable rejeté'}
-                    </p>
-                    <p className="text-gray-500">{formatDateTime(task.validated_at)}</p>
-                  </div>
+              {/* Show message if no submission history */}
+              {submissionHistory.length === 0 && (
+                <div className="text-center py-4 text-gray-500 text-sm">
+                  Aucune action effectuée sur cette tâche
                 </div>
               )}
             </div>
@@ -983,6 +1271,53 @@ const TaskDetails: React.FC = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      
+      {/* Finalize dialog */}
+      <Dialog open={isFinalizeDialogOpen} onOpenChange={setIsFinalizeDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Validation finale et clôture</DialogTitle>
+            <DialogDescription>
+              Vous êtes sur le point de finaliser définitivement cette tâche. 
+              Une fois finalisée, la tâche ne pourra plus être modifiée, désassignée ou réassignée.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-md">
+              <div className="flex items-center gap-2 text-amber-800 mb-2">
+                <AlertTriangle className="h-4 w-4" />
+                <span className="font-medium">Attention</span>
+              </div>
+              <p className="text-sm text-amber-700">
+                Cette action est irréversible. La tâche sera définitivement clôturée et ne pourra plus être modifiée.
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-1 gap-2">
+              <Label htmlFor="finalize-comment">Commentaire de validation finale (optionnel)</Label>
+              <Textarea
+                id="finalize-comment"
+                rows={4}
+                placeholder="Ajoutez un commentaire pour la validation finale..."
+                value={validationComment}
+                onChange={(e) => setValidationComment(e.target.value)}
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsFinalizeDialogOpen(false)}>Annuler</Button>
+            <Button 
+              onClick={handleFinalizeTask}
+              className="bg-purple-600 hover:bg-purple-700"
+            >
+              <CheckCircle2 className="h-4 w-4 mr-2" />
+              Finaliser et clôturer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

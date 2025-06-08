@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { cn } from '@/lib/utils';
 import LanguageSelector, { Language } from '@/components/LanguageSelector';
@@ -18,6 +19,7 @@ const Navbar: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { language, setLanguage } = useLanguage();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -29,7 +31,8 @@ const Navbar: React.FC = () => {
   }, []);
 
   const navigateToLogin = () => {
-    window.location.href = '/login';
+    localStorage.setItem('preferredLanguage', language);
+    navigate('/login');
   };
 
   const t = translations[language].navbar;
@@ -56,7 +59,7 @@ const Navbar: React.FC = () => {
             <NavigationMenu>
               <NavigationMenuList>
                 <NavigationMenuItem>
-                  <NavigationMenuTrigger>{t.features}</NavigationMenuTrigger>
+                  <NavigationMenuTrigger>Accompagnement</NavigationMenuTrigger>
                   <NavigationMenuContent>
                     <ul className="grid gap-3 p-4 w-[400px] md:w-[500px] lg:w-[600px] grid-cols-2">
                       {[
@@ -189,7 +192,7 @@ const Navbar: React.FC = () => {
             </NavigationMenu>
             
             <a href="#features" className="text-purple-900 font-medium hover:text-teal-600 transition-colors">
-              {t.features}
+              {t.support}
             </a>
             <a href="#testimonials" className="text-purple-900 font-medium hover:text-teal-600 transition-colors">
               {t.testimonials}
@@ -251,7 +254,7 @@ const Navbar: React.FC = () => {
                 className="text-purple-900 font-medium py-2 hover:text-teal-600 transition-colors"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
-                {t.features}
+                {t.support}
               </a>
               <a 
                 href="#about" 
@@ -265,7 +268,7 @@ const Navbar: React.FC = () => {
                 className="text-purple-900 font-medium py-2 hover:text-teal-600 transition-colors"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
-                {t.features}
+                {t.support}
               </a>
               <a 
                 href="#testimonials" 

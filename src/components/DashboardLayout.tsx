@@ -23,7 +23,9 @@ import {
   Settings,
   User,
   Globe,
-  CheckSquare
+  CheckSquare,
+  BarChart3,
+  FileText
 } from 'lucide-react';
 import { Language } from '@/components/LanguageSelector';
 import {
@@ -38,6 +40,8 @@ import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translations } from '@/lib/translations';
 import { useAuth } from '@/contexts/AuthContext';
+import NotificationBell from '@/components/NotificationBell';
+
 
 // Type pour l'utilisateur du dashboard
 type DashboardUser = {
@@ -374,6 +378,22 @@ const DashboardLayout: React.FC = () => {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
+              
+              {/* Projets Menu Item - Intervenant access */}
+              {!isAdmin && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip="Mes Projets"
+                    isActive={isLinkActive("/dashboard/intervenant/projets")}
+                  >
+                    <Link to="/dashboard/intervenant/projets">
+                      <Briefcase />
+                      <span>Mes Projets</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarContent>
           
@@ -418,6 +438,8 @@ const DashboardLayout: React.FC = () => {
                  location.pathname === "/dashboard/messages" ? t.messages :
                  location.pathname === "/dashboard/video" ? t.videoconference :
                  location.pathname === "/dashboard/tasks" ? t.tasks :
+                 location.pathname === "/dashboard/intervenant/projets" ? "Mes Projets" :
+                 location.pathname.startsWith("/dashboard/intervenant/projets/") ? "Détails du Projet" :
                  location.pathname === "/dashboard/parametres" ? t.settings : ""
                 }
               </h2>
@@ -444,6 +466,11 @@ const DashboardLayout: React.FC = () => {
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
+              
+
+              
+              {/* Notifications */}
+              <NotificationBell />
               
               {/* Menu utilisateur */}
               <DropdownMenu>
@@ -483,6 +510,7 @@ const DashboardLayout: React.FC = () => {
             </div>
           </div>
           <div className="p-6 bg-gray-50 min-h-[calc(100vh-64px)]">
+
             <Outlet />
           </div>
         </SidebarInset>
