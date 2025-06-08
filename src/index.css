@@ -118,4 +118,20 @@
   .card-shadow {
     @apply shadow-[0_10px_40px_-15px_rgba(0,0,0,0.1)] hover:shadow-[0_10px_40px_-15px_rgba(0,0,0,0.2)] transition-all duration-300;
   }
+
+  /* RTL Support for Sidebar */
+  [dir="rtl"] .group[data-side="right"] .peer-data-[variant=inset]:ml-2 {
+    margin-left: 0;
+    margin-right: 0.5rem;
+  }
+  
+  [dir="rtl"] .group[data-side="right"] .peer-data-[state=collapsed]:peer-data-[variant=inset]:ml-2 {
+    margin-left: 0;
+    margin-right: 0.5rem;
+  }
+  
+  [dir="rtl"] .group[data-side="right"] .peer-data-[variant=inset]:ml-0 {
+    margin-left: 0;
+    margin-right: 0;
+  }
 }

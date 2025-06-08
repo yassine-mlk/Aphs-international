@@ -259,7 +259,7 @@ const DashboardLayout: React.FC = () => {
   return (
     <SidebarProvider>
       <div className="flex w-full min-h-screen bg-gray-50" dir={textDirection}>
-        <Sidebar>
+        <Sidebar side={language === 'ar' ? 'right' : 'left'}>
           <SidebarHeader className="flex items-center justify-center py-5 border-b">
             <img src="/aphs-logo.svg" alt="APHS Internationale" className="h-12" />
           </SidebarHeader>
