@@ -3,7 +3,7 @@ import { Language } from "@/components/LanguageSelector";
 export const translations = {
   en: {
     meta: {
-      title: "APHS Builder | Construction Project Management",
+      title: "APHS | Construction Project Management",
       description: "Advanced construction project management software helping teams deliver projects on time and within budget."
     },
     navbar: {
@@ -39,12 +39,11 @@ export const translations = {
     },
     heroSection: {
       title: "Simplify Your Construction Projects Management",
-      subtitle: "Streamline workflows, enhance communication, and deliver projects on time with APHS Builder - the all-in-one construction project management solution.",
+      subtitle: "Streamline workflows, enhance communication, and deliver projects on time with APHS - the all-in-one construction project management solution.",
       cta: {
         primary: "Start Free Trial",
         secondary: "Watch Demo"
-      },
-      users: "construction companies trust us"
+      }
     },
     featuresSection: {
       title: "Powerful Features for Construction Professionals",
@@ -78,30 +77,30 @@ export const translations = {
     },
     benefitsSection: {
       title: "Transform Your Construction Management",
-      subtitle: "Real results from construction companies like yours who implemented APHS Builder.",
+      subtitle: "Real results from construction companies like yours who implemented APHS.",
       benefits: [
         {
-          title: "30% Faster Project Delivery",
-          description: "Accelerate project timelines with streamlined workflows and automation."
+          title: "Livraison de Projet 15% Plus Rapide",
+          description: "Accélérez les délais de projet grâce à des flux de travail rationalisés et à l'automatisation."
         },
         {
-          title: "25% Cost Reduction",
-          description: "Minimize budget overruns with real-time financial tracking and analytics."
+          title: "Réduction des Coûts de 10%",
+          description: "Minimisez les dépassements de budget grâce au suivi financier en temps réel et aux analyses."
         },
         {
-          title: "40% Improved Team Collaboration",
-          description: "Enhance communication and reduce errors with centralized information."
+          title: "Amélioration de la Collaboration d'Équipe de 30%",
+          description: "Améliorez la communication et réduisez les erreurs grâce à des informations centralisées."
         }
       ],
       cta: {
         title: "Ready to revolutionize how you manage construction projects?",
-        subtitle: "Join hundreds of construction companies already saving time and money with APHS Builder.",
+        subtitle: "Join hundreds of construction companies already saving time and money with APHS.",
         button: "Book a Demo"
       }
     },
     testimonialsSection: {
       title: "What Our Clients Say",
-      subtitle: "Don't take our word for it - hear from construction professionals using APHS Builder."
+      subtitle: "Don't take our word for it - hear from construction professionals using APHS."
     },
     aboutSection: {
       title: "Who We Are",
@@ -123,25 +122,24 @@ export const translations = {
     },
     ctaSection: {
       title: "Ready to Transform Your Construction Management?",
-      subtitle: "Get started with APHS Builder today and join hundreds of construction companies already improving their project outcomes.",
+      subtitle: "Get started with APHS today and join hundreds of construction companies already improving their project outcomes.",
       buttons: {
-        trial: "Start Free Trial",
+        trial: "Start",
         demo: "Book a Demo"
       },
       testimonial: {
-        quote: "We reduced our project delays by 40%",
+        quote: "We reduced our project delays by 20%",
         author: "David Miller, Project Director"
       },
       form: {
         name: "Full Name",
         email: "Work Email",
         company: "Company",
-        submit: "Get Started",
-        notice: "No credit card required. Free 14-day trial."
+        submit: "Get Started"
       }
     },
     footer: {
-      copyright: "© 2025 APHS Builder. All rights reserved."
+      copyright: "© 2025 APHS. All rights reserved."
     }
   },
   fr: {
@@ -186,8 +184,7 @@ export const translations = {
       cta: {
         primary: "Essai Gratuit",
         secondary: "Voir la Démo"
-      },
-      users: "entreprises de construction nous font confiance"
+      }
     },
     featuresSection: {
       title: "Fonctionnalités Puissantes pour les Professionnels de la Construction",
@@ -221,30 +218,30 @@ export const translations = {
     },
     benefitsSection: {
       title: "Transformez Votre Gestion de Construction",
-      subtitle: "Résultats réels d'entreprises de construction comme la vôtre qui ont mis en œuvre APHS Builder.",
+      subtitle: "Résultats réels d'entreprises de construction comme la vôtre qui ont mis en œuvre APHS.",
       benefits: [
         {
-          title: "Livraison de Projet 30% Plus Rapide",
+          title: "Livraison de Projet 15% Plus Rapide",
           description: "Accélérez les délais de projet grâce à des flux de travail rationalisés et à l'automatisation."
         },
         {
-          title: "Réduction des Coûts de 25%",
+          title: "Réduction des Coûts de 10%",
           description: "Minimisez les dépassements de budget grâce au suivi financier en temps réel et aux analyses."
         },
         {
-          title: "Amélioration de la Collaboration d'Équipe de 40%",
+          title: "Amélioration de la Collaboration d'Équipe de 30%",
           description: "Améliorez la communication et réduisez les erreurs grâce à des informations centralisées."
         }
       ],
       cta: {
         title: "Prêt à révolutionner votre façon de gérer les projets de construction?",
-        subtitle: "Rejoignez des centaines d'entreprises de construction qui économisent déjà du temps et de l'argent avec APHS Builder.",
+        subtitle: "Rejoignez des centaines d'entreprises de construction qui économisent déjà du temps et de l'argent avec APHS.",
         button: "Réserver une Démo"
       }
     },
     testimonialsSection: {
       title: "Ce que Disent Nos Clients",
-      subtitle: "Ne nous croyez pas sur parole - écoutez les professionnels de la construction qui utilisent APHS Builder."
+      subtitle: "Ne nous croyez pas sur parole - écoutez les professionnels de la construction qui utilisent APHS."
     },
     aboutSection: {
       title: "Qui Sommes-Nous",
@@ -266,21 +263,20 @@ export const translations = {
     },
     ctaSection: {
       title: "Prêt à Transformer Votre Gestion de Construction?",
-      subtitle: "Commencez avec APHS  aujourd'hui et rejoignez des centaines d'entreprises de construction qui améliorent déjà leurs résultats de projet.",
+      subtitle: "Commencez avec APHS aujourd'hui et rejoignez des centaines d'entreprises de construction qui améliorent déjà leurs résultats de projet.",
       buttons: {
-        trial: "Démarrer l'Essai Gratuit",
+        trial: "Démarrer",
         demo: "Réserver une Démo"
       },
       testimonial: {
-        quote: "Nous avons réduit nos retards de projet de 40%",
+        quote: "Nous avons réduit nos retards de projet de 20%",
         author: "David Miller, Directeur de Projet"
       },
       form: {
         name: "Nom Complet",
         email: "Email Professionnel",
         company: "Entreprise",
-        submit: "Commencer",
-        notice: "Pas de carte de crédit requise. Essai gratuit de 14 jours."
+        submit: "Commencer"
       }
     },
     footer: {
@@ -325,12 +321,11 @@ export const translations = {
     },
     heroSection: {
       title: "Simplifique la Gestión de sus Proyectos de Construcción",
-      subtitle: "Optimice los flujos de trabajo, mejore la comunicación y entregue proyectos a tiempo con APHS Builder - la solución todo en uno para la gestión de proyectos de construcción.",
+      subtitle: "Optimice los flujos de trabajo, mejore la comunicación y entregue proyectos a tiempo con APHS - la solución todo en uno para la gestión de proyectos de construcción.",
       cta: {
         primary: "Comenzar Prueba Gratuita",
         secondary: "Ver Demostración"
-      },
-      users: "empresas de construcción confían en nosotros"
+      }
     },
     featuresSection: {
       title: "Potentes Características para Profesionales de la Construcción",
@@ -364,37 +359,37 @@ export const translations = {
     },
     benefitsSection: {
       title: "Transforme su Gestión de Construcción",
-      subtitle: "Resultados reales de empresas de construcción como la suya que implementaron APHS Builder.",
+      subtitle: "Resultados reales de empresas de construcción como la suya que implementaron APHS.",
       benefits: [
         {
-          title: "Entrega de Proyectos 30% Más Rápida",
+          title: "Entrega de Proyectos 15% Más Rápida",
           description: "Acelere los cronogramas de proyectos con flujos de trabajo optimizados y automatización."
         },
         {
-          title: "Reducción de Costos del 25%",
+          title: "Reducción de Costos del 10%",
           description: "Minimice los sobrecostos con seguimiento financiero en tiempo real y análisis."
         },
         {
-          title: "Colaboración de Equipo Mejorada en un 40%",
+          title: "Colaboración de Equipo Mejorada en un 30%",
           description: "Mejore la comunicación y reduzca errores con información centralizada."
         }
       ],
       cta: {
         title: "¿Listo para revolucionar cómo gestiona sus proyectos de construcción?",
-        subtitle: "Únase a cientos de empresas de construcción que ya están ahorrando tiempo y dinero con APHS Builder.",
+        subtitle: "Únase a cientos de empresas de construcción que ya están ahorrando tiempo y dinero con APHS.",
         button: "Agendar una Demostración"
       }
     },
     testimonialsSection: {
       title: "Lo que Dicen Nuestros Clientes",
-      subtitle: "No tome solo nuestra palabra - escuche a los profesionales de la construcción que utilizan APHS Builder."
+      subtitle: "No tome solo nuestra palabra - escuche a los profesionales de la construcción que utilizan APHS."
     },
     aboutSection: {
       title: "Quiénes Somos",
-      subtitle: "Conozca al equipo detrás de APHS Builder, dedicado a revolucionar la gestión de proyectos de construcción.",
+      subtitle: "Conozca al equipo detrás de APHS, dedicado a revolucionar la gestión de proyectos de construcción.",
       mission: {
         title: "Nuestra Misión",
-        content: "En APHS Builder, nos comprometemos a simplificar la gestión de proyectos de construcción a través de tecnología innovadora, ayudando a los equipos a ahorrar tiempo, reducir costos y mejorar la colaboración.",
+        content: "En APHS, nos comprometemos a simplificar la gestión de proyectos de construcción a través de tecnología innovadora, ayudando a los equipos a ahorrar tiempo, reducir costos y mejorar la colaboración.",
         vision: "Nuestra visión es convertirnos en el estándar de la industria para la gestión de proyectos de construcción en todo el mundo."
       },
       values: {
@@ -409,25 +404,24 @@ export const translations = {
     },
     ctaSection: {
       title: "¿Listo para Transformar su Gestión de Construcción?",
-      subtitle: "Comience con APHS Builder hoy y únase a cientos de empresas de construcción que ya están mejorando los resultados de sus proyectos.",
+      subtitle: "Comience con APHS hoy y únase a cientos de empresas de construcción que ya están mejorando sus resultados de proyecto.",
       buttons: {
-        trial: "Iniciar Prueba Gratuita",
-        demo: "Agendar una Demostración"
+        trial: "Comenzar",
+        demo: "Reservar una Demostración"
       },
       testimonial: {
-        quote: "Reducimos los retrasos de nuestros proyectos en un 40%",
-        author: "David Miller, Director de Proyectos"
+        quote: "Redujimos nuestros retrasos de proyecto en un 20%",
+        author: "David Miller, Director de Proyecto"
       },
       form: {
         name: "Nombre Completo",
         email: "Correo Electrónico de Trabajo",
         company: "Empresa",
-        submit: "Empezar",
-        notice: "No se requiere tarjeta de crédito. Prueba gratuita de 14 días."
+        submit: "Empezar"
       }
     },
     footer: {
-      copyright: "© 2025 APHS Builder. Todos los derechos reservados."
+      copyright: "© 2025 APHS. Todos los derechos reservados."
     }
   },
   ar: {
@@ -468,12 +462,11 @@ export const translations = {
     },
     heroSection: {
       title: "بسّط إدارة مشاريع البناء الخاصة بك",
-      subtitle: "قم بتبسيط سير العمل، وتعزيز التواصل، وتسليم المشاريع في الوقت المحدد مع APHS Builder - الحل الشامل لإدارة مشاريع البناء.",
+      subtitle: "قم بتبسيط سير العمل، وتعزيز التواصل، وتسليم المشاريع في الوقت المحدد مع APHS - الحل الشامل لإدارة مشاريع البناء.",
       cta: {
         primary: "ابدأ النسخة التجريبية المجانية",
         secondary: "شاهد العرض التوضيحي"
-      },
-      users: "شركات بناء تثق بنا"
+      }
     },
     featuresSection: {
       title: "ميزات قوية لمحترفي البناء",
@@ -507,37 +500,37 @@ export const translations = {
     },
     benefitsSection: {
       title: "حوّل إدارة البناء الخاصة بك",
-      subtitle: "نتائج حقيقية من شركات البناء مثل شركتك التي نفذت APHS Builder.",
+      subtitle: "نتائج حقيقية من شركات البناء مثل شركتك التي نفذت APHS.",
       benefits: [
         {
-          title: "تسليم المشروع أسرع بنسبة 30%",
+          title: "تسليم المشروع أسرع بنسبة 15%",
           description: "تسريع الجداول الزمنية للمشروع من خلال سير عمل مبسط والأتمتة."
         },
         {
-          title: "تخفيض التكاليف بنسبة 25%",
+          title: "تخفيض التكاليف بنسبة 10%",
           description: "تقليل تجاوزات الميزانية مع التتبع المالي في الوقت الفعلي والتحليلات."
         },
         {
-          title: "تحسين تعاون الفريق بنسبة 40%",
+          title: "تحسين تعاون الفريق بنسبة 30%",
           description: "تعزيز التواصل وتقليل الأخطاء مع المعلومات المركزية."
         }
       ],
       cta: {
         title: "هل أنت مستعد لإحداث ثورة في طريقة إدارتك لمشاريع البناء؟",
-        subtitle: "انضم إلى مئات شركات البناء التي توفر بالفعل الوقت والمال مع APHS Builder.",
+        subtitle: "انضم إلى مئات شركات البناء التي توفر بالفعل الوقت والمال مع APHS.",
         button: "احجز عرضًا توضيحيًا"
       }
     },
     testimonialsSection: {
       title: "ما يقوله عملاؤنا",
-      subtitle: "لا تأخذ كلمتنا فقط - اسمع من محترفي البناء الذين يستخدمون APHS Builder."
+      subtitle: "لا تأخذ كلمتنا فقط - اسمع من محترفي البناء الذين يستخدمون APHS."
     },
     aboutSection: {
       title: "من نحن",
-      subtitle: "تعرف على الفريق وراء APHS Builder، المكرس لإحداث ثورة في إدارة مشاريع البناء.",
+      subtitle: "تعرف على الفريق وراء APHS، المكرس لإحداث ثورة في إدارة مشاريع البناء.",
       mission: {
         title: "مهمتنا",
-        content: "في APHS Builder، نلتزم بتبسيط إدارة مشاريع البناء من خلال التكنولوجيا المبتكرة، مما يساعد الفرق على توفير الوقت وتقليل التكاليف وتحسين التعاون.",
+        content: "في APHS، نلتزم بتبسيط إدارة مشاريع البناء من خلال التكنولوجيا المبتكرة، مما يساعد الفرق على توفير الوقت وتقليل التكاليف وتحسين التعاون.",
         vision: "رؤيتنا هي أن نصبح المعيار الصناعي لإدارة مشاريع البناء في جميع أنحاء العالم."
       },
       values: {
@@ -552,25 +545,24 @@ export const translations = {
     },
     ctaSection: {
       title: "هل أنت مستعد لتحويل إدارة البناء الخاصة بك؟",
-      subtitle: "ابدأ مع APHS Builder اليوم وانضم إلى مئات شركات البناء التي تحسن بالفعل نتائج مشاريعها.",
+      subtitle: "ابدأ مع APHS اليوم وانضم إلى مئات شركات البناء التي تحسن بالفعل نتائج مشاريعها.",
       buttons: {
-        trial: "ابدأ النسخة التجريبية المجانية",
+        trial: "ابدأ الآن",
         demo: "احجز عرضًا توضيحيًا"
       },
       testimonial: {
-        quote: "قمنا بتقليل تأخيرات المشروع بنسبة 40%",
+        quote: "قمنا بتقليل تأخيرات المشروع بنسبة 20%",
         author: "ديفيد ميلر، مدير المشروع"
       },
       form: {
         name: "الاسم الكامل",
         email: "البريد الإلكتروني للعمل",
         company: "الشركة",
-        submit: "ابدأ الآن",
-        notice: "لا تحتاج لبطاقة ائتمان. تجربة مجانية لمدة 14 يومًا."
+        submit: "ابدأ الآن"
       }
     },
     footer: {
-      copyright: "© 2025 APHS Builder. جميع الحقوق محفوظة."
+      copyright: "© 2025 APHS. جميع الحقوق محفوظة."
     }
   }
 };

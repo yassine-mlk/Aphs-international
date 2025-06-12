@@ -382,9 +382,65 @@ const Messages: React.FC = () => {
       return user.last_name;
     } else if (user.name) {
       return user.name;
+    } else if (user.email) {
+      // Au lieu d'afficher l'email complet, afficher seulement la partie avant @
+      return user.email.split('@')[0];
     } else {
-      return user.email || "Utilisateur supprimé";
+      return "Utilisateur supprimé";
     }
+  };
+
+  // Formatage du nom de contact (priorité au nom complet)
+  const formatContactName = (contact: Contact) => {
+    if (!contact || !contact.id) {
+      return "Contact supprimé";
+    }
+    
+    if (contact.first_name && contact.last_name) {
+      return `${contact.first_name} ${contact.last_name}`;
+    } else if (contact.first_name) {
+      return contact.first_name;
+    } else if (contact.last_name) {
+      return contact.last_name;
+    } else {
+      // En dernier recours, utiliser l'email mais avec un formatage plus propre
+      return contact.email.split('@')[0]; // Affiche la partie avant @ de l'email
+    }
+  };
+
+  // Obtenir les initiales d'un utilisateur ou contact pour l'avatar
+  const getInitials = (person: User | Contact) => {
+    if (!person) return "?";
+    
+    // Essayer d'utiliser first_name et last_name
+    if ('first_name' in person && person.first_name && 'last_name' in person && person.last_name) {
+      return `${person.first_name[0]}${person.last_name[0]}`.toUpperCase();
+    }
+    
+    // Essayer d'utiliser first_name seulement
+    if ('first_name' in person && person.first_name) {
+      return person.first_name[0].toUpperCase();
+    }
+    
+    // Essayer d'utiliser last_name seulement
+    if ('last_name' in person && person.last_name) {
+      return person.last_name[0].toUpperCase();
+    }
+    
+    // Essayer d'utiliser name (pour User)
+    if ('name' in person && person.name) {
+      const names = person.name.split(' ');
+      return names.length > 1 
+        ? `${names[0][0]}${names[1][0]}`.toUpperCase()
+        : names[0][0].toUpperCase();
+    }
+    
+    // En dernier recours, utiliser l'email
+    if (person.email) {
+      return person.email[0].toUpperCase();
+    }
+    
+    return "?";
   };
   
   // Changer de conversation active
@@ -426,9 +482,19 @@ const Messages: React.FC = () => {
                      (activeTab === "directs" && conv.type === 'direct') ||
                      (activeTab === "groupes" && conv.type === 'group');
     
+    // Améliorer la recherche pour inclure first_name, last_name et email
     const matchesSearch = conv.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                         conv.participants.some(p => 
-                           formatUserName(p).toLowerCase().includes(searchQuery.toLowerCase()));
+                         conv.participants.some(p => {
+                           const fullName = formatUserName(p).toLowerCase();
+                           const firstName = p.first_name?.toLowerCase() || '';
+                           const lastName = p.last_name?.toLowerCase() || '';
+                           const email = p.email?.toLowerCase() || '';
+                           
+                           return fullName.includes(searchQuery.toLowerCase()) ||
+                                  firstName.includes(searchQuery.toLowerCase()) ||
+                                  lastName.includes(searchQuery.toLowerCase()) ||
+                                  email.includes(searchQuery.toLowerCase());
+                         });
     
     return matchesTab && matchesSearch;
   });
@@ -581,7 +647,7 @@ const Messages: React.FC = () => {
                           text-white
                         `}>
                           {conv.type === 'direct' && conv.participants.length > 0
-                            ? formatUserName(conv.participants[0]).split(' ').map(n => n[0]).join('').substring(0, 2) 
+                            ? getInitials(conv.participants[0])
                             : <Users className="h-5 w-5" />
                           }
                         </AvatarFallback>
@@ -672,7 +738,7 @@ const Messages: React.FC = () => {
                       text-white
                     `}>
                       {activeConversation.type === 'direct' && activeConversation.participants.length > 0
-                        ? formatUserName(activeConversation.participants[0]).split(' ').map(n => n[0]).join('').substring(0, 2)
+                        ? getInitials(activeConversation.participants[0])
                         : <Users className="h-5 w-5" />
                       }
                     </AvatarFallback>
@@ -744,11 +810,11 @@ const Messages: React.FC = () => {
                             <AvatarFallback className={`text-white text-xs ${isDeletedUserMessage ? 'bg-gray-400' : 'bg-aphs-teal'}`}>
                               {isDeletedUserMessage ? "?" : (
                                 msg.sender 
-                                ? formatUserName(msg.sender).split(' ').map(n => n[0]).join('').substring(0, 2)
+                                ? getInitials(msg.sender)
                                 : (activeConversation.type === 'direct'
-                                  ? formatUserName(activeConversation.participants[0]).split(' ').map(n => n[0]).join('').substring(0, 2)
-                                  : formatUserName(activeConversation.participants.find(p => p.id === msg.senderId) || 
-                                    { id: '', email: '', role: '' }).split(' ').map(n => n[0]).join('').substring(0, 2)
+                                  ? getInitials(activeConversation.participants[0])
+                                  : getInitials(activeConversation.participants.find(p => p.id === msg.senderId) || 
+                                    { id: '', email: '', role: '' })
                                 )
                               )}
                             </AvatarFallback>
@@ -888,11 +954,13 @@ const Messages: React.FC = () => {
                   <SelectContent>
                     {contacts.map(contact => (
                       <SelectItem key={contact.id} value={contact.id}>
-                        {contact.first_name && contact.last_name 
-                          ? `${contact.first_name} ${contact.last_name}`
-                          : contact.email
-                        }
+                        {formatContactName(contact)}
                         {contact.role === 'admin' && ' (Admin)'}
+                        {contact.specialty && (
+                          <span className="text-xs text-gray-500 ml-1">
+                            • {contact.specialty}
+                          </span>
+                        )}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -927,11 +995,13 @@ const Messages: React.FC = () => {
                         className="mr-2"
                       />
                       <span>
-                        {contact.first_name && contact.last_name 
-                          ? `${contact.first_name} ${contact.last_name}`
-                          : contact.email
-                        }
+                        {formatContactName(contact)}
                         {contact.role === 'admin' && ' (Admin)'}
+                        {contact.specialty && (
+                          <span className="text-xs text-gray-500 ml-1">
+                            • {contact.specialty}
+                          </span>
+                        )}
                       </span>
                     </div>
                   ))}

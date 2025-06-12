@@ -569,7 +569,7 @@ export function useVideoMeetings() {
           requester:profiles!video_meeting_requests_requested_by_fkey(first_name, last_name, email),
           participants:video_meeting_request_participants(
             id, user_id,
-            user:profiles(id, user_id, first_name, last_name, email)
+            user:profiles(user_id, first_name, last_name, email)
           )
         `)
         .order('requested_time', { ascending: false });

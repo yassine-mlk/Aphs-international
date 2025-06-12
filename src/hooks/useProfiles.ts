@@ -69,11 +69,11 @@ export function useProfiles() {
     }
   }, [fetchData, toast]);
 
-  // Récupérer un profil par son ID
+  // Récupérer un profil par son ID (user_id)
   const getProfileById = useCallback(async (id: string): Promise<Profile | null> => {
     try {
       const profiles = await fetchData<Profile>('profiles', {
-        filters: [{ column: 'id', operator: 'eq', value: id }],
+        filters: [{ column: 'user_id', operator: 'eq', value: id }],
         limit: 1
       });
 
@@ -349,7 +349,7 @@ export function useProfiles() {
         id,
         ...profileData,
         updated_at: new Date().toISOString()
-      });
+      }, [{ column: 'user_id', operator: 'eq', value: id }]);
 
       if (updatedProfile) {
         toast({
@@ -376,7 +376,7 @@ export function useProfiles() {
   const deleteProfile = useCallback(async (id: string): Promise<boolean> => {
     setLoading(true);
     try {
-      const success = await deleteData('profiles', id);
+      const success = await deleteData('profiles', id, 'user_id');
 
       if (success) {
         toast({

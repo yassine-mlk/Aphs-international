@@ -110,8 +110,8 @@ const Tasks: React.FC = () => {
         
         if (userIds.length > 0) {
           const profiles = await fetchData<Intervenant>('profiles', {
-            columns: 'id,email,first_name,last_name,role',
-            filters: userIds.map(id => ({ column: 'id', operator: 'eq', value: id }))
+            columns: 'user_id,email,first_name,last_name,role',
+            filters: userIds.map(id => ({ column: 'user_id', operator: 'eq', value: id }))
           });
           
           // Mapper les profils aux tâches

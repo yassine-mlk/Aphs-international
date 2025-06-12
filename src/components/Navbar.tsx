@@ -111,7 +111,7 @@ const Navbar: React.FC = () => {
                               className="flex flex-col justify-between p-4 h-full rounded-md hover:bg-gray-100"
                             >
                               <div>
-                                <div className="text-sm font-medium text-purple-900 mb-1">{service.title}</div>
+                                <div className="text-sm font-medium text-slate-900 mb-1">{service.title}</div>
                                 <p className="text-sm text-gray-600">{service.description}</p>
                               </div>
                             </a>
@@ -128,10 +128,10 @@ const Navbar: React.FC = () => {
                       <li className="row-span-3">
                         <NavigationMenuLink asChild>
                           <a
-                            className="flex flex-col justify-between h-full rounded-md bg-gradient-to-b from-purple-50 to-teal-50 p-4 no-underline"
+                            className="flex flex-col justify-between h-full rounded-md bg-gradient-to-b from-slate-50 to-teal-50 p-4 no-underline"
                             href="#about"
                           >
-                            <div className="mb-2 mt-4 text-lg font-medium text-purple-900">
+                            <div className="mb-2 mt-4 text-lg font-medium text-slate-900">
                               <img src="/aphs-logo.svg" alt="APHS Internationale" className="h-12" />
                             </div>
                             <p className="text-sm text-gray-600">
@@ -152,7 +152,7 @@ const Navbar: React.FC = () => {
                       <li>
                         <NavigationMenuLink asChild>
                           <a href="#team" className="block p-3 rounded-md hover:bg-gray-100">
-                            <div className="text-sm font-medium text-purple-900 mb-1">
+                            <div className="text-sm font-medium text-slate-900 mb-1">
                               {language === 'fr' ? "Notre équipe" :
                                language === 'en' ? "Our team" :
                                language === 'es' ? "Nuestro equipo" :
@@ -170,7 +170,7 @@ const Navbar: React.FC = () => {
                       <li>
                         <NavigationMenuLink asChild>
                           <a href="#history" className="block p-3 rounded-md hover:bg-gray-100">
-                            <div className="text-sm font-medium text-purple-900 mb-1">
+                            <div className="text-sm font-medium text-slate-900 mb-1">
                               {language === 'fr' ? "Notre histoire" :
                                language === 'en' ? "Our history" :
                                language === 'es' ? "Nuestra historia" :
@@ -191,10 +191,10 @@ const Navbar: React.FC = () => {
               </NavigationMenuList>
             </NavigationMenu>
             
-            <a href="#features" className="text-purple-900 font-medium hover:text-teal-600 transition-colors">
+            <a href="#features" className="text-slate-900 font-medium hover:text-teal-600 transition-colors">
               {t.support}
             </a>
-            <a href="#testimonials" className="text-purple-900 font-medium hover:text-teal-600 transition-colors">
+            <a href="#testimonials" className="text-slate-900 font-medium hover:text-teal-600 transition-colors">
               {t.testimonials}
             </a>
             <LanguageSelector 
@@ -203,7 +203,7 @@ const Navbar: React.FC = () => {
             />
             <Button 
               variant="default" 
-              className="bg-teal-600 hover:bg-purple-900 transition-colors"
+              className="bg-teal-600 hover:bg-slate-700 transition-colors"
               onClick={navigateToLogin}
             >
               {language === 'fr' ? "Connexion" : 
@@ -232,7 +232,7 @@ const Navbar: React.FC = () => {
             </Button>
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="text-purple-900 focus:outline-none"
+              className="text-slate-900 focus:outline-none"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 {isMobileMenuOpen ? (
@@ -251,28 +251,28 @@ const Navbar: React.FC = () => {
             <div className="flex flex-col space-y-3 px-4">
               <a 
                 href="#services" 
-                className="text-purple-900 font-medium py-2 hover:text-teal-600 transition-colors"
+                className="text-slate-900 font-medium py-2 hover:text-teal-600 transition-colors"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 {t.support}
               </a>
               <a 
                 href="#about" 
-                className="text-purple-900 font-medium py-2 hover:text-teal-600 transition-colors"
+                className="text-slate-900 font-medium py-2 hover:text-teal-600 transition-colors"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 {t.about}
               </a>
               <a 
                 href="#features" 
-                className="text-purple-900 font-medium py-2 hover:text-teal-600 transition-colors"
+                className="text-slate-900 font-medium py-2 hover:text-teal-600 transition-colors"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 {t.support}
               </a>
               <a 
                 href="#testimonials" 
-                className="text-purple-900 font-medium py-2 hover:text-teal-600 transition-colors"
+                className="text-slate-900 font-medium py-2 hover:text-teal-600 transition-colors"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 {t.testimonials}

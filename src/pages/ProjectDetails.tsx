@@ -1797,10 +1797,10 @@ const ProjectDetails: React.FC = () => {
     }
   };
   
-  // Ouvrir le modal d'édition
+  // Rediriger vers la page d'édition
   const handleEditProject = () => {
     if (!project) return;
-    navigate('/dashboard/projets');
+    navigate(`/dashboard/projets/edit/${project.id}`);
   };
   
   // Revenir à la liste des projets

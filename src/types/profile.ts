@@ -35,8 +35,8 @@ export const SPECIALTIES = [
 
 // Interface principale pour un profil
 export interface Profile {
-  id: string;
-  user_id?: string; // Optionnel car peut être NULL
+  id: string; // Mapped from user_id for consistency with frontend code
+  user_id: string; // Primary key in database
   first_name: string;
   last_name: string;
   name: string; // Généré automatiquement en base

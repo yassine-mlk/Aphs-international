@@ -445,13 +445,13 @@ const Settings: React.FC = () => {
         const result = await insertData('task_info_sheets', newInfoSheet);
         console.log('Résultat de l\'insertion:', result);
         
-        if (result && Array.isArray(result) && result.length > 0 && result[0]?.id) {
+        if (result && result.id) {
           // Ajouter la nouvelle fiche à la liste locale
           setTaskInfoSheets(prev => [...prev, { 
             ...newInfoSheet, 
-            id: result[0].id, 
-            created_at: new Date().toISOString(), 
-            updated_at: new Date().toISOString() 
+            id: result.id, 
+            created_at: result.created_at || new Date().toISOString(), 
+            updated_at: result.updated_at || new Date().toISOString() 
           }]);
           
           toast({

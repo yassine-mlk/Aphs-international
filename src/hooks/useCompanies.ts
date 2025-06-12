@@ -10,12 +10,13 @@ import {
   CompanyStats,
   validateCompanyData
 } from '../types/company';
+import { Profile } from '../types/profile';
 
 export function useCompanies() {
   const [loading, setLoading] = useState(false);
   const [companies, setCompanies] = useState<Company[]>([]);
   const { toast } = useToast();
-  const { fetchData, insertData, updateData, deleteData, supabase } = useSupabase();
+  const { fetchData, insertData, updateData, deleteData, supabase, getUsers } = useSupabase();
 
   // Récupérer toutes les entreprises
   const getCompanies = useCallback(async (filters?: CompanyFilters, sort?: CompanySortOptions): Promise<Company[]> => {
@@ -352,6 +353,117 @@ export function useCompanies() {
     }
   }, [supabase, toast]);
 
+  // Récupérer tous les employés d'une entreprise
+  const getCompanyEmployees = useCallback(async (companyId: string): Promise<Profile[]> => {
+    setLoading(true);
+    try {
+      // Méthode 1: Essayer d'abord avec la table profiles
+      console.log('🔍 Recherche des employés pour l\'entreprise:', companyId);
+      
+      let employees = await fetchData<Profile>('profiles', {
+        filters: [
+          { column: 'company_id', operator: 'eq', value: companyId },
+          { column: 'status', operator: 'eq', value: 'active' }
+        ],
+        order: { column: 'first_name', ascending: true }
+      });
+
+      console.log('📊 Employés trouvés dans la table profiles:', employees?.length || 0);
+
+      // Méthode 2: Si aucun employé trouvé dans profiles, chercher dans auth.users
+      if (!employees || employees.length === 0) {
+        console.log('🔄 Fallback: recherche dans auth.users...');
+        
+        const userData = await getUsers();
+        
+        if (userData && userData.users) {
+          // Récupérer les détails de l'entreprise pour le nom
+          const companies = await getCompanies();
+          const selectedCompany = companies.find(c => c.id === companyId);
+          const selectedCompanyName = selectedCompany?.name;
+          
+          console.log('🏢 Entreprise sélectionnée:', selectedCompanyName);
+          
+          // Filtrer les utilisateurs par company_id ou company name
+          const filteredUsers = userData.users.filter((user: any) => {
+            const userCompanyId = user.user_metadata?.company_id;
+            const userCompanyName = user.user_metadata?.company;
+            
+            // Exclure les admins et utilisateurs bannis
+            const isAdmin = user.user_metadata?.role === 'admin';
+            const isAdminEmail = user.email?.toLowerCase()?.includes('admin@aphs');
+            
+            if (isAdmin || isAdminEmail || user.banned) return false;
+            
+            // Correspondance par ID ou nom d'entreprise
+            const matchesId = userCompanyId === companyId;
+            const matchesName = selectedCompanyName && userCompanyName === selectedCompanyName;
+            
+            if (matchesId || matchesName) {
+              console.log('✅ Utilisateur correspondant trouvé:', user.email);
+              return true;
+            }
+            
+            return false;
+          });
+
+          console.log('👥 Utilisateurs filtrés trouvés:', filteredUsers.length);
+
+          // Transformer en format Profile complet
+          employees = filteredUsers.map((user: any) => {
+            const firstName = user.user_metadata?.first_name || user.user_metadata?.name?.split(' ')[0] || 'Prénom';
+            const lastName = user.user_metadata?.last_name || user.user_metadata?.name?.split(' ').slice(1).join(' ') || 'Nom';
+            
+            return {
+              id: user.id,
+              user_id: user.id,
+              first_name: firstName,
+              last_name: lastName,
+              name: `${firstName} ${lastName}`,
+              email: user.email || '',
+              phone: user.user_metadata?.phone || '',
+              role: user.user_metadata?.role || 'intervenant',
+              specialty: user.user_metadata?.specialty || '',
+              company: user.user_metadata?.company || selectedCompanyName || 'Indépendant',
+              company_id: companyId,
+              status: user.banned ? 'inactive' : 'active',
+              bio: '',
+              theme: 'light',
+              language: 'fr',
+              email_notifications: true,
+              push_notifications: true,
+              message_notifications: true,
+              update_notifications: true,
+              created_at: user.created_at,
+              updated_at: user.updated_at || user.created_at
+            } as Profile;
+          });
+        }
+      }
+
+      const finalEmployees = employees || [];
+      console.log('📋 Employés finaux retournés:', finalEmployees.length);
+      
+      return finalEmployees;
+    } catch (error) {
+      console.error('❌ Erreur lors de la récupération des employés:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger les employés de cette entreprise",
+        variant: "destructive",
+      });
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchData, getUsers, getCompanies, toast]);
+
+  // Récupérer les employés actifs d'une entreprise seulement
+  const getActiveCompanyEmployees = useCallback(async (companyId: string): Promise<Profile[]> => {
+    const allEmployees = await getCompanyEmployees(companyId);
+    return allEmployees.filter(emp => emp.status === 'active');
+  }, [getCompanyEmployees]);
+
   return {
     // État
     loading,
@@ -372,6 +484,8 @@ export function useCompanies() {
     uploadCompanyLogo,
 
     // Utilitaires
-    setCompanies
+    setCompanies,
+    getCompanyEmployees,
+    getActiveCompanyEmployees
   };
 } 

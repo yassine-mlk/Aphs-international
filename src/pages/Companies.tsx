@@ -21,7 +21,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useSupabase, Company } from '../hooks/useSupabase';
-import { Profile } from '../types/project';
+import { useCompanies } from '../hooks/useCompanies';
+import { Profile } from '../types/profile';
 import CompanyForm from '@/components/CompanyForm';
 import { ArrowUpDown, Building, Flag, Briefcase, Image, Users, Eye } from "lucide-react";
 
@@ -31,7 +32,8 @@ type SortOrder = 'asc' | 'desc';
 
 const Companies: React.FC = () => {
   const { toast } = useToast();
-  const { getCompanies, deleteCompany, fetchData, getUsers } = useSupabase();
+  const { getCompanies, deleteCompany } = useSupabase();
+  const { getCompanyEmployees, loading: loadingEmployees } = useCompanies();
   
   const [companies, setCompanies] = useState<Company[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -42,7 +44,6 @@ const Companies: React.FC = () => {
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [companyEmployees, setCompanyEmployees] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingEmployees, setLoadingEmployees] = useState(false);
   
   // Options de tri
   const [sortField, setSortField] = useState<SortField>('name');
@@ -83,62 +84,12 @@ const Companies: React.FC = () => {
 
   // Charger les employés d'une entreprise
   const loadCompanyEmployees = async (companyId: string) => {
-    setLoadingEmployees(true);
     try {
-      // D'abord essayer avec la table profiles
-      let employees = await fetchData<Profile>('profiles', {
-        filters: [{ column: 'company_id', operator: 'eq', value: companyId }],
-        columns: 'user_id, first_name, last_name, email, role, created_at',
-        order: { column: 'first_name', ascending: true }
-      });
-
-      // Si aucun employé trouvé dans profiles, chercher dans auth.users
-      if (!employees || employees.length === 0) {
-        const userData = await getUsers();
-        
-        if (userData && userData.users) {
-          // Trouver le nom de l'entreprise sélectionnée
-          const selectedCompanyName = companies.find(c => c.id === companyId)?.name;
-          
-          // Filtrer les utilisateurs par company_id ou company name
-          const filteredUsers = userData.users.filter((user: any) => {
-            const userCompanyId = user.user_metadata?.company_id;
-            const userCompanyName = user.user_metadata?.company;
-            
-            // Exclure les admins
-            const isAdmin = user.user_metadata?.role === 'admin';
-            const isAdminEmail = user.email?.toLowerCase()?.includes('admin@aphs');
-            
-            if (isAdmin || isAdminEmail || user.banned) return false;
-            
-            // Correspondance par ID ou nom d'entreprise
-            return userCompanyId === companyId || 
-                   (selectedCompanyName && userCompanyName === selectedCompanyName);
-          });
-
-          // Transformer en format Profile
-          employees = filteredUsers.map((user: any) => ({
-            user_id: user.id,
-            email: user.email || '',
-            first_name: user.user_metadata?.first_name || user.user_metadata?.name?.split(' ')[0] || 'Prénom',
-            last_name: user.user_metadata?.last_name || user.user_metadata?.name?.split(' ').slice(1).join(' ') || 'Nom',
-            role: user.user_metadata?.role || 'intervenant',
-            created_at: user.created_at
-          }));
-        }
-      }
-
-      setCompanyEmployees(employees || []);
+      const employees = await getCompanyEmployees(companyId);
+      setCompanyEmployees(employees);
     } catch (error) {
       console.error('Erreur lors du chargement des employés:', error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de charger les employés de cette entreprise",
-        variant: "destructive",
-      });
       setCompanyEmployees([]);
-    } finally {
-      setLoadingEmployees(false);
     }
   };
 
@@ -506,7 +457,7 @@ const Companies: React.FC = () => {
             ) : (
               <div className="grid gap-4">
                 {companyEmployees.map((employee) => (
-                  <div key={employee.user_id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
+                  <div key={employee.id || employee.user_id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
                     <div className="flex items-center gap-4">
                       <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center">
                         <span className="text-teal-600 font-medium">
@@ -518,6 +469,9 @@ const Companies: React.FC = () => {
                           {employee.first_name} {employee.last_name}
                         </h4>
                         <p className="text-sm text-gray-500">{employee.email}</p>
+                        {employee.specialty && (
+                          <p className="text-xs text-gray-400">{employee.specialty}</p>
+                        )}
                       </div>
                     </div>
                     <div className="text-right">

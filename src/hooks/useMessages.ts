@@ -33,8 +33,9 @@ export interface User {
 
 export interface Conversation {
   id: string;
-  type: 'direct' | 'group';
+  type: 'direct' | 'group' | 'workgroup';
   name?: string;
+  workgroup_id?: string;
   participants: User[];
   lastMessage?: Message;
   unreadCount: number;
@@ -61,75 +62,95 @@ export interface Contact {
 }
 
 export function useMessages() {
-  const { supabase } = useSupabase();
+  const { supabase, getUsers } = useSupabase();
   const { user } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState<boolean>(false);
   const { notifyNewMessage } = useNotificationTriggers();
 
   // Récupérer les contacts disponibles pour l'utilisateur
+  // MÉTHODE CORRIGÉE : Utilise la même approche que la page Intervenants qui fonctionne
   const getAvailableContacts = useCallback(async (): Promise<Contact[]> => {
     if (!user) return [];
     
     try {
       setLoading(true);
       
-      // Debug - afficher l'ID utilisateur utilisé dans l'appel
-      console.log('Appel à get_available_contacts avec user.id:', user.id);
+      console.log('🔍 Récupération des contacts depuis auth.users (même méthode que Intervenants)...');
       
-      // Call the RPC function
-      const rpcCall = supabase
-        .rpc('get_available_contacts', { 
-          p_user_id: user.id 
-        });
+             // Utiliser getUsers() comme dans la page Intervenants qui fonctionne parfaitement
+       const userData = await getUsers();
+      
+      if (userData && userData.users) {
+        console.log('✅ Données utilisateurs récupérées:', userData.users.length, 'utilisateurs');
         
-      // Add timeout of 8 seconds to the fetch operation
-      const response = await withTimeout(
-        rpcCall as unknown as Promise<PostgrestSingleResponse<any>>, 
-        8000, 
-        'La récupération des contacts a expiré'
-      );
-      
-      const { data, error } = response;
-      
-      if (error) {
-        console.error('RPC error details:', error);
-        throw error;
-      }
-      
-      // Log the returned data to debug
-      console.log('Contacts data from RPC (raw):', data);
-      
-      // Si data est null ou undefined, retourner un tableau vide
-      if (!data || !Array.isArray(data) || data.length === 0) {
-        console.warn('Aucun contact retourné');
+        // Transformer les données des utilisateurs en format Contact
+        // MÊME TRANSFORMATION que dans Intervenants.tsx
+        const formattedContacts: Contact[] = userData.users
+          .filter((authUser: any) => {
+            // Exclure l'utilisateur actuel, les admins et les utilisateurs bannis
+            const isCurrentUser = authUser.id === user.id;
+            const isAdmin = authUser.user_metadata?.role === 'admin';
+            const isAdminEmail = authUser.email?.toLowerCase()?.includes('admin@aphs');
+            const isBanned = authUser.banned;
+            
+            return !isCurrentUser && !isAdmin && !isAdminEmail && !isBanned;
+          })
+          .map((authUser: any) => ({
+            id: authUser.id,
+            email: authUser.email || '',
+            // MÊME LOGIQUE que dans Intervenants pour extraire les noms
+            first_name: authUser.user_metadata?.first_name || 
+                       authUser.user_metadata?.name?.split(' ')[0] || '',
+            last_name: authUser.user_metadata?.last_name || 
+                      authUser.user_metadata?.name?.split(' ').slice(1).join(' ') || '',
+            role: authUser.user_metadata?.role || 'intervenant',
+            specialty: authUser.user_metadata?.specialty || ''
+          }));
+        
+        console.log('✅ Contacts formatés depuis auth.users:', formattedContacts.length, 'contacts');
+        console.log('📋 Exemple de contacts:', formattedContacts.slice(0, 3));
+        
+        return formattedContacts;
+      } else {
+        console.warn('⚠️ Aucune donnée utilisateur récupérée');
         return [];
       }
-      
-      // Formater les résultats en type Contact avec les nouveaux noms de colonnes
-      const contacts: Contact[] = data.map((contact: any) => {
-        console.log('Mapping contact:', contact);
-        return {
-          id: contact.contact_id,
-          email: contact.contact_email,
-          first_name: contact.contact_first_name,
-          last_name: contact.contact_last_name,
-          role: contact.contact_role,
-          specialty: contact.contact_specialty
-        };
-      });
-      
-      console.log('Contacts formatés:', contacts);
-      return contacts;
     } catch (error) {
-      console.error('Erreur lors de la récupération des contacts:', error);
+      console.error('❌ Erreur lors de la récupération des contacts depuis auth.users:', error);
       
-      // En cas d'erreur, retourner un tableau vide
-      return [];
+      // Fallback: essayer avec la table profiles si auth.users échoue
+      try {
+        console.log('🔄 Fallback: tentative avec la table profiles...');
+        
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('user_id, email, first_name, last_name, role, specialty, status')
+          .eq('status', 'active')
+          .neq('user_id', user.id)
+          .neq('role', 'admin');
+
+        if (profilesError) throw profilesError;
+
+        const fallbackContacts = (profilesData || []).map(profile => ({
+          id: profile.user_id,
+          email: profile.email || '',
+          first_name: profile.first_name || '',
+          last_name: profile.last_name || '',
+          role: profile.role || 'intervenant',
+          specialty: profile.specialty || ''
+        }));
+
+        console.log('✅ Fallback réussi avec profiles:', fallbackContacts.length, 'contacts');
+        return fallbackContacts;
+      } catch (fallbackError) {
+        console.error('❌ Erreur de fallback aussi:', fallbackError);
+        return [];
+      }
     } finally {
       setLoading(false);
     }
-  }, [user, supabase, toast]);
+  }, [user, supabase]);
 
   // Récupérer toutes les conversations de l'utilisateur
   const getConversations = useCallback(async (): Promise<Conversation[]> => {
@@ -194,36 +215,78 @@ export function useMessages() {
             const participantIds = participants.map((p: any) => p.user_id);
             
             try {
-              // Remplacer par une approche qui fonctionne avec l'API de Supabase
-              // Utiliser directement les profils comme solution principale
-              const { data: profilesData, error: profilesError } = await supabase
-                .from('profiles')
-                .select('id, user_id, role, first_name, last_name, email, specialty')
-                .in('user_id', participantIds);
+              // MÉTHODE CORRIGÉE : Utiliser auth.users d'abord, puis profiles en fallback
+              console.log('🔍 Récupération des participants depuis auth.users...');
               
-              if (!profilesError && profilesData && profilesData.length > 0) {
-                console.log("Profils trouvés pour les participants:", profilesData);
+              // D'abord essayer avec auth.users (même méthode que page Intervenants)
+              const userData = await getUsers();
+              
+              if (userData && userData.users) {
+                // Filtrer les utilisateurs correspondant aux participant IDs
+                const relevantUsers = userData.users.filter((authUser: any) => 
+                  participantIds.includes(authUser.id)
+                );
                 
-                // Utiliser les données des profils
-                participantUsers = profilesData.map(profile => {
-                  const userId = profile.user_id;
-                  const role = profile.role || 'utilisateur';
+                if (relevantUsers.length > 0) {
+                  console.log('✅ Participants trouvés dans auth.users:', relevantUsers.length);
                   
-                  return {
-                    id: userId,
+                  participantUsers = relevantUsers.map((authUser: any) => ({
+                    id: authUser.id,
+                    email: authUser.email || '',
+                    // MÊME LOGIQUE que dans Intervenants pour extraire les noms
+                    first_name: authUser.user_metadata?.first_name || 
+                               authUser.user_metadata?.name?.split(' ')[0] || '',
+                    last_name: authUser.user_metadata?.last_name || 
+                              authUser.user_metadata?.name?.split(' ').slice(1).join(' ') || '',
+                    role: authUser.user_metadata?.role || 'intervenant',
+                    specialty: authUser.user_metadata?.specialty || '',
+                    status: 'offline'
+                  }));
+                } else {
+                  throw new Error('Aucun participant trouvé dans auth.users');
+                }
+              } else {
+                throw new Error('Aucune donnée auth.users');
+              }
+            } catch (error) {
+              console.warn('⚠️ Fallback vers profiles:', error.message);
+              
+              // Fallback: utiliser la table profiles
+              try {
+                const { data: profilesData, error: profilesError } = await supabase
+                  .from('profiles')
+                  .select('user_id, role, first_name, last_name, email, specialty')
+                  .in('user_id', participantIds);
+                
+                if (!profilesError && profilesData && profilesData.length > 0) {
+                  console.log("✅ Profils trouvés pour les participants (fallback):", profilesData);
+                  
+                  participantUsers = profilesData.map(profile => ({
+                    id: profile.user_id,
                     email: profile.email || '',
-                    first_name: profile.first_name || (role === 'admin' ? 'Administrateur' : 
-                              role === 'intervenant' ? 'Intervenant' : 'Utilisateur'),
+                    first_name: profile.first_name || '',
                     last_name: profile.last_name || '',
-                    role: role,
+                    role: profile.role || 'intervenant',
                     specialty: profile.specialty || '',
                     status: 'offline'
-                  };
-                });
-              } else {
-                console.error('Erreur ou aucun profil trouvé:', profilesError);
+                  }));
+                } else {
+                  console.error('❌ Erreur dans fallback profiles:', profilesError);
+                  
+                  // Dernier fallback
+                  participantUsers = participants.map((p: any) => ({
+                    id: p.user_id,
+                    email: '',
+                    first_name: 'Utilisateur',
+                    last_name: '',
+                    role: 'utilisateur',
+                    status: 'offline'
+                  }));
+                }
+              } catch (fallbackError) {
+                console.error('❌ Erreur complète dans récupération participants:', fallbackError);
                 
-                // Fallback si on ne trouve pas les données utilisateur
+                // Dernier fallback
                 participantUsers = participants.map((p: any) => ({
                   id: p.user_id,
                   email: '',
@@ -233,18 +296,6 @@ export function useMessages() {
                   status: 'offline'
                 }));
               }
-            } catch (error) {
-              console.error('Erreur lors de la récupération des informations utilisateur:', error);
-              
-              // Fallback
-              participantUsers = participants.map((p: any) => ({
-                id: p.user_id,
-                email: '',
-                first_name: 'Utilisateur',
-                last_name: '',
-                role: 'utilisateur',
-                status: 'offline'
-              }));
             }
           }
           
@@ -293,6 +344,7 @@ export function useMessages() {
             id: conv.id,
             type: conv.type,
             name: conv.name,
+            workgroup_id: conv.workgroup_id,
             participants: participantUsers,
             lastMessage,
             unreadCount,
@@ -369,40 +421,96 @@ export function useMessages() {
       let senders: Record<string, User> = {};
       if (senderIds.length > 0) {
         try {
-          console.log('Récupération des données des expéditeurs depuis les profils');
+          console.log('🔍 Récupération des expéditeurs depuis auth.users (même méthode que page Intervenants)...');
           
-          const { data: profilesData, error: profilesError } = await supabase
-            .from('profiles')
-            .select('id, user_id, role, first_name, last_name, email, specialty')
-            .in('user_id', senderIds);
+          // Utiliser auth.users en premier (même logique que pour contacts et participants)
+          const userData = await getUsers();
           
-          if (!profilesError && profilesData && profilesData.length > 0) {
-            // Debug 
-            console.log('Début du débogage des profils expéditeurs');
-            if (profilesData.length > 0) {
-              console.log('Structure de la table profiles:', Object.keys(profilesData[0]));
-              console.log('Exemple de profil:', profilesData[0]);
+          if (userData && userData.users) {
+            const relevantSenders = userData.users.filter((authUser: any) => 
+              senderIds.includes(authUser.id)
+            );
+            
+            if (relevantSenders.length > 0) {
+              console.log('✅ Expéditeurs trouvés dans auth.users:', relevantSenders.length);
+              
+              relevantSenders.forEach((authUser: any) => {
+                senders[authUser.id] = {
+                  id: authUser.id,
+                  email: authUser.email || '',
+                  // MÊME LOGIQUE que dans Intervenants pour extraire les noms
+                  first_name: authUser.user_metadata?.first_name || 
+                             authUser.user_metadata?.name?.split(' ')[0] || '',
+                  last_name: authUser.user_metadata?.last_name || 
+                            authUser.user_metadata?.name?.split(' ').slice(1).join(' ') || '',
+                  role: authUser.user_metadata?.role || 'intervenant',
+                  specialty: authUser.user_metadata?.specialty || ''
+                };
+              });
+              
+              // Ajouter les expéditeurs manquants avec des valeurs par défaut
+              senderIds.forEach(senderId => {
+                if (!senders[senderId as string]) {
+                  senders[senderId as string] = {
+                    id: senderId as string,
+                    email: '',
+                    first_name: 'Utilisateur',
+                    last_name: '',
+                    role: 'utilisateur',
+                    specialty: ''
+                  };
+                }
+              });
+            } else {
+              throw new Error('Aucun expéditeur trouvé dans auth.users');
+            }
+          } else {
+            throw new Error('Aucune donnée auth.users');
+          }
+        } catch (error) {
+          console.warn('⚠️ Fallback expéditeurs vers profiles:', error.message);
+          
+          // Fallback: utiliser la table profiles
+          try {
+            const { data: profilesData, error: profilesError } = await supabase
+              .from('profiles')
+              .select('id, user_id, role, first_name, last_name, email, specialty')
+              .in('user_id', senderIds);
+            
+            if (!profilesError && profilesData && profilesData.length > 0) {
+              console.log('✅ Expéditeurs trouvés dans profiles (fallback):', profilesData.length);
+              
+              profilesData.forEach(profile => {
+                senders[profile.user_id] = {
+                  id: profile.user_id,
+                  email: profile.email || '',
+                  first_name: profile.first_name || '',
+                  last_name: profile.last_name || '',
+                  role: profile.role || 'intervenant',
+                  specialty: profile.specialty || ''
+                };
+              });
+            } else {
+              console.error('❌ Erreur dans fallback profiles expéditeurs:', profilesError);
             }
             
-            // Créer un dictionnaire avec les données de profils
-            profilesData.forEach(profile => {
-              const userId = profile.user_id;
-              const role = profile.role || 'utilisateur';
-              
-              senders[userId] = {
-                id: userId,
-                email: profile.email || '',
-                first_name: profile.first_name || (role === 'admin' ? 'Administrateur' : 
-                          role === 'intervenant' ? 'Intervenant' : 'Utilisateur'),
-                last_name: profile.last_name || '',
-                role: role,
-                specialty: profile.specialty || ''
-              };
+            // Ajouter les expéditeurs manquants avec des valeurs par défaut
+            senderIds.forEach(senderId => {
+              if (!senders[senderId as string]) {
+                senders[senderId as string] = {
+                  id: senderId as string,
+                  email: '',
+                  first_name: 'Utilisateur',
+                  last_name: '',
+                  role: 'utilisateur',
+                  specialty: ''
+                };
+              }
             });
-          } else {
-            console.error('Erreur ou aucun profil trouvé pour les expéditeurs:', profilesError);
+          } catch (fallbackError) {
+            console.error('❌ Erreur complète dans récupération expéditeurs:', fallbackError);
             
-            // Fallback - création de valeurs par défaut
+            // Dernier fallback - valeurs par défaut pour tous
             senderIds.forEach(senderId => {
               senders[senderId as string] = {
                 id: senderId as string,
@@ -414,20 +522,6 @@ export function useMessages() {
               };
             });
           }
-        } catch (error) {
-          console.error('Erreur lors de la récupération des données expéditeurs:', error);
-          
-          // Fallback en cas d'erreur
-          senderIds.forEach(senderId => {
-            senders[senderId as string] = {
-              id: senderId as string,
-              email: '',
-              first_name: 'Utilisateur',
-              last_name: '',
-              role: 'utilisateur',
-              specialty: ''
-            };
-          });
         }
       }
       

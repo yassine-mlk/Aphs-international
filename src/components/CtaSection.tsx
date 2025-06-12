@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { translations } from '@/lib/translations';
@@ -28,21 +27,23 @@ const CtaSection: React.FC = () => {
                 >
                   {t.buttons.trial}
                 </Button>
-                <Button 
-                  variant="outline"
-                  className="border-white text-white hover:bg-white/10 transition-colors"
-                  size="lg"
-                >
-                  {t.buttons.demo}
-                </Button>
               </div>
 
               <div className="mt-8 flex items-center">
                 <img 
-                  src="https://images.unsplash.com/photo-1560250097-0b93528c311a?ixlib=rb-4.0.3&auto=format&fit=crop&w=200&q=80" 
-                  alt="Construction professional" 
+                  src="/team/person1.jpg" 
+                  alt="Said Kharrat - PDG APHS"
                   className="w-16 h-16 rounded-full object-cover border-4 border-white"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    const fallback = target.nextElementSibling as HTMLElement;
+                    if (fallback) fallback.style.display = 'flex';
+                  }}
                 />
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-white to-gray-200 text-aphs-navy text-xl font-bold hidden items-center justify-center border-4 border-white">
+                  SK
+                </div>
                 <div className="ml-4">
                   <p className="text-white font-medium">{t.testimonial.quote}</p>
                   <p className="text-white/70 text-sm">{t.testimonial.author}</p>
@@ -85,9 +86,6 @@ const CtaSection: React.FC = () => {
                   {t.form.submit}
                 </Button>
               </form>
-              <p className="text-white/70 text-sm text-center mt-4">
-                {t.form.notice}
-              </p>
             </div>
           </div>
         </div>

@@ -899,7 +899,13 @@ const TaskDetails: React.FC = () => {
                 <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-md">
                   <User className="h-5 w-5 text-gray-500" />
                   <span>
-                    {assignedUser ? `${assignedUser.first_name} ${assignedUser.last_name}` : 'Non assigné'}
+                    {assignedUser ? (
+                      assignedUser.first_name && assignedUser.last_name
+                        ? `${assignedUser.first_name} ${assignedUser.last_name}`
+                        : assignedUser.first_name || assignedUser.last_name
+                        ? `${assignedUser.first_name || ''} ${assignedUser.last_name || ''}`.trim()
+                        : assignedUser.email
+                    ) : 'Non assigné'}
                   </span>
                 </div>
               </div>
@@ -909,7 +915,15 @@ const TaskDetails: React.FC = () => {
                   <Users className="h-5 w-5 text-gray-500" />
                   <span>
                     {validators.length > 0 
-                      ? validators.map(v => `${v.first_name} ${v.last_name}`).join(', ')
+                      ? validators.map(v => {
+                          if (v.first_name && v.last_name) {
+                            return `${v.first_name} ${v.last_name}`;
+                          } else if (v.first_name || v.last_name) {
+                            return `${v.first_name || ''} ${v.last_name || ''}`.trim();
+                          } else {
+                            return v.email;
+                          }
+                        }).join(', ')
                       : 'Aucun validateur défini'}
                   </span>
                 </div>

@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { translations } from '@/lib/translations';
@@ -15,110 +14,122 @@ interface Testimonial {
 const testimonials: Record<string, Testimonial[]> = {
   en: [
     {
-      name: "Sarah Johnson",
-      role: "Project Manager",
-      company: "BuildCorp Inc.",
-      image: "https://images.unsplash.com/photo-1584361853901-dd1904bb7987?crop=faces&cs=tinysrgb&fit=crop&auto=format&w=200&q=80",
-      quote: "APHS Internationale has revolutionized how we manage construction projects. The real-time tracking and budget monitoring features have saved us countless hours and thousands of dollars."
+      name: "Philippe Chognot",
+      role: "Director SOUTH WEST",
+      company: "Stockmeier France",
+      image: "/testimonials/philippe-chognot.jpg",
+      quote: "This project had to be carried out in an occupied environment and in phases to guarantee production continuity. We thank Mr. Kharrat!"
     },
     {
-      name: "Michael Chen",
-      role: "Site Supervisor",
-      company: "Chen Construction Group",
-      image: "https://images.unsplash.com/photo-1564564321837-a57b7070ac4f?crop=faces&cs=tinysrgb&fit=crop&auto=format&w=200&q=80",
-      quote: "The mobile accessibility has been a game-changer for our on-site operations. I can update project status and communicate with the team in real-time, even from remote construction sites."
+      name: "Norbert Fradin",
+      role: "Developer",
+      company: "Fradin Promotion",
+      image: "/testimonials/norbert-fradin.jpg",
+      quote: "APHS and its teams supported us in delivering a 50-unit building within the allotted timeframe and in compliance with quality standards."
     },
     {
-      name: "Elena Rodriguez",
-      role: "Operations Director",
-      company: "Rodriguez Builders",
-      image: "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?crop=faces&cs=tinysrgb&fit=crop&auto=format&w=200&q=80",
-      quote: "We've seen a 40% reduction in project delays since implementing APHS Internationale. The collaboration tools ensure everyone is on the same page, reducing miscommunications and errors."
+      name: "Alice Moll-Bocherel",
+      role: "Director",
+      company: "SEMIDEP",
+      image: "/testimonials/alice-moll-bocherel.jpg",
+      quote: "Mr. Kharrat carried out this project with great transparency and professionalism during the renovation of Hotel Paris 9."
     }
   ],
   fr: [
     {
-      name: "Sarah Johnson",
-      role: "Chef de Projet",
-      company: "BuildCorp Inc.",
-      image: "https://images.unsplash.com/photo-1584361853901-dd1904bb7987?crop=faces&cs=tinysrgb&fit=crop&auto=format&w=200&q=80",
-      quote: "APHS Internationale a révolutionné notre façon de gérer les projets de construction. Les fonctionnalités de suivi en temps réel et de contrôle budgétaire nous ont fait économiser d'innombrables heures et des milliers d'euros."
+      name: "Philippe Chognot",
+      role: "Directeur SUD OUEST",
+      company: "Stockmeier France",
+      image: "/testimonials/philippe-chognot.jpg",
+      quote: "Ce chantier devait se réaliser en milieu occupé et par phase afin de garantir la continuité de la production. Nous remercions Monsieur Kharrat !"
     },
     {
-      name: "Michael Chen",
-      role: "Superviseur de Chantier",
-      company: "Chen Construction Group",
-      image: "https://images.unsplash.com/photo-1564564321837-a57b7070ac4f?crop=faces&cs=tinysrgb&fit=crop&auto=format&w=200&q=80",
-      quote: "L'accessibilité mobile a changé la donne pour nos opérations sur site. Je peux mettre à jour l'état du projet et communiquer avec l'équipe en temps réel, même depuis des chantiers éloignés."
+      name: "Norbert Fradin",
+      role: "Promoteur",
+      company: "Fradin Promotion",
+      image: "/testimonials/norbert-fradin.jpg",
+      quote: "APHS et ses équipes nous ont accompagné dans la livraison d'un immeuble de 50 logements dans les délais impartis et dans le respect de la qualité."
     },
     {
-      name: "Elena Rodriguez",
-      role: "Directrice des Opérations",
-      company: "Rodriguez Builders",
-      image: "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?crop=faces&cs=tinysrgb&fit=crop&auto=format&w=200&q=80",
-      quote: "Nous avons constaté une réduction de 40% des retards de projet depuis l'implémentation d'APHS Internationale. Les outils de collaboration garantissent que tout le monde est sur la même longueur d'onde, réduisant les erreurs et les malentendus."
+      name: "Alice Moll-Bocherel",
+      role: "Directrice",
+      company: "SEMIDEP",
+      image: "/testimonials/alice-moll-bocherel.jpg",
+      quote: "Monsieur Kharrat a réalisé ce chantier avec beaucoup de transparence et de professionnalisme. Rénovation Hôtel Paris 9."
     }
   ],
   es: [
     {
-      name: "Sarah Johnson",
-      role: "Directora de Proyecto",
-      company: "BuildCorp Inc.",
-      image: "https://images.unsplash.com/photo-1584361853901-dd1904bb7987?crop=faces&cs=tinysrgb&fit=crop&auto=format&w=200&q=80",
-      quote: "APHS Internationale ha revolucionado la forma en que gestionamos los proyectos de construcción. Las características de seguimiento en tiempo real y monitoreo de presupuesto nos han ahorrado incontables horas y miles de dólares."
+      name: "Philippe Chognot",
+      role: "Director SUR OESTE",
+      company: "Stockmeier France",
+      image: "/testimonials/philippe-chognot.jpg",
+      quote: "Este proyecto tuvo que realizarse en un entorno ocupado y por fases para garantizar la continuidad de la producción. ¡Agradecemos al Sr. Kharrat!"
     },
     {
-      name: "Michael Chen",
-      role: "Supervisor de Obra",
-      company: "Chen Construction Group",
-      image: "https://images.unsplash.com/photo-1564564321837-a57b7070ac4f?crop=faces&cs=tinysrgb&fit=crop&auto=format&w=200&q=80",
-      quote: "La accesibilidad móvil ha sido un cambio radical para nuestras operaciones en el sitio. Puedo actualizar el estado del proyecto y comunicarme con el equipo en tiempo real, incluso desde sitios de construcción remotos."
+      name: "Norbert Fradin",
+      role: "Promotor",
+      company: "Fradin Promotion",
+      image: "/testimonials/norbert-fradin.jpg",
+      quote: "APHS y sus equipos nos apoyaron en la entrega de un edificio de 50 unidades dentro del plazo asignado y cumpliendo con los estándares de calidad."
     },
     {
-      name: "Elena Rodriguez",
-      role: "Directora de Operaciones",
-      company: "Rodriguez Builders",
-      image: "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?crop=faces&cs=tinysrgb&fit=crop&auto=format&w=200&q=80",
-      quote: "Hemos visto una reducción del 40% en los retrasos de proyectos desde que implementamos APHS Internationale. Las herramientas de colaboración aseguran que todos estén en la misma página, reduciendo los errores y malentendidos."
+      name: "Alice Moll-Bocherel",
+      role: "Directora",
+      company: "SEMIDEP",
+      image: "/testimonials/alice-moll-bocherel.jpg",
+      quote: "El Sr. Kharrat llevó a cabo este proyecto con gran transparencia y profesionalismo durante la renovación del Hotel Paris 9."
     }
   ],
   ar: [
     {
-      name: "سارة جونسون",
-      role: "مديرة المشروع",
-      company: "بيلدكورب",
-      image: "https://images.unsplash.com/photo-1584361853901-dd1904bb7987?crop=faces&cs=tinysrgb&fit=crop&auto=format&w=200&q=80",
-      quote: "لقد أحدثت APHS Internationale ثورة في طريقة إدارتنا لمشاريع البناء. لقد وفرت ميزات التتبع في الوقت الحقيقي ومراقبة الميزانية ساعات لا تحصى وآلاف الدولارات."
+      name: "فيليب شونو",
+      role: "مدير الجنوب الغربي",
+      company: "ستوكماير فرنسا",
+      image: "/testimonials/philippe-chognot.jpg",
+      quote: "كان يجب تنفيذ هذا المشروع في بيئة مشغولة وعلى مراحل لضمان استمرارية الإنتاج. نشكر السيد خرات!"
     },
     {
-      name: "مايكل تشن",
-      role: "مشرف الموقع",
-      company: "مجموعة تشن للإنشاءات",
-      image: "https://images.unsplash.com/photo-1564564321837-a57b7070ac4f?crop=faces&cs=tinysrgb&fit=crop&auto=format&w=200&q=80",
-      quote: "كانت إمكانية الوصول عبر الهاتف المحمول بمثابة نقلة نوعية لعملياتنا في الموقع. يمكنني تحديث حالة المشروع والتواصل مع الفريق في الوقت الفعلي، حتى من مواقع البناء النائية."
+      name: "نوربرت فرادين",
+      role: "مطور",
+      company: "فرادين بروموشن",
+      image: "/testimonials/norbert-fradin.jpg",
+      quote: "دعمتنا APHS وفرقها في تسليم مبنى من 50 وحدة ضمن الإطار الزمني المخصص ووفقاً لمعايير الجودة."
     },
     {
-      name: "إيلينا رودريغيز",
-      role: "مديرة العمليات",
-      company: "رودريغيز للبناء",
-      image: "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?crop=faces&cs=tinysrgb&fit=crop&auto=format&w=200&q=80",
-      quote: "شهدنا انخفاضًا بنسبة 40٪ في تأخيرات المشاريع منذ تنفيذ APHS Internationale. تضمن أدوات التعاون أن يكون الجميع على نفس الصفحة، مما يقلل من سوء التفاهم والأخطاء."
+      name: "أليس مول-بوشيريل",
+      role: "مديرة",
+      company: "سيميديب",
+      image: "/testimonials/alice-moll-bocherel.jpg",
+      quote: "نفذ السيد خرات هذا المشروع بشفافية ومهنية كبيرة خلال تجديد فندق باريس 9."
     }
   ]
 };
 
 const TestimonialsSection: React.FC = () => {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const sectionRef = useRef<HTMLDivElement>(null);
   const { language } = useLanguage();
   
+  const changeTestimonial = (newIndex: number) => {
+    if (newIndex === activeIndex || isTransitioning) return;
+    
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setActiveIndex(newIndex);
+      setTimeout(() => setIsTransitioning(false), 100);
+    }, 300);
+  };
+  
   useEffect(() => {
     const interval = setInterval(() => {
-      setActiveIndex(current => (current + 1) % testimonials[language].length);
-    }, 5000);
+      const nextIndex = (activeIndex + 1) % testimonials[language].length;
+      changeTestimonial(nextIndex);
+    }, 6000);
     
     return () => clearInterval(interval);
-  }, [language]);
+  }, [language, activeIndex]);
 
   useEffect(() => {
     const observer = new IntersectionObserver((entries) => {
@@ -145,7 +156,7 @@ const TestimonialsSection: React.FC = () => {
   const currentTestimonials = testimonials[language] || testimonials.en;
 
   return (
-    <section id="testimonials" className="py-20 px-4 bg-gray-50" dir={textDirection}>
+    <section id="testimonials" className="py-20 px-4 bg-gradient-to-br from-slate-50 to-white" dir={textDirection}>
       <div ref={sectionRef} className="container mx-auto opacity-0">
         <div className="text-center max-w-2xl mx-auto mb-16">
           <h2 className="text-3xl md:text-4xl font-bold text-aphs-navy mb-4">
@@ -156,38 +167,91 @@ const TestimonialsSection: React.FC = () => {
           </p>
         </div>
         
-        <div className="max-w-4xl mx-auto">
-          <div className="bg-white rounded-2xl shadow-xl p-8 md:p-12 relative">
-            <div className="absolute -top-6 -left-6 w-12 h-12 bg-aphs-teal rounded-full z-0"></div>
-            <div className="absolute -bottom-6 -right-6 w-12 h-12 bg-aphs-orange rounded-full z-0"></div>
+        <div className="max-w-5xl mx-auto">
+          <div className="bg-white rounded-3xl shadow-2xl p-8 md:p-12 relative overflow-hidden">
+            {/* Éléments décoratifs */}
+            <div className="absolute -top-6 -left-6 w-16 h-16 bg-gradient-to-br from-aphs-teal to-blue-500 rounded-full opacity-20"></div>
+            <div className="absolute -bottom-6 -right-6 w-20 h-20 bg-gradient-to-br from-blue-400 to-teal-500 rounded-full opacity-20"></div>
             
             <div className="relative z-10">
-              <div className="text-4xl text-aphs-teal mb-6">"</div>
-              <p className="text-lg md:text-xl text-aphs-navy mb-6 min-h-[100px]">
-                {currentTestimonials[activeIndex].quote}
-              </p>
-              <div className="flex items-center">
-                <Avatar className="h-14 w-14 mr-4">
-                  <AvatarImage src={currentTestimonials[activeIndex].image} alt={currentTestimonials[activeIndex].name} />
-                  <AvatarFallback>{currentTestimonials[activeIndex].name.substring(0, 2)}</AvatarFallback>
-                </Avatar>
-                <div>
-                  <h4 className="font-semibold text-aphs-navy">{currentTestimonials[activeIndex].name}</h4>
-                  <p className="text-sm text-aphs-gray">{currentTestimonials[activeIndex].role}, {currentTestimonials[activeIndex].company}</p>
+              <div className="flex flex-col md:flex-row items-center gap-8">
+                {/* Image du témoignage */}
+                <div className="flex-shrink-0">
+                  <div className={`w-32 h-40 rounded-2xl border-4 border-aphs-teal shadow-xl overflow-hidden bg-gradient-to-br from-slate-100 to-white transition-all duration-500 ${isTransitioning ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
+                    <img 
+                      src={currentTestimonials[activeIndex].image} 
+                      alt={currentTestimonials[activeIndex].name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        const fallback = target.nextElementSibling as HTMLElement;
+                        if (fallback) fallback.style.display = 'flex';
+                      }}
+                    />
+                    <div className="w-full h-full bg-gradient-to-br from-aphs-teal to-blue-500 text-white text-2xl font-bold hidden items-center justify-center">
+                      {currentTestimonials[activeIndex].name.substring(0, 2)}
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Contenu du témoignage */}
+                <div className="flex-1">
+                  <div className="text-4xl text-aphs-teal mb-4">"</div>
+                  <p className={`text-lg md:text-xl text-aphs-navy mb-6 leading-relaxed transition-all duration-500 ${isTransitioning ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'}`}>
+                    {currentTestimonials[activeIndex].quote}
+                  </p>
+                  <div className={`transition-all duration-500 delay-100 ${isTransitioning ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'}`}>
+                    <h4 className="font-bold text-aphs-navy text-lg mb-1">{currentTestimonials[activeIndex].name}</h4>
+                    <p className="text-aphs-teal font-medium">{currentTestimonials[activeIndex].role}</p>
+                    <p className="text-sm text-aphs-gray">{currentTestimonials[activeIndex].company}</p>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
           
-          <div className="flex justify-center mt-8">
+          {/* Navigation points */}
+          <div className="flex justify-center mt-8 space-x-3">
             {currentTestimonials.map((_, index) => (
               <button
                 key={index}
-                onClick={() => setActiveIndex(index)}
-                className={`w-3 h-3 rounded-full mx-1 ${activeIndex === index ? 'bg-aphs-teal' : 'bg-gray-300'}`}
+                onClick={() => changeTestimonial(index)}
+                className={`w-3 h-3 rounded-full transition-all duration-300 hover:scale-125 ${
+                  activeIndex === index 
+                    ? 'bg-aphs-teal shadow-lg' 
+                    : 'bg-gray-300 hover:bg-gray-400'
+                }`}
                 aria-label={`View testimonial ${index + 1}`}
               />
             ))}
+          </div>
+          
+          {/* Navigation arrows */}
+          <div className="flex justify-between items-center mt-6">
+            <button
+              onClick={() => changeTestimonial((activeIndex - 1 + currentTestimonials.length) % currentTestimonials.length)}
+              className="p-3 rounded-full bg-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110 text-aphs-teal"
+              aria-label="Previous testimonial"
+            >
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
+            </button>
+            
+            <div className="text-center">
+              <span className="text-sm text-aphs-gray">{activeIndex + 1} / {currentTestimonials.length}</span>
+            </div>
+            
+            <button
+              onClick={() => changeTestimonial((activeIndex + 1) % currentTestimonials.length)}
+              className="p-3 rounded-full bg-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110 text-aphs-teal"
+              aria-label="Next testimonial"
+            >
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+              </svg>
+            </button>
           </div>
         </div>
       </div>

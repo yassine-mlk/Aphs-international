@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Variables d'Environnement Supabase</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .success { color: green; }
+        .error { color: red; }
+        .warning { color: orange; }
+        .info { background: #f0f0f0; padding: 10px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Diagnostic Variables d'Environnement</h1>
+    
+    <div id="results"></div>
+    
+    <script type="module">
+        // Test des variables d'environnement
+        const results = document.getElementById('results');
+        
+        function addResult(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = type;
+            div.innerHTML = message;
+            results.appendChild(div);
+        }
+        
+        // Vérifier les variables Vite
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+        const serviceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
+        
+        addResult('<h2>📋 Variables d\'environnement détectées :</h2>');
+        
+        if (supabaseUrl) {
+            addResult(`✅ VITE_SUPABASE_URL: ${supabaseUrl}`, 'success');
+        } else {
+            addResult('❌ VITE_SUPABASE_URL: MANQUANTE', 'error');
+        }
+        
+        if (anonKey) {
+            addResult(`✅ VITE_SUPABASE_ANON_KEY: ${anonKey.substring(0, 20)}...`, 'success');
+        } else {
+            addResult('❌ VITE_SUPABASE_ANON_KEY: MANQUANTE', 'error');
+        }
+        
+        if (serviceKey) {
+            addResult(`✅ VITE_SUPABASE_SERVICE_ROLE_KEY: ${serviceKey.substring(0, 20)}...`, 'success');
+        } else {
+            addResult('❌ VITE_SUPABASE_SERVICE_ROLE_KEY: MANQUANTE - CRITIQUE !', 'error');
+        }
+        
+        // Test de connexion Supabase
+        addResult('<h2>🔗 Test de connexion Supabase :</h2>');
+        
+        if (supabaseUrl && anonKey) {
+            try {
+                // Import dynamique de Supabase
+                import('https://cdn.skypack.dev/@supabase/supabase-js')
+                    .then(({ createClient }) => {
+                        const supabase = createClient(supabaseUrl, anonKey);
+                        
+                        // Test de connexion simple
+                        supabase.from('profiles').select('count', { count: 'exact', head: true })
+                            .then(({ error, count }) => {
+                                if (error) {
+                                    addResult(`❌ Erreur connexion: ${error.message}`, 'error');
+                                } else {
+                                    addResult(`✅ Connexion réussie! ${count || 0} profils dans la base`, 'success');
+                                }
+                            })
+                            .catch(err => {
+                                addResult(`❌ Erreur test connexion: ${err.message}`, 'error');
+                            });
+                            
+                        // Test client admin si service key disponible
+                        if (serviceKey) {
+                            const supabaseAdmin = createClient(supabaseUrl, serviceKey);
+                            addResult('✅ Client admin initialisé', 'success');
+                        }
+                    })
+                    .catch(err => {
+                        addResult(`❌ Erreur import Supabase: ${err.message}`, 'error');
+                    });
+            } catch (error) {
+                addResult(`❌ Erreur test: ${error.message}`, 'error');
+            }
+        } else {
+            addResult('❌ Impossible de tester la connexion - variables manquantes', 'error');
+        }
+        
+        // Instructions
+        addResult('<h2>📝 Instructions :</h2>');
+        addResult('<div class="info">1. Si des variables manquent, créez un fichier <strong>.env.local</strong> à la racine du projet</div>');
+        addResult('<div class="info">2. Ajoutez les variables manquantes (récupérables depuis Supabase Dashboard > Settings > API)</div>');
+        addResult('<div class="info">3. Redémarrez votre serveur de développement après modification du .env</div>');
+        addResult('<div class="info">4. La VITE_SUPABASE_SERVICE_ROLE_KEY est indispensable pour créer des utilisateurs !</div>');
+    </script>
+</body>
+</html> 

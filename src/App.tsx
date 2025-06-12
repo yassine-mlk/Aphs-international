@@ -15,6 +15,7 @@ import ProjectsEs from "./pages/ProjectsEs";
 import ProjectsAr from "./pages/ProjectsAr";
 import ProjectDetails from "./pages/ProjectDetails";
 import ProjectDetailsEn from "./pages/ProjectDetailsEn";
+import EditProject from "./pages/EditProject";
 import Tasks from "./pages/Tasks";
 import TaskDetails from "./pages/TaskDetails";
 import Companies from "./pages/Companies";
@@ -189,6 +190,11 @@ const App = () => {
                 <Route path="projets/:id" element={
                   <AdminRoute>
                     <ProjectDetails />
+                  </AdminRoute>
+                } />
+                <Route path="projets/edit/:id" element={
+                  <AdminRoute>
+                    <EditProject />
                   </AdminRoute>
                 } />
                 

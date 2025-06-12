@@ -68,7 +68,7 @@ export interface WorkGroup {
   id: string;
   name: string;
   description?: string;
-  status: 'actif' | 'inactif';
+  status: 'active' | 'inactive';
   last_activity: string;
   upcoming_meeting?: string;
   created_at: string;
@@ -171,6 +171,14 @@ export function useSupabase() {
         throw error;
       }
 
+      // Special handling for profiles table to map user_id to id
+      if (tableName === 'profiles' && data) {
+        return data.map((item: any) => ({
+          ...item,
+          id: item.user_id // Map user_id to id for consistency with Profile interface
+        })) as T[];
+      }
+
       return data as T[];
     } catch (error) {
       console.error(`Erreur lors de la récupération des données depuis ${tableName}:`, error);
@@ -206,6 +214,14 @@ export function useSupabase() {
         description: "Données ajoutées avec succès",
       });
 
+      // Special handling for profiles table to map user_id to id
+      if (tableName === 'profiles' && result) {
+        return {
+          ...result,
+          id: result.user_id // Map user_id to id for consistency with Profile interface
+        } as T;
+      }
+
       return result as T;
     } catch (error) {
       console.error(`Erreur lors de l'insertion dans ${tableName}:`, error);
@@ -236,7 +252,12 @@ export function useSupabase() {
           query = query.filter(filter.column, filter.operator, filter.value);
         });
       } else if (data.id) {
-        query = query.eq('id', data.id);
+        // Special handling for profiles table - use user_id instead of id
+        if (tableName === 'profiles') {
+          query = query.eq('user_id', data.id);
+        } else {
+          query = query.eq('id', data.id);
+        }
       } else {
         throw new Error('Neither id nor filters provided for update operation');
       }
@@ -251,6 +272,14 @@ export function useSupabase() {
         title: "Succès",
         description: "Données mises à jour avec succès",
       });
+
+      // Special handling for profiles table to map user_id to id
+      if (tableName === 'profiles' && result) {
+        return {
+          ...result,
+          id: result.user_id // Map user_id to id for consistency with Profile interface
+        } as T;
+      }
 
       return result as T;
     } catch (error) {
@@ -475,6 +504,7 @@ export function useSupabase() {
 
   /**
    * Crée un nouvel utilisateur avec un rôle spécifique (par l'administrateur)
+   * VERSION CORRIGÉE avec création manuelle du profil
    */
   const adminCreateUser = useCallback(async (
     email: string,
@@ -484,10 +514,12 @@ export function useSupabase() {
   ): Promise<{ success: boolean; userId?: string; error?: Error }> => {
     try {
       if (!supabaseAdmin) {
-        throw new Error("L'API d'administration n'est pas disponible. Contactez votre administrateur système.");
+        throw new Error("VITE_SUPABASE_SERVICE_ROLE_KEY manquante dans .env.local");
       }
 
-      // Utiliser directement le client admin
+      console.log('🔄 Création utilisateur auth pour:', email);
+
+      // 1. Créer l'utilisateur auth
       const { data, error } = await supabaseAdmin.auth.admin.createUser({
         email,
         password,
@@ -498,12 +530,68 @@ export function useSupabase() {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Erreur création auth:', error);
+        throw error;
+      }
       
       if (data && data.user) {
-        // Note: La création du profil est maintenant gérée par le hook useProfiles.createIntervenant()
-        // Nous ne créons ici que le compte auth, le profil sera créé séparément
-        console.log('Compte auth créé avec succès pour:', data.user.id);
+        console.log('✅ Utilisateur auth créé:', data.user.id);
+
+        // 2. Créer manuellement le profil (contournement du trigger)
+        try {
+          console.log('🔄 Création manuelle du profil...');
+          
+          // Valider company_id - doit être un UUID valide ou null
+          let validCompanyId = null;
+          if (additionalData.company_id && 
+              additionalData.company_id !== 'independant' && 
+              additionalData.company_id !== '' &&
+              typeof additionalData.company_id === 'string' &&
+              additionalData.company_id.length === 36) {
+            validCompanyId = additionalData.company_id;
+          }
+          
+          console.log('📋 Données profil:', {
+            user_id: data.user.id,
+            email: email,
+            first_name: additionalData.first_name || '',
+            last_name: additionalData.last_name || '',
+            role: role,
+            company_id: validCompanyId
+          });
+          
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .insert({
+              user_id: data.user.id,
+              email: email,
+              first_name: additionalData.first_name || '',
+              last_name: additionalData.last_name || '',
+              role: role,
+              specialty: additionalData.specialty || '',
+              company: additionalData.company || 'Indépendant',
+              company_id: validCompanyId,
+              phone: additionalData.phone || '',
+              status: 'active',
+              theme: 'light',
+              language: 'fr',
+              email_notifications: true,
+              push_notifications: true,
+              message_notifications: true,
+              update_notifications: true
+            });
+
+          if (profileError) {
+            console.warn('⚠️ Erreur profil (non bloquante):', profileError);
+            // Le profil n'est pas critique, on continue
+          } else {
+            console.log('✅ Profil créé manuellement avec succès');
+          }
+        } catch (profileError) {
+          console.warn('⚠️ Profil non créé, mais utilisateur auth OK:', profileError);
+          // Ne pas échouer complètement
+        }
 
         toast({
           title: "Succès",
@@ -515,10 +603,22 @@ export function useSupabase() {
 
       throw new Error("Échec de la création de l'utilisateur");
     } catch (error) {
-      console.error('Erreur lors de la création d\'un utilisateur:', error);
+      console.error('❌ Erreur création utilisateur:', error);
+      
+      let errorMessage = "Impossible de créer l'utilisateur";
+      if (error instanceof Error) {
+        if (error.message.includes('SERVICE_ROLE_KEY')) {
+          errorMessage = "Variables d'environnement manquantes (.env.local)";
+        } else if (error.message.includes('User already registered')) {
+          errorMessage = "Un utilisateur avec cet email existe déjà";
+        } else if (error.message.includes('Database error')) {
+          errorMessage = "Erreur de base de données. Le trigger doit être corrigé.";
+        }
+      }
+      
       toast({
         title: "Erreur",
-        description: "Impossible de créer l'utilisateur",
+        description: errorMessage,
         variant: "destructive",
       });
       return { success: false, error: error as Error };
@@ -1085,20 +1185,32 @@ export function useSupabase() {
    */
   const addMembersToWorkGroup = useCallback(async (workgroupId: string, userIds: string[]): Promise<boolean> => {
     try {
-      // Utilisation de la fonction RPC définie dans le SQL
+      console.log('🔄 Ajout de membres au groupe:', { workgroupId, userIds });
+
+      // Insérer directement chaque membre dans workgroup_members
+      const membersToInsert = userIds.map(userId => ({
+        workgroup_id: workgroupId,
+        user_id: userId,
+        role: 'member',
+        joined_at: new Date().toISOString(),
+        status: 'active'
+      }));
+
       const { data, error } = await supabase
-        .rpc('add_members_to_workgroup', { 
-          p_workgroup_id: workgroupId, 
-          p_user_ids: userIds 
-        });
+        .from('workgroup_members')
+        .insert(membersToInsert)
+        .select('*');
 
       if (error) {
+        console.error('❌ Erreur lors de l\'insertion des membres:', error);
         throw error;
       }
 
+      console.log('✅ Membres ajoutés avec succès:', data);
+
       toast({
         title: "Succès",
-        description: "Membres ajoutés au groupe de travail",
+        description: `${userIds.length} membre(s) ajouté(s) au groupe de travail`,
       });
 
       return true;

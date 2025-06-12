@@ -324,18 +324,21 @@ const DashboardLayout: React.FC = () => {
                 </SidebarMenuItem>
               )}
               
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  tooltip={t.workgroups}
-                  isActive={isLinkActive("/dashboard/groupes")}
-                >
-                  <Link to="/dashboard/groupes">
-                    <Users />
-                    <span>{t.workgroups}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              {/* Groupes de travail - Visible uniquement aux admins */}
+              {isAdmin && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip={t.workgroups}
+                    isActive={isLinkActive("/dashboard/groupes")}
+                  >
+                    <Link to="/dashboard/groupes">
+                      <Users />
+                      <span>{t.workgroups}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
               
               <SidebarMenuItem>
                 <SidebarMenuButton

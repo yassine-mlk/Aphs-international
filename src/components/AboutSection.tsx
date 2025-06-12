@@ -108,14 +108,29 @@ const AboutSection: React.FC<AboutSectionProps> = ({ language }) => {
           {teamMembers.map((member, index) => (
             <div 
               key={index}
-              className="team-member opacity-0 translate-y-10 transition-all duration-500 flex flex-col items-center text-center"
+              className="team-member opacity-0 translate-y-10 transition-all duration-500 flex flex-col items-center text-center group"
             >
-              <Avatar className="h-40 w-40 mb-6 border-4 border-aphs-teal shadow-lg">
-                <AvatarImage src={member.image} alt={member.name} />
-                <AvatarFallback>{member.name.substring(0, 2)}</AvatarFallback>
-              </Avatar>
-              <h3 className="text-xl font-bold text-aphs-navy mb-1">{member.name}</h3>
-              <p className="text-aphs-teal font-medium">{member.title[language]}</p>
+              <div className="relative mb-6">
+                <div className="h-72 w-48 rounded-2xl border-4 border-aphs-teal shadow-2xl transition-all duration-300 group-hover:scale-105 group-hover:shadow-3xl overflow-hidden bg-gradient-to-br from-slate-100 to-white">
+                  <img 
+                    src={member.image} 
+                    alt={member.name} 
+                    className="w-full h-full object-cover object-top transition-transform duration-300 group-hover:scale-110"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                      const fallback = target.nextElementSibling as HTMLElement;
+                      if (fallback) fallback.style.display = 'flex';
+                    }}
+                  />
+                  <div className="w-full h-full bg-gradient-to-br from-aphs-teal to-blue-500 text-white text-4xl font-bold hidden items-center justify-center">
+                    {member.name.substring(0, 2)}
+                  </div>
+                </div>
+                <div className="absolute -bottom-3 -right-3 w-8 h-8 bg-gradient-to-br from-aphs-teal to-blue-500 rounded-full opacity-80 animate-pulse"></div>
+              </div>
+              <h3 className="text-2xl font-bold text-aphs-navy mb-2 group-hover:text-aphs-teal transition-colors duration-300">{member.name}</h3>
+              <p className="text-aphs-teal font-medium text-lg">{member.title[language]}</p>
             </div>
           ))}
         </div>

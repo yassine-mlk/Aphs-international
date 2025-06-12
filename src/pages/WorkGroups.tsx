@@ -13,21 +13,17 @@ import {
   DropdownMenuLabel
 } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/components/ui/use-toast';
-import { Plus, Search, MoreHorizontal, Briefcase, Loader2, Users } from 'lucide-react';
+import { Plus, Search, MoreHorizontal, Briefcase, Loader2, Users, Eye, UserPlus, Settings, Trash2, Calendar, Clock, MessageCircle } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useSupabase, WorkGroup, WorkGroupMember, WorkGroupProject } from '../hooks/useSupabase';
+import { useSupabase } from '../hooks/useSupabase';
+import { useWorkGroups, WorkGroupWithMessaging, WorkGroupMember, AvailableUser } from '../hooks/useWorkGroups';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
-
-// Type pour un groupe de travail avec membres et projets
-interface WorkGroupWithDetails extends WorkGroup {
-  members: WorkGroupMember[];
-  projects: WorkGroupProject[];
-}
+import { Separator } from '@/components/ui/separator';
 
 // Type pour un utilisateur récupéré depuis getUsers
 interface UserFromAdmin {
@@ -55,9 +51,20 @@ interface FilteredUser {
 
 const WorkGroups: React.FC = () => {
   const { toast } = useToast();
-  const { getWorkGroups, getWorkGroupMembers, getWorkGroupProjects, createWorkGroup, updateWorkGroup, deleteWorkGroup, addMembersToWorkGroup, removeMemberFromWorkGroup, getUsers, addProjectToWorkGroup, removeProjectFromWorkGroup } = useSupabase();
+  const { 
+    getWorkGroupsWithMessaging, 
+    createWorkGroupWithMessaging,
+    updateWorkGroup,
+    deleteWorkGroup,
+    addMembersToWorkGroup,
+    removeMemberFromWorkGroup,
+    addProjectToWorkGroup,
+    removeProjectFromWorkGroup,
+    getAvailableUsers, // Nouvelle fonction
+    loading: workgroupsLoading 
+  } = useWorkGroups();
   
-  const [workGroups, setWorkGroups] = useState<WorkGroupWithDetails[]>([]);
+  const [workGroups, setWorkGroups] = useState<WorkGroupWithMessaging[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [filter, setFilter] = useState("tous");
   const [searchQuery, setSearchQuery] = useState("");
@@ -65,11 +72,15 @@ const WorkGroups: React.FC = () => {
   // États pour le dialogue de création/modification
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [selectedGroup, setSelectedGroup] = useState<WorkGroupWithDetails | null>(null);
-  const [formData, setFormData] = useState({
+  const [selectedGroup, setSelectedGroup] = useState<WorkGroupWithMessaging | null>(null);
+  const [formData, setFormData] = useState<{
+    name: string;
+    description: string;
+    status: 'active' | 'inactive';
+  }>({
     name: '',
     description: '',
-    status: 'actif',
+    status: 'active',
   });
   
   // États pour le dialogue de gestion des membres
@@ -85,8 +96,11 @@ const WorkGroups: React.FC = () => {
   // État pour le dialogue de confirmation de suppression
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
-  // Ajouter ces états pour la gestion des intervenants dans le formulaire de création
-  const [availableUsersForCreate, setAvailableUsersForCreate] = useState<FilteredUser[]>([]);
+  // États pour le dialogue de détails
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+
+  // États pour la gestion des intervenants dans le formulaire de création (corrigés)
+  const [availableUsersForCreate, setAvailableUsersForCreate] = useState<AvailableUser[]>([]);
   const [selectedUsersForCreate, setSelectedUsersForCreate] = useState<string[]>([]);
   const [userSearchQueryCreate, setUserSearchQueryCreate] = useState("");
   const [loadingUsers, setLoadingUsers] = useState(false);
@@ -94,32 +108,15 @@ const WorkGroups: React.FC = () => {
   // Charger les groupes au chargement du composant
   useEffect(() => {
     fetchWorkGroups();
-    fetchAllUsers(); // Charger les informations utilisateur au démarrage
+    fetchAllUsersFromProfiles(); // Nouvelle fonction
   }, []);
 
   // Fonction pour récupérer les groupes de travail
   const fetchWorkGroups = async () => {
     setLoading(true);
     try {
-      const data = await getWorkGroups();
-      
-      if (data && data.workgroups) {
-        // Pour chaque groupe, récupérer ses membres et projets
-        const groupsWithDetails = await Promise.all(
-          data.workgroups.map(async (group) => {
-            const members = await getWorkGroupMembers(group.id);
-            const projects = await getWorkGroupProjects(group.id);
-            
-            return {
-              ...group,
-              members,
-              projects
-            };
-          })
-        );
-        
-        setWorkGroups(groupsWithDetails);
-      }
+      const data = await getWorkGroupsWithMessaging();
+      setWorkGroups(data);
     } catch (error) {
       console.error('Erreur lors du chargement des groupes de travail:', error);
       toast({
@@ -132,42 +129,45 @@ const WorkGroups: React.FC = () => {
     }
   };
 
-  // Fonction pour récupérer tous les utilisateurs
-  const fetchAllUsers = async () => {
+  // Nouvelle fonction pour récupérer les utilisateurs depuis profiles
+  const fetchAllUsersFromProfiles = async () => {
+    setLoadingUsers(true);
     try {
-      const userData = await getUsers();
+      console.log('🔍 Chargement des utilisateurs depuis profiles...');
       
-      if (userData && userData.users) {
-        // Filtrer les admin et convertir les données
-        const filteredUsers = (userData.users as UserFromAdmin[])
-          .filter(user => {
-            const isAdmin = user.user_metadata?.role === 'admin';
-            const isAdminEmail = user.email.toLowerCase() === 'admin@aphs.fr' || 
-                              user.email.toLowerCase() === 'admin@aphs.com' || 
-                              user.email.toLowerCase() === 'admin@aphs';
-            return !isAdmin && !isAdminEmail;
-          })
-          .map(user => ({
-            id: user.id,
-            email: user.email,
-            name: user.user_metadata?.name || user.user_metadata?.first_name && user.user_metadata?.last_name 
-              ? `${user.user_metadata.first_name} ${user.user_metadata.last_name}`
-              : user.email,
-            specialty: user.user_metadata?.specialty || '',
-            isMember: false
-          }));
-        
-        setAvailableUsers(filteredUsers);
-        setAvailableUsersForCreate(filteredUsers);
-      }
+      const users = await getAvailableUsers();
+      
+      console.log('✅ Utilisateurs récupérés:', users.length, users);
+      
+      // Convertir pour la compatibilité avec l'interface existante
+      const formattedUsers = users.map(user => ({
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        specialty: user.specialty || '',
+        isMember: false
+      }));
+      
+      setAvailableUsers(formattedUsers);
+      setAvailableUsersForCreate(users);
+      
     } catch (error) {
-      console.error('Erreur lors de la récupération des utilisateurs:', error);
+      console.error('❌ Erreur lors de la récupération des utilisateurs:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de récupérer la liste des utilisateurs",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingUsers(false);
     }
   };
 
   // Filtrer les groupes selon le statut et la recherche
   const filteredGroups = workGroups.filter(group => {
-    const matchesFilter = filter === "tous" || group.status === filter;
+    const matchesFilter = filter === "tous" || 
+                         (filter === "active" && group.status === "active") ||
+                         (filter === "inactive" && group.status === "inactive");
     const matchesSearch = group.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                          (group.description && group.description.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchesFilter && matchesSearch;
@@ -179,48 +179,13 @@ const WorkGroups: React.FC = () => {
     setFormData({
       name: '',
       description: '',
-      status: 'actif',
+      status: 'active',
     });
     setSelectedUsersForCreate([]);
     setUserSearchQueryCreate("");
     
-    // Charger la liste des intervenants disponibles
-    setLoadingUsers(true);
-    try {
-      const userData = await getUsers();
-      
-      if (userData && userData.users) {
-        // Filtrer les admin et convertir les données
-        const filteredUsers = (userData.users as UserFromAdmin[])
-          .filter(user => {
-            const isAdmin = user.user_metadata?.role === 'admin';
-            const isAdminEmail = user.email.toLowerCase() === 'admin@aphs.fr' || 
-                              user.email.toLowerCase() === 'admin@aphs.com' || 
-                              user.email.toLowerCase() === 'admin@aphs';
-            return !isAdmin && !isAdminEmail;
-          })
-          .map(user => ({
-            id: user.id,
-            email: user.email,
-            name: user.user_metadata?.name || user.user_metadata?.first_name && user.user_metadata?.last_name 
-              ? `${user.user_metadata.first_name} ${user.user_metadata.last_name}`
-              : user.email,
-            specialty: user.user_metadata?.specialty || '',
-            isMember: false
-          }));
-        
-        setAvailableUsersForCreate(filteredUsers);
-      }
-    } catch (error) {
-      console.error('Erreur lors de la récupération des utilisateurs:', error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de récupérer la liste des intervenants",
-        variant: "destructive",
-      });
-    } finally {
-      setLoadingUsers(false);
-    }
+    // Charger la liste des intervenants disponibles depuis profiles
+    await fetchAllUsersFromProfiles();
     
     setCreateDialogOpen(true);
   };
@@ -228,36 +193,32 @@ const WorkGroups: React.FC = () => {
   // Gestionnaire pour soumettre le formulaire de création
   const handleSubmitCreate = async () => {
     try {
-      const result = await createWorkGroup({
+      console.log('🚀 Création groupe avec membres:', {
         name: formData.name,
-        description: formData.description,
-        status: formData.status as 'actif' | 'inactif',
+        selectedUsersForCreate,
+        memberIds: selectedUsersForCreate.length > 0 ? selectedUsersForCreate : undefined
       });
       
-      if (result && selectedUsersForCreate.length > 0) {
-        // Ajouter les intervenants sélectionnés au groupe
-        const success = await addMembersToWorkGroup(result.id, selectedUsersForCreate);
-        
-        if (!success) {
-          toast({
-            title: "Avertissement",
-            description: "Le groupe a été créé mais certains intervenants n'ont pas pu être ajoutés",
-            variant: "default",
-          });
-        }
-      }
+      const result = await createWorkGroupWithMessaging({
+        name: formData.name,
+        description: formData.description,
+        status: formData.status,
+        memberIds: selectedUsersForCreate.length > 0 ? selectedUsersForCreate : undefined
+      });
       
-      // Rafraîchir la liste
-      fetchWorkGroups();
-      // Fermer le dialogue
-      setCreateDialogOpen(false);
+      if (result) {
+        // Rafraîchir la liste
+        fetchWorkGroups();
+        // Fermer le dialogue
+        setCreateDialogOpen(false);
+      }
     } catch (error) {
       console.error('Erreur lors de la création du groupe:', error);
     }
   };
 
   // Gestionnaire pour ouvrir le dialogue de modification
-  const handleEditGroup = (group: WorkGroupWithDetails) => {
+  const handleEditGroup = (group: WorkGroupWithMessaging) => {
     setSelectedGroup(group);
     setFormData({
       name: group.name,
@@ -275,7 +236,7 @@ const WorkGroups: React.FC = () => {
       const result = await updateWorkGroup(selectedGroup.id, {
         name: formData.name,
         description: formData.description,
-        status: formData.status as 'actif' | 'inactif',
+        status: formData.status,
       });
       
       if (result) {
@@ -291,7 +252,7 @@ const WorkGroups: React.FC = () => {
   };
 
   // Gestionnaire pour préparer la suppression
-  const handlePrepareDelete = (group: WorkGroupWithDetails) => {
+  const handlePrepareDelete = (group: WorkGroupWithMessaging) => {
     setSelectedGroup(group);
     setDeleteDialogOpen(true);
   };
@@ -320,37 +281,29 @@ const WorkGroups: React.FC = () => {
   };
 
   // Gestionnaire pour ouvrir le dialogue de gestion des membres
-  const handleManageMembers = async (group: WorkGroupWithDetails) => {
+  const handleManageMembers = async (group: WorkGroupWithMessaging) => {
     setSelectedGroup(group);
     setSelectedUsers([]);
     setUserSearchQuery("");
     
     try {
-      const userData = await getUsers();
+      console.log('👥 Gestion membres pour le groupe:', group.name);
       
-      if (userData && userData.users) {
-        // Convertir les données utilisateur
-        const allUsers = (userData.users as UserFromAdmin[])
-          .filter(user => {
-            const isAdmin = user.user_metadata?.role === 'admin';
-            const isAdminEmail = user.email.toLowerCase() === 'admin@aphs.fr' || 
-                          user.email.toLowerCase() === 'admin@aphs.com' || 
-                          user.email.toLowerCase() === 'admin@aphs';
-            return !isAdmin && !isAdminEmail;
-          })
-          .map(user => ({
-            id: user.id,
-            email: user.email,
-            name: user.user_metadata?.name || user.user_metadata?.first_name && user.user_metadata?.last_name 
-              ? `${user.user_metadata.first_name} ${user.user_metadata.last_name}`
-              : user.email,
-            specialty: user.user_metadata?.specialty || '',
-            // Vérifier si l'utilisateur est déjà membre en comparant les IDs
-            isMember: group.members.some(member => member.user_id === user.id)
-          }));
-        
-        setAvailableUsers(allUsers);
-      }
+      // Récupérer les utilisateurs disponibles
+      const users = await getAvailableUsers();
+      
+      // Convertir pour compatibilité et marquer les membres existants
+      const formattedUsers = users.map(user => ({
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        specialty: user.specialty || '',
+        // Vérifier si l'utilisateur est déjà membre en comparant les IDs
+        isMember: group.members.some(member => member.user_id === user.id)
+      }));
+      
+      console.log('👥 Utilisateurs formatés pour gestion membres:', formattedUsers.length);
+      setAvailableUsers(formattedUsers);
     } catch (error) {
       console.error('Erreur lors de la récupération des utilisateurs:', error);
       toast({
@@ -398,8 +351,14 @@ const WorkGroups: React.FC = () => {
     }
   };
 
+  // Gestionnaire pour ouvrir le dialogue de détails
+  const handleViewDetails = (group: WorkGroupWithMessaging) => {
+    setSelectedGroup(group);
+    setDetailsDialogOpen(true);
+  };
+
   // Gestionnaire pour ouvrir le dialogue de gestion des projets
-  const handleManageProjects = (group: WorkGroupWithDetails) => {
+  const handleManageProjects = (group: WorkGroupWithMessaging) => {
     setSelectedGroup(group);
     setNewProject('');
     setProjectsDialogOpen(true);
@@ -437,18 +396,19 @@ const WorkGroups: React.FC = () => {
     }
   };
 
-  // Filtrer les utilisateurs pour la recherche
-  const filteredUsers = availableUsers.filter(user => 
-    user.email.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
-    user.name.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
-    user.specialty.toLowerCase().includes(userSearchQuery.toLowerCase())
+  // Variables calculées pour les filtres
+  const filteredUsersForCreate = availableUsersForCreate.filter(user => 
+    user.name.toLowerCase().includes(userSearchQueryCreate.toLowerCase()) ||
+    user.email.toLowerCase().includes(userSearchQueryCreate.toLowerCase()) ||
+    user.specialty.toLowerCase().includes(userSearchQueryCreate.toLowerCase())
   );
 
-  // Filtrer les utilisateurs pour la recherche dans le formulaire de création
-  const filteredUsersForCreate = availableUsersForCreate.filter(user => 
-    user.email.toLowerCase().includes(userSearchQueryCreate.toLowerCase()) ||
-    user.name.toLowerCase().includes(userSearchQueryCreate.toLowerCase()) ||
-    user.specialty.toLowerCase().includes(userSearchQueryCreate.toLowerCase())
+  const filteredUsers = availableUsers.filter(user => 
+    !user.isMember && (
+      user.name.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+      user.email.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+      user.specialty.toLowerCase().includes(userSearchQuery.toLowerCase())
+    )
   );
 
   // Helper pour obtenir les initiales d'un nom
@@ -541,10 +501,10 @@ const WorkGroups: React.FC = () => {
           <TabsTrigger value="tous" className="flex-1 sm:flex-none py-2 data-[state=active]:bg-white">
             Tous
           </TabsTrigger>
-          <TabsTrigger value="actif" className="flex-1 sm:flex-none py-2 data-[state=active]:bg-white">
+          <TabsTrigger value="active" className="flex-1 sm:flex-none py-2 data-[state=active]:bg-white">
             Actifs
           </TabsTrigger>
-          <TabsTrigger value="inactif" className="flex-1 sm:flex-none py-2 data-[state=active]:bg-white">
+          <TabsTrigger value="inactive" className="flex-1 sm:flex-none py-2 data-[state=active]:bg-white">
             Inactifs
           </TabsTrigger>
         </TabsList>
@@ -564,40 +524,95 @@ const WorkGroups: React.FC = () => {
                   <div className="flex justify-between items-start">
                     <CardTitle className="text-lg">{group.name}</CardTitle>
                     <Badge className={`
-                      ${group.status === 'actif' ? 'bg-green-100 text-green-800 hover:bg-green-100' : ''}
-                      ${group.status === 'inactif' ? 'bg-gray-100 text-gray-800 hover:bg-gray-100' : ''}
+                      ${group.status === 'active' ? 'bg-green-100 text-green-800 hover:bg-green-100' : ''}
+                      ${group.status === 'inactive' ? 'bg-gray-100 text-gray-800 hover:bg-gray-100' : ''}
                     `}>
-                      {group.status === 'actif' ? 'Actif' : 'Inactif'}
+                      {group.status === 'active' ? 'Actif' : 'Inactif'}
                     </Badge>
                   </div>
                   <p className="text-sm text-gray-500">{group.description}</p>
                 </CardHeader>
                 
                 <CardContent className="space-y-4">
-                  {/* Membres du groupe */}
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-700 mb-3">Membres ({group.members.length})</h4>
-                    {renderMembersList(group.members, 'card')}
+                  {/* Statistiques rapides */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="text-center p-2 bg-blue-50 rounded-lg">
+                      <Users className="h-4 w-4 mx-auto mb-1 text-blue-600" />
+                      <p className="text-sm font-medium text-blue-900">{group.members.length}</p>
+                      <p className="text-xs text-blue-600">Membres</p>
+                    </div>
+                    <div className="text-center p-2 bg-green-50 rounded-lg">
+                      <Briefcase className="h-4 w-4 mx-auto mb-1 text-green-600" />
+                      <p className="text-sm font-medium text-green-900">{group.projects.length}</p>
+                      <p className="text-xs text-green-600">Projets</p>
+                    </div>
+                    <div className="text-center p-2 bg-purple-50 rounded-lg">
+                      <MessageCircle className="h-4 w-4 mx-auto mb-1 text-purple-600" />
+                      <p className="text-sm font-medium text-purple-900">0</p>
+                      <p className="text-xs text-purple-600">Messages</p>
+                    </div>
                   </div>
                   
-                  {/* Projets associés */}
+                  {/* Membres du groupe - Aperçu */}
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">Membres</h4>
+                    {group.members.length > 0 ? (
+                      <div className="flex items-center gap-2">
+                        <div className="flex -space-x-2">
+                          {group.members.slice(0, 4).map((member, index) => {
+                            const userInfo = [...availableUsers, ...availableUsersForCreate]
+                              .find(user => user.id === member.user_id);
+                            return (
+                              <Avatar key={member.id} className="h-8 w-8 border-2 border-white">
+                                <AvatarFallback className="bg-blue-600 text-white text-xs">
+                                  {userInfo ? getInitials(userInfo.name) : member.user_id.substring(0, 2).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                            );
+                          })}
+                          {group.members.length > 4 && (
+                            <div className="h-8 w-8 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center">
+                              <span className="text-xs text-gray-600">+{group.members.length - 4}</span>
+                            </div>
+                          )}
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="text-xs"
+                          onClick={() => handleViewDetails(group)}
+                        >
+                          Voir tout
+                        </Button>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">Aucun membre</p>
+                    )}
+                  </div>
+                  
+                  {/* Projets associés - Aperçu */}
                   {group.projects.length > 0 && (
                     <div>
-                      <h4 className="text-sm font-medium text-gray-700 mb-2">Projets associés</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {group.projects.map(project => (
-                          <div key={project.id} className="flex items-center gap-1 bg-gray-100 rounded-md px-2 py-1">
-                            <Briefcase className="h-3 w-3 text-gray-600" />
-                            <span className="text-xs">{project.project_name}</span>
+                      <h4 className="text-sm font-medium text-gray-700 mb-2">Projets récents</h4>
+                      <div className="space-y-1">
+                        {group.projects.slice(0, 2).map(project => (
+                          <div key={project.id} className="flex items-center gap-2 text-sm">
+                            <Briefcase className="h-3 w-3 text-gray-500" />
+                            <span className="truncate">{project.project_name}</span>
                           </div>
                         ))}
+                        {group.projects.length > 2 && (
+                          <p className="text-xs text-gray-500 ml-5">
+                            +{group.projects.length - 2} autres projets
+                          </p>
+                        )}
                       </div>
                     </div>
                   )}
                 </CardContent>
                 
                 <CardFooter className="flex justify-between py-3 px-6 border-t bg-gray-50 text-xs text-gray-500">
-                  <span>Dernière activité: {formatDate(group.last_activity)}</span>
+                  <span>Créé le: {formatDate(group.created_at)}</span>
                   
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -608,13 +623,21 @@ const WorkGroups: React.FC = () => {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                      <DropdownMenuItem onClick={() => handleViewDetails(group)}>
+                        <Eye className="mr-2 h-4 w-4" />
+                        Voir les détails
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleEditGroup(group)}>
+                        <Settings className="mr-2 h-4 w-4" />
                         Modifier
                       </DropdownMenuItem>
+                      <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => handleManageMembers(group)}>
+                        <UserPlus className="mr-2 h-4 w-4" />
                         Gérer les membres
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleManageProjects(group)}>
+                        <Briefcase className="mr-2 h-4 w-4" />
                         Gérer les projets
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
@@ -622,6 +645,7 @@ const WorkGroups: React.FC = () => {
                         onClick={() => handlePrepareDelete(group)}
                         className="text-red-600"
                       >
+                        <Trash2 className="mr-2 h-4 w-4" />
                         Supprimer
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -673,14 +697,14 @@ const WorkGroups: React.FC = () => {
                 <Label htmlFor="status">Statut</Label>
                 <Select
                   value={formData.status}
-                  onValueChange={(value) => setFormData({ ...formData, status: value })}
+                  onValueChange={(value: 'active' | 'inactive') => setFormData({ ...formData, status: value })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Sélectionner un statut" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="actif">Actif</SelectItem>
-                    <SelectItem value="inactif">Inactif</SelectItem>
+                    <SelectItem value="active">Actif</SelectItem>
+                    <SelectItem value="inactive">Inactif</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -804,14 +828,14 @@ const WorkGroups: React.FC = () => {
               <Label htmlFor="edit-status">Statut</Label>
               <Select
                 value={formData.status}
-                onValueChange={(value) => setFormData({ ...formData, status: value })}
+                onValueChange={(value: 'active' | 'inactive') => setFormData({ ...formData, status: value })}
               >
                 <SelectTrigger id="edit-status">
                   <SelectValue placeholder="Sélectionner un statut" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="actif">Actif</SelectItem>
-                  <SelectItem value="inactif">Inactif</SelectItem>
+                  <SelectItem value="active">Actif</SelectItem>
+                  <SelectItem value="inactive">Inactif</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -984,6 +1008,195 @@ const WorkGroups: React.FC = () => {
           </div>
           <DialogFooter>
             <Button onClick={() => setProjectsDialogOpen(false)}>Fermer</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialogue de détails du groupe */}
+      <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
+        <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5" />
+              Détails du groupe de travail
+            </DialogTitle>
+            <DialogDescription>
+              Informations complètes sur le groupe de travail
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedGroup && (
+            <div className="space-y-6 py-4">
+              {/* Informations générales */}
+              <div className="space-y-3">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <Settings className="h-4 w-4" />
+                  Informations générales
+                </h3>
+                <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+                  <div>
+                    <Label className="text-sm font-medium">Nom du groupe</Label>
+                    <p className="text-sm text-gray-600 mt-1">{selectedGroup.name}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Statut</Label>
+                    <div className="mt-1">
+                      <Badge className={`
+                        ${selectedGroup.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}
+                      `}>
+                        {selectedGroup.status === 'active' ? 'Actif' : 'Inactif'}
+                      </Badge>
+                    </div>
+                  </div>
+                  {selectedGroup.description && (
+                    <div className="col-span-2">
+                      <Label className="text-sm font-medium">Description</Label>
+                      <p className="text-sm text-gray-600 mt-1">{selectedGroup.description}</p>
+                    </div>
+                  )}
+                  <div>
+                    <Label className="text-sm font-medium">Créé le</Label>
+                    <div className="flex items-center gap-1 mt-1">
+                      <Calendar className="h-3 w-3 text-gray-500" />
+                      <p className="text-sm text-gray-600">{formatDate(selectedGroup.created_at)}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Dernière activité</Label>
+                    <div className="flex items-center gap-1 mt-1">
+                      <Clock className="h-3 w-3 text-gray-500" />
+                      <p className="text-sm text-gray-600">{formatDate(selectedGroup.updated_at)}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Membres du groupe */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    Membres ({selectedGroup.members.length})
+                  </h3>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      setDetailsDialogOpen(false);
+                      handleManageMembers(selectedGroup);
+                    }}
+                  >
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    Gérer
+                  </Button>
+                </div>
+                
+                <div className="border rounded-lg overflow-hidden">
+                  {selectedGroup.members.length > 0 ? (
+                    <div className="divide-y">
+                      {selectedGroup.members.map((member, index) => {
+                        const userInfo = [...availableUsers, ...availableUsersForCreate]
+                          .find(user => user.id === member.user_id);
+                        
+                        return (
+                          <div key={member.id} className="flex items-center justify-between p-4">
+                            <div className="flex items-center gap-3">
+                              <Avatar>
+                                <AvatarFallback className="bg-blue-600 text-white">
+                                  {userInfo ? getInitials(userInfo.name) : member.user_id.substring(0, 2).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="font-medium">
+                                  {userInfo ? userInfo.name : `Utilisateur (${member.user_id.substring(0, 8)}...)`}
+                                </p>
+                                <p className="text-sm text-gray-500">{userInfo ? userInfo.email : member.role}</p>
+                                {userInfo?.specialty && (
+                                  <p className="text-xs text-gray-400">{userInfo.specialty}</p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <Badge variant="outline" className="text-xs">
+                                {member.role}
+                              </Badge>
+                              <p className="text-xs text-gray-500 mt-1">
+                                Rejoint le {formatDate(member.joined_at)}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="p-8 text-center text-gray-500">
+                      <Users className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                      <p>Aucun membre dans ce groupe</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Projets associés */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <Briefcase className="h-4 w-4" />
+                    Projets associés ({selectedGroup.projects.length})
+                  </h3>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      setDetailsDialogOpen(false);
+                      handleManageProjects(selectedGroup);
+                    }}
+                  >
+                    <Briefcase className="mr-2 h-4 w-4" />
+                    Gérer
+                  </Button>
+                </div>
+                
+                {selectedGroup.projects.length > 0 ? (
+                  <div className="grid gap-2">
+                    {selectedGroup.projects.map(project => (
+                      <div key={project.id} className="flex items-center gap-3 p-3 border rounded-lg bg-gray-50">
+                        <Briefcase className="h-4 w-4 text-gray-600" />
+                        <div className="flex-1">
+                          <p className="font-medium">{project.project_name}</p>
+                          <p className="text-xs text-gray-500">
+                                                            Ajouté le {formatDate(project.created_at)}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-8 text-center text-gray-500 border rounded-lg">
+                    <Briefcase className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p>Aucun projet associé à ce groupe</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button onClick={() => setDetailsDialogOpen(false)}>Fermer</Button>
+            <Button 
+              variant="outline"
+              onClick={() => {
+                setDetailsDialogOpen(false);
+                handleEditGroup(selectedGroup!);
+              }}
+            >
+              <Settings className="mr-2 h-4 w-4" />
+              Modifier
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

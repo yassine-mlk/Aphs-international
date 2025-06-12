@@ -76,7 +76,7 @@ export default function CreateUserForm({ onSuccess }: CreateUserFormProps) {
       };
       
       // Ajouter l'information sur l'entreprise
-      if (companyInputMode === 'select' && companyId) {
+      if (companyInputMode === 'select' && companyId && companyId !== 'independant') {
         additionalData.company_id = companyId;
         
         // Trouver le nom de l'entreprise pour l'affichage
@@ -86,6 +86,7 @@ export default function CreateUserForm({ onSuccess }: CreateUserFormProps) {
         }
       } else {
         additionalData.company = company;
+        // Ne pas définir company_id pour les indépendants
       }
       
       const { success, error } = await adminCreateUser(email, password, role, additionalData);

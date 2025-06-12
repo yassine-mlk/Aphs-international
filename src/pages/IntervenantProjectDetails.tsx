@@ -16,11 +16,24 @@ import {
   AlertCircle,
   Clock,
   User,
-  Users
+  Users,
+  Eye,
+  Download,
+  FileText,
+  Circle,
+  CheckCircle2
 } from "lucide-react";
 import { useSupabase } from "../hooks/useSupabase";
 import { useAuth } from "../contexts/AuthContext";
-import { projectStructure, realisationStructure } from "../utils/projectStructure";
+import { projectStructure, realizationStructure } from "../data/project-structure";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 // Types
 interface Project {
@@ -65,6 +78,19 @@ interface Intervenant {
   specialty?: string;
 }
 
+// Interface pour les fiches informatives
+interface TaskInfoSheet {
+  id: string;
+  phase_id: string;
+  section_id: string;
+  subsection_id: string;
+  task_name: string;
+  info_sheet: string;
+  language: string; // 'fr', 'en', 'es', 'ar'
+  created_at: string;
+  updated_at: string;
+}
+
 const IntervenantProjectDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -82,6 +108,15 @@ const IntervenantProjectDetails: React.FC = () => {
   const [isMember, setIsMember] = useState(false);
   const [loadingMembership, setLoadingMembership] = useState(true);
 
+  // États pour les détails de tâche
+  const [isTaskDetailsDialogOpen, setIsTaskDetailsDialogOpen] = useState(false);
+  const [selectedTaskDetails, setSelectedTaskDetails] = useState<TaskAssignment | null>(null);
+
+  // États pour les fiches informatives
+  const [isInfoSheetDialogOpen, setIsInfoSheetDialogOpen] = useState(false);
+  const [selectedInfoSheet, setSelectedInfoSheet] = useState<TaskInfoSheet | null>(null);
+  const [loadingInfoSheet, setLoadingInfoSheet] = useState(false);
+
   // Vérifier l'accès au projet
   useEffect(() => {
     const checkProjectAccess = async () => {
@@ -89,6 +124,8 @@ const IntervenantProjectDetails: React.FC = () => {
       
       setLoadingMembership(true);
       try {
+        // Pour les intervenants, permettre l'accès à tous les projets car c'est en lecture seule
+        // Vérifier d'abord si l'utilisateur est membre du projet
         const memberData = await fetchData<any>('membre', {
           columns: '*',
           filters: [
@@ -100,21 +137,26 @@ const IntervenantProjectDetails: React.FC = () => {
         if (memberData && memberData.length > 0) {
           setIsMember(true);
         } else {
-          toast({
-            title: "Accès refusé",
-            description: "Vous n'avez pas accès à ce projet",
-            variant: "destructive",
+          // Si pas membre, vérifier s'il a des tâches assignées dans ce projet
+          const taskData = await fetchData<any>('task_assignments', {
+            columns: '*',
+            filters: [
+              { column: 'project_id', operator: 'eq', value: id },
+              { column: 'assigned_to', operator: 'eq', value: user.id }
+            ]
           });
-          navigate('/dashboard/intervenant/projets');
+          
+          if (taskData && taskData.length > 0) {
+            setIsMember(true); // Permettre l'accès s'il a des tâches assignées
+          } else {
+            // Pour les intervenants, permettre l'accès en lecture seule même sans assignation
+            setIsMember(true);
+          }
         }
       } catch (error) {
         console.error('Erreur lors de la vérification de l\'accès:', error);
-        toast({
-          title: "Erreur",
-          description: "Impossible de vérifier l'accès au projet",
-          variant: "destructive",
-        });
-        navigate('/dashboard/intervenant/projets');
+        // En cas d'erreur, permettre l'accès pour les intervenants (lecture seule)
+        setIsMember(true);
       } finally {
         setLoadingMembership(false);
       }
@@ -219,8 +261,6 @@ const IntervenantProjectDetails: React.FC = () => {
     fetchIntervenants();
   }, [getUsers]);
 
-
-
   // Obtenir le nom de l'intervenant
   const getIntervenantName = (userId: string) => {
     const intervenant = intervenants.find(i => i.id === userId);
@@ -266,6 +306,50 @@ const IntervenantProjectDetails: React.FC = () => {
   // Retourner à la liste des projets
   const handleBackToProjects = () => {
     navigate('/dashboard/intervenant/projets');
+  };
+
+  // Fonction pour ouvrir les détails d'une tâche
+  const handleViewTaskDetails = (assignment: TaskAssignment) => {
+    setSelectedTaskDetails(assignment);
+    setIsTaskDetailsDialogOpen(true);
+  };
+
+  // Fonction pour charger et afficher la fiche informative d'une tâche
+  const handleViewInfoSheet = async (phase: string, section: string, subsection: string, taskName: string) => {
+    setLoadingInfoSheet(true);
+    try {
+      // Essayer de récupérer la fiche en français d'abord
+      const infoSheetData = await fetchData<TaskInfoSheet>('task_info_sheets', {
+        columns: '*',
+        filters: [
+          { column: 'phase_id', operator: 'eq', value: phase },
+          { column: 'section_id', operator: 'eq', value: section },
+          { column: 'subsection_id', operator: 'eq', value: subsection },
+          { column: 'task_name', operator: 'eq', value: taskName },
+          { column: 'language', operator: 'eq', value: 'fr' }
+        ]
+      });
+
+      if (infoSheetData && infoSheetData.length > 0) {
+        setSelectedInfoSheet(infoSheetData[0]);
+        setIsInfoSheetDialogOpen(true);
+      } else {
+        toast({
+          title: "Information",
+          description: "Aucune fiche informative disponible pour cette tâche",
+          variant: "default",
+        });
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement de la fiche informative:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger la fiche informative",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingInfoSheet(false);
+    }
   };
 
   if (loadingMembership || loading) {
@@ -471,10 +555,31 @@ const IntervenantProjectDetails: React.FC = () => {
                                     );
                                     
                                     return (
-                                      <li key={index} className="border-l-4 border-gray-200 pl-4">
-                                        <div className="flex items-start justify-between">
+                                      <li key={index} className="border-l-4 border-gray-200 pl-4 py-2">
+                                        <div className="flex items-center justify-between">
                                           <div className="flex-1">
                                             <div className="flex items-center gap-2 mb-1">
+                                              {assignment ? (
+                                                <div className="flex items-center mr-2">
+                                                  {assignment.status === 'assigned' && (
+                                                    <Circle className="h-4 w-4 text-yellow-500" />
+                                                  )}
+                                                  {assignment.status === 'in_progress' && (
+                                                    <Circle className="h-4 w-4 text-blue-500" />
+                                                  )}
+                                                  {assignment.status === 'submitted' && (
+                                                    <Circle className="h-4 w-4 text-orange-500" />
+                                                  )}
+                                                  {assignment.status === 'validated' && (
+                                                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                                  )}
+                                                  {assignment.status === 'rejected' && (
+                                                    <Circle className="h-4 w-4 text-red-500" />
+                                                  )}
+                                                </div>
+                                              ) : (
+                                                <Circle className="h-4 w-4 text-gray-400 mr-2" />
+                                              )}
                                               <h4 className="font-medium text-gray-900 text-sm">{taskName}</h4>
                                               {assignment && (
                                                 <Badge variant="outline" className={`text-xs ${getStatusColor(assignment.status)}`}>
@@ -484,7 +589,7 @@ const IntervenantProjectDetails: React.FC = () => {
                                               )}
                                             </div>
                                             {assignment && (
-                                              <div className="flex items-center gap-4 text-xs text-gray-500">
+                                              <div className="flex items-center gap-4 text-xs text-gray-500 mb-2">
                                                 <span className="flex items-center gap-1">
                                                   <User className="h-3 w-3" />
                                                   {getIntervenantName(assignment.assigned_to)}
@@ -501,10 +606,63 @@ const IntervenantProjectDetails: React.FC = () => {
                                               <span className="text-xs text-gray-400">Non assignée</span>
                                             )}
                                           </div>
+                                          {assignment && (
+                                            <div className="flex gap-1 ml-2">
+                                              <Button 
+                                                variant="outline" 
+                                                size="sm"
+                                                onClick={() => handleViewTaskDetails(assignment)}
+                                                className="h-7 text-xs"
+                                              >
+                                                <Eye className="h-3 w-3 mr-1" />
+                                                Détails
+                                              </Button>
+                                              {assignment.file_url && (
+                                                <Button 
+                                                  variant="outline" 
+                                                  size="sm"
+                                                  onClick={() => window.open(assignment.file_url, '_blank')}
+                                                  className="h-7 text-xs"
+                                                >
+                                                  <Download className="h-3 w-3 mr-1" />
+                                                  Document
+                                                </Button>
+                                              )}
+                                              <Button 
+                                                variant="outline" 
+                                                size="sm"
+                                                onClick={() => handleViewInfoSheet('conception', section.id, subsection.id, taskName)}
+                                                className="h-7 text-xs"
+                                                disabled={loadingInfoSheet}
+                                              >
+                                                <FileText className="h-3 w-3 mr-1" />
+                                                Fiche info
+                                              </Button>
+                                            </div>
+                                          )}
+                                          {!assignment && (
+                                            <div className="flex gap-1 ml-2">
+                                              <Button 
+                                                variant="outline" 
+                                                size="sm"
+                                                onClick={() => handleViewInfoSheet('conception', section.id, subsection.id, taskName)}
+                                                className="h-7 text-xs"
+                                                disabled={loadingInfoSheet}
+                                              >
+                                                <FileText className="h-3 w-3 mr-1" />
+                                                Fiche info
+                                              </Button>
+                                            </div>
+                                          )}
                                         </div>
                                       </li>
                                     );
                                   })}
+                                  {subsection.tasks.length === 0 && (
+                                    <li className="text-sm text-gray-500 italic py-1">
+                                      Aucune tâche définie pour cette étape
+                                    </li>
+                                  )}
                                 </ul>
                               </AccordionContent>
                             </AccordionItem>
@@ -527,7 +685,7 @@ const IntervenantProjectDetails: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <Accordion type="single" collapsible className="w-full">
-                  {realisationStructure.map((section) => (
+                  {realizationStructure.map((section) => (
                     <AccordionItem key={section.id} value={section.id}>
                       <AccordionTrigger className="text-base font-medium text-gray-700">
                         {section.id}. {section.title}
@@ -550,10 +708,31 @@ const IntervenantProjectDetails: React.FC = () => {
                                     );
                                     
                                     return (
-                                      <li key={index} className="border-l-4 border-gray-200 pl-4">
-                                        <div className="flex items-start justify-between">
+                                      <li key={index} className="border-l-4 border-gray-200 pl-4 py-2">
+                                        <div className="flex items-center justify-between">
                                           <div className="flex-1">
                                             <div className="flex items-center gap-2 mb-1">
+                                              {assignment ? (
+                                                <div className="flex items-center mr-2">
+                                                  {assignment.status === 'assigned' && (
+                                                    <Circle className="h-4 w-4 text-yellow-500" />
+                                                  )}
+                                                  {assignment.status === 'in_progress' && (
+                                                    <Circle className="h-4 w-4 text-blue-500" />
+                                                  )}
+                                                  {assignment.status === 'submitted' && (
+                                                    <Circle className="h-4 w-4 text-orange-500" />
+                                                  )}
+                                                  {assignment.status === 'validated' && (
+                                                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                                  )}
+                                                  {assignment.status === 'rejected' && (
+                                                    <Circle className="h-4 w-4 text-red-500" />
+                                                  )}
+                                                </div>
+                                              ) : (
+                                                <Circle className="h-4 w-4 text-gray-400 mr-2" />
+                                              )}
                                               <h4 className="font-medium text-gray-900 text-sm">{taskName}</h4>
                                               {assignment && (
                                                 <Badge variant="outline" className={`text-xs ${getStatusColor(assignment.status)}`}>
@@ -563,7 +742,7 @@ const IntervenantProjectDetails: React.FC = () => {
                                               )}
                                             </div>
                                             {assignment && (
-                                              <div className="flex items-center gap-4 text-xs text-gray-500">
+                                              <div className="flex items-center gap-4 text-xs text-gray-500 mb-2">
                                                 <span className="flex items-center gap-1">
                                                   <User className="h-3 w-3" />
                                                   {getIntervenantName(assignment.assigned_to)}
@@ -580,10 +759,63 @@ const IntervenantProjectDetails: React.FC = () => {
                                               <span className="text-xs text-gray-400">Non assignée</span>
                                             )}
                                           </div>
+                                          {assignment && (
+                                            <div className="flex gap-1 ml-2">
+                                              <Button 
+                                                variant="outline" 
+                                                size="sm"
+                                                onClick={() => handleViewTaskDetails(assignment)}
+                                                className="h-7 text-xs"
+                                              >
+                                                <Eye className="h-3 w-3 mr-1" />
+                                                Détails
+                                              </Button>
+                                              {assignment.file_url && (
+                                                <Button 
+                                                  variant="outline" 
+                                                  size="sm"
+                                                  onClick={() => window.open(assignment.file_url, '_blank')}
+                                                  className="h-7 text-xs"
+                                                >
+                                                  <Download className="h-3 w-3 mr-1" />
+                                                  Document
+                                                </Button>
+                                              )}
+                                              <Button 
+                                                variant="outline" 
+                                                size="sm"
+                                                onClick={() => handleViewInfoSheet('realisation', section.id, subsection.id, taskName)}
+                                                className="h-7 text-xs"
+                                                disabled={loadingInfoSheet}
+                                              >
+                                                <FileText className="h-3 w-3 mr-1" />
+                                                Fiche info
+                                              </Button>
+                                            </div>
+                                          )}
+                                          {!assignment && (
+                                            <div className="flex gap-1 ml-2">
+                                              <Button 
+                                                variant="outline" 
+                                                size="sm"
+                                                onClick={() => handleViewInfoSheet('realisation', section.id, subsection.id, taskName)}
+                                                className="h-7 text-xs"
+                                                disabled={loadingInfoSheet}
+                                              >
+                                                <FileText className="h-3 w-3 mr-1" />
+                                                Fiche info
+                                              </Button>
+                                            </div>
+                                          )}
                                         </div>
                                       </li>
                                     );
                                   })}
+                                  {subsection.tasks.length === 0 && (
+                                    <li className="text-sm text-gray-500 italic py-1">
+                                      Aucune tâche définie pour cette étape
+                                    </li>
+                                  )}
                                 </ul>
                               </AccordionContent>
                             </AccordionItem>
@@ -598,6 +830,137 @@ const IntervenantProjectDetails: React.FC = () => {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Dialogue pour afficher les détails des tâches */}
+      <Dialog open={isTaskDetailsDialogOpen} onOpenChange={setIsTaskDetailsDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Détails de la tâche</DialogTitle>
+          </DialogHeader>
+          {selectedTaskDetails && (
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <h4 className="text-lg font-semibold">{selectedTaskDetails.task_name}</h4>
+                  <Badge className={`${getStatusColor(selectedTaskDetails.status)}`}>
+                    {getStatusIcon(selectedTaskDetails.status)}
+                    <span className="ml-1">{getStatusLabel(selectedTaskDetails.status)}</span>
+                  </Badge>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium">Assigné à</Label>
+                    <p className="text-sm text-gray-700">
+                      {getIntervenantName(selectedTaskDetails.assigned_to)}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Date limite</Label>
+                    <p className="text-sm text-gray-700">
+                      {new Date(selectedTaskDetails.deadline).toLocaleDateString('fr-FR')}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium">Validation avant le</Label>
+                    <p className="text-sm text-gray-700">
+                      {new Date(selectedTaskDetails.validation_deadline).toLocaleDateString('fr-FR')}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Format de fichier</Label>
+                    <p className="text-sm text-gray-700">
+                      {selectedTaskDetails.file_extension.toUpperCase()}
+                    </p>
+                  </div>
+                </div>
+
+                {selectedTaskDetails.comment && (
+                  <div>
+                    <Label className="text-sm font-medium">Commentaire</Label>
+                    <p className="text-sm text-gray-700">
+                      {selectedTaskDetails.comment}
+                    </p>
+                  </div>
+                )}
+
+                {selectedTaskDetails.file_url && (
+                  <div>
+                    <Label className="text-sm font-medium">Document</Label>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => window.open(selectedTaskDetails.file_url, '_blank')}
+                      className="mt-2"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Télécharger le document
+                    </Button>
+                  </div>
+                )}
+
+                {selectedTaskDetails.validation_comment && (
+                  <div>
+                    <Label className="text-sm font-medium">Commentaire de validation</Label>
+                    <p className="text-sm text-gray-700">
+                      {selectedTaskDetails.validation_comment}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button type="button" onClick={() => setIsTaskDetailsDialogOpen(false)}>
+              Fermer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialogue pour afficher les fiches informatives */}
+      <Dialog open={isInfoSheetDialogOpen} onOpenChange={setIsInfoSheetDialogOpen}>
+        <DialogContent className="sm:max-w-[800px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-aphs-teal" />
+              Fiche informative
+            </DialogTitle>
+            {selectedInfoSheet && (
+              <DialogDescription>
+                {selectedInfoSheet.task_name} - Guide de référence
+              </DialogDescription>
+            )}
+          </DialogHeader>
+          {selectedInfoSheet && (
+            <div className="space-y-4">
+              <div className="bg-gradient-to-r from-aphs-teal/5 to-aphs-navy/5 rounded-lg p-4 border-l-4 border-l-aphs-teal">
+                <div className="flex items-center gap-2 mb-3">
+                  <Badge variant="outline" className="bg-aphs-teal bg-opacity-10 text-aphs-teal border-aphs-teal">
+                    Document de référence
+                  </Badge>
+                  <Badge variant="outline" className="bg-blue-500 bg-opacity-10 text-blue-600 border-blue-500">
+                    Instructions détaillées
+                  </Badge>
+                </div>
+                <div className="prose prose-sm max-w-none">
+                  <div className="whitespace-pre-line text-sm text-gray-700 leading-relaxed">
+                    {selectedInfoSheet.info_sheet}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button type="button" onClick={() => setIsInfoSheetDialogOpen(false)}>
+              Fermer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
