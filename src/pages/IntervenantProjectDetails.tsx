@@ -26,6 +26,8 @@ import {
 import { useSupabase } from "../hooks/useSupabase";
 import { useAuth } from "../contexts/AuthContext";
 import { projectStructure, realizationStructure } from "../data/project-structure";
+import { projectStructureTranslations } from "../data/project-structure-translations";
+
 import {
   Dialog,
   DialogContent,
@@ -113,9 +115,12 @@ const IntervenantProjectDetails: React.FC = () => {
   const [selectedTaskDetails, setSelectedTaskDetails] = useState<TaskAssignment | null>(null);
 
   // États pour les fiches informatives
-  const [isInfoSheetDialogOpen, setIsInfoSheetDialogOpen] = useState(false);
-  const [selectedInfoSheet, setSelectedInfoSheet] = useState<TaskInfoSheet | null>(null);
-  const [loadingInfoSheet, setLoadingInfoSheet] = useState(false);
+  const [taskInfoSheets, setTaskInfoSheets] = useState<{[key: string]: TaskInfoSheet}>({});
+  const [loadingInfoSheets, setLoadingInfoSheets] = useState<{[key: string]: boolean}>({});
+  const [expandedInfoSheets, setExpandedInfoSheets] = useState<{[key: string]: boolean}>({});
+
+  // Get translations
+  const translations = projectStructureTranslations.fr;
 
   // Vérifier l'accès au projet
   useEffect(() => {
@@ -267,6 +272,36 @@ const IntervenantProjectDetails: React.FC = () => {
     return intervenant ? `${intervenant.first_name} ${intervenant.last_name}` : 'Inconnu';
   };
 
+  // Calculer le nombre total de tâches disponibles dans la structure du projet
+  const getTotalAvailableTasks = () => {
+    let total = 0;
+    
+    // Compter les tâches de conception
+    projectStructure.forEach(section => {
+      section.items.forEach(item => {
+        total += item.tasks.length;
+      });
+    });
+    
+    // Compter les tâches de réalisation
+    realizationStructure.forEach(section => {
+      section.items.forEach(item => {
+        total += item.tasks.length;
+      });
+    });
+    
+    return total;
+  };
+
+  // Calculer le pourcentage d'avancement corrigé
+  const getProjectProgress = () => {
+    const totalTasks = getTotalAvailableTasks();
+    const validatedTasks = taskAssignments.filter(t => t.status === 'validated').length;
+    
+    if (totalTasks === 0) return 0;
+    return Math.round((validatedTasks / totalTasks) * 100);
+  };
+
   // Obtenir la couleur du badge de statut
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -314,41 +349,55 @@ const IntervenantProjectDetails: React.FC = () => {
     setIsTaskDetailsDialogOpen(true);
   };
 
-  // Fonction pour charger et afficher la fiche informative d'une tâche
-  const handleViewInfoSheet = async (phase: string, section: string, subsection: string, taskName: string) => {
-    setLoadingInfoSheet(true);
-    try {
-      // Essayer de récupérer la fiche en français d'abord
-      const infoSheetData = await fetchData<TaskInfoSheet>('task_info_sheets', {
-        columns: '*',
-        filters: [
-          { column: 'phase_id', operator: 'eq', value: phase },
-          { column: 'section_id', operator: 'eq', value: section },
-          { column: 'subsection_id', operator: 'eq', value: subsection },
-          { column: 'task_name', operator: 'eq', value: taskName },
-          { column: 'language', operator: 'eq', value: 'fr' }
-        ]
-      });
+  // Fonction pour basculer l'affichage d'une fiche informative
+  const toggleInfoSheet = async (phase: string, section: string, subsection: string, taskName: string) => {
+    const key = `${phase}-${section}-${subsection}-${taskName}`;
+    
+    // Si déjà étendu, le fermer
+    if (expandedInfoSheets[key]) {
+      setExpandedInfoSheets(prev => ({ ...prev, [key]: false }));
+      return;
+    }
 
-      if (infoSheetData && infoSheetData.length > 0) {
-        setSelectedInfoSheet(infoSheetData[0]);
-        setIsInfoSheetDialogOpen(true);
-      } else {
-        toast({
-          title: "Information",
-          description: "Aucune fiche informative disponible pour cette tâche",
-          variant: "default",
+    // Si pas encore chargé, charger la fiche
+    if (!taskInfoSheets[key]) {
+      setLoadingInfoSheets(prev => ({ ...prev, [key]: true }));
+      try {
+        // Essayer de récupérer la fiche en français d'abord
+        const infoSheetData = await fetchData<TaskInfoSheet>('task_info_sheets', {
+          columns: '*',
+          filters: [
+            { column: 'phase_id', operator: 'eq', value: phase },
+            { column: 'section_id', operator: 'eq', value: section },
+            { column: 'subsection_id', operator: 'eq', value: subsection },
+            { column: 'task_name', operator: 'eq', value: taskName },
+            { column: 'language', operator: 'eq', value: 'fr' }
+          ]
         });
+
+        if (infoSheetData && infoSheetData.length > 0) {
+          setTaskInfoSheets(prev => ({ ...prev, [key]: infoSheetData[0] }));
+          setExpandedInfoSheets(prev => ({ ...prev, [key]: true }));
+        } else {
+          toast({
+            title: "Information",
+            description: "Aucune fiche informative disponible pour cette tâche",
+            variant: "default",
+          });
+        }
+      } catch (error) {
+        console.error('Erreur lors du chargement de la fiche informative:', error);
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger la fiche informative",
+          variant: "destructive",
+        });
+      } finally {
+        setLoadingInfoSheets(prev => ({ ...prev, [key]: false }));
       }
-    } catch (error) {
-      console.error('Erreur lors du chargement de la fiche informative:', error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de charger la fiche informative",
-        variant: "destructive",
-      });
-    } finally {
-      setLoadingInfoSheet(false);
+    } else {
+      // Si déjà chargé, juste l'ouvrir
+      setExpandedInfoSheets(prev => ({ ...prev, [key]: true }));
     }
   };
 
@@ -458,23 +507,19 @@ const IntervenantProjectDetails: React.FC = () => {
                         <div className="flex items-center justify-between text-sm mb-1">
                           <span>Progression</span>
                           <span className="font-medium text-lg">
-                            {taskAssignments.length > 0 
-                              ? Math.round((taskAssignments.filter(t => t.status === 'validated').length / taskAssignments.length) * 100)
-                              : 0}%
+                            {getProjectProgress()}%
                           </span>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2">
                           <div 
                             className="bg-aphs-teal h-2 rounded-full transition-all duration-300" 
                             style={{ 
-                              width: `${taskAssignments.length > 0 
-                                ? Math.round((taskAssignments.filter(t => t.status === 'validated').length / taskAssignments.length) * 100)
-                                : 0}%` 
+                              width: `${getProjectProgress()}%` 
                             }}
                           ></div>
                         </div>
                         <div className="text-xs text-gray-500 mt-1">
-                          {taskAssignments.filter(t => t.status === 'validated').length} / {taskAssignments.length} tâches validées
+                          {taskAssignments.filter(t => t.status === 'validated').length} / {getTotalAvailableTasks()} tâches validées
                         </div>
                       </div>
                     </div>
@@ -521,313 +566,163 @@ const IntervenantProjectDetails: React.FC = () => {
 
         {/* Onglet Structure */}
         <TabsContent value="structure" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Phase Conception */}
-            <Card className="border-0 shadow-md">
-              <CardHeader>
-                <CardTitle className="text-xl font-semibold text-aphs-navy flex items-center gap-2">
-                  <Layers className="h-5 w-5" />
-                  Phase Conception
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Accordion type="single" collapsible className="w-full">
-                  {projectStructure.map((section) => (
-                    <AccordionItem key={section.id} value={section.id}>
-                      <AccordionTrigger className="text-base font-medium text-gray-700">
-                        {section.id}. {section.title}
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <Accordion type="single" collapsible className="w-full pl-4">
-                          {section.items.map((subsection) => (
-                            <AccordionItem key={subsection.id} value={subsection.id}>
-                              <AccordionTrigger className="text-sm font-medium text-gray-600">
-                                {subsection.id}. {subsection.title}
-                              </AccordionTrigger>
-                              <AccordionContent>
-                                <ul className="space-y-2">
-                                  {subsection.tasks.map((taskName, index) => {
-                                    const assignment = taskAssignments.find(t => 
-                                      t.phase_id === 'conception' && 
-                                      t.section_id === section.id && 
-                                      t.subsection_id === subsection.id && 
-                                      t.task_name === taskName
-                                    );
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Layers className="h-5 w-5" />
+                Structure du Projet
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Accordion type="single" collapsible className="w-full">
+                {/* Phase de conception */}
+                <AccordionItem value="conception">
+                  <AccordionTrigger>{translations.conception}</AccordionTrigger>
+                  <AccordionContent>
+                    {projectStructure.map((section) => {
+                      const sectionKey = section.id as keyof typeof translations.sections;
+                      const sectionTranslation = translations.sections[sectionKey];
+                      return (
+                        <div key={section.id} className="mb-4">
+                          <h4 className="font-medium mb-2">Section {section.id}: {sectionTranslation?.title || section.title}</h4>
+                          {section.items.map((subsection) => {
+                            const subsectionKey = subsection.id as keyof typeof sectionTranslation.items;
+                            const subsectionTranslation = sectionTranslation?.items?.[subsectionKey];
+                            return (
+                              <div key={subsection.id} className="ml-4 mb-2">
+                                <h5 className="text-sm font-medium mb-1">Sous-section {subsection.id}: {subsectionTranslation?.title || subsection.title}</h5>
+                                <div className="ml-4 space-y-2">
+                                  {subsection.tasks.map((task, index) => {
+                                    const translatedTask = subsectionTranslation?.tasks?.[index] || task;
+                                    const key = `conception-${section.id}-${subsection.id}-${task}`;
+                                    const isExpanded = expandedInfoSheets[key];
+                                    const isLoading = loadingInfoSheets[key];
+                                    const infoSheet = taskInfoSheets[key];
                                     
                                     return (
-                                      <li key={index} className="border-l-4 border-gray-200 pl-4 py-2">
-                                        <div className="flex items-center justify-between">
-                                          <div className="flex-1">
-                                            <div className="flex items-center gap-2 mb-1">
-                                              {assignment ? (
-                                                <div className="flex items-center mr-2">
-                                                  {assignment.status === 'assigned' && (
-                                                    <Circle className="h-4 w-4 text-yellow-500" />
-                                                  )}
-                                                  {assignment.status === 'in_progress' && (
-                                                    <Circle className="h-4 w-4 text-blue-500" />
-                                                  )}
-                                                  {assignment.status === 'submitted' && (
-                                                    <Circle className="h-4 w-4 text-orange-500" />
-                                                  )}
-                                                  {assignment.status === 'validated' && (
-                                                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                                                  )}
-                                                  {assignment.status === 'rejected' && (
-                                                    <Circle className="h-4 w-4 text-red-500" />
-                                                  )}
-                                                </div>
-                                              ) : (
-                                                <Circle className="h-4 w-4 text-gray-400 mr-2" />
-                                              )}
-                                              <h4 className="font-medium text-gray-900 text-sm">{taskName}</h4>
-                                              {assignment && (
-                                                <Badge variant="outline" className={`text-xs ${getStatusColor(assignment.status)}`}>
-                                                  {getStatusIcon(assignment.status)}
-                                                  <span className="ml-1">{getStatusLabel(assignment.status)}</span>
-                                                </Badge>
-                                              )}
-                                            </div>
-                                            {assignment && (
-                                              <div className="flex items-center gap-4 text-xs text-gray-500 mb-2">
-                                                <span className="flex items-center gap-1">
-                                                  <User className="h-3 w-3" />
-                                                  {getIntervenantName(assignment.assigned_to)}
-                                                </span>
-                                                {assignment.deadline && (
-                                                  <span className="flex items-center gap-1">
-                                                    <Calendar className="h-3 w-3" />
-                                                    {new Date(assignment.deadline).toLocaleDateString('fr-FR')}
-                                                  </span>
-                                                )}
-                                              </div>
+                                      <div key={index} className="border rounded-lg">
+                                        <div className="flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 transition-colors">
+                                          <span className="text-sm text-gray-700">{translatedTask}</span>
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => toggleInfoSheet('conception', section.id, subsection.id, task)}
+                                            disabled={isLoading}
+                                            className="flex items-center gap-2"
+                                          >
+                                            {isLoading ? (
+                                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-aphs-teal"></div>
+                                            ) : (
+                                              <FileText className="h-4 w-4" />
                                             )}
-                                            {!assignment && (
-                                              <span className="text-xs text-gray-400">Non assignée</span>
-                                            )}
-                                          </div>
-                                          {assignment && (
-                                            <div className="flex gap-1 ml-2">
-                                              <Button 
-                                                variant="outline" 
-                                                size="sm"
-                                                onClick={() => handleViewTaskDetails(assignment)}
-                                                className="h-7 text-xs"
-                                              >
-                                                <Eye className="h-3 w-3 mr-1" />
-                                                Détails
-                                              </Button>
-                                              {assignment.file_url && (
-                                                <Button 
-                                                  variant="outline" 
-                                                  size="sm"
-                                                  onClick={() => window.open(assignment.file_url, '_blank')}
-                                                  className="h-7 text-xs"
-                                                >
-                                                  <Download className="h-3 w-3 mr-1" />
-                                                  Document
-                                                </Button>
-                                              )}
-                                              <Button 
-                                                variant="outline" 
-                                                size="sm"
-                                                onClick={() => handleViewInfoSheet('conception', section.id, subsection.id, taskName)}
-                                                className="h-7 text-xs"
-                                                disabled={loadingInfoSheet}
-                                              >
-                                                <FileText className="h-3 w-3 mr-1" />
-                                                Fiche info
-                                              </Button>
-                                            </div>
-                                          )}
-                                          {!assignment && (
-                                            <div className="flex gap-1 ml-2">
-                                              <Button 
-                                                variant="outline" 
-                                                size="sm"
-                                                onClick={() => handleViewInfoSheet('conception', section.id, subsection.id, taskName)}
-                                                className="h-7 text-xs"
-                                                disabled={loadingInfoSheet}
-                                              >
-                                                <FileText className="h-3 w-3 mr-1" />
-                                                Fiche info
-                                              </Button>
-                                            </div>
-                                          )}
+                                            {isExpanded ? 'Masquer' : 'Voir la fiche'}
+                                          </Button>
                                         </div>
-                                      </li>
+                                        {isExpanded && infoSheet && (
+                                          <div className="p-4 bg-gradient-to-r from-aphs-teal/5 to-aphs-navy/5 border-t border-l-4 border-l-aphs-teal">
+                                            <div className="flex items-center gap-2 mb-3">
+                                              <Badge variant="outline" className="bg-aphs-teal bg-opacity-10 text-aphs-teal border-aphs-teal">
+                                                Document de référence
+                                              </Badge>
+                                              <Badge variant="outline" className="bg-blue-500 bg-opacity-10 text-blue-600 border-blue-500">
+                                                Instructions détaillées
+                                              </Badge>
+                                            </div>
+                                            <div className="prose prose-sm max-w-none">
+                                              <div className="whitespace-pre-line text-sm text-gray-700 leading-relaxed">
+                                                {infoSheet.info_sheet}
+                                              </div>
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
                                     );
                                   })}
-                                  {subsection.tasks.length === 0 && (
-                                    <li className="text-sm text-gray-500 italic py-1">
-                                      Aucune tâche définie pour cette étape
-                                    </li>
-                                  )}
-                                </ul>
-                              </AccordionContent>
-                            </AccordionItem>
-                          ))}
-                        </Accordion>
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
-                </Accordion>
-              </CardContent>
-            </Card>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                  </AccordionContent>
+                </AccordionItem>
 
-            {/* Phase Réalisation */}
-            <Card className="border-0 shadow-md">
-              <CardHeader>
-                <CardTitle className="text-xl font-semibold text-aphs-navy flex items-center gap-2">
-                  <Layers className="h-5 w-5" />
-                  Phase Réalisation
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Accordion type="single" collapsible className="w-full">
-                  {realizationStructure.map((section) => (
-                    <AccordionItem key={section.id} value={section.id}>
-                      <AccordionTrigger className="text-base font-medium text-gray-700">
-                        {section.id}. {section.title}
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <Accordion type="single" collapsible className="w-full pl-4">
-                          {section.items.map((subsection) => (
-                            <AccordionItem key={subsection.id} value={subsection.id}>
-                              <AccordionTrigger className="text-sm font-medium text-gray-600">
-                                {subsection.id}. {subsection.title}
-                              </AccordionTrigger>
-                              <AccordionContent>
-                                <ul className="space-y-2">
-                                  {subsection.tasks.map((taskName, index) => {
-                                    const assignment = taskAssignments.find(t => 
-                                      t.phase_id === 'realisation' && 
-                                      t.section_id === section.id && 
-                                      t.subsection_id === subsection.id && 
-                                      t.task_name === taskName
-                                    );
+                {/* Phase de réalisation */}
+                <AccordionItem value="realization">
+                  <AccordionTrigger>{translations.realization}</AccordionTrigger>
+                  <AccordionContent>
+                    {realizationStructure.map((section) => {
+                      const sectionKey = section.id as keyof typeof translations.sections;
+                      const sectionTranslation = translations.sections[sectionKey];
+                      return (
+                        <div key={section.id} className="mb-4">
+                          <h4 className="font-medium mb-2">Section {section.id}: {sectionTranslation?.title || section.title}</h4>
+                          {section.items.map((subsection) => {
+                            const subsectionKey = subsection.id as keyof typeof sectionTranslation.items;
+                            const subsectionTranslation = sectionTranslation?.items?.[subsectionKey];
+                            return (
+                              <div key={subsection.id} className="ml-4 mb-2">
+                                <h5 className="text-sm font-medium mb-1">Sous-section {subsection.id}: {subsectionTranslation?.title || subsection.title}</h5>
+                                <div className="ml-4 space-y-2">
+                                  {subsection.tasks.map((task, index) => {
+                                    const translatedTask = subsectionTranslation?.tasks?.[index] || task;
+                                    const key = `realization-${section.id}-${subsection.id}-${task}`;
+                                    const isExpanded = expandedInfoSheets[key];
+                                    const isLoading = loadingInfoSheets[key];
+                                    const infoSheet = taskInfoSheets[key];
                                     
                                     return (
-                                      <li key={index} className="border-l-4 border-gray-200 pl-4 py-2">
-                                        <div className="flex items-center justify-between">
-                                          <div className="flex-1">
-                                            <div className="flex items-center gap-2 mb-1">
-                                              {assignment ? (
-                                                <div className="flex items-center mr-2">
-                                                  {assignment.status === 'assigned' && (
-                                                    <Circle className="h-4 w-4 text-yellow-500" />
-                                                  )}
-                                                  {assignment.status === 'in_progress' && (
-                                                    <Circle className="h-4 w-4 text-blue-500" />
-                                                  )}
-                                                  {assignment.status === 'submitted' && (
-                                                    <Circle className="h-4 w-4 text-orange-500" />
-                                                  )}
-                                                  {assignment.status === 'validated' && (
-                                                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                                                  )}
-                                                  {assignment.status === 'rejected' && (
-                                                    <Circle className="h-4 w-4 text-red-500" />
-                                                  )}
-                                                </div>
-                                              ) : (
-                                                <Circle className="h-4 w-4 text-gray-400 mr-2" />
-                                              )}
-                                              <h4 className="font-medium text-gray-900 text-sm">{taskName}</h4>
-                                              {assignment && (
-                                                <Badge variant="outline" className={`text-xs ${getStatusColor(assignment.status)}`}>
-                                                  {getStatusIcon(assignment.status)}
-                                                  <span className="ml-1">{getStatusLabel(assignment.status)}</span>
-                                                </Badge>
-                                              )}
-                                            </div>
-                                            {assignment && (
-                                              <div className="flex items-center gap-4 text-xs text-gray-500 mb-2">
-                                                <span className="flex items-center gap-1">
-                                                  <User className="h-3 w-3" />
-                                                  {getIntervenantName(assignment.assigned_to)}
-                                                </span>
-                                                {assignment.deadline && (
-                                                  <span className="flex items-center gap-1">
-                                                    <Calendar className="h-3 w-3" />
-                                                    {new Date(assignment.deadline).toLocaleDateString('fr-FR')}
-                                                  </span>
-                                                )}
-                                              </div>
+                                      <div key={index} className="border rounded-lg">
+                                        <div className="flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 transition-colors">
+                                          <span className="text-sm text-gray-700">{translatedTask}</span>
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => toggleInfoSheet('realization', section.id, subsection.id, task)}
+                                            disabled={isLoading}
+                                            className="flex items-center gap-2"
+                                          >
+                                            {isLoading ? (
+                                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-aphs-teal"></div>
+                                            ) : (
+                                              <FileText className="h-4 w-4" />
                                             )}
-                                            {!assignment && (
-                                              <span className="text-xs text-gray-400">Non assignée</span>
-                                            )}
-                                          </div>
-                                          {assignment && (
-                                            <div className="flex gap-1 ml-2">
-                                              <Button 
-                                                variant="outline" 
-                                                size="sm"
-                                                onClick={() => handleViewTaskDetails(assignment)}
-                                                className="h-7 text-xs"
-                                              >
-                                                <Eye className="h-3 w-3 mr-1" />
-                                                Détails
-                                              </Button>
-                                              {assignment.file_url && (
-                                                <Button 
-                                                  variant="outline" 
-                                                  size="sm"
-                                                  onClick={() => window.open(assignment.file_url, '_blank')}
-                                                  className="h-7 text-xs"
-                                                >
-                                                  <Download className="h-3 w-3 mr-1" />
-                                                  Document
-                                                </Button>
-                                              )}
-                                              <Button 
-                                                variant="outline" 
-                                                size="sm"
-                                                onClick={() => handleViewInfoSheet('realisation', section.id, subsection.id, taskName)}
-                                                className="h-7 text-xs"
-                                                disabled={loadingInfoSheet}
-                                              >
-                                                <FileText className="h-3 w-3 mr-1" />
-                                                Fiche info
-                                              </Button>
-                                            </div>
-                                          )}
-                                          {!assignment && (
-                                            <div className="flex gap-1 ml-2">
-                                              <Button 
-                                                variant="outline" 
-                                                size="sm"
-                                                onClick={() => handleViewInfoSheet('realisation', section.id, subsection.id, taskName)}
-                                                className="h-7 text-xs"
-                                                disabled={loadingInfoSheet}
-                                              >
-                                                <FileText className="h-3 w-3 mr-1" />
-                                                Fiche info
-                                              </Button>
-                                            </div>
-                                          )}
+                                            {isExpanded ? 'Masquer' : 'Voir la fiche'}
+                                          </Button>
                                         </div>
-                                      </li>
+                                        {isExpanded && infoSheet && (
+                                          <div className="p-4 bg-gradient-to-r from-aphs-teal/5 to-aphs-navy/5 border-t border-l-4 border-l-aphs-teal">
+                                            <div className="flex items-center gap-2 mb-3">
+                                              <Badge variant="outline" className="bg-aphs-teal bg-opacity-10 text-aphs-teal border-aphs-teal">
+                                                Document de référence
+                                              </Badge>
+                                              <Badge variant="outline" className="bg-blue-500 bg-opacity-10 text-blue-600 border-blue-500">
+                                                Instructions détaillées
+                                              </Badge>
+                                            </div>
+                                            <div className="prose prose-sm max-w-none">
+                                              <div className="whitespace-pre-line text-sm text-gray-700 leading-relaxed">
+                                                {infoSheet.info_sheet}
+                                              </div>
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
                                     );
                                   })}
-                                  {subsection.tasks.length === 0 && (
-                                    <li className="text-sm text-gray-500 italic py-1">
-                                      Aucune tâche définie pour cette étape
-                                    </li>
-                                  )}
-                                </ul>
-                              </AccordionContent>
-                            </AccordionItem>
-                          ))}
-                        </Accordion>
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
-                </Accordion>
-              </CardContent>
-            </Card>
-          </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 
@@ -921,46 +816,7 @@ const IntervenantProjectDetails: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Dialogue pour afficher les fiches informatives */}
-      <Dialog open={isInfoSheetDialogOpen} onOpenChange={setIsInfoSheetDialogOpen}>
-        <DialogContent className="sm:max-w-[800px] max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-aphs-teal" />
-              Fiche informative
-            </DialogTitle>
-            {selectedInfoSheet && (
-              <DialogDescription>
-                {selectedInfoSheet.task_name} - Guide de référence
-              </DialogDescription>
-            )}
-          </DialogHeader>
-          {selectedInfoSheet && (
-            <div className="space-y-4">
-              <div className="bg-gradient-to-r from-aphs-teal/5 to-aphs-navy/5 rounded-lg p-4 border-l-4 border-l-aphs-teal">
-                <div className="flex items-center gap-2 mb-3">
-                  <Badge variant="outline" className="bg-aphs-teal bg-opacity-10 text-aphs-teal border-aphs-teal">
-                    Document de référence
-                  </Badge>
-                  <Badge variant="outline" className="bg-blue-500 bg-opacity-10 text-blue-600 border-blue-500">
-                    Instructions détaillées
-                  </Badge>
-                </div>
-                <div className="prose prose-sm max-w-none">
-                  <div className="whitespace-pre-line text-sm text-gray-700 leading-relaxed">
-                    {selectedInfoSheet.info_sheet}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button type="button" onClick={() => setIsInfoSheetDialogOpen(false)}>
-              Fermer
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+
     </div>
   );
 };

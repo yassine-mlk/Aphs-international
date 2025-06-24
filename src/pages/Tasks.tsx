@@ -41,6 +41,8 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { translations } from '@/lib/translations';
 
 // Interface for project
 interface Project {
@@ -71,7 +73,10 @@ const Tasks: React.FC = () => {
   const { toast } = useToast();
   const { fetchData } = useSupabase();
   const { user } = useAuth();
+  const { language } = useLanguage();
   const { fetchTasksForUser, loading: taskMigrationLoading, error: taskMigrationError } = useTaskMigration();
+  
+  const t = translations[language as keyof typeof translations].tasks;
   
   const [tasks, setTasks] = useState<TaskAssignment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -194,15 +199,15 @@ const Tasks: React.FC = () => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'assigned':
-        return <Badge className="bg-yellow-500">Assignée</Badge>;
+        return <Badge className="bg-yellow-500">{t.status.assigned}</Badge>;
       case 'in_progress':
-        return <Badge className="bg-blue-500">En cours</Badge>;
+        return <Badge className="bg-blue-500">{t.status.inProgress}</Badge>;
       case 'submitted':
-        return <Badge className="bg-orange-500">Soumise</Badge>;
+        return <Badge className="bg-orange-500">{t.status.submitted}</Badge>;
       case 'validated':
-        return <Badge className="bg-green-500">Validée</Badge>;
+        return <Badge className="bg-green-500">{t.status.validated}</Badge>;
       case 'rejected':
-        return <Badge className="bg-red-500">Rejetée</Badge>;
+        return <Badge className="bg-red-500">{t.status.rejected}</Badge>;
       default:
         return <Badge className="bg-gray-500">Inconnue</Badge>;
     }
@@ -261,9 +266,9 @@ const Tasks: React.FC = () => {
   return (
     <div className="container mx-auto px-4 py-6 max-w-7xl">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight mb-2">Mes tâches</h1>
+        <h1 className="text-3xl font-bold tracking-tight mb-2">{t.title}</h1>
         <p className="text-muted-foreground">
-          Consultez et gérez vos tâches assignées
+          {t.subtitle}
         </p>
       </div>
       
@@ -276,7 +281,7 @@ const Tasks: React.FC = () => {
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
               <Input
                 type="search"
-                placeholder="Rechercher une tâche..."
+                placeholder={t.search.placeholder}
                 className="pl-8"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -288,29 +293,29 @@ const Tasks: React.FC = () => {
             <label className="block text-sm font-medium mb-1">Statut</label>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger>
-                <SelectValue placeholder="Tous les statuts" />
+                <SelectValue placeholder={t.filters.all} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tous les statuts</SelectItem>
-                <SelectItem value="assigned">Assignée</SelectItem>
-                <SelectItem value="in_progress">En cours</SelectItem>
-                <SelectItem value="submitted">Soumise</SelectItem>
-                <SelectItem value="validated">Validée</SelectItem>
-                <SelectItem value="rejected">Rejetée</SelectItem>
+                <SelectItem value="all">{t.filters.all}</SelectItem>
+                <SelectItem value="assigned">{t.filters.assigned}</SelectItem>
+                <SelectItem value="in_progress">{t.filters.inProgress}</SelectItem>
+                <SelectItem value="submitted">{t.filters.submitted}</SelectItem>
+                <SelectItem value="validated">{t.filters.validated}</SelectItem>
+                <SelectItem value="rejected">{t.filters.rejected}</SelectItem>
               </SelectContent>
             </Select>
           </div>
           
           <div className="w-full md:w-48">
-            <label className="block text-sm font-medium mb-1">Phase</label>
+            <label className="block text-sm font-medium mb-1">{t.filters.phase}</label>
             <Select value={phaseFilter} onValueChange={setPhaseFilter}>
               <SelectTrigger>
-                <SelectValue placeholder="Toutes les phases" />
+                <SelectValue placeholder={t.filters.allPhases} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Toutes les phases</SelectItem>
-                <SelectItem value="conception">Conception</SelectItem>
-                <SelectItem value="realisation">Réalisation</SelectItem>
+                <SelectItem value="all">{t.filters.allPhases}</SelectItem>
+                <SelectItem value="conception">{t.filters.conception}</SelectItem>
+                <SelectItem value="realisation">{t.filters.realization}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -334,7 +339,7 @@ const Tasks: React.FC = () => {
           <CardTitle>Liste des tâches ({filteredTasks.length})</CardTitle>
           <CardDescription>
             {filteredTasks.length === 0 ? 
-              'Aucune tâche ne correspond à vos critères de recherche.' : 
+              t.search.noResults : 
               'Cliquez sur une tâche pour voir les détails.'}
           </CardDescription>
         </CardHeader>
@@ -345,9 +350,9 @@ const Tasks: React.FC = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Tâche</TableHead>
-                    <TableHead>Projet</TableHead>
+                    <TableHead>{t.card.project}</TableHead>
                     <TableHead>Statut</TableHead>
-                    <TableHead>Échéance</TableHead>
+                    <TableHead>{t.card.deadline}</TableHead>
                     <TableHead>Type</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -406,11 +411,11 @@ const Tasks: React.FC = () => {
               <div className="mx-auto w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-4">
                 <AlertCircle className="h-6 w-6 text-gray-500" />
               </div>
-              <h3 className="text-lg font-medium mb-1">Aucune tâche trouvée</h3>
+              <h3 className="text-lg font-medium mb-1">{t.empty.noTasks}</h3>
               <p className="text-gray-500 max-w-md mx-auto">
                 {searchQuery || statusFilter !== 'all' || phaseFilter !== 'all' ? 
-                  'Aucune tâche ne correspond à vos critères de filtrage. Essayez de modifier vos filtres.' : 
-                  "Vous n'avez pas encore de tâches assignées dans le système."}
+                  t.empty.noResultsDesc : 
+                  t.empty.noTasksDesc}
               </p>
               {(searchQuery || statusFilter !== 'all' || phaseFilter !== 'all') && (
                 <Button 

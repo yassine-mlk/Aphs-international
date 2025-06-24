@@ -6,6 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { useSupabase, UserRole, SPECIALTIES, Company } from '../hooks/useSupabase';
+import PasswordInput from '@/components/ui/password-input';
 
 interface EditUserFormProps {
   userId: string;
@@ -310,9 +311,8 @@ const EditUserForm: React.FC<EditUserFormProps> = ({ userId, userData, onSuccess
           <div className="space-y-4 pt-2 pb-2 border-t border-b border-gray-100">
             <div>
               <Label htmlFor="new-password">Nouveau mot de passe *</Label>
-              <Input
+              <PasswordInput
                 id="new-password"
-                type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••••"
@@ -322,9 +322,8 @@ const EditUserForm: React.FC<EditUserFormProps> = ({ userId, userData, onSuccess
             
             <div>
               <Label htmlFor="confirm-password">Confirmer le mot de passe *</Label>
-              <Input
+              <PasswordInput
                 id="confirm-password"
-                type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="••••••••••"

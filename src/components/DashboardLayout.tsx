@@ -55,6 +55,8 @@ const dashboardTranslations = {
   en: {
     dashboard: "Dashboard",
     projects: "Projects",
+    myProjects: "My Projects",
+    projectDetails: "Project Details",
     intervenants: "Specialists",
     companies: "Companies",
     workgroups: "Work Groups",
@@ -71,6 +73,8 @@ const dashboardTranslations = {
   fr: {
     dashboard: "Tableau de bord",
     projects: "Projets",
+    myProjects: "Mes Projets",
+    projectDetails: "Détails du Projet",
     intervenants: "Intervenants",
     companies: "Entreprises",
     workgroups: "Groupes de travail",
@@ -87,6 +91,8 @@ const dashboardTranslations = {
   es: {
     dashboard: "Panel de control",
     projects: "Proyectos",
+    myProjects: "Mis Proyectos",
+    projectDetails: "Detalles del Proyecto",
     intervenants: "Especialistas",
     companies: "Empresas",
     workgroups: "Grupos de trabajo",
@@ -103,6 +109,8 @@ const dashboardTranslations = {
   ar: {
     dashboard: "لوحة التحكم",
     projects: "المشاريع",
+    myProjects: "مشاريعي",
+    projectDetails: "تفاصيل المشروع",
     intervenants: "المتخصصين",
     companies: "الشركات",
     workgroups: "مجموعات العمل",
@@ -294,6 +302,64 @@ const DashboardLayout: React.FC = () => {
                 </SidebarMenuItem>
               )}
               
+              {/* Projets Menu Item - Intervenant access */}
+              {!isAdmin && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip={t.myProjects}
+                    isActive={isLinkActive("/dashboard/intervenant/projets")}
+                  >
+                    <Link to="/dashboard/intervenant/projets">
+                      <Briefcase />
+                      <span>{t.myProjects}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+              
+              {/* Tasks Menu Item - Only for non-admin users */}
+              {!isAdmin && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip={t.tasks}
+                    isActive={isLinkActive("/dashboard/tasks")}
+                  >
+                    <Link to="/dashboard/tasks">
+                      <CheckSquare />
+                      <span>{t.tasks}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+              
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  tooltip={t.messages}
+                  isActive={isLinkActive("/dashboard/messages")}
+                >
+                  <Link to="/dashboard/messages">
+                    <MessageSquare />
+                    <span>{t.messages}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  tooltip={t.videoconference}
+                  isActive={isLinkActive("/dashboard/video")}
+                >
+                  <Link to="/dashboard/video">
+                    <Video />
+                    <span>{t.videoconference}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              
               {isAdmin && (
                 <SidebarMenuItem>
                   <SidebarMenuButton
@@ -335,64 +401,6 @@ const DashboardLayout: React.FC = () => {
                     <Link to="/dashboard/groupes">
                       <Users />
                       <span>{t.workgroups}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-              
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  tooltip={t.messages}
-                  isActive={isLinkActive("/dashboard/messages")}
-                >
-                  <Link to="/dashboard/messages">
-                    <MessageSquare />
-                    <span>{t.messages}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  tooltip={t.videoconference}
-                  isActive={isLinkActive("/dashboard/video")}
-                >
-                  <Link to="/dashboard/video">
-                    <Video />
-                    <span>{t.videoconference}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              
-              {/* Tasks Menu Item - Only for non-admin users */}
-              {!isAdmin && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    asChild
-                    tooltip={t.tasks}
-                    isActive={isLinkActive("/dashboard/tasks")}
-                  >
-                    <Link to="/dashboard/tasks">
-                      <CheckSquare />
-                      <span>{t.tasks}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-              
-              {/* Projets Menu Item - Intervenant access */}
-              {!isAdmin && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    asChild
-                    tooltip="Mes Projets"
-                    isActive={isLinkActive("/dashboard/intervenant/projets")}
-                  >
-                    <Link to="/dashboard/intervenant/projets">
-                      <Briefcase />
-                      <span>Mes Projets</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -441,8 +449,8 @@ const DashboardLayout: React.FC = () => {
                  location.pathname === "/dashboard/messages" ? t.messages :
                  location.pathname === "/dashboard/video" ? t.videoconference :
                  location.pathname === "/dashboard/tasks" ? t.tasks :
-                 location.pathname === "/dashboard/intervenant/projets" ? "Mes Projets" :
-                 location.pathname.startsWith("/dashboard/intervenant/projets/") ? "Détails du Projet" :
+                 location.pathname === "/dashboard/intervenant/projets" ? t.myProjects :
+                 location.pathname.startsWith("/dashboard/intervenant/projets/") ? t.projectDetails :
                  location.pathname === "/dashboard/parametres" ? t.settings : ""
                 }
               </h2>

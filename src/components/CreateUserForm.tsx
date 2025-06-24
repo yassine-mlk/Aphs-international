@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { useSupabase, UserRole, SPECIALTIES, Company } from '../hooks/useSupabase';
+import PasswordInput from '@/components/ui/password-input';
 
 interface CreateUserFormProps {
   onSuccess?: () => void;
@@ -184,9 +185,8 @@ export default function CreateUserForm({ onSuccess }: CreateUserFormProps) {
         
         <div>
           <Label htmlFor="password">Mot de passe *</Label>
-          <Input
+          <PasswordInput
             id="password"
-            type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••••"

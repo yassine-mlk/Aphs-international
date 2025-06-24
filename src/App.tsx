@@ -26,6 +26,7 @@ import Settings from "./pages/Settings";
 import TestUpload from "./test-upload";
 import IntervenantProjects from "./pages/IntervenantProjects";
 import IntervenantProjectDetails from "./pages/IntervenantProjectDetails";
+import IntervenantProjectDetailsLangSwitch from "./pages/IntervenantProjectDetailsLangSwitch";
 import DashboardLayout from "./components/DashboardLayout";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -235,7 +236,7 @@ const App = () => {
                 } />
                 <Route path="intervenant/projets/:id" element={
                   <IntervenantRoute>
-                    <IntervenantProjectDetails />
+                    <IntervenantProjectDetailsLangSwitch />
                   </IntervenantRoute>
                 } />
                 

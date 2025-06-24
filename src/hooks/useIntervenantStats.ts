@@ -72,20 +72,31 @@ export function useIntervenantStats() {
     if (!user?.id) return [];
 
     try {
-      const { data, error } = await supabase
+      // Récupérer d'abord les task_assignments
+      const { data: tasks, error: taskError } = await supabase
         .from('task_assignments')
-        .select(`
-          *,
-          projects!inner(name)
-        `)
+        .select('*')
         .eq('assigned_to', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (taskError) throw taskError;
 
-      return (data || []).map(task => ({
+      // Récupérer les projets séparément
+      const projectIds = [...new Set(tasks?.map(t => t.project_id).filter(Boolean))];
+      if (projectIds.length === 0) return tasks || [];
+
+      const { data: projects, error: projectError } = await supabase
+        .from('projects')
+        .select('id, name')
+        .in('id', projectIds);
+
+      if (projectError) throw projectError;
+
+      // Combiner les données
+      const projectMap = new Map(projects?.map(p => [p.id, p.name]) || []);
+      return (tasks || []).map(task => ({
         ...task,
-        project_name: task.projects?.name || 'Projet inconnu'
+        project_name: projectMap.get(task.project_id) || 'Projet inconnu'
       }));
     } catch (error) {
       console.error('Erreur lors de la récupération des tâches:', error);
@@ -98,37 +109,45 @@ export function useIntervenantStats() {
     if (!user?.id) return [];
 
     try {
-             // Récupérer les projets via les tâches assignées
-       const { data: taskData, error: taskError } = await supabase
-         .from('task_assignments')
-         .select(`
-           project_id,
-           status,
-           projects!inner(id, name, description, status, start_date, end_date)
-         `)
-         .eq('assigned_to', user.id);
+      // Récupérer les projets via les tâches assignées
+      const { data: taskData, error: taskError } = await supabase
+        .from('task_assignments')
+        .select('project_id, status')
+        .eq('assigned_to', user.id);
 
-       if (taskError) throw taskError;
+      if (taskError) throw taskError;
+
+      // Récupérer les projets séparément
+      const projectIds = [...new Set(taskData?.map(t => t.project_id).filter(Boolean))];
+      if (projectIds.length === 0) return [];
+
+      const { data: projects, error: projectError } = await supabase
+        .from('projects')
+        .select('id, name, description, status, start_date, end_date')
+        .in('id', projectIds);
+
+      if (projectError) throw projectError;
 
        // Grouper par projet et calculer les statistiques
        const projectMap = new Map();
        
-       if (taskData) {
+       if (taskData && projects) {
+         // Créer une map des projets par ID
+         const projectsById = new Map(projects.map(p => [p.id, p]));
+         
          for (const task of taskData) {
-           const project = task.projects;
-           if (!project || !Array.isArray(project) || project.length === 0) continue;
-           
-           const projectInfo = project[0]; // Prendre le premier projet de la liste
+           const project = projectsById.get(task.project_id);
+           if (!project) continue;
 
-           if (!projectMap.has(projectInfo.id)) {
-             projectMap.set(projectInfo.id, {
-               ...projectInfo,
+           if (!projectMap.has(project.id)) {
+             projectMap.set(project.id, {
+               ...project,
                total_tasks: 0,
                completed_tasks: 0
              });
            }
 
-           const projectData = projectMap.get(projectInfo.id);
+           const projectData = projectMap.get(project.id);
            projectData.total_tasks++;
            
            // Compter les tâches complétées/validées

@@ -40,14 +40,14 @@ export function useNotificationTriggers() {
       // Récupérer tous les admins
       const { data: admins, error: adminsError } = await supabase
         .from('profiles')
-        .select('id')
+        .select('user_id')
         .eq('role', 'admin');
 
       if (adminsError) throw adminsError;
 
       // Créer une notification pour chaque admin
       const notifications = admins?.map(admin => ({
-        user_id: admin.id,
+        user_id: admin.user_id,
         type,
         title,
         message,

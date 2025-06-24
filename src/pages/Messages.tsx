@@ -26,6 +26,8 @@ import { useToast } from "@/components/ui/use-toast";
 import { useSupabase } from '../hooks/useSupabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useMessages, User, Conversation, Message, Contact } from '../hooks/useMessages';
+import { useLanguage } from '../contexts/LanguageContext';
+import { translations } from '../lib/translations';
 import {
   Dialog,
   DialogContent,
@@ -51,6 +53,8 @@ const POLLING_INTERVAL = 30000;
 const Messages: React.FC = () => {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { language } = useLanguage();
+  const t = translations[language as keyof typeof translations].messages;
   const { 
     getAvailableContacts, 
     getConversations, 
@@ -550,16 +554,16 @@ const Messages: React.FC = () => {
     <div className="h-[calc(100vh-160px)] flex flex-col">
       <div className="mb-4 flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Messages</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{t.title}</h1>
           <p className="text-muted-foreground">
-            Communiquez avec vos collègues et groupes de travail
+            {t.subtitle}
           </p>
         </div>
         
         <div className="flex items-center gap-2">
           {lastPollingTime && (
             <span className="text-xs text-gray-500">
-              Dernière mise à jour: {formatTimestamp(lastPollingTime)}
+              {t.lastUpdate}: {formatTimestamp(lastPollingTime)}
             </span>
           )}
           <Button 
@@ -570,7 +574,7 @@ const Messages: React.FC = () => {
             className="flex items-center gap-1"
           >
             <RefreshCw className={`h-4 w-4 ${isPolling ? 'animate-spin' : ''}`} />
-            Actualiser
+            {t.refresh}
           </Button>
         </div>
       </div>
@@ -582,7 +586,7 @@ const Messages: React.FC = () => {
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
               <Input
-                placeholder="Rechercher..."
+                placeholder={t.search}
                 className="pl-8"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -593,13 +597,13 @@ const Messages: React.FC = () => {
           <Tabs defaultValue="tous" className="w-full" onValueChange={setActiveTab}>
             <TabsList className="w-full justify-start bg-gray-100 p-0 h-auto">
               <TabsTrigger value="tous" className="flex-1 py-2 data-[state=active]:bg-white">
-                Tous
+                {t.tabs.all}
               </TabsTrigger>
               <TabsTrigger value="directs" className="flex-1 py-2 data-[state=active]:bg-white">
-                Directs
+                {t.tabs.direct}
               </TabsTrigger>
               <TabsTrigger value="groupes" className="flex-1 py-2 data-[state=active]:bg-white">
-                Groupes
+                {t.tabs.groups}
               </TabsTrigger>
             </TabsList>
           </Tabs>

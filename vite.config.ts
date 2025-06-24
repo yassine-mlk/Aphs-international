@@ -17,6 +17,17 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // Polyfills pour Node.js modules dans le navigateur
+      buffer: "buffer",
     },
   },
+  define: {
+    // Polyfills pour SimplePeer et les modules Node.js
+    global: 'globalThis',
+    'process.env': {},
+  },
+  optimizeDeps: {
+    // Forcer la pré-compilation de ces dépendances
+    include: ['simple-peer', 'socket.io-client', 'buffer']
+  }
 }));

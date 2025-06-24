@@ -8,6 +8,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translations } from '@/lib/translations';
 import LanguageSelector from '@/components/LanguageSelector';
+import PasswordInput from '@/components/ui/password-input';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -158,12 +159,11 @@ const Login: React.FC = () => {
                       {t.forgotPassword}
                     </a>
                   </div>
-                  <Input
+                  <PasswordInput
                     id="password"
-                    type="password"
-                    placeholder={t.passwordPlaceholder}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    placeholder={t.passwordPlaceholder}
                     required
                     className="mt-1 w-full"
                   />

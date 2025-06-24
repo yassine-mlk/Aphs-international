@@ -4,19 +4,20 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
-import { Calendar } from 'lucide-react';
+import { Calendar, FolderOpen } from 'lucide-react';
 import { MultiSelect } from '@/components/ui/multi-select';
-import { useVideoMeetings } from '@/hooks/useVideoMeetings';
+import { useVideoMeetingsImproved } from '@/hooks/useVideoMeetingsImproved';
 import { useSupabase } from '@/hooks/useSupabase';
 
 interface MeetingRequestFormProps {
   onRequestSubmitted?: () => void;
 }
 
-export function MeetingRequestForm({ onRequestSubmitted }: MeetingRequestFormProps) {
+export function MeetingRequestFormImproved({ onRequestSubmitted }: MeetingRequestFormProps) {
   const { toast } = useToast();
-  const { requestMeeting } = useVideoMeetings();
+  const { requestMeeting, projects, loadUserProjects } = useVideoMeetingsImproved();
   const { supabase } = useSupabase();
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState<{value: string, label: string}[]>([]);
@@ -24,6 +25,7 @@ export function MeetingRequestForm({ onRequestSubmitted }: MeetingRequestFormPro
   const [formData, setFormData] = useState({
     title: '',
     description: '',
+    projectId: '',
     scheduledTime: '',
     selectedParticipants: [] as string[]
   });
@@ -52,7 +54,8 @@ export function MeetingRequestForm({ onRequestSubmitted }: MeetingRequestFormPro
     };
     
     loadUsers();
-  }, [supabase]);
+    loadUserProjects();
+  }, [supabase, loadUserProjects]);
   
   const handleSubmit = async () => {
     if (!formData.title) {
@@ -72,6 +75,15 @@ export function MeetingRequestForm({ onRequestSubmitted }: MeetingRequestFormPro
       });
       return;
     }
+
+    if (!formData.projectId) {
+      toast({
+        title: "Projet manquant",
+        description: "Veuillez sélectionner un projet pour cette réunion",
+        variant: "destructive"
+      });
+      return;
+    }
     
     setLoading(true);
     
@@ -80,7 +92,8 @@ export function MeetingRequestForm({ onRequestSubmitted }: MeetingRequestFormPro
         formData.title,
         formData.description,
         new Date(formData.scheduledTime),
-        formData.selectedParticipants
+        formData.selectedParticipants,
+        formData.projectId
       );
       
       if (success) {
@@ -93,6 +106,7 @@ export function MeetingRequestForm({ onRequestSubmitted }: MeetingRequestFormPro
         setFormData({
           title: '',
           description: '',
+          projectId: '',
           scheduledTime: '',
           selectedParticipants: []
         });
@@ -117,7 +131,10 @@ export function MeetingRequestForm({ onRequestSubmitted }: MeetingRequestFormPro
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Demande de réunion</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <Calendar className="h-5 w-5" />
+          Demande de réunion
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
@@ -128,6 +145,48 @@ export function MeetingRequestForm({ onRequestSubmitted }: MeetingRequestFormPro
             value={formData.title}
             onChange={(e) => setFormData({...formData, title: e.target.value})}
           />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="request-project">Projet associé *</Label>
+          <Select
+            value={formData.projectId}
+            onValueChange={(value) => setFormData({...formData, projectId: value})}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Sélectionnez un projet">
+                <div className="flex items-center gap-2">
+                  <FolderOpen className="h-4 w-4 text-gray-500" />
+                  <span>
+                    {formData.projectId ? 
+                      projects.find(p => p.id === formData.projectId)?.name || 'Projet sélectionné' 
+                      : 'Sélectionnez un projet'
+                    }
+                  </span>
+                </div>
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {projects.map((project) => (
+                <SelectItem key={project.id} value={project.id}>
+                  <div className="flex items-center gap-2">
+                    <FolderOpen className="h-4 w-4 text-gray-500" />
+                    <div>
+                      <div className="font-medium">{project.name}</div>
+                      <div className="text-xs text-gray-500 truncate max-w-[200px]">
+                        {project.description}
+                      </div>
+                    </div>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {projects.length === 0 && (
+            <p className="text-xs text-gray-500">
+              Aucun projet disponible. Contactez votre administrateur.
+            </p>
+          )}
         </div>
         
         <div className="space-y-2">
@@ -150,6 +209,7 @@ export function MeetingRequestForm({ onRequestSubmitted }: MeetingRequestFormPro
               className="pl-10"
               value={formData.scheduledTime}
               onChange={(e) => setFormData({...formData, scheduledTime: e.target.value})}
+              min={new Date().toISOString().slice(0, 16)}
             />
           </div>
         </div>
@@ -167,12 +227,30 @@ export function MeetingRequestForm({ onRequestSubmitted }: MeetingRequestFormPro
             Les participants seront invités si l'administrateur approuve votre demande.
           </p>
         </div>
+
+        {/* Affichage du projet sélectionné si disponible */}
+        {formData.projectId && (
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center gap-2 text-blue-800">
+              <FolderOpen className="h-4 w-4" />
+              <span className="font-medium">Projet sélectionné:</span>
+            </div>
+            <p className="text-blue-700 text-sm mt-1">
+              {projects.find(p => p.id === formData.projectId)?.name}
+            </p>
+            {projects.find(p => p.id === formData.projectId)?.description && (
+              <p className="text-blue-600 text-xs mt-1">
+                {projects.find(p => p.id === formData.projectId)?.description}
+              </p>
+            )}
+          </div>
+        )}
       </CardContent>
       <CardFooter>
         <Button 
           className="bg-aphs-teal hover:bg-aphs-navy w-full" 
           onClick={handleSubmit}
-          disabled={loading}
+          disabled={loading || projects.length === 0}
         >
           {loading ? "Envoi en cours..." : "Envoyer la demande"}
         </Button>

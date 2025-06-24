@@ -11,10 +11,13 @@ import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { useIntervenantStats } from '@/hooks/useIntervenantStats';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { translations } from '@/lib/translations';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { language } = useLanguage();
   
   // Déterminer si l'utilisateur est un administrateur
   const isAdmin = user?.user_metadata?.role === 'admin' || 
@@ -32,7 +35,7 @@ const Dashboard: React.FC = () => {
 
   // Fonction pour formater l'heure de dernière mise à jour
   const formatLastUpdate = (date: Date) => {
-    return date.toLocaleTimeString('fr-FR', { 
+    return date.toLocaleTimeString(language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : language === 'ar' ? 'ar-SA' : 'en-US', { 
       hour: '2-digit', 
       minute: '2-digit',
       second: '2-digit'
@@ -61,9 +64,9 @@ const Dashboard: React.FC = () => {
 
   // Rendu conditionnel selon le rôle
   if (isAdmin) {
-    return <AdminDashboard data={adminData} navigate={handleNavigate} formatLastUpdate={formatLastUpdate} getActivityIcon={getActivityIcon} />;
+    return <AdminDashboard data={adminData} navigate={handleNavigate} formatLastUpdate={formatLastUpdate} getActivityIcon={getActivityIcon} language={language} />;
   } else {
-    return <IntervenantDashboard data={intervenantData} navigate={handleNavigate} getActivityIcon={getActivityIcon} />;
+    return <IntervenantDashboard data={intervenantData} navigate={handleNavigate} getActivityIcon={getActivityIcon} language={language} />;
   }
 };
 
@@ -73,15 +76,17 @@ const AdminDashboard: React.FC<{
   navigate: (path: string) => void;
   formatLastUpdate: (date: Date) => string;
   getActivityIcon: (type: string) => JSX.Element;
-}> = ({ data, navigate, formatLastUpdate, getActivityIcon }) => {
+  language: string;
+}> = ({ data, navigate, formatLastUpdate, getActivityIcon, language }) => {
   const { stats, events, chartData, recentActivities, loading, error, lastUpdate, refetch } = data;
+  const t = translations[language as keyof typeof translations].dashboard.admin;
 
   // Si les stats sont en cours de chargement, afficher un loader
   if (loading) {
     return (
       <div className="flex flex-col justify-center items-center py-12 space-y-4">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
-        <p className="text-gray-600">Chargement des statistiques...</p>
+        <p className="text-gray-600">{t.loading}</p>
       </div>
     );
   }
@@ -94,10 +99,10 @@ const AdminDashboard: React.FC<{
         <div className="space-x-2">
           <Button onClick={refetch} variant="default">
             <RefreshCw className="h-4 w-4 mr-2" />
-            Réessayer
+            {t.retry}
           </Button>
           <Button onClick={() => window.location.reload()} variant="outline">
-            Recharger la page
+            {t.reloadPage}
           </Button>
         </div>
       </div>
@@ -108,10 +113,10 @@ const AdminDashboard: React.FC<{
   if (!stats) {
     return (
       <div className="text-center py-12 space-y-4">
-        <h3 className="text-lg font-medium mb-4">Aucune donnée disponible</h3>
+        <h3 className="text-lg font-medium mb-4">{t.noData}</h3>
         <Button onClick={refetch} variant="default">
           <RefreshCw className="h-4 w-4 mr-2" />
-          Actualiser
+          {t.refresh}
         </Button>
       </div>
     );
@@ -121,16 +126,16 @@ const AdminDashboard: React.FC<{
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Tableau de bord</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{t.title}</h1>
           {lastUpdate && (
             <p className="text-sm text-gray-500 mt-1">
-              Dernière mise à jour : {formatLastUpdate(lastUpdate)}
+              {t.lastUpdate} : {formatLastUpdate(lastUpdate)}
             </p>
           )}
         </div>
         <Button onClick={refetch} variant="outline" size="sm">
           <RefreshCw className="h-4 w-4 mr-2" />
-          Actualiser
+          {t.refresh}
         </Button>
       </div>
       
@@ -138,13 +143,13 @@ const AdminDashboard: React.FC<{
         {/* Statistiques Projets */}
         <Card className="border-0 shadow-md">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium">Projets</CardTitle>
+            <CardTitle className="text-sm font-medium">{t.projects.title}</CardTitle>
             <Briefcase className="w-4 h-4 text-gray-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalProjects}</div>
             <p className="text-xs text-muted-foreground">
-              {stats.activeProjects} actifs, {stats.completedProjects} terminés
+              {stats.activeProjects} {t.projects.active}, {stats.completedProjects} {t.projects.completed}
             </p>
             <div className="mt-4">
               <Button 
@@ -153,7 +158,7 @@ const AdminDashboard: React.FC<{
                 className="w-full"
                 onClick={() => navigate('/dashboard/projets')}
               >
-                Voir tous les projets
+                {t.projects.viewAll}
               </Button>
             </div>
           </CardContent>
@@ -162,13 +167,13 @@ const AdminDashboard: React.FC<{
         {/* Statistiques Intervenants */}
         <Card className="border-0 shadow-md">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium">Intervenants</CardTitle>
+            <CardTitle className="text-sm font-medium">{t.specialists.title}</CardTitle>
             <Users className="w-4 h-4 text-gray-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalIntervenants}</div>
             <p className="text-xs text-muted-foreground">
-              {stats.activeIntervenants} actifs
+              {stats.activeIntervenants} {t.specialists.active}
             </p>
             <div className="mt-4">
               <Button 
@@ -177,7 +182,7 @@ const AdminDashboard: React.FC<{
                 className="w-full"
                 onClick={() => navigate('/dashboard/intervenants')}
               >
-                Gérer les intervenants
+                {t.specialists.manage}
               </Button>
             </div>
           </CardContent>
@@ -186,16 +191,16 @@ const AdminDashboard: React.FC<{
         {/* Statistiques Tâches */}
         <Card className="border-0 shadow-md">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium">Tâches</CardTitle>
+            <CardTitle className="text-sm font-medium">{t.tasks.title}</CardTitle>
             <ClipboardCheck className="w-4 h-4 text-gray-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalTasks}</div>
             <p className="text-xs text-muted-foreground">
-              {stats.completedTasks} terminées, {stats.pendingTasks} en attente
+              {stats.completedTasks} {t.tasks.completed}, {stats.pendingTasks} {t.tasks.pending}
               {stats.overdueTasks > 0 && (
                 <span className="text-red-600 font-medium">
-                  , {stats.overdueTasks} en retard
+                  , {stats.overdueTasks} {t.tasks.overdue}
                 </span>
               )}
             </p>
@@ -206,7 +211,7 @@ const AdminDashboard: React.FC<{
                 className="w-full"
                 onClick={() => navigate('/dashboard/tasks')}
               >
-                Voir les tâches
+                {t.tasks.viewTasks}
               </Button>
             </div>
           </CardContent>
@@ -216,9 +221,9 @@ const AdminDashboard: React.FC<{
       {/* Section "Mes actions" */}
       <Card className="border-0 shadow-md">
         <CardHeader>
-          <CardTitle>Actions rapides</CardTitle>
+          <CardTitle>{t.quickActions.title}</CardTitle>
           <CardDescription>
-            Accès rapide aux principales fonctionnalités d'administration
+            {t.quickActions.description}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -229,7 +234,7 @@ const AdminDashboard: React.FC<{
               onClick={() => navigate('/dashboard/projets')}
             >
               <Briefcase className="h-6 w-6" />
-              <span>Projets</span>
+              <span>{t.quickActions.projects}</span>
             </Button>
             
             <Button 
@@ -238,7 +243,7 @@ const AdminDashboard: React.FC<{
               onClick={() => navigate('/dashboard/tasks')}
             >
               <ClipboardCheck className="h-6 w-6" />
-              <span>Tâches</span>
+              <span>{t.quickActions.tasks}</span>
             </Button>
             
             <Button 
@@ -247,7 +252,7 @@ const AdminDashboard: React.FC<{
               onClick={() => navigate('/dashboard/intervenants')}
             >
               <Users className="h-6 w-6" />
-              <span>Intervenants</span>
+              <span>{t.quickActions.specialists}</span>
             </Button>
             
             <Button 
@@ -256,7 +261,7 @@ const AdminDashboard: React.FC<{
               onClick={() => navigate('/dashboard/messages')}
             >
               <MessageSquare className="h-6 w-6" />
-              <span>Messages</span>
+              <span>{t.quickActions.messages}</span>
             </Button>
 
             <Button 
@@ -265,7 +270,7 @@ const AdminDashboard: React.FC<{
               onClick={() => navigate('/dashboard/entreprises')}
             >
               <Briefcase className="h-6 w-6" />
-              <span>Entreprises</span>
+              <span>{t.quickActions.companies}</span>
             </Button>
 
             <Button 
@@ -274,7 +279,7 @@ const AdminDashboard: React.FC<{
               onClick={() => navigate('/dashboard/groupes')}
             >
               <Users className="h-6 w-6" />
-              <span>Groupes</span>
+              <span>{t.quickActions.groups}</span>
             </Button>
 
             <Button 
@@ -283,7 +288,7 @@ const AdminDashboard: React.FC<{
               onClick={() => navigate('/dashboard/video')}
             >
               <Video className="h-6 w-6" />
-              <span>Visioconférence</span>
+              <span>{t.quickActions.videoconference}</span>
             </Button>
 
             <Button 
@@ -292,7 +297,7 @@ const AdminDashboard: React.FC<{
               onClick={() => navigate('/dashboard/parametres')}
             >
               <Settings className="h-6 w-6" />
-              <span>Paramètres</span>
+              <span>{t.quickActions.settings}</span>
             </Button>
           </div>
         </CardContent>
@@ -306,15 +311,17 @@ const IntervenantDashboard: React.FC<{
   data: any;
   navigate: (path: string) => void;
   getActivityIcon: (type: string) => JSX.Element;
-}> = ({ data, navigate, getActivityIcon }) => {
+  language: string;
+}> = ({ data, navigate, getActivityIcon, language }) => {
   const { stats, tasks, recentActivities, projects, loading, error, refetch } = data;
+  const t = translations[language as keyof typeof translations].dashboard.specialist;
 
   // Si les stats sont en cours de chargement, afficher un loader
   if (loading) {
     return (
       <div className="flex flex-col justify-center items-center py-12 space-y-4">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
-        <p className="text-gray-600">Chargement de vos données...</p>
+        <p className="text-gray-600">{t.loading}</p>
       </div>
     );
   }
@@ -327,10 +334,10 @@ const IntervenantDashboard: React.FC<{
         <div className="space-x-2">
           <Button onClick={refetch} variant="default">
             <RefreshCw className="h-4 w-4 mr-2" />
-            Réessayer
+            {t.retry}
           </Button>
           <Button onClick={() => window.location.reload()} variant="outline">
-            Recharger la page
+            {t.reloadPage}
           </Button>
         </div>
       </div>
@@ -341,10 +348,10 @@ const IntervenantDashboard: React.FC<{
   if (!stats) {
     return (
       <div className="text-center py-12 space-y-4">
-        <h3 className="text-lg font-medium mb-4">Aucune donnée disponible</h3>
+        <h3 className="text-lg font-medium mb-4">{t.noData}</h3>
         <Button onClick={refetch} variant="default">
           <RefreshCw className="h-4 w-4 mr-2" />
-          Actualiser
+          {t.refresh}
         </Button>
       </div>
     );
@@ -364,10 +371,10 @@ const IntervenantDashboard: React.FC<{
   // Obtenir le libellé du statut
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'pending': return 'En attente';
-      case 'in_progress': return 'En cours';
-      case 'validated': return 'Validée';
-      case 'rejected': return 'Rejetée';
+      case 'pending': return language === 'fr' ? 'En attente' : language === 'es' ? 'Pendiente' : language === 'ar' ? 'في الانتظار' : 'Pending';
+      case 'in_progress': return language === 'fr' ? 'En cours' : language === 'es' ? 'En progreso' : language === 'ar' ? 'قيد التنفيذ' : 'In Progress';
+      case 'validated': return language === 'fr' ? 'Validée' : language === 'es' ? 'Validada' : language === 'ar' ? 'مصدقة' : 'Validated';
+      case 'rejected': return language === 'fr' ? 'Rejetée' : language === 'es' ? 'Rechazada' : language === 'ar' ? 'مرفوضة' : 'Rejected';
       default: return status;
     }
   };
@@ -376,14 +383,14 @@ const IntervenantDashboard: React.FC<{
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Mon tableau de bord</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{t.title}</h1>
           <p className="text-muted-foreground">
-            Suivi de vos tâches et projets
+            {t.subtitle}
           </p>
         </div>
         <Button onClick={refetch} variant="outline" size="sm">
           <RefreshCw className="h-4 w-4 mr-2" />
-          Actualiser
+          {t.refresh}
         </Button>
       </div>
 
@@ -391,26 +398,26 @@ const IntervenantDashboard: React.FC<{
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <Card className="border-0 shadow-md">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium">Total tâches</CardTitle>
+            <CardTitle className="text-sm font-medium">{t.stats.totalTasks}</CardTitle>
             <ClipboardCheck className="w-4 h-4 text-gray-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalTasks}</div>
             <p className="text-xs text-muted-foreground">
-              Toutes vos tâches
+              {t.stats.allTasks}
             </p>
           </CardContent>
         </Card>
 
         <Card className="border-0 shadow-md">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium">Taux de réussite</CardTitle>
+            <CardTitle className="text-sm font-medium">{t.stats.successRate}</CardTitle>
             <TrendingUp className="w-4 h-4 text-green-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.completionRate}%</div>
             <p className="text-xs text-muted-foreground">
-              {stats.completedTasks} / {stats.totalTasks} validées
+              {stats.completedTasks} / {stats.totalTasks} {t.stats.validated}
             </p>
             <div className="mt-2">
               <Progress value={stats.completionRate} className="h-2" />
@@ -420,26 +427,26 @@ const IntervenantDashboard: React.FC<{
 
         <Card className="border-0 shadow-md">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium">En cours</CardTitle>
+            <CardTitle className="text-sm font-medium">{t.stats.inProgress}</CardTitle>
             <Timer className="w-4 h-4 text-blue-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.inProgressTasks}</div>
             <p className="text-xs text-muted-foreground">
-              Tâches en cours
+              {t.stats.inProgressTasks}
             </p>
           </CardContent>
         </Card>
 
         <Card className="border-0 shadow-md">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium">En retard</CardTitle>
+            <CardTitle className="text-sm font-medium">{t.stats.overdue}</CardTitle>
             <AlertCircle className="w-4 h-4 text-red-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">{stats.overdueTasks}</div>
             <p className="text-xs text-muted-foreground">
-              Tâches en retard
+              {t.stats.overdueTasks}
             </p>
           </CardContent>
         </Card>
@@ -451,10 +458,10 @@ const IntervenantDashboard: React.FC<{
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <ClipboardCheck className="h-5 w-5" />
-              Mes tâches récentes
+              {t.recentTasks.title}
             </CardTitle>
             <CardDescription>
-              Vos 10 dernières tâches assignées
+              {t.recentTasks.description}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -472,7 +479,7 @@ const IntervenantDashboard: React.FC<{
                               {getStatusLabel(task.status)}
                             </Badge>
                             <span className="text-xs text-gray-500">
-                              Échéance: {new Date(task.deadline).toLocaleDateString('fr-FR')}
+                              {t.recentTasks.deadline}: {new Date(task.deadline).toLocaleDateString(language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : language === 'ar' ? 'ar-SA' : 'en-US')}
                             </span>
                           </div>
                         </div>
@@ -483,7 +490,7 @@ const IntervenantDashboard: React.FC<{
               ) : (
                 <div className="text-center py-8">
                   <ClipboardCheck className="h-12 w-12 mx-auto text-gray-400 mb-2" />
-                  <p className="text-gray-500">Aucune tâche assignée</p>
+                  <p className="text-gray-500">{t.recentTasks.noTasks}</p>
                 </div>
               )}
             </ScrollArea>
@@ -494,7 +501,7 @@ const IntervenantDashboard: React.FC<{
                 className="w-full"
                 onClick={() => navigate('/dashboard/tasks')}
               >
-                Voir toutes mes tâches
+                {t.quickActions.myTasks}
               </Button>
             </div>
           </CardContent>
@@ -505,10 +512,10 @@ const IntervenantDashboard: React.FC<{
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Activity className="h-5 w-5" />
-              Activités récentes
+              {t.recentActivities.title}
             </CardTitle>
             <CardDescription>
-              Vos dernières activités
+              {t.recentActivities.description}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -524,7 +531,7 @@ const IntervenantDashboard: React.FC<{
                         <h4 className="font-medium text-sm">{activity.title}</h4>
                         <p className="text-xs text-gray-600 mt-1">{activity.description}</p>
                         <p className="text-xs text-gray-500 mt-1">
-                          {new Date(activity.date).toLocaleDateString('fr-FR', {
+                          {new Date(activity.date).toLocaleDateString(language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : language === 'ar' ? 'ar-SA' : 'en-US', {
                             day: 'numeric',
                             month: 'short',
                             hour: '2-digit',
@@ -538,7 +545,7 @@ const IntervenantDashboard: React.FC<{
               ) : (
                 <div className="text-center py-8">
                   <Activity className="h-12 w-12 mx-auto text-gray-400 mb-2" />
-                  <p className="text-gray-500">Aucune activité récente</p>
+                  <p className="text-gray-500">{t.recentActivities.noActivities}</p>
                 </div>
               )}
             </ScrollArea>
@@ -551,10 +558,10 @@ const IntervenantDashboard: React.FC<{
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Briefcase className="h-5 w-5" />
-            Mes projets ({projects.length})
+            {t.myProjects.title} ({projects.length})
           </CardTitle>
           <CardDescription>
-            Projets dans lesquels vous êtes assigné
+            {t.myProjects.description}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -565,20 +572,20 @@ const IntervenantDashboard: React.FC<{
                   <div className="flex items-start justify-between mb-2">
                     <h4 className="font-medium">{project.name}</h4>
                     <Badge variant="outline">
-                      {project.status === 'active' ? 'Actif' : project.status}
+                      {project.status === 'active' ? t.myProjects.active : project.status}
                     </Badge>
                   </div>
                   <p className="text-sm text-gray-600 mb-3">{project.description}</p>
                   
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span>Progression</span>
+                      <span>{t.myProjects.progress}</span>
                       <span>{project.progress}%</span>
                     </div>
                     <Progress value={project.progress} className="h-2" />
                     <div className="flex justify-between text-xs text-gray-500">
-                      <span>{project.completed_tasks} / {project.total_tasks} tâches</span>
-                      <span>Début: {new Date(project.start_date).toLocaleDateString('fr-FR')}</span>
+                      <span>{project.completed_tasks} / {project.total_tasks} {t.myProjects.tasks}</span>
+                      <span>{t.myProjects.startDate}: {new Date(project.start_date).toLocaleDateString(language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : language === 'ar' ? 'ar-SA' : 'en-US')}</span>
                     </div>
                   </div>
                 </div>
@@ -587,7 +594,7 @@ const IntervenantDashboard: React.FC<{
           ) : (
             <div className="text-center py-8">
               <Briefcase className="h-12 w-12 mx-auto text-gray-400 mb-2" />
-              <p className="text-gray-500">Aucun projet assigné</p>
+              <p className="text-gray-500">{t.myProjects.noProjects}</p>
             </div>
           )}
           <div className="mt-4">
@@ -597,7 +604,7 @@ const IntervenantDashboard: React.FC<{
               className="w-full"
               onClick={() => navigate('/dashboard/intervenant/projets')}
             >
-              Voir tous mes projets
+              {t.myProjects.viewAll}
             </Button>
           </div>
         </CardContent>
@@ -606,9 +613,9 @@ const IntervenantDashboard: React.FC<{
       {/* Actions rapides pour intervenants */}
       <Card className="border-0 shadow-md">
         <CardHeader>
-          <CardTitle>Actions rapides</CardTitle>
+          <CardTitle>{t.quickActions.title}</CardTitle>
           <CardDescription>
-            Accès rapide à vos principales fonctionnalités
+            {t.quickActions.description}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -619,7 +626,7 @@ const IntervenantDashboard: React.FC<{
               onClick={() => navigate('/dashboard/tasks')}
             >
               <ClipboardCheck className="h-6 w-6" />
-              <span>Mes tâches</span>
+              <span>{t.quickActions.myTasks}</span>
             </Button>
             
             <Button 
@@ -628,7 +635,7 @@ const IntervenantDashboard: React.FC<{
               onClick={() => navigate('/dashboard/intervenant/projets')}
             >
               <Briefcase className="h-6 w-6" />
-              <span>Mes projets</span>
+              <span>{t.quickActions.myProjects}</span>
             </Button>
             
             <Button 
@@ -637,7 +644,7 @@ const IntervenantDashboard: React.FC<{
               onClick={() => navigate('/dashboard/messages')}
             >
               <MessageSquare className="h-6 w-6" />
-              <span>Messages</span>
+              <span>{t.quickActions.messages}</span>
             </Button>
 
             <Button 
@@ -646,7 +653,7 @@ const IntervenantDashboard: React.FC<{
               onClick={() => navigate('/dashboard/video')}
             >
               <Video className="h-6 w-6" />
-              <span>Visioconférence</span>
+              <span>{t.quickActions.videoconference}</span>
             </Button>
           </div>
         </CardContent>

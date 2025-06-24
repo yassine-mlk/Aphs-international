@@ -76,7 +76,7 @@ export function useVideoMeetings() {
       
       const { data: usersData, error: usersError } = await supabase
         .from('profiles')
-        .select('id, user_id, first_name, last_name, email')
+        .select('user_id, first_name, last_name, email')
         .in('user_id', participantUserIds);
       
       if (usersError) throw usersError;
@@ -158,7 +158,7 @@ export function useVideoMeetings() {
       const userIds = allParticipants?.map(p => p.user_id) || [];
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
-        .select('id, user_id, first_name, last_name, email')
+        .select('user_id, first_name, last_name, email')
         .in('user_id', userIds);
         
       if (profilesError) throw profilesError;
@@ -235,15 +235,9 @@ export function useVideoMeetings() {
     if (!user) return null;
     setLoading(true);
     try {
-      // Make room ID more unique and structured to avoid conflicts
-      const orgPrefix = 'aphs-private'; // Organization-specific prefix
-      const timestamp = Date.now();
-      const randomPart = Math.random().toString(36).substring(2, 10).toUpperCase(); // Longer, uppercase random string
-      const userFragment = user.id.substring(0, 5); // Shorter user ID fragment
-      
-      // Ensure room name has no spaces and is unique
-      // Format: orgPrefix_timestamp_userFragment_randomPart
-      const roomId = `${orgPrefix}_${timestamp}_${userFragment}_${randomPart}`;
+      // Nom de salle ultra-simple : juste des lettres et chiffres, aucun préfixe
+      const randomId = Math.random().toString(36).substring(2, 15); // Long random string
+      const roomId = `meet${randomId}`; // Format: meet + random (ex: meetabc123def456)
       
       // Insérer la réunion
       const { data, error } = await supabase
@@ -301,8 +295,8 @@ export function useVideoMeetings() {
       if (participants.length > 0) {
         const { data: profiles } = await supabase
           .from('profiles')
-          .select('id, first_name, last_name, email')
-          .in('id', participants);
+          .select('user_id, first_name, last_name, email')
+          .in('user_id', participants);
 
         const userName = user.user_metadata?.first_name && user.user_metadata?.last_name 
           ? `${user.user_metadata.first_name} ${user.user_metadata.last_name}`
@@ -337,83 +331,75 @@ export function useVideoMeetings() {
     }
   }, [user, supabase, toast]);
 
-  // Rejoindre une réunion
+  // Vérifier si un utilisateur peut voir une réunion (front-end seulement)
+  const canViewMeeting = useCallback((meeting: VideoMeeting): boolean => {
+    if (!user) return false;
+    
+    // L'admin et le créateur peuvent toujours voir
+    const isAdmin = user.user_metadata?.role === 'admin';
+    const isCreator = meeting.createdBy === user.id;
+    if (isAdmin || isCreator) return true;
+    
+    // Vérifier si l'utilisateur est dans la liste des participants
+    return meeting.participants.some(p => p.userId === user.id);
+  }, [user]);
+
+  // Vérifier si un utilisateur peut rejoindre une réunion (front-end seulement)
+  const canJoinMeeting = useCallback((meeting: VideoMeeting): boolean => {
+    if (!user) return false;
+    
+    // L'admin et le créateur peuvent toujours rejoindre
+    const isAdmin = user.user_metadata?.role === 'admin';
+    const isCreator = meeting.createdBy === user.id;
+    if (isAdmin || isCreator) return true;
+    
+    // Vérifier si l'utilisateur est participant et a accepté
+    const participant = meeting.participants.find(p => p.userId === user.id);
+    return participant && participant.status !== 'declined';
+  }, [user]);
+
+  // Rejoindre une réunion (version ultra-simplifiée - accès libre côté Jitsi)
   const joinMeeting = useCallback(async (meetingId: string): Promise<{ roomId: string, isModerator: boolean } | null> => {
     if (!user) return null;
     setLoading(true);
     try {
-      // D'abord, récupérer la réunion pour vérifier si l'utilisateur est l'hôte
+      // Récupérer uniquement les informations de base de la réunion
       const { data: meetingData, error: meetingError } = await supabase
         .from('video_meetings')
-        .select('id, room_id, created_by, status')
+        .select('room_id, created_by')
         .eq('id', meetingId)
         .single();
         
       if (meetingError) throw meetingError;
       
-      // Récupérer le profil pour vérifier si l'utilisateur est admin
-      const { data: userProfile, error: profileError } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('user_id', user.id)
-        .single();
-        
-      if (profileError) {
-        console.warn('Erreur lors de la récupération du profil:', profileError);
-      }
-      
-      // Vérifier si l'utilisateur est un hôte ou le créateur
-      const { data: participantData, error: participantError } = await supabase
-        .from('video_meeting_participants')
-        .select('role')
-        .eq('meeting_id', meetingId)
-        .eq('user_id', user.id)
-        .maybeSingle();
-      
-      // Plusieurs façons de déterminer si l'utilisateur est modérateur
+      // Détermination simple du rôle modérateur
       const isCreator = meetingData.created_by === user.id;
-      const isHost = participantData?.role === 'host';
-      
-      // Vérifier si l'utilisateur est admin dans Supabase ou via les metadata
-      const isAdminInProfile = userProfile?.role === 'admin';
-      const isAdminInMetadata = user.user_metadata?.role === 'admin';
-      const isAdmin = isAdminInProfile || isAdminInMetadata;
-      
-      const isModerator = isCreator || isHost || isAdmin;
+      const isAdmin = user.user_metadata?.role === 'admin';
+      // FORCER isModerator = true pour TOUS les admins
+      const isModerator = isAdmin ? true : isCreator;
         
-      console.log(`Joining meeting: ${meetingId}, User is creator: ${isCreator}, host: ${isHost}, admin: ${isAdmin}, isModerator: ${isModerator}`);
+      console.log(`Joining meeting: ${meetingId}, User is creator: ${isCreator}, admin: ${isAdmin}, isModerator: ${isModerator}`);
+      console.log(`Access libre Jitsi - Room: ${meetingData.room_id}`);
       
-      // Mettre à jour le statut du participant même si le user est le créateur/hôte
-      const { error: joinError } = await supabase
-        .rpc('safe_join_meeting', {
-          p_meeting_id: meetingId,
-          p_user_id: user.id
-        });
-
-      if (joinError) {
-        console.error('Database error while joining meeting:', joinError);
-        throw new Error(`Erreur de base de données: ${joinError.message}`);
-      }
+      // Marquer la réunion comme active (sans vérification de permissions)
+      await supabase
+        .from('video_meetings')
+        .update({ status: 'active' })
+        .eq('id', meetingId);
       
-      // Si l'utilisateur est un modérateur (admin ou créateur), nous n'avons pas besoin de vérifier davantage
-      if (isModerator) {
-        console.log('User is moderator, providing direct access to room');
-        return { 
-          roomId: meetingData.room_id,
-          isModerator: true
-        };
-      }
-      
-      // Pour les non-modérateurs, vérifier si la réunion est active 
-      // (ce qui signifie qu'un hôte est présent ou s'est connecté récemment)
-      if (meetingData.status !== 'active') {
-        console.log('Meeting is not active and user is not a moderator');
-        throw new Error('L\'hôte n\'a pas encore démarré cette réunion. Veuillez réessayer plus tard.');
-      }
+      // Marquer le participant comme ayant rejoint (si il existe)
+      await supabase
+        .from('video_meeting_participants')
+        .update({ 
+          status: 'joined',
+          joined_at: new Date().toISOString()
+        })
+        .eq('meeting_id', meetingId)
+        .eq('user_id', user.id);
       
       return { 
         roomId: meetingData.room_id,
-        isModerator: false
+        isModerator
       };
     } catch (error: any) {
       console.error('Erreur lors de la connexion à la réunion:', error);
@@ -428,7 +414,42 @@ export function useVideoMeetings() {
     }
   }, [user, supabase, toast]);
 
-  // Terminer une réunion en cours
+  // Quitter une réunion (sans la terminer - la réunion reste active)
+  const leaveMeeting = useCallback(async (meetingId: string): Promise<boolean> => {
+    if (!user) return false;
+    setLoading(true);
+    try {
+      // Marquer le participant comme ayant quitté la réunion
+      const { error } = await supabase
+        .from('video_meeting_participants')
+        .update({ 
+          left_at: new Date().toISOString()
+        })
+        .eq('meeting_id', meetingId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Vous avez quitté la réunion',
+        description: 'La réunion reste en cours pour les autres participants'
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Erreur lors de la sortie de la réunion:', error);
+      toast({
+        title: 'Erreur',
+        description: 'Impossible de quitter la réunion',
+        variant: 'destructive'
+      });
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, [user, supabase, toast]);
+
+  // Terminer une réunion en cours (pour modérateurs uniquement)
   const endMeeting = useCallback(async (meetingId: string): Promise<boolean> => {
     if (!user) return false;
     setLoading(true);
@@ -481,8 +502,17 @@ export function useVideoMeetings() {
         })
         .eq('id', meetingId);
 
+      // Marquer tous les participants comme ayant quitté
+      await supabase
+        .from('video_meeting_participants')
+        .update({ 
+          left_at: new Date().toISOString()
+        })
+        .eq('meeting_id', meetingId)
+        .is('left_at', null);
+
       toast({
-        title: 'Succès',
+        title: 'Réunion terminée',
         description: 'La réunion a été terminée avec succès'
       });
 
@@ -710,9 +740,12 @@ export function useVideoMeetings() {
     getUserMeetings,
     createMeeting,
     joinMeeting,
+    leaveMeeting,
     endMeeting,
     requestMeeting,
     getMeetingRequests,
-    respondToMeetingRequest
+    respondToMeetingRequest,
+    canViewMeeting,
+    canJoinMeeting
   };
 } 

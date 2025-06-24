@@ -19,6 +19,8 @@ import {
 import { useSupabase } from "../hooks/useSupabase";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
+import { useLanguage } from '@/contexts/LanguageContext';
+import { translations } from '@/lib/translations';
 
 // Types
 interface Project {
@@ -53,11 +55,14 @@ const IntervenantProjects: React.FC = () => {
   const { toast } = useToast();
   const { fetchData } = useSupabase();
   const { user } = useAuth();
+  const { language } = useLanguage();
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [taskStats, setTaskStats] = useState<{[projectId: string]: {total: number, completed: number}}>({});
+
+  const t = translations[language as keyof typeof translations].projects;
 
   // Charger les projets auxquels l'intervenant est assigné
   useEffect(() => {
@@ -171,10 +176,10 @@ const IntervenantProjects: React.FC = () => {
   // Obtenir le libellé du statut
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'active': return 'Actif';
-      case 'completed': return 'Terminé';
-      case 'paused': return 'En pause';
-      case 'cancelled': return 'Annulé';
+      case 'active': return t.status.active;
+      case 'completed': return t.status.completed;
+      case 'paused': return t.status.paused;
+      case 'cancelled': return t.status.cancelled;
       default: return status;
     }
   };
@@ -199,14 +204,14 @@ const IntervenantProjects: React.FC = () => {
       {/* En-tête */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Mes Projets</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{t.title}</h1>
           <p className="text-muted-foreground">
-            Consultez les projets auxquels vous êtes assigné
+            {t.subtitle}
           </p>
         </div>
         <Badge variant="outline" className="w-fit">
           <User className="h-4 w-4 mr-1" />
-          Mode Intervenant
+          {t.specialistMode}
         </Badge>
       </div>
 
@@ -215,14 +220,14 @@ const IntervenantProjects: React.FC = () => {
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
           <Input
-            placeholder="Rechercher un projet..."
+            placeholder={t.search.placeholder}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-8"
           />
         </div>
         <div className="text-sm text-gray-500">
-          {filteredProjects.length} projet(s) trouvé(s)
+          {filteredProjects.length} {t.search.results}
         </div>
       </div>
 
@@ -231,13 +236,10 @@ const IntervenantProjects: React.FC = () => {
         <div className="text-center py-12">
           <Briefcase className="mx-auto h-12 w-12 text-gray-400 mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">
-            {searchQuery ? 'Aucun projet trouvé' : 'Aucun projet assigné'}
+            {searchQuery ? t.empty.noResults : t.empty.noProjects}
           </h3>
           <p className="text-gray-500">
-            {searchQuery 
-              ? 'Essayez avec d\'autres termes de recherche' 
-              : 'Vous n\'êtes assigné à aucun projet pour le moment'
-            }
+            {searchQuery ? t.empty.noResultsDesc : t.empty.noProjectsDesc}
           </p>
         </div>
       ) : (
@@ -268,13 +270,13 @@ const IntervenantProjects: React.FC = () => {
                   <div className="space-y-2">
                     <div className="flex items-center text-sm text-gray-500">
                       <Calendar className="h-4 w-4 mr-2" />
-                      Début: {new Date(project.start_date).toLocaleDateString('fr-FR')}
+                      {t.card.startDate}: {new Date(project.start_date).toLocaleDateString(language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : language === 'ar' ? 'ar-SA' : 'en-US')}
                     </div>
                     
                     {/* Progression des tâches */}
                     <div className="space-y-1">
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-600">Progression</span>
+                        <span className="text-gray-600">{t.card.progress}</span>
                         <span className="font-medium">{progress}%</span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2">
@@ -284,7 +286,7 @@ const IntervenantProjects: React.FC = () => {
                         ></div>
                       </div>
                       <div className="flex items-center text-xs text-gray-500">
-                        <span>{stats.completed} / {stats.total} tâches terminées</span>
+                        <span>{stats.completed} / {stats.total} {t.card.tasksCompleted}</span>
                       </div>
                     </div>
                   </div>
@@ -293,7 +295,7 @@ const IntervenantProjects: React.FC = () => {
                   <div className="flex items-center justify-between pt-2">
                     <div className="flex items-center text-xs text-gray-500">
                       <Users className="h-3 w-3 mr-1" />
-                      Membre
+                      {t.card.member}
                     </div>
                     <Button 
                       variant="outline" 
@@ -302,7 +304,7 @@ const IntervenantProjects: React.FC = () => {
                       className="text-aphs-teal border-aphs-teal hover:bg-aphs-teal hover:text-white"
                     >
                       <Eye className="h-4 w-4 mr-1" />
-                      Consulter
+                      {t.card.view}
                     </Button>
                   </div>
                 </CardContent>

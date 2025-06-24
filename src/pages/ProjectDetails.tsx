@@ -1856,14 +1856,33 @@ const ProjectDetails: React.FC = () => {
     }
   };
   
-  // Calculer la progression globale du projet
-  const calculateGlobalProgress = () => {
-    if (taskAssignments.length === 0) return 0;
+  // Calculer le nombre total de tâches disponibles dans la structure du projet
+  const getTotalAvailableTasks = () => {
+    let total = 0;
     
-    // Calculer simplement le pourcentage de tâches validées sur le total
-    const totalTasks = taskAssignments.length;
+    // Compter les tâches de conception
+    projectStructure.forEach(section => {
+      section.items.forEach(item => {
+        total += item.tasks.length;
+      });
+    });
+    
+    // Compter les tâches de réalisation
+    realizationStructure.forEach(section => {
+      section.items.forEach(item => {
+        total += item.tasks.length;
+      });
+    });
+    
+    return total;
+  };
+
+  // Calculer la progression globale du projet (corrigée)
+  const calculateGlobalProgress = () => {
+    const totalTasks = getTotalAvailableTasks();
     const completedTasks = taskAssignments.filter(assignment => assignment.status === 'validated').length;
     
+    if (totalTasks === 0) return 0;
     return Math.round((completedTasks / totalTasks) * 100);
   };
   
@@ -2371,7 +2390,7 @@ const ProjectDetails: React.FC = () => {
                           ></div>
                         </div>
                         <div className="text-xs text-gray-500 mt-1">
-                          {taskAssignments.filter(t => t.status === 'validated').length} / {taskAssignments.length} tâches validées
+                          {taskAssignments.filter(t => t.status === 'validated').length} / {getTotalAvailableTasks()} tâches validées
                         </div>
                       </div>
                     </div>
