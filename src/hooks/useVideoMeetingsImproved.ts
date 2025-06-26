@@ -541,6 +541,53 @@ export function useVideoMeetingsImproved() {
     }
   }, [user, supabase, toast]);
 
+  // Nettoyer l'historique des réunions terminées (admin uniquement)
+  const clearCompletedMeetings = useCallback(async (): Promise<boolean> => {
+    if (!user || !isAdmin) return false;
+    setLoading(true);
+    try {
+      // Supprimer toutes les réunions terminées ou annulées
+      const { data: completedMeetings, error: fetchError } = await supabase
+        .from('video_meetings')
+        .select('id')
+        .in('status', ['ended', 'cancelled']);
+
+      if (fetchError) throw fetchError;
+
+      if (!completedMeetings || completedMeetings.length === 0) {
+        toast({
+          title: 'Information',
+          description: 'Aucune réunion terminée à supprimer'
+        });
+        return true;
+      }
+
+      const { error: deleteError } = await supabase
+        .from('video_meetings')
+        .delete()
+        .in('status', ['ended', 'cancelled']);
+
+      if (deleteError) throw deleteError;
+
+      toast({
+        title: 'Historique nettoyé',
+        description: `${completedMeetings.length} réunion(s) terminée(s) supprimée(s)`
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Erreur lors du nettoyage de l\'historique:', error);
+      toast({
+        title: 'Erreur',
+        description: 'Impossible de nettoyer l\'historique',
+        variant: 'destructive'
+      });
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, [user, isAdmin, supabase, toast]);
+
   // Charger les projets au montage
   useEffect(() => {
     if (user) {
@@ -558,6 +605,7 @@ export function useVideoMeetingsImproved() {
     getUserMeetings,
     createMeeting,
     deleteMeeting,
+    clearCompletedMeetings,
     leaveMeeting,
     endMeeting,
     joinMeeting,

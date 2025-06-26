@@ -16,7 +16,9 @@ import {
   Copy,
   Clock,
   X,
-  StopCircle
+  StopCircle,
+  Trash2,
+  History
 } from 'lucide-react';
 import { useVideoMeetings, VideoMeeting } from '@/hooks/useVideoMeetings';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -83,7 +85,9 @@ const VideoConference: React.FC = () => {
     createMeeting, 
     joinMeeting,
     leaveMeeting,
-    endMeeting
+    endMeeting,
+    deleteMeeting,
+    clearCompletedMeetings
   } = useVideoMeetings();
   
   // Charger la liste des intervenants au chargement du composant
@@ -255,28 +259,124 @@ const VideoConference: React.FC = () => {
   };
   
   const handleLeaveMeeting = async (meetingId: string) => {
-    const success = await leaveMeeting(meetingId);
+    console.log(`🚪 Leaving meeting: ${meetingId}`);
     
-    if (success) {
+    try {
+      const success = await leaveMeeting(meetingId);
+      
+      // Toujours quitter l'interface, même si la BD a eu un problème
       if (activeMeetingRoom && activeMeetingRoom.meetingId === meetingId) {
-        setActiveMeetingRoom(null);
-      }
-    }
-  };
-
-  const handleEndMeeting = async (meetingId: string) => {
-    const success = await endMeeting(meetingId);
-    
-    if (success) {
-      if (activeMeetingRoom && activeMeetingRoom.meetingId === meetingId) {
+        console.log(`✅ Closing meeting room interface`);
         setActiveMeetingRoom(null);
       }
       
+      // Rafraîchir la liste des réunions
       if (isAdmin) {
         await getAllMeetings();
       } else {
         await getUserMeetings();
       }
+      
+    } catch (error) {
+      console.error('Error leaving meeting:', error);
+      // En cas d'erreur, fermer quand même l'interface
+      if (activeMeetingRoom && activeMeetingRoom.meetingId === meetingId) {
+        console.log(`🔄 Force closing meeting room due to error`);
+        setActiveMeetingRoom(null);
+      }
+      
+      toast({
+        title: "Attention",
+        description: "Vous avez quitté la réunion mais il y a eu un problème technique",
+        variant: "default"
+      });
+    }
+  };
+
+  const handleEndMeeting = async (meetingId: string) => {
+    console.log(`🔚 Ending meeting: ${meetingId}`);
+    setLoadingAction(true);
+    
+    try {
+      const success = await endMeeting(meetingId);
+      
+      if (success) {
+        // Fermer l'interface si c'est la réunion active
+        if (activeMeetingRoom && activeMeetingRoom.meetingId === meetingId) {
+          console.log(`✅ Closing active meeting room interface`);
+          setActiveMeetingRoom(null);
+        }
+        
+        // Rafraîchir OBLIGATOIREMENT la liste des réunions
+        console.log(`🔄 Refreshing meetings list for admin`);
+        if (isAdmin) {
+          await getAllMeetings();
+        } else {
+          await getUserMeetings();
+        }
+        
+        // Notification de succès
+        toast({
+          title: "Réunion terminée",
+          description: "La réunion a été terminée et la liste a été mise à jour",
+          variant: "default"
+        });
+      }
+    } catch (error) {
+      console.error('Error ending meeting:', error);
+      toast({
+        title: "Erreur",
+        description: "Problème lors de la fermeture de la réunion",
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingAction(false);
+    }
+  };
+
+  // Supprimer une réunion individuelle
+  const handleDeleteMeeting = async (meetingId: string) => {
+    console.log(`🗑️ Deleting meeting: ${meetingId}`);
+    setLoadingAction(true);
+    
+    try {
+      const success = await deleteMeeting(meetingId);
+      
+      if (success) {
+        // Rafraîchir la liste des réunions
+        if (isAdmin) {
+          await getAllMeetings();
+        } else {
+          await getUserMeetings();
+        }
+      }
+    } catch (error) {
+      console.error('Error deleting meeting:', error);
+    } finally {
+      setLoadingAction(false);
+    }
+  };
+
+  // Nettoyer l'historique des réunions terminées
+  const handleClearHistory = async () => {
+    console.log(`🧹 Clearing completed meetings history`);
+    setLoadingAction(true);
+    
+    try {
+      const success = await clearCompletedMeetings();
+      
+      if (success) {
+        // Rafraîchir la liste des réunions après nettoyage
+        if (isAdmin) {
+          await getAllMeetings();
+        } else {
+          await getUserMeetings();
+        }
+      }
+    } catch (error) {
+      console.error('Error clearing history:', error);
+    } finally {
+      setLoadingAction(false);
     }
   };
 
@@ -392,6 +492,14 @@ const VideoConference: React.FC = () => {
                     onClick={handleCreateMeeting}
                   >
                     <Calendar className="mr-2 h-4 w-4" /> Planifier
+                  </Button>
+                  <Button 
+                    variant="destructive" 
+                    className="flex-1 md:flex-none"
+                    onClick={handleClearHistory}
+                    disabled={loadingAction}
+                  >
+                    <History className="mr-2 h-4 w-4" /> Nettoyer l'historique
                   </Button>
                 </>
               )}
@@ -534,22 +642,38 @@ const VideoConference: React.FC = () => {
                         </div>
                       </div>
                     </CardContent>
-                    <CardFooter className="flex justify-end pt-0">
-                      <Button 
-                        className="bg-aphs-teal hover:bg-aphs-navy"
-                        onClick={() => handleJoinMeeting(meeting.id)}
-                      >
-                        <VideoIcon className="mr-2 h-4 w-4" /> Rejoindre
-                      </Button>
-                      
-                      {(meeting.status === 'active') && 
+                    <CardFooter className="flex justify-between pt-0">
+                      <div className="flex gap-2">
+                        <Button 
+                          className="bg-aphs-teal hover:bg-aphs-navy"
+                          onClick={() => handleJoinMeeting(meeting.id)}
+                        >
+                          <VideoIcon className="mr-2 h-4 w-4" /> Rejoindre
+                        </Button>
+                        
+                        {(meeting.status === 'active') && 
+                         (isAdmin || meeting.createdBy === user?.id) && (
+                          <Button 
+                            variant="destructive"
+                            onClick={() => handleEndMeeting(meeting.id)}
+                            disabled={loadingAction}
+                          >
+                            <StopCircle className="mr-2 h-4 w-4" /> Terminer
+                          </Button>
+                        )}
+                      </div>
+
+                      {/* Bouton supprimer pour les réunions terminées/annulées */}
+                      {(meeting.status === 'ended' || meeting.status === 'cancelled') && 
                        (isAdmin || meeting.createdBy === user?.id) && (
                         <Button 
-                          variant="destructive"
-                          className="ml-2"
-                          onClick={() => handleEndMeeting(meeting.id)}
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteMeeting(meeting.id)}
+                          disabled={loadingAction}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
                         >
-                          <StopCircle className="mr-2 h-4 w-4" /> Terminer
+                          <Trash2 className="mr-2 h-4 w-4" /> Supprimer
                         </Button>
                       )}
                     </CardFooter>

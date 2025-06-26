@@ -21,6 +21,7 @@ import { useSocket } from '../hooks/useSocket';
 import { useRecording } from '../hooks/useRecording';
 import { MeetingChat } from './MeetingChat';
 import { useAuth } from '../contexts/AuthContext';
+import { useSupabase } from '../hooks/useSupabase';
 
 interface WebRTCMeetingProps {
   roomId: string;
@@ -34,6 +35,7 @@ interface WebRTCMeetingProps {
 interface Participant {
   id: string;
   name: string;
+  email?: string;
   stream?: MediaStream;
   peer?: SimplePeer.Instance;
 }
@@ -48,6 +50,7 @@ export function WebRTCMeeting({
 }: WebRTCMeetingProps) {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { getUsers } = useSupabase();
   
   // Refs pour les éléments vidéo
   const localVideoRef = useRef<HTMLVideoElement>(null);
@@ -63,15 +66,62 @@ export function WebRTCMeeting({
   const [isConnected, setIsConnected] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [userProfiles, setUserProfiles] = useState<Map<string, { name: string; email: string }>>(new Map());
+  
+  // Obtenir le nom d'affichage local
+  const getLocalDisplayName = useCallback(() => {
+    if (user?.user_metadata?.first_name && user?.user_metadata?.last_name) {
+      return `${user.user_metadata.first_name} ${user.user_metadata.last_name}`;
+    }
+    return displayName || user?.email || 'Vous';
+  }, [user, displayName]);
   
   // Hooks personnalisés
   const socket = useSocket({
     roomId,
-    userName: displayName,
+    userName: getLocalDisplayName(),
     userId: user?.id || 'anonymous'
   });
   
   const recording = useRecording(roomId);
+
+  // Charger les profils utilisateurs
+  const loadUserProfiles = useCallback(async (userIds: string[]) => {
+    if (userIds.length === 0) return;
+    
+    try {
+      // Utiliser getUsers du hook useSupabase
+      const userData = await getUsers();
+      
+      if (userData && userData.users) {
+        const profilesMap = new Map();
+        userData.users.forEach((userItem: any) => {
+          if (userIds.includes(userItem.id)) {
+            const firstName = userItem.user_metadata?.first_name || '';
+            const lastName = userItem.user_metadata?.last_name || '';
+            const name = `${firstName} ${lastName}`.trim() || userItem.email || 'Utilisateur';
+            
+            profilesMap.set(userItem.id, {
+              name,
+              email: userItem.email || ''
+            });
+          }
+        });
+
+        setUserProfiles(prev => new Map([...prev, ...profilesMap]));
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement des profils:', error);
+      // Fallback : utiliser l'email de l'utilisateur actuel pour lui-même
+      if (user && userIds.includes(user.id)) {
+        const name = user.user_metadata?.first_name && user.user_metadata?.last_name
+          ? `${user.user_metadata.first_name} ${user.user_metadata.last_name}`
+          : user.email || 'Utilisateur';
+        
+        setUserProfiles(prev => new Map([...prev, [user.id, { name, email: user.email || '' }]]));
+      }
+    }
+    }, [getUsers, user]);
 
   // Initialiser le stream local (caméra + micro)
   const initializeLocalStream = useCallback(async () => {
@@ -114,7 +164,12 @@ export function WebRTCMeeting({
 
   // Créer une connexion peer avec un participant
   const createPeerConnection = useCallback((participantId: string, initiator: boolean = false) => {
-    if (!localStream) return;
+    if (!localStream) {
+      console.log(`❌ Cannot create peer connection: no local stream`);
+      return;
+    }
+
+    console.log(`🔗 Creating peer connection with ${participantId}, initiator: ${initiator}`);
 
     const peer = new SimplePeer({
       initiator,
@@ -131,10 +186,12 @@ export function WebRTCMeeting({
     peersRef.current[participantId] = peer;
 
     peer.on('signal', (signal) => {
+      console.log(`📡 Sending signal to ${participantId}:`, signal.type);
       socket.sendSignal(signal, participantId);
     });
 
     peer.on('stream', (remoteStream) => {
+      console.log(`🎥 Received stream from ${participantId}`);
       setParticipants(prev => prev.map(p => 
         p.id === participantId 
           ? { ...p, stream: remoteStream, peer }
@@ -146,50 +203,108 @@ export function WebRTCMeeting({
         const videoElement = remoteVideosRef.current[participantId];
         if (videoElement) {
           videoElement.srcObject = remoteStream;
+          console.log(`📺 Stream attached to video element for ${participantId}`);
         }
       }, 100);
     });
 
+    peer.on('connect', () => {
+      console.log(`🤝 Peer connected: ${participantId}`);
+    });
+
     peer.on('error', (error) => {
-      console.error('Erreur peer:', error);
+      console.error(`❌ Peer error with ${participantId}:`, error);
       toast({
         title: "Erreur de connexion",
-        description: `Problème avec ${participantId}`,
+        description: `Problème avec ${userProfiles.get(participantId)?.name || participantId}`,
         variant: "destructive"
       });
     });
 
     peer.on('close', () => {
+      console.log(`🔌 Peer connection closed: ${participantId}`);
       delete peersRef.current[participantId];
       setParticipants(prev => prev.filter(p => p.id !== participantId));
     });
 
     return peer;
-  }, [localStream, socket, toast]);
+  }, [localStream, socket, toast, userProfiles]);
 
   // Gérer les nouveaux participants
   useEffect(() => {
     if (!socket.isConnected || !localStream) return;
 
+    console.log(`🔄 Managing participants. Connected: ${socket.isConnected}, Local stream: ${!!localStream}`);
+    console.log(`👥 Socket participants: [${socket.participants.join(', ')}]`);
+
+    // Charger les profils des participants
+    const newParticipantIds = socket.participants.filter(id => !userProfiles.has(id));
+    if (newParticipantIds.length > 0) {
+      console.log(`📋 Loading profiles for: [${newParticipantIds.join(', ')}]`);
+      loadUserProfiles(newParticipantIds);
+    }
+
     // Créer des connexions pour les participants existants
     socket.participants.forEach(participantId => {
       if (!peersRef.current[participantId]) {
+        console.log(`🤝 Creating peer connection with: ${participantId}`);
+        
+        const userProfile = userProfiles.get(participantId);
         const participant: Participant = {
           id: participantId,
-          name: participantId
+          name: userProfile?.name || 'Chargement...',
+          email: userProfile?.email
         };
         
         setParticipants(prev => {
           if (!prev.find(p => p.id === participantId)) {
+            console.log(`➕ Adding participant to UI: ${participantId}`);
             return [...prev, participant];
           }
           return prev;
         });
         
         createPeerConnection(participantId, true);
+      } else {
+        console.log(`✅ Peer connection already exists for: ${participantId}`);
       }
     });
-  }, [socket.participants, socket.isConnected, localStream, createPeerConnection]);
+
+    // Nettoyer les connexions pour les participants qui ont quitté
+    const currentParticipantIds = socket.participants;
+    setParticipants(prev => {
+      const filtered = prev.filter(p => currentParticipantIds.includes(p.id));
+      if (filtered.length !== prev.length) {
+        console.log(`🧹 Cleaned up ${prev.length - filtered.length} participants from UI`);
+      }
+      return filtered;
+    });
+
+    // Nettoyer les connexions peer pour les participants qui ont quitté
+    Object.keys(peersRef.current).forEach(participantId => {
+      if (!currentParticipantIds.includes(participantId)) {
+        console.log(`🔌 Closing peer connection for: ${participantId}`);
+        peersRef.current[participantId].destroy();
+        delete peersRef.current[participantId];
+      }
+    });
+
+  }, [socket.participants, socket.isConnected, localStream, createPeerConnection, userProfiles, loadUserProfiles]);
+
+  // Mettre à jour les noms des participants quand les profils sont chargés
+  useEffect(() => {
+    setParticipants(prev => prev.map(p => {
+      const userProfile = userProfiles.get(p.id);
+      if (userProfile && p.name === 'Chargement...') {
+        return {
+          ...p,
+          name: userProfile.name,
+          email: userProfile.email
+        };
+      }
+      return p;
+    }));
+  }, [userProfiles]);
 
   // Gérer les signaux WebRTC
   useEffect(() => {
@@ -403,7 +518,10 @@ export function WebRTCMeeting({
             className="w-full h-full object-cover"
           />
           <div className="absolute bottom-2 left-2 bg-black/70 text-white px-2 py-1 rounded text-sm">
-            Vous {!isVideoEnabled && "(caméra off)"}
+            {getLocalDisplayName()} {!isVideoEnabled && "(caméra off)"}
+            {isModerator && (
+              <span className="ml-1 text-xs bg-blue-500 px-1 rounded">MOD</span>
+            )}
           </div>
           {recording.isRecording && (
             <div className="absolute top-2 left-2 flex items-center bg-red-600 text-white px-2 py-1 rounded text-xs">

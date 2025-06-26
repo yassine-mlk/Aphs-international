@@ -363,39 +363,82 @@ export function useVideoMeetings() {
     if (!user) return null;
     setLoading(true);
     try {
-      // Récupérer uniquement les informations de base de la réunion
+      // Récupérer les informations de base de la réunion
       const { data: meetingData, error: meetingError } = await supabase
         .from('video_meetings')
-        .select('room_id, created_by')
+        .select('room_id, created_by, title')
         .eq('id', meetingId)
         .single();
         
       if (meetingError) throw meetingError;
       
-      // Détermination simple du rôle modérateur
+      // Détermination STRICTE du rôle modérateur
       const isCreator = meetingData.created_by === user.id;
-      const isAdmin = user.user_metadata?.role === 'admin';
-      // FORCER isModerator = true pour TOUS les admins
-      const isModerator = isAdmin ? true : isCreator;
-        
-      console.log(`Joining meeting: ${meetingId}, User is creator: ${isCreator}, admin: ${isAdmin}, isModerator: ${isModerator}`);
-      console.log(`Access libre Jitsi - Room: ${meetingData.room_id}`);
+      const isRealAdmin = user.user_metadata?.role === 'admin' || 
+                         user.email?.toLowerCase() === 'admin@aphs.fr' ||
+                         user.email?.toLowerCase() === 'admin@aphs.com';
       
-      // Marquer la réunion comme active (sans vérification de permissions)
+      // SEULS les créateurs et les vrais admins sont modérateurs
+      const isModerator = isCreator || isRealAdmin;
+        
+      console.log(`Joining meeting: ${meetingId}`);
+      console.log(`User: ${user.email}, Creator: ${isCreator}, Admin: ${isRealAdmin}, Moderator: ${isModerator}`);
+      console.log(`Room: ${meetingData.room_id}`);
+      
+      // Vérifier si l'utilisateur est déjà participant
+      const { data: existingParticipant, error: checkError } = await supabase
+        .from('video_meeting_participants')
+        .select('id, status')
+        .eq('meeting_id', meetingId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (checkError) {
+        console.error('Erreur lors de la vérification du participant:', checkError);
+      }
+
+      if (existingParticipant) {
+        // Mettre à jour le statut du participant existant
+        await supabase
+          .from('video_meeting_participants')
+          .update({ 
+            status: 'joined',
+            joined_at: new Date().toISOString()
+          })
+          .eq('meeting_id', meetingId)
+          .eq('user_id', user.id);
+      } else {
+        // Ajouter l'utilisateur comme participant s'il n'existe pas
+        const participantRole = isModerator ? 'host' : 'participant';
+        
+        const { error: addParticipantError } = await supabase
+          .from('video_meeting_participants')
+          .insert({
+            meeting_id: meetingId,
+            user_id: user.id,
+            role: participantRole,
+            status: 'joined',
+            joined_at: new Date().toISOString()
+          });
+
+        if (addParticipantError) {
+          console.error('Erreur lors de l\'ajout du participant:', addParticipantError);
+          // Ne pas empêcher la connexion pour cette erreur
+        }
+        
+        console.log(`Added as participant with role: ${participantRole}`);
+      }
+      
+      // Marquer la réunion comme active
       await supabase
         .from('video_meetings')
         .update({ status: 'active' })
         .eq('id', meetingId);
       
-      // Marquer le participant comme ayant rejoint (si il existe)
-      await supabase
-        .from('video_meeting_participants')
-        .update({ 
-          status: 'joined',
-          joined_at: new Date().toISOString()
-        })
-        .eq('meeting_id', meetingId)
-        .eq('user_id', user.id);
+      toast({
+        title: 'Réunion rejointe',
+        description: `Vous avez rejoint "${meetingData.title}" avec succès${isModerator ? ' (Modérateur)' : ''}`
+      });
       
       return { 
         roomId: meetingData.room_id,
@@ -419,28 +462,56 @@ export function useVideoMeetings() {
     if (!user) return false;
     setLoading(true);
     try {
-      // Marquer le participant comme ayant quitté la réunion
-      const { error } = await supabase
+      console.log(`🚪 Attempting to leave meeting: ${meetingId} for user: ${user.id}`);
+      
+      // Vérifier si le participant existe dans la base de données
+      const { data: existingParticipant, error: checkError } = await supabase
         .from('video_meeting_participants')
-        .update({ 
-          left_at: new Date().toISOString()
-        })
+        .select('id, status, joined_at')
         .eq('meeting_id', meetingId)
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .maybeSingle();
 
-      if (error) throw error;
+      if (checkError) {
+        console.error('Erreur lors de la vérification du participant:', checkError);
+        throw checkError;
+      }
 
+      if (existingParticipant) {
+        // Mettre à jour le participant existant
+        console.log(`📝 Updating existing participant: ${existingParticipant.id}`);
+        const { error: updateError } = await supabase
+          .from('video_meeting_participants')
+          .update({ 
+            left_at: new Date().toISOString(),
+            status: 'left'
+          })
+          .eq('meeting_id', meetingId)
+          .eq('user_id', user.id);
+
+        if (updateError) {
+          console.error('Erreur lors de la mise à jour du participant:', updateError);
+          throw updateError;
+        }
+      } else {
+        // Le participant n'existe pas dans la BD, mais ce n'est pas une erreur
+        // Il peut avoir rejoint via WebRTC sans être enregistré correctement
+        console.log(`⚠️ Participant not found in database, but this is OK`);
+      }
+
+      console.log(`✅ Successfully left meeting: ${meetingId}`);
+      
       toast({
         title: 'Vous avez quitté la réunion',
         description: 'La réunion reste en cours pour les autres participants'
       });
 
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erreur lors de la sortie de la réunion:', error);
       toast({
         title: 'Erreur',
-        description: 'Impossible de quitter la réunion',
+        description: error?.message || 'Impossible de quitter la réunion',
         variant: 'destructive'
       });
       return false;
@@ -732,6 +803,121 @@ export function useVideoMeetings() {
     // TODO: Implémenter cette partie
   }, [getAllMeetings, getUserMeetings, supabase, user]);
 
+  // Supprimer définitivement une réunion (admin uniquement)
+  const deleteMeeting = useCallback(async (meetingId: string): Promise<boolean> => {
+    if (!user) return false;
+    setLoading(true);
+    try {
+      // Vérifier que l'utilisateur est admin ou créateur
+      const { data: meeting, error: meetingError } = await supabase
+        .from('video_meetings')
+        .select('created_by, status')
+        .eq('id', meetingId)
+        .single();
+
+      if (meetingError) throw meetingError;
+
+      const isAdmin = user.user_metadata?.role === 'admin' || 
+                     user.email?.toLowerCase() === 'admin@aphs.fr' ||
+                     user.email?.toLowerCase() === 'admin@aphs.com';
+      const isCreator = meeting.created_by === user.id;
+
+      if (!isAdmin && !isCreator) {
+        toast({
+          title: 'Accès refusé',
+          description: 'Vous n\'êtes pas autorisé à supprimer cette réunion',
+          variant: 'destructive'
+        });
+        return false;
+      }
+
+      // Supprimer la réunion (CASCADE supprimera automatiquement les participants)
+      const { error: deleteError } = await supabase
+        .from('video_meetings')
+        .delete()
+        .eq('id', meetingId);
+
+      if (deleteError) throw deleteError;
+
+      toast({
+        title: 'Réunion supprimée',
+        description: 'La réunion a été supprimée définitivement'
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Erreur lors de la suppression de la réunion:', error);
+      toast({
+        title: 'Erreur',
+        description: 'Impossible de supprimer la réunion',
+        variant: 'destructive'
+      });
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, [user, supabase, toast]);
+
+  // Nettoyer l'historique des réunions terminées (admin uniquement)
+  const clearCompletedMeetings = useCallback(async (): Promise<boolean> => {
+    if (!user) return false;
+    setLoading(true);
+    try {
+      const isAdmin = user.user_metadata?.role === 'admin' || 
+                     user.email?.toLowerCase() === 'admin@aphs.fr' ||
+                     user.email?.toLowerCase() === 'admin@aphs.com';
+
+      if (!isAdmin) {
+        toast({
+          title: 'Accès refusé',
+          description: 'Seuls les administrateurs peuvent nettoyer l\'historique',
+          variant: 'destructive'
+        });
+        return false;
+      }
+
+      // Supprimer toutes les réunions terminées ou annulées
+      const { data: completedMeetings, error: fetchError } = await supabase
+        .from('video_meetings')
+        .select('id')
+        .in('status', ['ended', 'cancelled']);
+
+      if (fetchError) throw fetchError;
+
+      if (!completedMeetings || completedMeetings.length === 0) {
+        toast({
+          title: 'Information',
+          description: 'Aucune réunion terminée à supprimer'
+        });
+        return true;
+      }
+
+      const { error: deleteError } = await supabase
+        .from('video_meetings')
+        .delete()
+        .in('status', ['ended', 'cancelled']);
+
+      if (deleteError) throw deleteError;
+
+      toast({
+        title: 'Historique nettoyé',
+        description: `${completedMeetings.length} réunion(s) terminée(s) supprimée(s)`
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Erreur lors du nettoyage de l\'historique:', error);
+      toast({
+        title: 'Erreur',
+        description: 'Impossible de nettoyer l\'historique',
+        variant: 'destructive'
+      });
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, [user, supabase, toast]);
+
   return {
     loading,
     loadingMeetings,
@@ -742,6 +928,8 @@ export function useVideoMeetings() {
     joinMeeting,
     leaveMeeting,
     endMeeting,
+    deleteMeeting,
+    clearCompletedMeetings,
     requestMeeting,
     getMeetingRequests,
     respondToMeetingRequest,

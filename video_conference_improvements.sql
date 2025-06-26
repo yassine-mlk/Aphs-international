@@ -50,39 +50,32 @@ CREATE OR REPLACE FUNCTION delete_meeting(
 RETURNS BOOLEAN AS $$
 DECLARE
     meeting_exists BOOLEAN;
-    is_admin BOOLEAN;
-    is_creator BOOLEAN;
+    user_is_creator BOOLEAN;
+    user_is_admin BOOLEAN;
 BEGIN
-    -- Vérifier si la réunion existe et n'est pas déjà supprimée
-    SELECT EXISTS(
-        SELECT 1 FROM video_meetings 
-        WHERE id = p_meeting_id AND deleted_at IS NULL
-    ) INTO meeting_exists;
+    -- Vérifier si la réunion existe
+    SELECT EXISTS(SELECT 1 FROM video_meetings WHERE id = p_meeting_id) INTO meeting_exists;
     
     IF NOT meeting_exists THEN
-        RAISE EXCEPTION 'Réunion introuvable ou déjà supprimée';
+        RAISE EXCEPTION 'Réunion introuvable';
     END IF;
-    
-    -- Vérifier si l'utilisateur est admin
-    SELECT EXISTS(
-        SELECT 1 FROM profiles 
-        WHERE user_id = p_user_id AND role = 'admin'
-    ) INTO is_admin;
     
     -- Vérifier si l'utilisateur est le créateur
     SELECT EXISTS(
         SELECT 1 FROM video_meetings 
         WHERE id = p_meeting_id AND created_by = p_user_id
-    ) INTO is_creator;
+    ) INTO user_is_creator;
     
-    -- Seuls les admins ou les créateurs peuvent supprimer
-    IF NOT (is_admin OR is_creator) THEN
-        RAISE EXCEPTION 'Vous n''êtes pas autorisé à supprimer cette réunion';
+    -- Vérifier si l'utilisateur est admin (à adapter selon votre logique)
+    -- Pour l'instant, on considère que seul le créateur peut supprimer
+    
+    IF NOT user_is_creator THEN
+        RAISE EXCEPTION 'Accès refusé: seul le créateur peut supprimer cette réunion';
     END IF;
     
     -- Suppression logique
     UPDATE video_meetings 
-    SET deleted_at = NOW(), status = 'cancelled'
+    SET deleted_at = NOW() 
     WHERE id = p_meeting_id;
     
     RETURN TRUE;
@@ -92,232 +85,162 @@ EXCEPTION
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Fonction pour obtenir les enregistrements d'une réunion
-CREATE OR REPLACE FUNCTION get_meeting_recordings(
+-- Fonction améliorée pour rejoindre une réunion
+CREATE OR REPLACE FUNCTION join_meeting_improved(
     p_meeting_id UUID,
     p_user_id UUID
 )
-RETURNS TABLE(
-    id UUID,
-    file_url TEXT,
-    thumbnail_url TEXT,
-    duration_seconds INTEGER,
-    file_size_bytes BIGINT,
-    started_at TIMESTAMP WITH TIME ZONE,
-    ended_at TIMESTAMP WITH TIME ZONE
-) AS $$
+RETURNS TABLE(success BOOLEAN, is_moderator BOOLEAN, room_id TEXT) AS $$
 DECLARE
-    has_access BOOLEAN;
-    is_admin BOOLEAN;
+    meeting_creator UUID;
+    meeting_room_id TEXT;
+    participant_exists BOOLEAN;
 BEGIN
-    -- Vérifier si l'utilisateur est admin
-    SELECT EXISTS(
-        SELECT 1 FROM profiles 
-        WHERE user_id = p_user_id AND role = 'admin'
-    ) INTO is_admin;
+    -- Récupérer les infos de la réunion
+    SELECT created_by, room_id 
+    INTO meeting_creator, meeting_room_id
+    FROM video_meetings 
+    WHERE id = p_meeting_id;
     
-    -- Vérifier si l'utilisateur a accès à la réunion
+    IF meeting_room_id IS NULL THEN
+        RAISE EXCEPTION 'Réunion introuvable';
+    END IF;
+    
+    -- Vérifier si l'utilisateur est déjà participant
     SELECT EXISTS(
         SELECT 1 FROM video_meeting_participants 
         WHERE meeting_id = p_meeting_id AND user_id = p_user_id
-    ) OR is_admin INTO has_access;
+    ) INTO participant_exists;
     
-    IF NOT has_access THEN
-        RAISE EXCEPTION 'Accès refusé aux enregistrements de cette réunion';
+    IF participant_exists THEN
+        -- Mettre à jour le statut
+        UPDATE video_meeting_participants 
+        SET status = 'joined', joined_at = NOW()
+        WHERE meeting_id = p_meeting_id AND user_id = p_user_id;
+    ELSE
+        -- Ajouter comme participant
+        INSERT INTO video_meeting_participants (meeting_id, user_id, role, status, joined_at)
+        VALUES (
+            p_meeting_id, 
+            p_user_id, 
+            CASE WHEN p_user_id = meeting_creator THEN 'host' ELSE 'participant' END,
+            'joined', 
+            NOW()
+        );
     END IF;
     
-    RETURN QUERY
-    SELECT 
-        r.id,
-        r.file_url,
-        r.thumbnail_url,
-        r.duration_seconds,
-        r.file_size_bytes,
-        r.started_at,
-        r.ended_at
-    FROM meeting_recordings r
-    WHERE r.meeting_id = p_meeting_id 
-    AND r.status = 'completed'
-    ORDER BY r.started_at DESC;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Fonction pour marquer une réunion comme terminée proprement
-CREATE OR REPLACE FUNCTION end_meeting_properly(
-    p_meeting_id UUID,
-    p_user_id UUID
-)
-RETURNS BOOLEAN AS $$
-DECLARE
-    is_authorized BOOLEAN;
-    meeting_exists BOOLEAN;
-BEGIN
-    -- Vérifier si la réunion existe et est active
-    SELECT EXISTS(
-        SELECT 1 FROM video_meetings 
-        WHERE id = p_meeting_id AND status = 'active' AND deleted_at IS NULL
-    ) INTO meeting_exists;
-    
-    IF NOT meeting_exists THEN
-        RAISE EXCEPTION 'Réunion introuvable ou pas en cours';
-    END IF;
-    
-    -- Vérifier si l'utilisateur est autorisé (admin ou host)
-    SELECT EXISTS(
-        SELECT 1 FROM profiles 
-        WHERE user_id = p_user_id AND role = 'admin'
-    ) OR EXISTS(
-        SELECT 1 FROM video_meeting_participants 
-        WHERE meeting_id = p_meeting_id AND user_id = p_user_id AND role = 'host'
-    ) INTO is_authorized;
-    
-    IF NOT is_authorized THEN
-        RAISE EXCEPTION 'Vous n''êtes pas autorisé à terminer cette réunion';
-    END IF;
-    
-    -- Terminer la réunion
+    -- Marquer la réunion comme active
     UPDATE video_meetings 
-    SET status = 'ended', ended_at = NOW()
-    WHERE id = p_meeting_id;
+    SET status = 'active' 
+    WHERE id = p_meeting_id AND status = 'scheduled';
     
-    -- Marquer tous les participants comme ayant quitté
-    UPDATE video_meeting_participants
-    SET left_at = NOW()
-    WHERE meeting_id = p_meeting_id AND left_at IS NULL;
-    
-    RETURN TRUE;
+    -- Retourner les résultats
+    RETURN QUERY SELECT 
+        TRUE as success,
+        (p_user_id = meeting_creator) as is_moderator,
+        meeting_room_id as room_id;
+        
 EXCEPTION
     WHEN OTHERS THEN
-        RAISE EXCEPTION 'Erreur lors de la fin de réunion: %', SQLERRM;
+        RETURN QUERY SELECT FALSE, FALSE, NULL::TEXT;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Fonction pour obtenir les projets accessibles à un utilisateur
-CREATE OR REPLACE FUNCTION get_user_accessible_projects(p_user_id UUID)
+-- Fonction pour obtenir les participants d'une réunion avec leurs noms
+CREATE OR REPLACE FUNCTION get_meeting_participants_with_names(
+    p_meeting_id UUID
+)
 RETURNS TABLE(
-    id UUID,
-    name TEXT,
-    description TEXT,
-    status TEXT
+    participant_id UUID,
+    user_id UUID,
+    user_name TEXT,
+    user_email TEXT,
+    role TEXT,
+    status TEXT,
+    joined_at TIMESTAMP WITH TIME ZONE
 ) AS $$
-DECLARE
-    is_admin BOOLEAN;
 BEGIN
-    -- Vérifier si l'utilisateur est admin
-    SELECT EXISTS(
-        SELECT 1 FROM profiles 
-        WHERE user_id = p_user_id AND role = 'admin'
-    ) INTO is_admin;
-    
-    IF is_admin THEN
-        -- Les admins voient tous les projets
-        RETURN QUERY
-        SELECT p.id, p.name, p.description, p.status
-        FROM projects p
-        WHERE p.status IN ('active', 'paused')
-        ORDER BY p.name;
-    ELSE
-        -- Les autres utilisateurs voient leurs projets + ceux où ils sont membres
-        RETURN QUERY
-        SELECT p.id, p.name, p.description, p.status
-        FROM projects p
-        WHERE (p.created_by = p_user_id OR 
-               p.id IN (
-                   SELECT pm.project_id 
-                   FROM project_members pm 
-                   WHERE pm.user_id = p_user_id
-               ))
-        AND p.status IN ('active', 'paused')
-        ORDER BY p.name;
-    END IF;
+    RETURN QUERY
+    SELECT 
+        vmp.id as participant_id,
+        vmp.user_id,
+        COALESCE(
+            TRIM(
+                COALESCE(u.raw_user_meta_data->>'first_name', '') || ' ' || 
+                COALESCE(u.raw_user_meta_data->>'last_name', '')
+            ),
+            u.email,
+            'Utilisateur inconnu'
+        ) as user_name,
+        u.email as user_email,
+        vmp.role,
+        vmp.status,
+        vmp.joined_at
+    FROM video_meeting_participants vmp
+    LEFT JOIN auth.users u ON u.id = vmp.user_id
+    WHERE vmp.meeting_id = p_meeting_id
+    ORDER BY vmp.role DESC, vmp.joined_at ASC;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- =========================================
--- 4. MISES À JOUR DES POLITIQUES RLS
+-- 4. POLITIQUES RLS (Row Level Security)
 -- =========================================
 
--- Mise à jour pour exclure les réunions supprimées
-DROP POLICY IF EXISTS "Utilisateurs peuvent voir leurs réunions" ON video_meetings;
-CREATE POLICY "Utilisateurs peuvent voir leurs réunions" ON video_meetings
-    FOR SELECT USING (
-        deleted_at IS NULL AND (
-            created_by = auth.uid() OR
-            id IN (
-                SELECT meeting_id FROM video_meeting_participants 
-                WHERE user_id = auth.uid()
-            ) OR
-            EXISTS (
-                SELECT 1 FROM profiles 
-                WHERE user_id = auth.uid() AND role = 'admin'
-            )
-        )
-    );
+-- Activer RLS sur les tables si pas déjà fait
+ALTER TABLE video_meetings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE video_meeting_participants ENABLE ROW LEVEL SECURITY;
 
--- Politique pour les admins pour supprimer
-DROP POLICY IF EXISTS "Admins peuvent supprimer des réunions" ON video_meetings;
-CREATE POLICY "Admins peuvent supprimer des réunions" ON video_meetings
-    FOR UPDATE USING (
-        created_by = auth.uid() OR
-        EXISTS (
-            SELECT 1 FROM profiles 
-            WHERE user_id = auth.uid() AND role = 'admin'
-        )
-    );
+-- Politique pour les réunions : tous les utilisateurs authentifiés peuvent voir
+CREATE POLICY IF NOT EXISTS "Utilisateurs authentifiés peuvent voir les réunions" 
+ON video_meetings FOR SELECT 
+TO authenticated 
+USING (true);
+
+-- Politique pour les participants : tous les utilisateurs authentifiés peuvent voir
+CREATE POLICY IF NOT EXISTS "Utilisateurs authentifiés peuvent voir les participants" 
+ON video_meeting_participants FOR SELECT 
+TO authenticated 
+USING (true);
+
+-- Politique pour insérer des participants : tous les utilisateurs authentifiés
+CREATE POLICY IF NOT EXISTS "Utilisateurs authentifiés peuvent rejoindre" 
+ON video_meeting_participants FOR INSERT 
+TO authenticated 
+WITH CHECK (auth.uid() = user_id);
+
+-- Politique pour mettre à jour ses propres données de participant
+CREATE POLICY IF NOT EXISTS "Utilisateurs peuvent mettre à jour leurs données" 
+ON video_meeting_participants FOR UPDATE 
+TO authenticated 
+USING (auth.uid() = user_id);
 
 -- =========================================
 -- 5. VUES UTILES
 -- =========================================
 
--- Vue pour les réunions avec informations de projet
-CREATE OR REPLACE VIEW meeting_details AS
+-- Vue pour afficher les réunions avec le nombre de participants
+CREATE OR REPLACE VIEW meeting_summary AS
 SELECT 
-    m.id,
-    m.title,
-    m.room_id,
-    m.description,
-    m.project_id,
-    p.name as project_name,
-    m.scheduled_time,
-    m.is_instant,
-    m.status,
-    m.created_by,
-    m.created_at,
-    m.updated_at,
-    m.ended_at,
-    m.recording_available,
-    COUNT(DISTINCT mp.id) as participant_count,
-    COUNT(DISTINCT mr.id) as recording_count
-FROM video_meetings m
-LEFT JOIN projects p ON m.project_id = p.id
-LEFT JOIN video_meeting_participants mp ON m.id = mp.meeting_id
-LEFT JOIN meeting_recordings mr ON m.id = mr.meeting_id AND mr.status = 'completed'
-WHERE m.deleted_at IS NULL
-GROUP BY m.id, p.name;
+    vm.id,
+    vm.title,
+    vm.room_id,
+    vm.description,
+    vm.scheduled_time,
+    vm.status,
+    vm.created_by,
+    vm.created_at,
+    COUNT(vmp.id) as participant_count,
+    COUNT(CASE WHEN vmp.status = 'joined' THEN 1 END) as active_participants
+FROM video_meetings vm
+LEFT JOIN video_meeting_participants vmp ON vm.id = vmp.meeting_id
+WHERE vm.deleted_at IS NULL
+GROUP BY vm.id, vm.title, vm.room_id, vm.description, vm.scheduled_time, vm.status, vm.created_by, vm.created_at;
 
--- Vue pour les demandes avec informations complètes
-CREATE OR REPLACE VIEW meeting_request_details AS
-SELECT 
-    mr.id,
-    mr.title,
-    mr.description,
-    mr.project_id,
-    p.name as project_name,
-    mr.requested_by,
-    prof.first_name || ' ' || prof.last_name as requested_by_name,
-    mr.status,
-    mr.scheduled_time,
-    mr.requested_time,
-    mr.responded_at,
-    mr.responded_by,
-    mr.response_message,
-    mr.created_meeting_id,
-    COUNT(mrp.id) as suggested_participants_count
-FROM video_meeting_requests mr
-LEFT JOIN projects p ON mr.project_id = p.id
-LEFT JOIN profiles prof ON mr.requested_by = prof.user_id
-LEFT JOIN video_meeting_request_participants mrp ON mr.id = mrp.request_id
-GROUP BY mr.id, p.name, prof.first_name, prof.last_name;
+-- Commentaires
+COMMENT ON FUNCTION join_meeting_improved IS 'Fonction améliorée pour rejoindre une réunion - ajoute automatiquement l''utilisateur comme participant si nécessaire';
+COMMENT ON FUNCTION get_meeting_participants_with_names IS 'Récupère la liste des participants d''une réunion avec leurs noms complets';
+COMMENT ON VIEW meeting_summary IS 'Vue résumé des réunions avec statistiques des participants';
 
 -- =========================================
 -- 6. COMMENTAIRES

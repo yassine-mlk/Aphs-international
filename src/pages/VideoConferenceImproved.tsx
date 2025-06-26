@@ -291,12 +291,37 @@ const VideoConferenceImproved: React.FC = () => {
   };
   
   const handleLeaveMeeting = async (meetingId: string) => {
-    const success = await leaveMeeting(meetingId);
+    console.log(`🚪 Leaving meeting: ${meetingId}`);
     
-    if (success) {
+    try {
+      const success = await leaveMeeting(meetingId);
+      
+      // Toujours quitter l'interface, même si la BD a eu un problème
       if (activeMeetingRoom && activeMeetingRoom.meetingId === meetingId) {
+        console.log(`✅ Closing meeting room interface`);
         setActiveMeetingRoom(null);
       }
+      
+      // Rafraîchir la liste des réunions
+      if (isAdmin) {
+        await getAllMeetings();
+      } else {
+        await getUserMeetings();
+      }
+      
+    } catch (error) {
+      console.error('Error leaving meeting:', error);
+      // En cas d'erreur, fermer quand même l'interface
+      if (activeMeetingRoom && activeMeetingRoom.meetingId === meetingId) {
+        console.log(`🔄 Force closing meeting room due to error`);
+        setActiveMeetingRoom(null);
+      }
+      
+      toast({
+        title: "Attention",
+        description: "Vous avez quitté la réunion mais il y a eu un problème technique",
+        variant: "default"
+      });
     }
   };
 

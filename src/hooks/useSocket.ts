@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { io, Socket } from 'socket.io-client';
+import { useSupabase } from './useSupabase';
 
 interface UseSocketProps {
   roomId: string;
@@ -16,205 +16,144 @@ export interface SocketMessage {
 }
 
 export function useSocket({ roomId, userName, userId }: UseSocketProps) {
-  const socketRef = useRef<Socket | null>(null);
+  const { supabase } = useSupabase();
+  const channelRef = useRef<any>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [participants, setParticipants] = useState<string[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
 
   useEffect(() => {
-    // Configuration pour la production ou développement
-    const isProduction = import.meta.env.VITE_SOCKET_URL;
+    console.log(`🔌 Initializing socket for room: ${roomId}, user: ${userName} (${userId})`);
     
-    if (isProduction) {
-      // Mode PRODUCTION avec vrai serveur Socket.IO
-      const realSocket = io(import.meta.env.VITE_SOCKET_URL, {
-        transports: ['websocket', 'polling']
-      });
-      
-      socketRef.current = realSocket;
-      
-      // Événements Socket.IO réels
-      realSocket.on('connect', () => {
-        console.log('🔌 Connecté au serveur Socket.IO');
-        setIsConnected(true);
-        
-        // Rejoindre la room
-        realSocket.emit('join', {
-          roomId,
-          userName,
-          userId
-        });
-      });
-      
-      realSocket.on('disconnect', () => {
-        console.log('🔌 Déconnecté du serveur');
-        setIsConnected(false);
-        setParticipants([]);
-      });
-      
-      realSocket.on('user-joined', (data) => {
-        setParticipants(prev => {
-          if (!prev.includes(data.userId)) {
-            return [...prev, data.userId];
-          }
-          return prev;
-        });
-      });
-      
-      realSocket.on('user-left', (data) => {
-        setParticipants(prev => prev.filter(id => id !== data.userId));
-      });
-      
-      realSocket.on('existing-participants', (participants) => {
-        setParticipants(participants.map(p => p.userId));
-      });
-      
-      realSocket.on('chat', (data) => {
-        setMessages(prev => [...prev, {
-          id: Date.now(),
-          text: data.message,
-          sender: data.userName,
-          timestamp: data.timestamp,
-          isOwn: false
-        }]);
-      });
-      
-      return () => {
-        realSocket.emit('leave', { roomId });
-        realSocket.disconnect();
-      };
-    } else {
-      // Mode DÉVELOPPEMENT avec simulation localStorage
-      const simulatedSocket = {
-        emit: (event: string, data: any) => {
-          const key = `socket_${roomId}_${event}`;
-          const existing = JSON.parse(localStorage.getItem(key) || '[]');
-          const message = {
-            ...data,
-            from: userId,
-            timestamp: Date.now()
-          };
-          existing.push(message);
-          localStorage.setItem(key, JSON.stringify(existing));
-          
-          // Déclencher un événement pour les autres onglets/utilisateurs
-          window.dispatchEvent(new CustomEvent('socket-message', {
-            detail: { event, data: message, roomId }
-          }));
-        },
-        
-        on: (event: string, callback: (data: any) => void) => {
-          const handleMessage = (e: any) => {
-            if (e.detail.event === event && e.detail.roomId === roomId) {
-              const message = e.detail.data;
-              if (message.from !== userId) {
-                callback(message);
-              }
-            }
-          };
-          window.addEventListener('socket-message', handleMessage);
-          return () => window.removeEventListener('socket-message', handleMessage);
-        },
-        
-        join: (room: string) => {
-          console.log(`Joining room: ${room}`);
-          setIsConnected(true);
-        },
-        
-        leave: (room: string) => {
-          console.log(`Leaving room: ${room}`);
-          setIsConnected(false);
-        }
-      };
+    // Créer un channel Supabase Realtime pour la room
+    const channel = supabase.channel(`video-room-${roomId}`, {
+      config: {
+        broadcast: { self: true },
+        presence: { key: userId }
+      }
+    });
 
-      socketRef.current = simulatedSocket as any;
+    channelRef.current = channel;
 
-      // Rejoindre la room
-      simulatedSocket.join(roomId);
-      
-      // Annoncer sa présence
-      simulatedSocket.emit('join', {
-        roomId,
-        userName,
-        userId
-      });
-
-      // Écouter les événements
-      const cleanupJoin = simulatedSocket.on('join', (data) => {
-        if (data.userId !== userId) {
+    // Écouter les présences (participants qui entrent/sortent)
+    channel
+      .on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState();
+        const participantIds = Object.keys(state).filter(id => id !== userId);
+        console.log(`👥 Participants in room: ${participantIds.length}`, participantIds);
+        setParticipants(participantIds);
+      })
+      .on('presence', { event: 'join' }, ({ key, newPresences }) => {
+        if (key !== userId) {
+          console.log(`👋 User joined: ${key}`);
           setParticipants(prev => {
-            if (!prev.includes(data.userId)) {
-              return [...prev, data.userId];
+            if (!prev.includes(key)) {
+              return [...prev, key];
             }
             return prev;
           });
         }
+      })
+      .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+        console.log(`👋 User left: ${key}`);
+        setParticipants(prev => prev.filter(id => id !== key));
+      })
+      // Écouter les signaux WebRTC
+      .on('broadcast', { event: 'webrtc-signal' }, (payload) => {
+        const { signal, from, to } = payload.payload;
+        if (to === userId && from !== userId) {
+          console.log(`📡 Received WebRTC signal from: ${from}`);
+          if (signalCallbacks.current) {
+            signalCallbacks.current({ signal, from, to });
+          }
+        }
+      })
+      // Écouter les messages de chat
+      .on('broadcast', { event: 'chat-message' }, (payload) => {
+        const { message, userName: senderName, from, timestamp } = payload.payload;
+        if (from !== userId) {
+          setMessages(prev => [...prev, {
+            id: timestamp,
+            text: message,
+            sender: senderName,
+            timestamp,
+            isOwn: false
+          }]);
+        }
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Connected to video room');
+          setIsConnected(true);
+          
+          // Annoncer sa présence
+          await channel.track({
+            userId,
+            userName,
+            joinedAt: new Date().toISOString()
+          });
+        }
       });
 
-      const cleanupLeave = simulatedSocket.on('leave', (data) => {
-        setParticipants(prev => prev.filter(id => id !== data.userId));
-      });
+    return () => {
+      console.log('🔌 Cleaning up socket connection');
+      channel.unsubscribe();
+      setIsConnected(false);
+      setParticipants([]);
+    };
+  }, [roomId, userName, userId, supabase]);
 
-      const cleanupChat = simulatedSocket.on('chat', (data) => {
-        setMessages(prev => [...prev, {
-          id: Date.now(),
-          text: data.message,
-          sender: data.userName,
-          timestamp: data.timestamp,
-          isOwn: false
-        }]);
-      });
-
-      return () => {
-        // Annoncer le départ
-        simulatedSocket.emit('leave', {
-          roomId,
-          userName,
-          userId
-        });
-        
-        cleanupJoin();
-        cleanupLeave();
-        cleanupChat();
-        simulatedSocket.leave(roomId);
-      };
-    }
-  }, [roomId, userName, userId]);
+  const signalCallbacks = useRef<((data: any) => void) | null>(null);
 
   const sendSignal = (signal: any, targetUserId?: string) => {
-    if (socketRef.current) {
-      socketRef.current.emit('signal', {
-        signal,
-        to: targetUserId,
-        roomId
+    if (channelRef.current && isConnected) {
+      console.log(`📡 Sending WebRTC signal to: ${targetUserId}`);
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'webrtc-signal',
+        payload: {
+          signal,
+          from: userId,
+          to: targetUserId,
+          roomId
+        }
       });
     }
   };
 
   const sendChatMessage = (message: string) => {
-    if (socketRef.current) {
-      socketRef.current.emit('chat', {
-        message,
-        userName,
-        roomId
+    if (channelRef.current && isConnected) {
+      const timestamp = Date.now();
+      
+      // Diffuser le message
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'chat-message',
+        payload: {
+          message,
+          userName,
+          from: userId,
+          roomId,
+          timestamp
+        }
       });
       
       // Ajouter le message à notre liste locale
       setMessages(prev => [...prev, {
-        id: Date.now(),
+        id: timestamp,
         text: message,
         sender: userName,
-        timestamp: Date.now(),
+        timestamp,
         isOwn: true
       }]);
     }
   };
 
   const onSignal = (callback: (data: any) => void) => {
-    if (socketRef.current) {
-      return socketRef.current.on('signal', callback);
-    }
-    return () => {};
+    signalCallbacks.current = callback;
+    return () => {
+      signalCallbacks.current = null;
+    };
   };
 
   return {
