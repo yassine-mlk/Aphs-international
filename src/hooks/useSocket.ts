@@ -31,7 +31,8 @@ export function useSocket({ roomId, userName, userId }: UseSocketProps) {
     // Mode de fallback : utiliser localStorage si Realtime ne fonctionne pas
     const useRealtimeFallback = import.meta.env.VITE_USE_REALTIME !== 'false';
     
-    if (useRealtimeFallback && supabase) {
+    // Vérification plus robuste pour éviter l'erreur undefined
+    if (useRealtimeFallback && supabaseHook && supabase) {
       try {
         // Tenter d'utiliser Supabase Realtime
         const channel = supabase.channel(`video-room-${roomId}`, {
@@ -105,7 +106,13 @@ export function useSocket({ roomId, userName, userId }: UseSocketProps) {
 
         return () => {
           console.log('🔌 Cleaning up socket connection');
-          channel.unsubscribe();
+          try {
+            if (channel && typeof channel.unsubscribe === 'function') {
+              channel.unsubscribe();
+            }
+          } catch (cleanupError) {
+            console.warn('Warning during cleanup:', cleanupError);
+          }
           setIsConnected(false);
           setParticipants([]);
         };
@@ -122,6 +129,12 @@ export function useSocket({ roomId, userName, userId }: UseSocketProps) {
     const simulatedSocket = {
       emit: (event: string, data: any) => {
         try {
+          // Vérifier que localStorage est disponible
+          if (typeof localStorage === 'undefined') {
+            console.warn('localStorage not available, skipping emit');
+            return;
+          }
+          
           const key = `socket_${roomId}_${event}`;
           const existing = JSON.parse(localStorage.getItem(key) || '[]');
           const message = {
@@ -133,9 +146,11 @@ export function useSocket({ roomId, userName, userId }: UseSocketProps) {
           localStorage.setItem(key, JSON.stringify(existing));
           
           // Déclencher un événement pour les autres onglets/utilisateurs
-          window.dispatchEvent(new CustomEvent('socket-message', {
-            detail: { event, data: message, roomId }
-          }));
+          if (typeof window !== 'undefined' && window.dispatchEvent) {
+            window.dispatchEvent(new CustomEvent('socket-message', {
+              detail: { event, data: message, roomId }
+            }));
+          }
         } catch (error) {
           console.error('Error in socket emit:', error);
         }
@@ -147,15 +162,27 @@ export function useSocket({ roomId, userName, userId }: UseSocketProps) {
             if (e.detail?.event === event && e.detail?.roomId === roomId) {
               const message = e.detail.data;
               if (message?.from !== userId) {
-                callback(message);
+                if (typeof callback === 'function') {
+                  callback(message);
+                }
               }
             }
           } catch (error) {
             console.error('Error in socket message handler:', error);
           }
         };
-        window.addEventListener('socket-message', handleMessage);
-        return () => window.removeEventListener('socket-message', handleMessage);
+        
+        if (typeof window !== 'undefined' && window.addEventListener) {
+          window.addEventListener('socket-message', handleMessage);
+          return () => {
+            if (typeof window !== 'undefined' && window.removeEventListener) {
+              window.removeEventListener('socket-message', handleMessage);
+            }
+          };
+        }
+        
+        // Retourner une fonction vide si window n'est pas disponible
+        return () => {};
       },
       
       join: (room: string) => {
@@ -225,17 +252,23 @@ export function useSocket({ roomId, userName, userId }: UseSocketProps) {
     return () => {
       try {
         // Annoncer le départ
-        simulatedSocket.emit('leave', {
-          roomId,
-          userName,
-          userId
-        });
+        if (simulatedSocket && typeof simulatedSocket.emit === 'function') {
+          simulatedSocket.emit('leave', {
+            roomId,
+            userName,
+            userId
+          });
+        }
         
-        cleanupJoin();
-        cleanupLeave();
-        cleanupChat();
-        cleanupSignal();
-        simulatedSocket.leave(roomId);
+        // Nettoyer les event listeners de manière sécurisée
+        if (typeof cleanupJoin === 'function') cleanupJoin();
+        if (typeof cleanupLeave === 'function') cleanupLeave();
+        if (typeof cleanupChat === 'function') cleanupChat();
+        if (typeof cleanupSignal === 'function') cleanupSignal();
+        
+        if (simulatedSocket && typeof simulatedSocket.leave === 'function') {
+          simulatedSocket.leave(roomId);
+        }
       } catch (error) {
         console.error('Error in socket cleanup:', error);
       }
@@ -244,7 +277,7 @@ export function useSocket({ roomId, userName, userId }: UseSocketProps) {
 
   const sendSignal = (signal: any, targetUserId?: string) => {
     try {
-      if (socketRef.current && isConnected) {
+      if (socketRef.current && isConnected && typeof socketRef.current.emit === 'function') {
         console.log(`📡 Sending WebRTC signal to: ${targetUserId} (localStorage)`);
         socketRef.current.emit('signal', {
           signal,
@@ -261,7 +294,7 @@ export function useSocket({ roomId, userName, userId }: UseSocketProps) {
     try {
       const timestamp = Date.now();
       
-      if (socketRef.current && isConnected) {
+      if (socketRef.current && isConnected && typeof socketRef.current.emit === 'function') {
         // Mode localStorage
         socketRef.current.emit('chat', {
           message,
