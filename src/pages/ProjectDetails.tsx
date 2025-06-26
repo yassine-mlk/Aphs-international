@@ -1417,6 +1417,12 @@ const ProjectDetails: React.FC = () => {
   const [isRemoveMemberDialogOpen, setIsRemoveMemberDialogOpen] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<ProjectMember | null>(null);
   
+  // États pour la gestion de la structure
+  const [customProjectStructure, setCustomProjectStructure] = useState(projectStructure);
+  const [customRealizationStructure, setCustomRealizationStructure] = useState(realizationStructure);
+  const [isDeleteStepDialogOpen, setIsDeleteStepDialogOpen] = useState(false);
+  const [stepToDelete, setStepToDelete] = useState<{type: 'section' | 'subsection', sectionId: string, subsectionId?: string, phase: 'conception' | 'realisation'} | null>(null);
+  
   // Vérifier si l'utilisateur est admin
   const isAdmin = user?.user_metadata?.role === 'admin' || 
                  user?.email === 'admin@aphs.com' || 
@@ -2259,6 +2265,110 @@ const ProjectDetails: React.FC = () => {
     
     return Math.round((completedTasks / totalTasks) * 100);
   };
+
+  // Fonctions pour la gestion de la structure
+  const handleDeleteStep = (type: 'section' | 'subsection', sectionId: string, phase: 'conception' | 'realisation', subsectionId?: string) => {
+    setStepToDelete({ type, sectionId, subsectionId, phase });
+    setIsDeleteStepDialogOpen(true);
+  };
+
+  const confirmDeleteStep = async () => {
+    if (!stepToDelete) return;
+
+    try {
+      const { type, sectionId, subsectionId, phase } = stepToDelete;
+
+      if (type === 'section') {
+        // Supprimer toute une section
+        if (phase === 'conception') {
+          const newStructure = customProjectStructure.filter(section => section.id !== sectionId);
+          setCustomProjectStructure(newStructure);
+        } else {
+          const newStructure = customRealizationStructure.filter(section => section.id !== sectionId);
+          setCustomRealizationStructure(newStructure);
+        }
+
+        // Supprimer toutes les tâches assignées de cette section
+        const tasksToDelete = taskAssignments.filter(
+          task => task.section_id === sectionId && task.phase_id === phase
+        );
+
+        for (const task of tasksToDelete) {
+          if (task.id) {
+            await deleteData('task_assignments', task.id);
+          }
+        }
+
+        // Mettre à jour la liste locale des tâches
+        setTaskAssignments(prev => 
+          prev.filter(task => !(task.section_id === sectionId && task.phase_id === phase))
+        );
+
+        toast({
+          title: "Succès",
+          description: `Section ${sectionId} supprimée avec succès`
+        });
+
+      } else if (type === 'subsection' && subsectionId) {
+        // Supprimer seulement une sous-section
+        if (phase === 'conception') {
+          const newStructure = customProjectStructure.map(section => {
+            if (section.id === sectionId) {
+              return {
+                ...section,
+                items: section.items.filter(item => item.id !== subsectionId)
+              };
+            }
+            return section;
+          });
+          setCustomProjectStructure(newStructure);
+        } else {
+          const newStructure = customRealizationStructure.map(section => {
+            if (section.id === sectionId) {
+              return {
+                ...section,
+                items: section.items.filter(item => item.id !== subsectionId)
+              };
+            }
+            return section;
+          });
+          setCustomRealizationStructure(newStructure);
+        }
+
+        // Supprimer les tâches assignées de cette sous-section
+        const tasksToDelete = taskAssignments.filter(
+          task => task.section_id === sectionId && task.subsection_id === subsectionId && task.phase_id === phase
+        );
+
+        for (const task of tasksToDelete) {
+          if (task.id) {
+            await deleteData('task_assignments', task.id);
+          }
+        }
+
+        // Mettre à jour la liste locale des tâches
+        setTaskAssignments(prev => 
+          prev.filter(task => !(task.section_id === sectionId && task.subsection_id === subsectionId && task.phase_id === phase))
+        );
+
+        toast({
+          title: "Succès",
+          description: `Sous-section ${subsectionId} supprimée avec succès`
+        });
+      }
+
+    } catch (error) {
+      console.error('Erreur lors de la suppression:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de supprimer l'élément",
+        variant: "destructive"
+      });
+    } finally {
+      setIsDeleteStepDialogOpen(false);
+      setStepToDelete(null);
+    }
+  };
   
   if (loading) {
     return (
@@ -2323,6 +2433,12 @@ const ProjectDetails: React.FC = () => {
             <TabsTrigger value="members" className="data-[state=active]:bg-white">
               <Users className="h-4 w-4 mr-2" />
               Membres
+            </TabsTrigger>
+          )}
+          {isAdmin && (
+            <TabsTrigger value="manage-structure" className="data-[state=active]:bg-white">
+              <Trash2 className="h-4 w-4 mr-2" />
+              Gestion Structure
             </TabsTrigger>
           )}
         </TabsList>
@@ -2484,7 +2600,7 @@ const ProjectDetails: React.FC = () => {
               
               <div className="space-y-4">
                 <Accordion type="multiple" className="w-full">
-                  {(phaseStructure === 'conception' ? projectStructure : realizationStructure).map((section) => (
+                  {(phaseStructure === 'conception' ? customProjectStructure : customRealizationStructure).map((section) => (
                     <AccordionItem key={section.id} value={section.id} className="border rounded-md mb-4 overflow-hidden">
                       <AccordionTrigger className="bg-gray-50 px-4 py-3 hover:bg-gray-100 transition-colors">
                         <div className="flex items-center justify-between w-full pr-6">
@@ -2713,6 +2829,120 @@ const ProjectDetails: React.FC = () => {
                     )}
                   </div>
                 )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+
+        {/* Onglet Gestion Structure */}
+        {isAdmin && (
+          <TabsContent value="manage-structure" className="space-y-6">
+            <Card className="border-0 shadow-md">
+              <CardContent className="p-6">
+                <div className="mb-6">
+                  <h3 className="text-xl font-bold text-gray-800 mb-2">GESTION DE LA STRUCTURE</h3>
+                  <p className="text-gray-500 mb-4">
+                    Supprimez des étapes ou sous-étapes qui ne sont pas nécessaires pour ce projet.
+                  </p>
+                  
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                    <div className="flex items-start">
+                      <div className="bg-yellow-400 rounded-full p-1 mr-3 mt-0.5">
+                        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-yellow-800 mb-1">Attention</h4>
+                        <p className="text-sm text-yellow-700">
+                          La suppression d'une étape ou sous-étape supprimera également toutes les tâches assignées associées. Cette action est irréversible.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 mb-4">
+                    <Button 
+                      variant={phaseStructure === 'conception' ? 'default' : 'outline'} 
+                      onClick={() => setPhaseStructure('conception')}
+                      size="sm"
+                    >
+                      Phase Conception
+                    </Button>
+                    <Button 
+                      variant={phaseStructure === 'realisation' ? 'default' : 'outline'} 
+                      onClick={() => setPhaseStructure('realisation')}
+                      size="sm"
+                    >
+                      Phase Réalisation
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <Accordion type="multiple" className="w-full">
+                    {(phaseStructure === 'conception' ? customProjectStructure : customRealizationStructure).map((section) => (
+                      <AccordionItem key={section.id} value={section.id} className="border rounded-md mb-4 overflow-hidden">
+                        <AccordionTrigger className="bg-gray-50 px-4 py-3 hover:bg-gray-100 transition-colors">
+                          <div className="flex items-center justify-between w-full pr-6">
+                            <div className="flex items-center">
+                              <span className="font-bold text-gray-700 mr-2">{section.id} -</span>
+                              <span className="font-medium">{section.title}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteStep('section', section.id, phaseStructure);
+                                }}
+                                className="h-8 w-8 p-0"
+                                title="Supprimer cette section"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="bg-white px-4 py-3">
+                          <div className="space-y-3">
+                            {section.items.map((item) => (
+                              <div key={item.id} className="flex items-center justify-between bg-gray-50 p-3 rounded-md">
+                                <div className="flex-1">
+                                  <div className="flex items-center">
+                                    <span className="font-medium text-gray-700 mr-2">{item.id} -</span>
+                                    <span className="text-gray-900">{item.title}</span>
+                                  </div>
+                                  {item.tasks && item.tasks.length > 0 && (
+                                    <div className="text-sm text-gray-500 mt-1">
+                                      {item.tasks.length} tâche(s) disponible(s)
+                                    </div>
+                                  )}
+                                </div>
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => handleDeleteStep('subsection', section.id, phaseStructure, item.id)}
+                                  className="h-8 w-8 p-0"
+                                  title="Supprimer cette sous-section"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    ))}
+                  </Accordion>
+                </div>
+
+                <div className="mt-6 text-center">
+                  <p className="text-sm text-gray-500">
+                    Structure personnalisée pour ce projet. Les modifications n'affectent que ce projet.
+                  </p>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -3187,6 +3417,56 @@ const ProjectDetails: React.FC = () => {
               className="bg-red-600 hover:bg-red-700"
             >
               Retirer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Boîte de dialogue pour confirmer la suppression d'étapes/sous-étapes */}
+      <AlertDialog open={isDeleteStepDialogOpen} onOpenChange={setIsDeleteStepDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {stepToDelete?.type === 'section' 
+                ? 'Supprimer cette section complète ?' 
+                : 'Supprimer cette sous-section ?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {stepToDelete && (
+                <>
+                  {stepToDelete.type === 'section' ? (
+                    <>
+                      Êtes-vous sûr de vouloir supprimer la section{' '}
+                      <span className="font-medium">{stepToDelete.sectionId}</span> et toutes ses sous-sections ?
+                      <br /><br />
+                      <span className="text-red-600 font-medium">
+                        Cette action supprimera également toutes les tâches assignées dans cette section.
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      Êtes-vous sûr de vouloir supprimer la sous-section{' '}
+                      <span className="font-medium">{stepToDelete.subsectionId}</span> de la section {stepToDelete.sectionId} ?
+                      <br /><br />
+                      <span className="text-red-600 font-medium">
+                        Cette action supprimera également toutes les tâches assignées dans cette sous-section.
+                      </span>
+                    </>
+                  )}
+                  <br /><br />
+                  Cette action est irréversible.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDeleteStep}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Supprimer définitivement
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
