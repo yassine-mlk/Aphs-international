@@ -19,6 +19,7 @@ import {
 import { useToast } from './ui/use-toast';
 import { useSocket } from '../hooks/useSocket';
 import { useRealtimeParticipants } from '../hooks/useRealtimeParticipants';
+import { useWebRTCSignaling } from '../hooks/useWebRTCSignaling';
 import { useRecording } from '../hooks/useRecording';
 import { MeetingChat } from './MeetingChat';
 import { useAuth } from '../contexts/AuthContext';
@@ -88,6 +89,33 @@ export function WebRTCMeeting({
   const realtimeParticipants = useRealtimeParticipants({
     roomId,
     userName: getLocalDisplayName()
+  });
+  
+  // Utiliser le nouveau système de signaling WebRTC via la base de données
+  const webrtcSignaling = useWebRTCSignaling({
+    roomId,
+    onSignalReceived: (data) => {
+      const { signal, from } = data;
+      
+      let peer = peersRef.current[from];
+      if (!peer) {
+        // Créer une nouvelle connexion
+        peer = createPeerConnection(from, false);
+        
+        // Ajouter le participant s'il n'existe pas
+        setParticipants(prev => {
+          if (!prev.find(p => p.id === from)) {
+            return [...prev, { id: from, name: from }];
+          }
+          return prev;
+        });
+      }
+      
+      if (peer) {
+        console.log(`📡 Processing WebRTC signal from: ${from}`);
+        peer.signal(signal);
+      }
+    }
   });
   
   const recording = useRecording(roomId);
@@ -194,7 +222,7 @@ export function WebRTCMeeting({
 
     peer.on('signal', (signal) => {
       console.log(`📡 Sending signal to ${participantId}:`, signal.type);
-      socket.sendSignal(signal, participantId);
+      webrtcSignaling.sendSignal(signal, participantId);
     });
 
     peer.on('stream', (remoteStream) => {
@@ -235,7 +263,7 @@ export function WebRTCMeeting({
     });
 
     return peer;
-  }, [localStream, socket, toast, userProfiles]);
+  }, [localStream, webrtcSignaling, toast, userProfiles]);
 
   // Gérer les nouveaux participants
   useEffect(() => {
@@ -313,36 +341,7 @@ export function WebRTCMeeting({
     }));
   }, [userProfiles]);
 
-  // Gérer les signaux WebRTC
-  useEffect(() => {
-    const cleanup = socket.onSignal((data) => {
-      const { signal, from } = data;
-      
-      let peer = peersRef.current[from];
-      if (!peer) {
-        // Créer une nouvelle connexion
-        peer = createPeerConnection(from, false);
-        
-        // Ajouter le participant s'il n'existe pas
-        setParticipants(prev => {
-          if (!prev.find(p => p.id === from)) {
-            return [...prev, { id: from, name: from }];
-          }
-          return prev;
-        });
-      }
-      
-      if (peer) {
-        peer.signal(signal);
-      }
-    });
-
-    return () => {
-      if (typeof cleanup === 'function') {
-        cleanup();
-      }
-    };
-  }, [socket, createPeerConnection]);
+  // Les signaux WebRTC sont maintenant gérés par useWebRTCSignaling
 
   // Initialiser la réunion au montage
   useEffect(() => {
