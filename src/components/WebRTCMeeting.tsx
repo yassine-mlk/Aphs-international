@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useToast } from './ui/use-toast';
 import { useSocket } from '../hooks/useSocket';
+import { useRealtimeParticipants } from '../hooks/useRealtimeParticipants';
 import { useRecording } from '../hooks/useRecording';
 import { MeetingChat } from './MeetingChat';
 import { useAuth } from '../contexts/AuthContext';
@@ -81,6 +82,12 @@ export function WebRTCMeeting({
     roomId,
     userName: getLocalDisplayName(),
     userId: user?.id || 'anonymous'
+  });
+  
+  // Utiliser le nouveau système de participants via la base de données
+  const realtimeParticipants = useRealtimeParticipants({
+    roomId,
+    userName: getLocalDisplayName()
   });
   
   const recording = useRecording(roomId);
@@ -232,20 +239,20 @@ export function WebRTCMeeting({
 
   // Gérer les nouveaux participants
   useEffect(() => {
-    if (!socket.isConnected || !localStream) return;
+    if (!realtimeParticipants.isConnected || !localStream) return;
 
-    console.log(`🔄 Managing participants. Connected: ${socket.isConnected}, Local stream: ${!!localStream}`);
-    console.log(`👥 Socket participants: [${socket.participants.join(', ')}]`);
+    console.log(`🔄 Managing participants. Connected: ${realtimeParticipants.isConnected}, Local stream: ${!!localStream}`);
+    console.log(`👥 Realtime participants: [${realtimeParticipants.participants.join(', ')}]`);
 
     // Charger les profils des participants
-    const newParticipantIds = socket.participants.filter(id => !userProfiles.has(id));
+    const newParticipantIds = realtimeParticipants.participants.filter(id => !userProfiles.has(id));
     if (newParticipantIds.length > 0) {
       console.log(`📋 Loading profiles for: [${newParticipantIds.join(', ')}]`);
       loadUserProfiles(newParticipantIds);
     }
 
     // Créer des connexions pour les participants existants
-    socket.participants.forEach(participantId => {
+    realtimeParticipants.participants.forEach(participantId => {
       if (!peersRef.current[participantId]) {
         console.log(`🤝 Creating peer connection with: ${participantId}`);
         
@@ -271,7 +278,7 @@ export function WebRTCMeeting({
     });
 
     // Nettoyer les connexions pour les participants qui ont quitté
-    const currentParticipantIds = socket.participants;
+    const currentParticipantIds = realtimeParticipants.participants;
     setParticipants(prev => {
       const filtered = prev.filter(p => currentParticipantIds.includes(p.id));
       if (filtered.length !== prev.length) {
@@ -289,7 +296,7 @@ export function WebRTCMeeting({
       }
     });
 
-  }, [socket.participants, socket.isConnected, localStream, createPeerConnection, userProfiles, loadUserProfiles]);
+  }, [realtimeParticipants.participants, realtimeParticipants.isConnected, localStream, createPeerConnection, userProfiles, loadUserProfiles]);
 
   // Mettre à jour les noms des participants quand les profils sont chargés
   useEffect(() => {
@@ -620,7 +627,7 @@ export function WebRTCMeeting({
         onSendMessage={socket.sendChatMessage}
         isOpen={isChatOpen}
         onToggle={() => setIsChatOpen(!isChatOpen)}
-        participantCount={socket.participants.length + 1}
+        participantCount={realtimeParticipants.participants.length + 1}
       />
     </div>
   );

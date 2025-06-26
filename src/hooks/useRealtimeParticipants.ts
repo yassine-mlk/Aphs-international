@@ -20,9 +20,71 @@ export function useRealtimeParticipants({ roomId, userName }: UseRealtimePartici
   const [participants, setParticipants] = useState<string[]>([]);
   const [isConnected, setIsConnected] = useState(false);
 
+  // Vérifier si la table existe
+  const [tableExists, setTableExists] = useState(false);
+
+  const checkTableExists = useCallback(async () => {
+    if (!supabase) return false;
+
+    try {
+      const { error } = await supabase
+        .from('meeting_participants_presence')
+        .select('count(*)')
+        .limit(1);
+
+      if (error && error.message.includes('relation "public.meeting_participants_presence" does not exist')) {
+        console.warn('⚠️ Table meeting_participants_presence does not exist. Please create it in your Supabase dashboard.');
+        console.info(`
+📋 To create the table, run this SQL in your Supabase SQL Editor:
+
+CREATE TABLE IF NOT EXISTS meeting_participants_presence (
+    room_id TEXT NOT NULL,
+    user_id UUID NOT NULL,
+    user_name TEXT NOT NULL,
+    joined_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    last_seen TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    PRIMARY KEY (room_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_meeting_participants_presence_room_id 
+ON meeting_participants_presence(room_id);
+
+CREATE INDEX IF NOT EXISTS idx_meeting_participants_presence_last_seen 
+ON meeting_participants_presence(last_seen);
+
+ALTER TABLE meeting_participants_presence ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view all participants in a room" ON meeting_participants_presence
+    FOR SELECT USING (true);
+
+CREATE POLICY "Users can manage their own presence" ON meeting_participants_presence
+    FOR ALL USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own presence" ON meeting_participants_presence
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+        `);
+        setTableExists(false);
+        return false;
+      } else {
+        setTableExists(true);
+        return true;
+      }
+    } catch (error) {
+      console.error('❌ Error checking table existence:', error);
+      setTableExists(false);
+      return false;
+    }
+  }, [supabase]);
+
   // Rejoindre la room en enregistrant sa présence en base
   const joinRoom = useCallback(async () => {
-    if (!user?.id || !supabase) return;
+    if (!user?.id || !supabase || !tableExists) {
+      if (!tableExists) {
+        console.log('🔄 Using fallback mode - table does not exist');
+        setIsConnected(true);
+      }
+      return;
+    }
 
     try {
       // Insérer ou mettre à jour la présence de l'utilisateur
@@ -48,11 +110,11 @@ export function useRealtimeParticipants({ roomId, userName }: UseRealtimePartici
     } catch (error) {
       console.error('Failed to join room:', error);
     }
-  }, [roomId, userName, user?.id, supabase]);
+  }, [roomId, userName, user?.id, supabase, tableExists]);
 
   // Quitter la room
   const leaveRoom = useCallback(async () => {
-    if (!user?.id || !supabase) return;
+    if (!user?.id || !supabase || !tableExists) return;
 
     try {
       const { error } = await supabase
@@ -71,11 +133,11 @@ export function useRealtimeParticipants({ roomId, userName }: UseRealtimePartici
     } catch (error) {
       console.error('Failed to leave room:', error);
     }
-  }, [roomId, user?.id, supabase]);
+  }, [roomId, user?.id, supabase, tableExists]);
 
   // Mettre à jour le heartbeat
   const updateHeartbeat = useCallback(async () => {
-    if (!user?.id || !supabase || !isConnected) return;
+    if (!user?.id || !supabase || !isConnected || !tableExists) return;
 
     try {
       const { error } = await supabase
@@ -92,11 +154,11 @@ export function useRealtimeParticipants({ roomId, userName }: UseRealtimePartici
     } catch (error) {
       console.error('Failed to update heartbeat:', error);
     }
-  }, [roomId, user?.id, supabase, isConnected]);
+  }, [roomId, user?.id, supabase, isConnected, tableExists]);
 
   // Récupérer la liste des participants
   const fetchParticipants = useCallback(async () => {
-    if (!supabase) return;
+    if (!supabase || !tableExists) return;
 
     try {
       // Supprimer les participants inactifs (plus de 30 secondes sans heartbeat)
@@ -127,7 +189,7 @@ export function useRealtimeParticipants({ roomId, userName }: UseRealtimePartici
     } catch (error) {
       console.error('Failed to fetch participants:', error);
     }
-  }, [roomId, user?.id, supabase]);
+  }, [roomId, user?.id, supabase, tableExists]);
 
   // Initialiser et nettoyer
   useEffect(() => {
@@ -135,8 +197,16 @@ export function useRealtimeParticipants({ roomId, userName }: UseRealtimePartici
 
     console.log(`🔌 Initializing realtime participants for room: ${roomId}`);
 
-    // Rejoindre la room
-    joinRoom();
+    // Vérifier l'existence de la table d'abord
+    checkTableExists().then((exists) => {
+      if (exists) {
+        // Rejoindre la room
+        joinRoom();
+      } else {
+        console.log('📋 Table does not exist, using fallback mode');
+        setIsConnected(true);
+      }
+    });
 
     // Mettre à jour le heartbeat toutes les 10 secondes
     const heartbeatInterval = setInterval(updateHeartbeat, 10000);
