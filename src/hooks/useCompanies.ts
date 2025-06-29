@@ -34,6 +34,9 @@ export function useCompanies() {
       if (filters?.secteur) {
         queryFilters.push({ column: 'secteur', operator: 'ilike', value: `%${filters.secteur}%` });
       }
+      if (filters?.specialite) {
+        queryFilters.push({ column: 'specialite', operator: 'eq', value: filters.specialite });
+      }
 
       const companies = await fetchData<Company>('companies', {
         filters: queryFilters,
@@ -66,7 +69,7 @@ export function useCompanies() {
       const { data, error } = await supabase
         .from('companies')
         .select('*')
-        .or(`name.ilike.%${searchTerm}%,pays.ilike.%${searchTerm}%,secteur.ilike.%${searchTerm}%`)
+        .or(`name.ilike.%${searchTerm}%,pays.ilike.%${searchTerm}%,secteur.ilike.%${searchTerm}%,specialite.ilike.%${searchTerm}%`)
         .order('name');
 
       if (error) throw error;
@@ -285,6 +288,7 @@ export function useCompanies() {
         totalCompanies: allCompanies.length,
         companiesByCountry: {},
         companiesBySector: {},
+        companiesBySpeciality: {},
         recentCompanies: allCompanies.slice(0, 5)
       };
 
@@ -298,6 +302,12 @@ export function useCompanies() {
       allCompanies.forEach(company => {
         const sector = company.secteur || 'Non spécifié';
         stats.companiesBySector[sector] = (stats.companiesBySector[sector] || 0) + 1;
+      });
+
+      // Calculer les statistiques par spécialité
+      allCompanies.forEach(company => {
+        const speciality = company.specialite || company.secteur || 'Non spécifiée';
+        stats.companiesBySpeciality[speciality] = (stats.companiesBySpeciality[speciality] || 0) + 1;
       });
 
       return stats;
@@ -322,6 +332,11 @@ export function useCompanies() {
   // Récupérer les entreprises d'un secteur spécifique
   const getCompaniesBySector = useCallback(async (sector: string): Promise<Company[]> => {
     return getCompanies({ secteur: sector });
+  }, [getCompanies]);
+
+  // Récupérer les entreprises d'une spécialité spécifique
+  const getCompaniesBySpeciality = useCallback(async (speciality: string): Promise<Company[]> => {
+    return getCompanies({ specialite: speciality });
   }, [getCompanies]);
 
   // Uploader un logo d'entreprise
@@ -481,6 +496,7 @@ export function useCompanies() {
     getCompanyStats,
     getCompaniesByCountry,
     getCompaniesBySector,
+    getCompaniesBySpeciality,
     uploadCompanyLogo,
 
     // Utilitaires

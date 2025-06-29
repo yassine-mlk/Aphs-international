@@ -20,14 +20,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useSupabase, Company } from '../hooks/useSupabase';
+import { useSupabase } from '../hooks/useSupabase';
 import { useCompanies } from '../hooks/useCompanies';
+import { Company, COMPANY_SPECIALITIES } from '../types/company';
 import { Profile } from '../types/profile';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import CompanyForm from '@/components/CompanyForm';
 import { ArrowUpDown, Building, Flag, Briefcase, Image, Users, Eye } from "lucide-react";
 
 // Type pour les options de tri
-type SortField = 'name' | 'pays' | 'secteur' | 'created_at';
+type SortField = 'name' | 'pays' | 'secteur' | 'specialite' | 'created_at';
 type SortOrder = 'asc' | 'desc';
 
 const Companies: React.FC = () => {
@@ -37,6 +39,7 @@ const Companies: React.FC = () => {
   
   const [companies, setCompanies] = useState<Company[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedSpeciality, setSelectedSpeciality] = useState<string>('');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -153,13 +156,22 @@ const Companies: React.FC = () => {
 
   // Filtrer et trier les entreprises
   const filteredAndSortedCompanies = useMemo(() => {
-    // Filtrer par terme de recherche
-    const filtered = companies.filter(
-      company => 
+    // Filtrer par terme de recherche et spécialité
+    const filtered = companies.filter(company => {
+      // Filtre par terme de recherche
+      const searchMatch = searchTerm === '' || 
         company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (company.pays && company.pays.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (company.secteur && company.secteur.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
+        (company.secteur && company.secteur.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (company.specialite && company.specialite.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      // Filtre par spécialité
+      const specialityMatch = selectedSpeciality === '' ||
+        company.specialite === selectedSpeciality ||
+        (company.secteur === selectedSpeciality && !company.specialite);
+      
+      return searchMatch && specialityMatch;
+    });
 
     // Trier selon le champ et l'ordre sélectionnés
     return [...filtered].sort((a, b) => {
@@ -175,13 +187,17 @@ const Companies: React.FC = () => {
         const secteurA = a.secteur || '';
         const secteurB = b.secteur || '';
         comparison = secteurA.localeCompare(secteurB);
+      } else if (sortField === 'specialite') {
+        const specialiteA = a.specialite || a.secteur || '';
+        const specialiteB = b.specialite || b.secteur || '';
+        comparison = specialiteA.localeCompare(specialiteB);
       } else if (sortField === 'created_at') {
         comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
       }
       
       return sortOrder === 'asc' ? comparison : -comparison;
     });
-  }, [companies, searchTerm, sortField, sortOrder]);
+  }, [companies, searchTerm, selectedSpeciality, sortField, sortOrder]);
 
   return (
     <div className="space-y-6">
@@ -209,22 +225,40 @@ const Companies: React.FC = () => {
       </div>
 
       <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-        <div className="relative w-full sm:w-64">
-          <Input
-            placeholder="Rechercher une entreprise..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-8"
-          />
-          <svg 
-            xmlns="http://www.w3.org/2000/svg" 
-            className="h-5 w-5 absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400" 
-            fill="none" 
-            viewBox="0 0 24 24" 
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
+        <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+          <div className="relative w-full sm:w-64">
+            <Input
+              placeholder="Rechercher une entreprise..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-8"
+            />
+            <svg 
+              xmlns="http://www.w3.org/2000/svg" 
+              className="h-5 w-5 absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400" 
+              fill="none" 
+              viewBox="0 0 24 24" 
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          
+          <div className="w-full sm:w-64">
+            <Select value={selectedSpeciality} onValueChange={setSelectedSpeciality}>
+              <SelectTrigger>
+                <SelectValue placeholder="Filtrer par spécialité" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Toutes les spécialités</SelectItem>
+                {COMPANY_SPECIALITIES.map((speciality) => (
+                  <SelectItem key={speciality} value={speciality}>
+                    {speciality}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         <div className="flex gap-2">
@@ -257,12 +291,12 @@ const Companies: React.FC = () => {
           <Button 
             variant="outline" 
             size="sm"
-            onClick={() => toggleSort('secteur')}
-            className={sortField === 'secteur' ? 'border-teal-500' : ''}
+            onClick={() => toggleSort('specialite')}
+            className={sortField === 'specialite' ? 'border-teal-500' : ''}
           >
-            Secteur
+            Spécialité
             <ArrowUpDown className="ml-2 h-4 w-4" />
-            {sortField === 'secteur' && (
+            {sortField === 'specialite' && (
               <span className="ml-1">{sortOrder === 'asc' ? '↑' : '↓'}</span>
             )}
           </Button>
@@ -385,10 +419,10 @@ const Companies: React.FC = () => {
                       </div>
                     )}
                     
-                    {company.secteur && (
+                    {(company.specialite || company.secteur) && (
                       <div className="flex items-center">
                         <Briefcase className="h-4 w-4 mr-2" />
-                        <span>{company.secteur}</span>
+                        <span>{company.specialite || company.secteur}</span>
                       </div>
                     )}
                   </div>

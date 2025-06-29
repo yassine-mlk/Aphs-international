@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
-import { useSupabase, Company } from '../hooks/useSupabase';
+import { useSupabase } from '../hooks/useSupabase';
+import { COMPANY_SPECIALITIES, Company } from '../types/company';
 
 interface CompanyFormProps {
   company?: Partial<Company>;
@@ -15,6 +17,7 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess, mode }) =
   const [name, setName] = useState(company?.name || '');
   const [pays, setPays] = useState(company?.pays || '');
   const [secteur, setSecteur] = useState(company?.secteur || '');
+  const [specialite, setSpecialite] = useState(company?.specialite || company?.secteur || '');
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(company?.logo_url || null);
   const [loading, setLoading] = useState(false);
@@ -130,6 +133,15 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess, mode }) =
       });
       return;
     }
+
+    if (!specialite) {
+      toast({
+        title: "Erreur",
+        description: "La spécialité de l'entreprise est obligatoire",
+        variant: "destructive",
+      });
+      return;
+    }
     
     setLoading(true);
     
@@ -151,7 +163,8 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess, mode }) =
       const companyData = {
         name,
         pays,
-        secteur,
+        secteur: secteur || specialite, // Garder pour compatibilité avec l'existant
+        specialite,
         logo_url: logoUrl
       };
       
@@ -177,6 +190,7 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess, mode }) =
           setName('');
           setPays('');
           setSecteur('');
+          setSpecialite('');
           setLogoFile(null);
           setPreviewUrl(null);
           setUploadProgress(0);
@@ -232,14 +246,19 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess, mode }) =
         </div>
         
         <div>
-          <Label htmlFor="company-secteur">Secteur d'activité</Label>
-          <Input
-            id="company-secteur"
-            type="text"
-            value={secteur}
-            onChange={(e) => setSecteur(e.target.value)}
-            placeholder="Secteur d'activité"
-          />
+          <Label htmlFor="company-specialite">Spécialité de l'entreprise *</Label>
+          <Select value={specialite} onValueChange={setSpecialite}>
+            <SelectTrigger>
+              <SelectValue placeholder="Sélectionner une spécialité" />
+            </SelectTrigger>
+            <SelectContent>
+              {COMPANY_SPECIALITIES.map((speciality) => (
+                <SelectItem key={speciality} value={speciality}>
+                  {speciality}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         
         <div>
