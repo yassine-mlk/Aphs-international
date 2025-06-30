@@ -19,15 +19,28 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
       // Polyfills pour Node.js modules dans le navigateur
       buffer: "buffer",
+      events: "events",
+      stream: "stream-browserify",
+      util: "util",
+      crypto: "crypto-browserify",
     },
   },
   define: {
     // Polyfills pour SimplePeer et les modules Node.js
     global: 'globalThis',
     'process.env': {},
+    process: { env: {} },
   },
   optimizeDeps: {
     // Forcer la pré-compilation de ces dépendances
-    include: ['simple-peer', 'socket.io-client', 'buffer']
+    include: [
+      'simple-peer', 
+      'socket.io-client', 
+      'buffer',
+      'events',
+      'stream-browserify',
+      'util',
+      'crypto-browserify'
+    ]
   }
 }));
