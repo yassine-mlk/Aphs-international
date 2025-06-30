@@ -48,8 +48,12 @@ export const useSimplePeerVideoConference = ({
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'connecting' | 'connected' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
 
-  const currentUserId = user?.id || `anonymous_${Date.now()}`;
+  // Créer un ID de session unique pour distinguer les différents navigateurs/onglets
+  const sessionId = useRef(`session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`).current;
+  const currentUserId = user?.id ? `${user.id}_${sessionId}` : `anonymous_${sessionId}`;
   const displayName = userName || user?.email?.split('@')[0] || 'Utilisateur';
+  
+  console.log(`🆔 Current session ID: ${currentUserId}`);
 
   // Nettoyer une connexion peer
   const cleanupPeer = useCallback((participantId: string) => {
@@ -373,9 +377,12 @@ export const useSimplePeerVideoConference = ({
         channel
           .on('presence', { event: 'sync' }, () => {
             const state = channel.presenceState();
-            const participantIds = Object.keys(state).filter(id => id !== currentUserId);
+            const allParticipants = Object.keys(state);
+            const participantIds = allParticipants.filter(id => id !== currentUserId);
             
-            console.log(`👥 Room participants: ${participantIds.length}`, participantIds);
+            console.log(`👥 Room state sync - All: [${allParticipants.join(', ')}]`);
+            console.log(`👥 Room participants (excluding me): ${participantIds.length} - [${participantIds.join(', ')}]`);
+            console.log(`🆔 My ID: ${currentUserId}`);
             
             // Initier des connexions avec les participants existants
             participantIds.forEach(participantId => {
@@ -387,7 +394,7 @@ export const useSimplePeerVideoConference = ({
                   if (!prev.find(p => p.id === participantId)) {
                     return [...prev, {
                       id: participantId,
-                      name: participantId.substring(0, 8),
+                      name: participantId.substring(0, 15), // Plus de caractères pour les noms
                       isConnected: false,
                       joinedAt: new Date()
                     }];
@@ -398,34 +405,42 @@ export const useSimplePeerVideoConference = ({
             });
           })
           .on('presence', { event: 'join' }, ({ key }) => {
+            console.log(`👋 Presence JOIN event - Key: ${key}, My ID: ${currentUserId}`);
             if (key !== currentUserId && mountedRef.current) {
-              console.log(`👋 New participant joined: ${key}`);
+              console.log(`✅ New participant joined (different from me): ${key}`);
               
               // Attendre un peu puis initier la connexion
               setTimeout(() => {
                 if (mountedRef.current && !peersRef.current[key]) {
-                  console.log(`🤝 Initiating connection with new participant: ${key}`);
+                  console.log(`🤝 Initiating P2P connection with new participant: ${key}`);
                   createPeerConnection(key, true);
                   
                   setParticipants(prev => {
                     if (!prev.find(p => p.id === key)) {
                       return [...prev, {
                         id: key,
-                        name: key.substring(0, 8),
+                        name: key.substring(0, 15),
                         isConnected: false,
                         joinedAt: new Date()
                       }];
                     }
                     return prev;
                   });
+                } else {
+                  console.log(`⚠️ Skip P2P connection - mounted: ${mountedRef.current}, existing peer: ${!!peersRef.current[key]}`);
                 }
               }, 1000);
+            } else {
+              console.log(`⚠️ Skip JOIN - Same user (${key === currentUserId}) or unmounted (${!mountedRef.current})`);
             }
           })
           .on('presence', { event: 'leave' }, ({ key }) => {
+            console.log(`👋 Presence LEAVE event - Key: ${key}, My ID: ${currentUserId}`);
             if (key !== currentUserId) {
-              console.log(`👋 Participant left: ${key}`);
+              console.log(`✅ Participant left (different from me): ${key}`);
               cleanupPeer(key);
+            } else {
+              console.log(`⚠️ Skip LEAVE - Same user`);
             }
           });
 
@@ -437,14 +452,16 @@ export const useSimplePeerVideoConference = ({
             setIsConnected(true);
             setConnectionStatus('connected');
             
-            // S'annoncer comme présent
+            // S'annoncer comme présent avec l'ID unique de session
             await channel.track({
               user_id: currentUserId,
               user_name: displayName,
+              original_user_id: user?.id,
+              session_id: sessionId,
               joined_at: new Date().toISOString()
             });
             
-            console.log('✅ Successfully connected to room');
+            console.log(`✅ Successfully connected to room as: ${currentUserId}`);
           } else if (status === 'CHANNEL_ERROR') {
             setConnectionStatus('error');
             setError('Erreur de connexion à la room');
