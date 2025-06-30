@@ -4,8 +4,56 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
-import { useSupabase, UserRole, SPECIALTIES, Company } from '../hooks/useSupabase';
+import { useSupabase, UserRole, Company } from '../hooks/useSupabase';
 import PasswordInput from '@/components/ui/password-input';
+
+// Spécialités par catégorie
+const CONCEPTION_SPECIALTIES = [
+  'MOA Maître d\'ouvrage',
+  'AMO Assistant maîtrise d\'ouvrage',
+  'Géomètre',
+  'MOE Maître d\'oeuvre',
+  'Commission de sécurité',
+  'Monuments historiques',
+  'Elus locaux',
+  'Futurs usagers',
+  'Gestionnaire',
+  'Programmiste',
+  'Architectes',
+  'Membres du Jury',
+  'Bureau de contrôle',
+  'Bureau d\'étude de sol',
+  'Bureau d\'étude structure',
+  'Bureau d\'étude thermique',
+  'Bureau d\'étude acoustique',
+  'Bureau d\'étude électricité',
+  'Bureau d\'étude plomberie, chauffage, ventilation, climatisation',
+  'Bureau d\'étude VRD voirie, réseaux divers',
+  'Architecte d\'intérieur',
+  'COORDINATEUR OPC',
+  'COORDINATEUR SPS',
+  'COORDINATEUR SSI'
+];
+
+const REALISATION_SPECIALTIES = [
+  'Entreprise fondation',
+  'Entreprise Gros-Œuvre',
+  'Entreprise VRD voirie-réseaux divers',
+  'Entreprise Charpente/Couverture/Étanchéité',
+  'Entreprise Menuiseries extérieures',
+  'Entreprise Menuiseries intérieures',
+  'Entreprise Électricité',
+  'Entreprise Plomberie/Chauffage/Ventilation/Climatisation',
+  'Entreprise Cloison/Doublage',
+  'Entreprise Revêtement de sol',
+  'Entreprise Métallerie/Serrurerie',
+  'Entreprise Peinture',
+  'Entreprise Ascenseur',
+  'Entreprise Agencement',
+  'Entreprise Paysage/Espace vert',
+  'Fournisseurs indirects',
+  'Services extérieurs'
+];
 
 interface CreateUserFormProps {
   onSuccess?: () => void;
@@ -17,6 +65,7 @@ export default function CreateUserForm({ onSuccess }: CreateUserFormProps) {
   const [role, setRole] = useState<UserRole>('intervenant');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [category, setCategory] = useState(''); // Nouvelle state pour la catégorie
   const [specialty, setSpecialty] = useState('');
   const [company, setCompany] = useState('Indépendant');
   const [companyId, setCompanyId] = useState('');
@@ -27,6 +76,23 @@ export default function CreateUserForm({ onSuccess }: CreateUserFormProps) {
   
   const { toast } = useToast();
   const { adminCreateUser, getCompanies } = useSupabase();
+
+  // Obtenir les spécialités selon la catégorie sélectionnée
+  const getSpecialtiesByCategory = (selectedCategory: string) => {
+    switch (selectedCategory) {
+      case 'conception':
+        return CONCEPTION_SPECIALTIES;
+      case 'realisation':
+        return REALISATION_SPECIALTIES;
+      default:
+        return [];
+    }
+  };
+
+  // Réinitialiser la spécialité quand la catégorie change
+  useEffect(() => {
+    setSpecialty('');
+  }, [category]);
 
   // Charger la liste des entreprises
   useEffect(() => {
@@ -57,7 +123,7 @@ export default function CreateUserForm({ onSuccess }: CreateUserFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!email || !password || !firstName || !lastName || !specialty) {
+    if (!email || !password || !firstName || !lastName || !category || !specialty) {
       toast({
         title: "Erreur",
         description: "Veuillez remplir tous les champs obligatoires",
@@ -103,6 +169,7 @@ export default function CreateUserForm({ onSuccess }: CreateUserFormProps) {
         setPassword('');
         setFirstName('');
         setLastName('');
+        setCategory('');
         setSpecialty('');
         setCompany('Indépendant');
         setCompanyId('');
@@ -254,18 +321,41 @@ export default function CreateUserForm({ onSuccess }: CreateUserFormProps) {
           )}
         </div>
         
+        {/* Nouvelle section pour la catégorie */}
+        <div>
+          <Label htmlFor="category">Catégorie *</Label>
+          <Select
+            value={category}
+            onValueChange={(value) => setCategory(value)}
+            required
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Sélectionner une catégorie" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="conception">Conception</SelectItem>
+              <SelectItem value="realisation">Réalisation</SelectItem>
+            </SelectContent>
+          </Select>
+          <div className="mt-1 text-xs text-gray-500">
+            Choisissez d'abord la catégorie pour voir les spécialités correspondantes
+          </div>
+        </div>
+        
+        {/* Section spécialité mise à jour */}
         <div>
           <Label htmlFor="specialty">Spécialité *</Label>
           <Select
             value={specialty}
             onValueChange={(value) => setSpecialty(value)}
             required
+            disabled={!category}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Sélectionner une spécialité" />
+              <SelectValue placeholder={!category ? "Sélectionnez d'abord une catégorie" : "Sélectionner une spécialité"} />
             </SelectTrigger>
             <SelectContent className="max-h-72">
-              {SPECIALTIES.map((spec) => (
+              {getSpecialtiesByCategory(category).map((spec) => (
                 <SelectItem key={spec} value={spec}>
                   {spec}
                 </SelectItem>
@@ -275,7 +365,8 @@ export default function CreateUserForm({ onSuccess }: CreateUserFormProps) {
           <div className="mt-1 text-sm text-gray-500">
             {specialty === 'MOA Maître d\'ouvrage' ? 
               'Rôle: Propriétaire (owner)' : 
-              specialty ? 'Rôle: Intervenant' : ''}
+              specialty ? 'Rôle: Intervenant' : 
+              category ? `${getSpecialtiesByCategory(category).length} spécialités disponibles` : ''}
           </div>
         </div>
         
