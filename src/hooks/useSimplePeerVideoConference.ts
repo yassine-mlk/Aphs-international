@@ -62,6 +62,38 @@ export const useSimplePeerVideoConference = ({
   
   console.log(`🆔 Current session ID: ${currentUserId}`);
 
+  // Fonction pour attacher le stream local à l'élément vidéo
+  const attachLocalStream = useCallback((videoElement: HTMLVideoElement) => {
+    if (localStreamRef.current && videoElement) {
+      videoElement.srcObject = localStreamRef.current;
+      console.log('📺 Local stream attached to video element');
+    }
+  }, []);
+
+  // Fonction pour obtenir le nom d'affichage d'un participant
+  const getParticipantDisplayName = useCallback((participantId: string, participantData?: any) => {
+    // Si c'est notre propre ID, retourner notre nom
+    if (participantId === currentUserId) {
+      return displayName;
+    }
+    
+    // Extraire le vrai user ID du participantId (format: userID_session_timestamp_random)
+    const userIdMatch = participantId.match(/^(.+)_session_\d+_[a-z0-9]+$/);
+    const actualUserId = userIdMatch ? userIdMatch[1] : participantId;
+    
+    // Si on a des données de participant avec un nom, l'utiliser
+    if (participantData?.user_name) {
+      return participantData.user_name;
+    }
+    
+    // Sinon, utiliser l'email si disponible, ou un nom basé sur l'ID
+    if (actualUserId !== 'anonymous' && actualUserId.includes('@')) {
+      return actualUserId.split('@')[0];
+    }
+    
+    return actualUserId === 'anonymous' ? 'Utilisateur Anonyme' : `Utilisateur ${actualUserId.substring(0, 8)}`;
+  }, [currentUserId, displayName]);
+
   // Nettoyer une connexion peer
   const cleanupPeer = useCallback((participantId: string) => {
     console.log(`🧹 Cleaning up peer connection: ${participantId}`);
@@ -208,9 +240,10 @@ export const useSimplePeerVideoConference = ({
       // Ajouter le participant s'il n'existe pas
       setParticipants(prev => {
         if (!prev.find(p => p.id === from)) {
+          const participantName = getParticipantDisplayName(from);
           return [...prev, {
             id: from,
-            name: from.substring(0, 8),
+            name: participantName,
             isConnected: false,
             joinedAt: new Date()
           }];
@@ -416,11 +449,14 @@ export const useSimplePeerVideoConference = ({
                 console.log(`🤝 Initiating connection with existing participant: ${participantId}`);
                 createPeerConnection(participantId, true);
                 
+                const participantData = state[participantId]?.[0];
+                const participantName = getParticipantDisplayName(participantId, participantData);
+                
                 setParticipants(prev => {
                   if (!prev.find(p => p.id === participantId)) {
                     return [...prev, {
                       id: participantId,
-                      name: participantId.substring(0, 15), // Plus de caractères pour les noms
+                      name: participantName,
                       isConnected: false,
                       joinedAt: new Date()
                     }];
@@ -443,9 +479,10 @@ export const useSimplePeerVideoConference = ({
                   
                   setParticipants(prev => {
                     if (!prev.find(p => p.id === key)) {
+                      const participantName = getParticipantDisplayName(key);
                       return [...prev, {
                         id: key,
-                        name: key.substring(0, 15),
+                        name: participantName,
                         isConnected: false,
                         joinedAt: new Date()
                       }];
@@ -529,6 +566,10 @@ export const useSimplePeerVideoConference = ({
     // Utils
     currentUserId,
     displayName,
-    roomId
+    roomId,
+    
+    // New functions
+    attachLocalStream,
+    getParticipantDisplayName
   };
 }; 
