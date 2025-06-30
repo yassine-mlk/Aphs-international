@@ -33,6 +33,7 @@ import { fr } from 'date-fns/locale';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useSupabase } from '@/hooks/useSupabase';
 import { MeetingRequestFormImproved } from '@/components/MeetingRequestFormImproved';
+import { MeetingRequestsManagerImproved } from '@/components/MeetingRequestsManagerImproved';
 import { MeetingRecordings } from '@/components/MeetingRecordings';
 import { MultiSelect } from '@/components/ui/multi-select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -432,7 +433,7 @@ const VideoConferenceImproved: React.FC = () => {
             className={activeTab === "requests" ? "bg-aphs-teal hover:bg-aphs-navy data-[state=active]:bg-aphs-teal" : ""}
           >
             <Calendar className="mr-2 h-4 w-4" />
-            Demandes de réunion
+            {isAdmin ? "Demandes de réunion" : "Demander une réunion"}
           </TabsTrigger>
         </TabsList>
 
@@ -699,15 +700,19 @@ const VideoConferenceImproved: React.FC = () => {
         )}
 
         {activeTab === "requests" && (
-          <div>
-            <MeetingRequestFormImproved 
-              onRequestSubmitted={() => {
-                toast({
-                  title: "Demande envoyée",
-                  description: "Votre demande a été envoyée à l'administrateur"
-                });
-              }}
-            />
+          <div className="space-y-6">
+            {isAdmin ? (
+              <MeetingRequestsManagerImproved />
+            ) : (
+              <MeetingRequestFormImproved 
+                onRequestSubmitted={() => {
+                  toast({
+                    title: "Demande envoyée",
+                    description: "Votre demande de réunion a été envoyée aux administrateurs"
+                  });
+                }}
+              />
+            )}
           </div>
         )}
       </Tabs>
@@ -793,9 +798,12 @@ const VideoConferenceImproved: React.FC = () => {
               <Label htmlFor="meeting-participants">Participants</Label>
               <MultiSelect
                 placeholder="Sélectionnez des participants..."
-                selected={formData.selectedParticipants}
-                options={users.map(user => ({ value: user.id, label: user.name }))}
-                onChange={(values) => setFormData({...formData, selectedParticipants: values})}
+                selected={Array.isArray(formData.selectedParticipants) ? formData.selectedParticipants : []}
+                options={Array.isArray(users) ? users.map(user => ({ value: user.id, label: user.name })) : []}
+                onChange={(values) => {
+                  const safeValues = Array.isArray(values) ? values : [];
+                  setFormData({...formData, selectedParticipants: safeValues});
+                }}
               />
             </div>
           </div>

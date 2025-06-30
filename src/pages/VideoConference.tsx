@@ -25,7 +25,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
-import { WebRTCMeeting } from '@/components/WebRTCMeeting';
+import OptimizedVideoCall from '@/components/OptimizedVideoCall';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -380,31 +380,18 @@ const VideoConference: React.FC = () => {
     }
   };
 
-  // Utiliser useMemo pour stabiliser le composant WebRTC et éviter les rerenders
-  const memoizedWebRTCMeeting = useMemo(() => {
+  // Utiliser useMemo pour stabiliser le composant VideoCall et éviter les rerenders
+  const memoizedVideoCall = useMemo(() => {
     if (!activeMeetingRoom) return null;
     
     return (
-      <WebRTCMeeting 
+      <OptimizedVideoCall 
         roomId={activeMeetingRoom.roomId}
-        displayName={user?.email || 'Utilisateur'}
-        email={user?.email}
-        onClose={() => setActiveMeetingRoom(null)}
-        isModerator={activeMeetingRoom.isModerator}
-        onError={(error) => {
-          toast({
-            title: "Erreur de visioconférence",
-            description: error.message || "Une erreur est survenue avec la visioconférence",
-            variant: "destructive"
-          });
-          
-          setTimeout(() => {
-            setActiveMeetingRoom(null);
-          }, 2000);
-        }}
+        userName={user?.email || 'Utilisateur'}
+        onLeave={() => setActiveMeetingRoom(null)}
       />
     );
-  }, [activeMeetingRoom, user, toast]);
+  }, [activeMeetingRoom, user]);
 
   // Si une réunion WebRTC est active
   if (activeMeetingRoom) {
@@ -430,7 +417,7 @@ const VideoConference: React.FC = () => {
           </div>
         </div>
         
-        {memoizedWebRTCMeeting}
+        {memoizedVideoCall}
       </div>
     );
   }

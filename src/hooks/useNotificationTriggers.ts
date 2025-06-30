@@ -186,6 +186,28 @@ export function useNotificationTriggers() {
     );
   }, [createNotification]);
 
+  // Notifications pour les réponses aux demandes de réunion
+  const notifyMeetingRequestResponse = useCallback(async (
+    requesterId: string,
+    meetingTitle: string,
+    approved: boolean,
+    adminName?: string,
+    responseMessage?: string
+  ) => {
+    const status = approved ? 'approuvée' : 'refusée';
+    const title = approved ? 'Demande de réunion approuvée' : 'Demande de réunion refusée';
+    const baseMessage = `Votre demande de réunion "${meetingTitle}" a été ${status}${adminName ? ` par ${adminName}` : ''}`;
+    const message = responseMessage ? `${baseMessage}. Message : ${responseMessage}` : baseMessage;
+
+    await createNotification(
+      requesterId,
+      approved ? 'meeting_request_approved' : 'meeting_request_rejected',
+      title,
+      message,
+      { meetingTitle, approved, adminName, responseMessage }
+    );
+  }, [createNotification]);
+
   // Notifications pour les invitations de réunion
   const notifyMeetingInvitation = useCallback(async (
     participantId: string,
@@ -240,6 +262,7 @@ export function useNotificationTriggers() {
     notifyTaskValidated,
     notifyNewMessage,
     notifyMeetingRequest,
+    notifyMeetingRequestResponse,
     notifyTaskAssigned,
     notifyProjectAdded,
     notifyTaskValidationRequest,

@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabase } from '@/hooks/useSupabase';
+import { useNotificationTriggers } from '@/hooks/useNotificationTriggers';
 import { Plus, Calendar, User, FileText, Clock, CheckCircle, XCircle, AlertCircle, Upload, Download, Eye } from 'lucide-react';
 import { ProjectTask, TaskFormData, Profile, ProjectTaskHistory, TASK_STATUSES, TASK_PRIORITIES } from '../types/project';
 
@@ -21,6 +22,10 @@ interface TaskManagerProps {
 const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, currentUserId, userRole }) => {
   const { toast } = useToast();
   const { fetchData, insertData, updateData, uploadFile } = useSupabase();
+  const {
+    notifyFileValidationRequest,
+    createAdminNotification
+  } = useNotificationTriggers();
   
   const [tasks, setTasks] = useState<ProjectTask[]>([]);
   const [users, setUsers] = useState<Profile[]>([]);
@@ -189,6 +194,45 @@ const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, curre
       const result = await updateData<ProjectTask>('project_tasks', updatedTask);
       
       if (result) {
+        // === NOTIFICATIONS SYSTÈME ===
+        try {
+          // Récupérer le nom de l'utilisateur qui soumet
+          const uploaderUser = users.find(u => u.user_id === currentUserId);
+          const uploaderName = uploaderUser ? 
+            `${uploaderUser.first_name} ${uploaderUser.last_name}` : 
+            'Intervenant inconnu';
+            
+          // 1. Notifier l'admin de l'upload du fichier
+          await createAdminNotification(
+            'file_uploaded',
+            'Nouveau fichier uploadé',
+            `${uploaderName} a uploadé le fichier "${selectedFile.name}" pour la tâche "${task.title}"${projectName ? ` du projet ${projectName}` : ''}`,
+            {
+              fileName: selectedFile.name,
+              uploaderName,
+              projectName,
+              taskName: task.title,
+              taskId: task.id,
+              fileUrl: updatedTask.file_url
+            }
+          );
+          
+          // 2. Notifier chaque validateur qu'un fichier est disponible pour validation
+          for (const validatorId of task.validators) {
+            await notifyFileValidationRequest(
+              validatorId,
+              selectedFile.name,
+              uploaderName,
+              projectName
+            );
+          }
+          
+          console.log(`TaskManager: Notifications envoyées: Admin + ${task.validators.length} validateur(s)`);
+        } catch (notificationError) {
+          console.error('Erreur lors de l\'envoi des notifications:', notificationError);
+          // Ne pas faire échouer la soumission si les notifications échouent
+        }
+        
         toast({
           title: "Succès",
           description: "Tâche soumise avec succès",

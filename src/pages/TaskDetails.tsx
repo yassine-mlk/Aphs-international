@@ -58,6 +58,7 @@ import {
   TASK_SUBMISSION_ACTION_LABELS,
   TASK_SUBMISSION_ACTION_COLORS
 } from '@/types/taskSubmissionHistory';
+import { useNotificationTriggers } from '@/hooks/useNotificationTriggers';
 
 // Interface for project
 interface Project {
@@ -135,6 +136,10 @@ const TaskDetails: React.FC = () => {
   const { fetchData, updateData, uploadFile, getFileUrl, supabase, insertData } = useSupabase();
   const { user } = useAuth();
   const { language } = useLanguage();
+  const {
+    notifyFileValidationRequest,
+    createAdminNotification
+  } = useNotificationTriggers();
   
   const [task, setTask] = useState<TaskAssignment | null>(null);
   const [project, setProject] = useState<Project | null>(null);
@@ -514,6 +519,44 @@ const TaskDetails: React.FC = () => {
       });
       
       setUploadProgress(100);
+      
+      // === NOTIFICATIONS SYSTÈME ===
+      try {
+        // Récupérer le nom de l'intervenant qui soumet
+        const uploaderName = assignedUser ? 
+          `${assignedUser.first_name} ${assignedUser.last_name}` : 
+          'Intervenant inconnu';
+          
+        // 1. Notifier l'admin de l'upload du fichier
+        await createAdminNotification(
+          'file_uploaded',
+          'Nouveau fichier uploadé',
+          `${uploaderName} a uploadé le fichier "${selectedFile.name}" pour la tâche "${task.task_name}"${project ? ` du projet ${project.name}` : ''}`,
+          {
+            fileName: selectedFile.name,
+            uploaderName,
+            projectName: project?.name,
+            taskName: task.task_name,
+            taskId: task.id,
+            fileUrl
+          }
+        );
+        
+        // 2. Notifier chaque validateur qu'un fichier est disponible pour validation
+        for (const validatorId of task.validators) {
+          await notifyFileValidationRequest(
+            validatorId,
+            selectedFile.name,
+            uploaderName,
+            project?.name
+          );
+        }
+        
+        console.log(`Notifications envoyées: Admin + ${task.validators.length} validateur(s)`);
+      } catch (notificationError) {
+        console.error('Erreur lors de l\'envoi des notifications:', notificationError);
+        // Ne pas faire échouer la soumission si les notifications échouent
+      }
       
       toast({
         title: "Succès",
