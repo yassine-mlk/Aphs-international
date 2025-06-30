@@ -19,6 +19,7 @@ export function MeetingRequestForm({ onRequestSubmitted }: MeetingRequestFormPro
   const { requestMeeting } = useVideoMeetings();
   const { supabase } = useSupabase();
   const [loading, setLoading] = useState(false);
+  const [loadingUsers, setLoadingUsers] = useState(true);
   const [users, setUsers] = useState<{value: string, label: string}[]>([]);
   
   const [formData, setFormData] = useState({
@@ -31,6 +32,7 @@ export function MeetingRequestForm({ onRequestSubmitted }: MeetingRequestFormPro
   // Charger la liste des utilisateurs pour les suggestions
   useEffect(() => {
     const loadUsers = async () => {
+      setLoadingUsers(true);
       try {
         const { data, error } = await supabase
           .from('profiles')
@@ -39,20 +41,30 @@ export function MeetingRequestForm({ onRequestSubmitted }: MeetingRequestFormPro
           
         if (error) throw error;
         
-        if (data) {
+        if (data && Array.isArray(data)) {
           const formattedUsers = data.map(user => ({
             value: user.user_id,
             label: `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email
           }));
           setUsers(formattedUsers);
+        } else {
+          setUsers([]);
         }
       } catch (error) {
         console.error("Erreur lors du chargement des utilisateurs:", error);
+        setUsers([]); // S'assurer que users est toujours un tableau
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger la liste des participants",
+          variant: "destructive"
+        });
+      } finally {
+        setLoadingUsers(false);
       }
     };
     
     loadUsers();
-  }, [supabase]);
+  }, [supabase, toast]);
   
   const handleSubmit = async () => {
     if (!formData.title) {
@@ -156,15 +168,29 @@ export function MeetingRequestForm({ onRequestSubmitted }: MeetingRequestFormPro
         
         <div className="space-y-2">
           <Label htmlFor="request-participants">Participants suggérés</Label>
-          <MultiSelect
-            id="request-participants"
-            placeholder="Sélectionnez des participants..."
-            selected={formData.selectedParticipants}
-            options={users}
-            onChange={(values) => setFormData({...formData, selectedParticipants: values})}
-          />
+          {loadingUsers ? (
+            <div className="border border-input px-3 py-2 text-sm rounded-md text-gray-500">
+              Chargement des participants...
+            </div>
+          ) : (
+            <MultiSelect
+              id="request-participants"
+              placeholder="Sélectionnez des participants..."
+              selected={Array.isArray(formData.selectedParticipants) ? formData.selectedParticipants : []}
+              options={Array.isArray(users) ? users : []}
+              onChange={(values) => {
+                const safeValues = Array.isArray(values) ? values : [];
+                setFormData({...formData, selectedParticipants: safeValues});
+              }}
+            />
+          )}
           <p className="text-xs text-gray-500 mt-1">
-            Les participants seront invités si l'administrateur approuve votre demande.
+            {loadingUsers 
+              ? "Chargement de la liste des participants..." 
+              : users.length === 0 
+                ? "Aucun participant disponible."
+                : "Les participants seront invités si l'administrateur approuve votre demande."
+            }
           </p>
         </div>
       </CardContent>

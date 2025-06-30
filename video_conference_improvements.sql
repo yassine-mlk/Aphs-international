@@ -183,37 +183,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- =========================================
--- 4. POLITIQUES RLS (Row Level Security)
--- =========================================
 
--- Activer RLS sur les tables si pas déjà fait
-ALTER TABLE video_meetings ENABLE ROW LEVEL SECURITY;
-ALTER TABLE video_meeting_participants ENABLE ROW LEVEL SECURITY;
-
--- Politique pour les réunions : tous les utilisateurs authentifiés peuvent voir
-CREATE POLICY IF NOT EXISTS "Utilisateurs authentifiés peuvent voir les réunions" 
-ON video_meetings FOR SELECT 
-TO authenticated 
-USING (true);
-
--- Politique pour les participants : tous les utilisateurs authentifiés peuvent voir
-CREATE POLICY IF NOT EXISTS "Utilisateurs authentifiés peuvent voir les participants" 
-ON video_meeting_participants FOR SELECT 
-TO authenticated 
-USING (true);
-
--- Politique pour insérer des participants : tous les utilisateurs authentifiés
-CREATE POLICY IF NOT EXISTS "Utilisateurs authentifiés peuvent rejoindre" 
-ON video_meeting_participants FOR INSERT 
-TO authenticated 
-WITH CHECK (auth.uid() = user_id);
-
--- Politique pour mettre à jour ses propres données de participant
-CREATE POLICY IF NOT EXISTS "Utilisateurs peuvent mettre à jour leurs données" 
-ON video_meeting_participants FOR UPDATE 
-TO authenticated 
-USING (auth.uid() = user_id);
 
 -- =========================================
 -- 5. VUES UTILES

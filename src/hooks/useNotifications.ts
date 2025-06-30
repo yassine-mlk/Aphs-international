@@ -29,7 +29,9 @@ export type NotificationType =
   | 'message_received'
   | 'meeting_invitation'
   | 'meeting_accepted'
-  | 'meeting_declined';
+  | 'meeting_declined'
+  | 'meeting_request_approved'
+  | 'meeting_request_rejected';
 
 export function useNotifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);

@@ -39,7 +39,7 @@ const Companies: React.FC = () => {
   
   const [companies, setCompanies] = useState<Company[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedSpeciality, setSelectedSpeciality] = useState<string>('');
+  const [selectedSpeciality, setSelectedSpeciality] = useState<string>('all');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -166,7 +166,7 @@ const Companies: React.FC = () => {
         (company.specialite && company.specialite.toLowerCase().includes(searchTerm.toLowerCase()));
       
       // Filtre par spécialité
-      const specialityMatch = selectedSpeciality === '' ||
+      const specialityMatch = selectedSpeciality === '' || selectedSpeciality === 'all' ||
         company.specialite === selectedSpeciality ||
         (company.secteur === selectedSpeciality && !company.specialite);
       
@@ -249,14 +249,14 @@ const Companies: React.FC = () => {
               <SelectTrigger>
                 <SelectValue placeholder="Filtrer par spécialité" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">Toutes les spécialités</SelectItem>
-                {COMPANY_SPECIALITIES.map((speciality) => (
-                  <SelectItem key={speciality} value={speciality}>
-                    {speciality}
-                  </SelectItem>
-                ))}
-              </SelectContent>
+                          <SelectContent>
+              <SelectItem value="all">Toutes les spécialités</SelectItem>
+              {COMPANY_SPECIALITIES.map((speciality) => (
+                <SelectItem key={speciality} value={speciality}>
+                  {speciality}
+                </SelectItem>
+              ))}
+            </SelectContent>
             </Select>
           </div>
         </div>

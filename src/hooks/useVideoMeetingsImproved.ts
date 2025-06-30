@@ -73,6 +73,7 @@ export function useVideoMeetingsImproved() {
   const { supabase } = useSupabase();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { notifyMeetingRequest } = useNotificationTriggers();
   const [loading, setLoading] = useState(false);
   const [meetings, setMeetings] = useState<VideoMeeting[]>([]);
   const [loadingMeetings, setLoadingMeetings] = useState(false);
@@ -527,6 +528,15 @@ export function useVideoMeetingsImproved() {
           });
       }
 
+      // Déclencher la notification pour les admins
+      const requesterName = `${user.user_metadata?.first_name || ''} ${user.user_metadata?.last_name || ''}`.trim() || user.email || 'Utilisateur inconnu';
+      await notifyMeetingRequest(title, requesterName, scheduledTime.toISOString());
+
+      toast({
+        title: 'Demande envoyée',
+        description: 'Votre demande de réunion a été envoyée aux administrateurs'
+      });
+
       return true;
     } catch (error) {
       console.error('Erreur lors de la demande de réunion:', error);
@@ -539,7 +549,7 @@ export function useVideoMeetingsImproved() {
     } finally {
       setLoading(false);
     }
-  }, [user, supabase, toast]);
+  }, [user, supabase, toast, notifyMeetingRequest]);
 
   // Nettoyer l'historique des réunions terminées (admin uniquement)
   const clearCompletedMeetings = useCallback(async (): Promise<boolean> => {

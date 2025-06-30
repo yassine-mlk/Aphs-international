@@ -29,18 +29,37 @@ export function MultiSelect({
   const inputRef = React.useRef<HTMLInputElement>(null);
   const [open, setOpen] = React.useState(false);
   const [inputValue, setInputValue] = React.useState("");
+  
+  // Protection robuste contre les données invalides
+  const safeOptions = React.useMemo(() => {
+    if (!options || !Array.isArray(options)) {
+      return [];
+    }
+    return options.filter(option => option && typeof option === 'object' && option.value && option.label);
+  }, [options]);
+  
+  const safeSelected = React.useMemo(() => {
+    if (!selected || !Array.isArray(selected)) {
+      return [];
+    }
+    return selected.filter(item => typeof item === 'string');
+  }, [selected]);
 
-  const handleUnselect = (value: string) => {
-    onChange(selected.filter((item) => item !== value));
-  };
+  const handleUnselect = React.useCallback((value: string) => {
+    if (typeof onChange === 'function') {
+      const newSelected = safeSelected.filter((item) => item !== value);
+      onChange(newSelected);
+    }
+  }, [safeSelected, onChange]);
 
   const handleKeyDown = React.useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
       const input = inputRef.current;
-      if (input) {
+      if (input && typeof onChange === 'function') {
         if (e.key === "Delete" || e.key === "Backspace") {
-          if (input.value === "" && selected.length > 0) {
-            onChange(selected.slice(0, -1));
+          if (input.value === "" && safeSelected.length > 0) {
+            const newSelected = safeSelected.slice(0, -1);
+            onChange(newSelected);
           }
         }
         // Prevent propagation for CommandPrimitive
@@ -49,17 +68,44 @@ export function MultiSelect({
         }
       }
     },
-    [inputRef, onChange, selected]
+    [inputRef, onChange, safeSelected]
   );
 
-  const selectedOptions = selected.map(
-    (value) => options.find((option) => option.value === value) || { value, label: value }
-  );
+  const selectedOptions = React.useMemo(() => {
+    return safeSelected.map(
+      (value) => safeOptions.find((option) => option.value === value) || { value, label: value }
+    );
+  }, [safeSelected, safeOptions]);
+
+  const filteredOptions = React.useMemo(() => {
+    return safeOptions.filter(
+      (option) =>
+        option.label.toLowerCase().includes(inputValue.toLowerCase()) &&
+        !safeSelected.includes(option.value)
+    );
+  }, [safeOptions, inputValue, safeSelected]);
+
+  const handleSelect = React.useCallback((optionValue: string) => {
+    if (typeof onChange === 'function') {
+      const newSelected = [...safeSelected, optionValue];
+      onChange(newSelected);
+      setInputValue("");
+    }
+  }, [safeSelected, onChange]);
+
+  // Si les données ne sont pas encore chargées, afficher un état de chargement
+  if (!options || !selected) {
+    return (
+      <div className={`border border-input px-3 py-2 text-sm rounded-md text-gray-500 ${className}`}>
+        Chargement...
+      </div>
+    );
+  }
 
   return (
     <Command
       onKeyDown={handleKeyDown}
-      className={`overflow-visible bg-transparent ${className}`}
+      className={`overflow-visible bg-transparent ${className || ''}`}
     >
       <div
         id={id}
@@ -92,7 +138,7 @@ export function MultiSelect({
             onValueChange={setInputValue}
             onBlur={() => setOpen(false)}
             onFocus={() => setOpen(true)}
-            placeholder={selected.length === 0 ? placeholder : ""}
+            placeholder={safeSelected.length === 0 ? placeholder : ""}
             className="ml-1 bg-transparent flex-1 outline-none text-sm"
           />
         </div>
@@ -101,43 +147,25 @@ export function MultiSelect({
         {open && (
           <div className="absolute w-full z-10 top-0 rounded-md border bg-popover text-popover-foreground shadow-md outline-none">
             <CommandGroup className="h-full overflow-auto p-1 max-h-[300px]">
-              {options.length > 0 ? (
-                options
-                  .filter(
-                    (option) =>
-                      option.label.toLowerCase().includes(inputValue.toLowerCase()) &&
-                      !selected.includes(option.value)
-                  )
-                  .map((option) => (
-                    <CommandItem
-                      key={option.value}
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                      }}
-                      onSelect={() => {
-                        onChange([...selected, option.value]);
-                        setInputValue("");
-                      }}
-                      className={"text-sm"}
-                    >
-                      {option.label}
-                    </CommandItem>
-                  ))
+              {filteredOptions.length > 0 ? (
+                filteredOptions.map((option) => (
+                  <CommandItem
+                    key={option.value}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    onSelect={() => handleSelect(option.value)}
+                    className="text-sm"
+                  >
+                    {option.label}
+                  </CommandItem>
+                ))
               ) : (
                 <p className="p-2 text-center text-sm text-muted-foreground">
                   Aucun résultat.
                 </p>
               )}
-              {options.length > 0 &&
-                options.filter((option) =>
-                  option.label.toLowerCase().includes(inputValue.toLowerCase()) &&
-                  !selected.includes(option.value)
-                ).length === 0 && (
-                  <p className="p-2 text-center text-sm text-muted-foreground">
-                    Aucun résultat.
-                  </p>
-                )}
             </CommandGroup>
           </div>
         )}
