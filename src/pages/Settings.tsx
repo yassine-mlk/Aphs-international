@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User, Lock, Bell, Globe, Moon, Sun, Smartphone, ClipboardList, Settings as SettingsIcon, Loader2 } from "lucide-react";
+import { User, Lock, Bell, Globe, Moon, Sun, Smartphone, ClipboardList, Settings as SettingsIcon, Loader2, Upload, Camera } from "lucide-react";
 import { useToast } from '@/components/ui/use-toast';
 import { useSupabase, UserSettings as UserSettingsType } from '../hooks/useSupabase';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -44,7 +44,7 @@ interface TaskInfoSheet {
 
 const Settings: React.FC = () => {
   const { toast } = useToast();
-  const { getUserSettings, updateUserSettings, updateUserPassword, fetchData, insertData, updateData } = useSupabase();
+  const { getUserSettings, updateUserSettings, updateUserPassword, fetchData, insertData, updateData, uploadFile, getFileUrl, createStorageBucketIfNotExists } = useSupabase();
   const { language, setLanguage } = useLanguage();
   const { theme, setTheme } = useTheme();
   const { user: currentUser } = useAuth();
@@ -52,6 +52,11 @@ const Settings: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [userSettings, setUserSettings] = useState<UserSettingsType | null>(null);
+  
+  // États pour l'upload de photo de profil
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   
   // State pour les paramètres des projets
   const [infoSheetLoading, setInfoSheetLoading] = useState(false);
@@ -87,6 +92,9 @@ const Settings: React.FC = () => {
   const [darkMode, setDarkMode] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState<Language>('fr');
 
+  // Vérifier si l'utilisateur est admin
+  const isAdmin = user?.role === 'admin' || currentUser?.user_metadata?.role === 'admin';
+
   // Charger les infos utilisateur et ses paramètres
   useEffect(() => {
     const loadUserData = async () => {
@@ -113,6 +121,11 @@ const Settings: React.FC = () => {
               bio: settings.bio || ""
             });
             
+            // Charger l'avatar existant
+            if (settings.avatar_url) {
+              setAvatarPreview(settings.avatar_url);
+            }
+            
             setNotifications(settings.notifications);
             setDarkMode(settings.theme === 'dark');
             setSelectedLanguage(settings.language);
@@ -133,6 +146,76 @@ const Settings: React.FC = () => {
     loadUserData();
   }, [getUserSettings, toast]);
 
+  // Gérer la sélection de fichier avatar
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Vérifier le type de fichier
+      const validImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      if (!validImageTypes.includes(file.type)) {
+        toast({
+          title: "Erreur",
+          description: "Veuillez sélectionner un fichier image (JPG, PNG, GIF, WEBP)",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Vérifier la taille du fichier (2MB max)
+      if (file.size > 2 * 1024 * 1024) {
+        toast({
+          title: "Erreur",
+          description: "L'image ne doit pas dépasser 2MB",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setAvatarFile(file);
+      
+      // Créer une prévisualisation
+      const objectUrl = URL.createObjectURL(file);
+      setAvatarPreview(objectUrl);
+    }
+  };
+
+  // Uploader l'avatar
+  const uploadAvatar = async (): Promise<string | null> => {
+    if (!avatarFile || !user?.id) return null;
+
+    setUploadingAvatar(true);
+    try {
+      // S'assurer que le bucket 'avatars' existe
+      await createStorageBucketIfNotExists('avatars');
+
+      const fileExt = avatarFile.name.split('.').pop();
+      const fileName = `${user.id}_${Date.now()}.${fileExt}`;
+      const filePath = fileName; // Pas besoin du préfixe 'avatars/' car c'est le nom du bucket
+
+      // Upload du fichier
+      const uploadResult = await uploadFile('avatars', filePath, avatarFile);
+      
+      if (uploadResult.error) {
+        throw uploadResult.error;
+      }
+
+      // Obtenir l'URL publique
+      const publicUrl = await getFileUrl('avatars', filePath);
+      
+      return publicUrl;
+    } catch (error) {
+      console.error('Erreur lors de l\'upload de l\'avatar:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible d'uploader la photo de profil",
+        variant: "destructive",
+      });
+      return null;
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
   // Mettre à jour le profil
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -140,12 +223,23 @@ const Settings: React.FC = () => {
     
     setSaving(true);
     try {
+      let avatarUrl = userSettings?.avatar_url;
+
+      // Uploader la nouvelle photo si elle a été sélectionnée
+      if (avatarFile) {
+        const uploadedUrl = await uploadAvatar();
+        if (uploadedUrl) {
+          avatarUrl = uploadedUrl;
+        }
+      }
+
       // Mettre à jour les paramètres dans Supabase
       await updateUserSettings(user.id, {
         first_name: profileForm.firstName,
         last_name: profileForm.lastName,
         phone: profileForm.phone,
-        bio: profileForm.bio
+        bio: profileForm.bio,
+        avatar_url: avatarUrl
       });
       
       // Mettre à jour le state local
@@ -155,9 +249,18 @@ const Settings: React.FC = () => {
           first_name: profileForm.firstName,
           last_name: profileForm.lastName,
           phone: profileForm.phone,
-          bio: profileForm.bio
+          bio: profileForm.bio,
+          avatar_url: avatarUrl
         });
       }
+
+      // Réinitialiser le fichier sélectionné
+      setAvatarFile(null);
+
+      toast({
+        title: "Succès",
+        description: "Profil mis à jour avec succès",
+      });
     } catch (error) {
       console.error('Error updating profile:', error);
       toast({
@@ -321,11 +424,6 @@ const Settings: React.FC = () => {
       setInfoSheetLoading(false);
     }
   };
-  
-  // Vérifier si l'utilisateur est admin
-  const isAdmin = user?.role === 'admin' || 
-                 user?.email === 'admin@aphs.com' ||
-                 currentUser?.user_metadata?.role === 'admin';
   
   // Charger les fiches informatives au démarrage
   useEffect(() => {
@@ -537,13 +635,44 @@ const Settings: React.FC = () => {
               <form onSubmit={handleProfileSubmit} className="space-y-4">
                 <div className="flex flex-col sm:flex-row gap-6">
                   <div className="flex-shrink-0 flex flex-col items-center space-y-2">
-                    <Avatar className="w-24 h-24">
-                      <AvatarImage src="" />
-                      <AvatarFallback className="text-xl bg-aphs-navy text-white">
-                        {profileForm.firstName.charAt(0)}{profileForm.lastName.charAt(0)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <Button variant="outline" size="sm" type="button">Changer</Button>
+                    <div className="relative">
+                      <Avatar className="w-24 h-24">
+                        <AvatarImage src={avatarPreview || ""} />
+                        <AvatarFallback className="text-xl bg-aphs-navy text-white">
+                          {profileForm.firstName.charAt(0)}{profileForm.lastName.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                      {uploadingAvatar && (
+                        <div className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center">
+                          <Loader2 className="h-6 w-6 text-white animate-spin" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex flex-col items-center space-y-1">
+                      <input
+                        type="file"
+                        id="avatar-upload"
+                        accept="image/*"
+                        onChange={handleAvatarChange}
+                        className="hidden"
+                      />
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        type="button"
+                        onClick={() => document.getElementById('avatar-upload')?.click()}
+                        disabled={uploadingAvatar}
+                        className="flex items-center gap-2"
+                      >
+                        <Camera className="h-4 w-4" />
+                        {avatarFile ? 'Changer' : 'Ajouter une photo'}
+                      </Button>
+                      {avatarFile && (
+                        <p className="text-xs text-gray-500">
+                          {avatarFile.name}
+                        </p>
+                      )}
+                    </div>
                   </div>
                   <div className="flex-1 grid gap-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

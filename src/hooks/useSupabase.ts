@@ -40,6 +40,7 @@ export interface UserSettings {
   last_name?: string;
   phone?: string;
   bio?: string;
+  avatar_url?: string;
   theme: 'light' | 'dark';
   language: 'fr' | 'en' | 'es' | 'ar';
   notifications: {
