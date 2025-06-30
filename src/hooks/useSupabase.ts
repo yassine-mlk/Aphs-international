@@ -138,7 +138,25 @@ export function useSupabase() {
 
       if (options?.filters) {
         options.filters.forEach(filter => {
-          query = query.filter(filter.column, filter.operator, filter.value);
+          // Traitement spécial pour le filtre 'in'
+          if (filter.operator === 'in') {
+            // S'assurer que la valeur est un tableau non vide
+            if (Array.isArray(filter.value) && filter.value.length > 0) {
+              query = query.in(filter.column, filter.value);
+            } else if (typeof filter.value === 'string' && filter.value.startsWith('(') && filter.value.endsWith(')')) {
+              // Gérer le cas où la valeur est formatée comme "(id1,id2,id3)"
+              const cleanValue = filter.value.slice(1, -1); // Enlever les parenthèses
+              const arrayValue = cleanValue.split(',').map(id => id.trim()).filter(Boolean);
+              if (arrayValue.length > 0) {
+                query = query.in(filter.column, arrayValue);
+              }
+            } else {
+              console.warn(`Filtre 'in' ignoré: la valeur doit être un tableau non vide ou une chaîne formatée`, filter);
+            }
+          } else {
+            // Traitement normal pour les autres opérateurs
+            query = query.filter(filter.column, filter.operator, filter.value);
+          }
         });
       }
 
