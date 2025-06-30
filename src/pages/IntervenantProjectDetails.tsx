@@ -118,6 +118,10 @@ const IntervenantProjectDetails: React.FC = () => {
   const [taskInfoSheets, setTaskInfoSheets] = useState<{[key: string]: TaskInfoSheet}>({});
   const [loadingInfoSheets, setLoadingInfoSheets] = useState<{[key: string]: boolean}>({});
   const [expandedInfoSheets, setExpandedInfoSheets] = useState<{[key: string]: boolean}>({});
+  
+  // États pour la navigation progressive de la structure
+  const [expandedSections, setExpandedSections] = useState<{[key: string]: boolean}>({});
+  const [expandedSubsections, setExpandedSubsections] = useState<{[key: string]: boolean}>({});
 
   // Get translations
   const translations = projectStructureTranslations.fr;
@@ -350,6 +354,34 @@ const IntervenantProjectDetails: React.FC = () => {
   };
 
   // Fonction pour basculer l'affichage d'une fiche informative
+  // Fonctions pour la navigation progressive
+  const toggleSection = (phase: string, sectionId: string) => {
+    const key = `${phase}-${sectionId}`;
+    setExpandedSections(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
+  const toggleSubsection = (phase: string, sectionId: string, subsectionId: string) => {
+    const key = `${phase}-${sectionId}-${subsectionId}`;
+    setExpandedSubsections(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
+  // Trouver l'assignation d'une tâche
+  const getTaskAssignment = (phase: string, sectionId: string, subsectionId: string, taskName: string) => {
+    return taskAssignments.find(
+      assignment => 
+        assignment.phase_id === phase &&
+        assignment.section_id === sectionId &&
+        assignment.subsection_id === subsectionId &&
+        assignment.task_name === taskName
+    );
+  };
+
   const toggleInfoSheet = async (phase: string, section: string, subsection: string, taskName: string) => {
     const key = `${phase}-${section}-${subsection}-${taskName}`;
     
@@ -579,72 +611,152 @@ const IntervenantProjectDetails: React.FC = () => {
                 <AccordionItem value="conception">
                   <AccordionTrigger>{translations.conception}</AccordionTrigger>
                   <AccordionContent>
-                    {projectStructure.map((section) => {
-                      const sectionKey = section.id as keyof typeof translations.sections;
-                      const sectionTranslation = translations.sections[sectionKey];
-                      return (
-                        <div key={section.id} className="mb-4">
-                          <h4 className="font-medium mb-2">Section {section.id}: {sectionTranslation?.title || section.title}</h4>
-                          {section.items.map((subsection) => {
-                            const subsectionKey = subsection.id as keyof typeof sectionTranslation.items;
-                            const subsectionTranslation = sectionTranslation?.items?.[subsectionKey];
-                            return (
-                              <div key={subsection.id} className="ml-4 mb-2">
-                                <h5 className="text-sm font-medium mb-1">Sous-section {subsection.id}: {subsectionTranslation?.title || subsection.title}</h5>
-                                <div className="ml-4 space-y-2">
-                                  {subsection.tasks.map((task, index) => {
-                                    const translatedTask = subsectionTranslation?.tasks?.[index] || task;
-                                    const key = `conception-${section.id}-${subsection.id}-${task}`;
-                                    const isExpanded = expandedInfoSheets[key];
-                                    const isLoading = loadingInfoSheets[key];
-                                    const infoSheet = taskInfoSheets[key];
-                                    
-                                    return (
-                                      <div key={index} className="border rounded-lg">
-                                        <div className="flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 transition-colors">
-                                          <span className="text-sm text-gray-700">{translatedTask}</span>
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => toggleInfoSheet('conception', section.id, subsection.id, task)}
-                                            disabled={isLoading}
-                                            className="flex items-center gap-2"
-                                          >
-                                            {isLoading ? (
-                                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-aphs-teal"></div>
-                                            ) : (
-                                              <FileText className="h-4 w-4" />
-                                            )}
-                                            {isExpanded ? 'Masquer' : 'Voir la fiche'}
-                                          </Button>
-                                        </div>
-                                        {isExpanded && infoSheet && (
-                                          <div className="p-4 bg-gradient-to-r from-aphs-teal/5 to-aphs-navy/5 border-t border-l-4 border-l-aphs-teal">
-                                            <div className="flex items-center gap-2 mb-3">
-                                              <Badge variant="outline" className="bg-aphs-teal bg-opacity-10 text-aphs-teal border-aphs-teal">
-                                                Document de référence
-                                              </Badge>
-                                              <Badge variant="outline" className="bg-blue-500 bg-opacity-10 text-blue-600 border-blue-500">
-                                                Instructions détaillées
-                                              </Badge>
-                                            </div>
-                                            <div className="prose prose-sm max-w-none">
-                                              <div className="whitespace-pre-line text-sm text-gray-700 leading-relaxed">
-                                                {infoSheet.info_sheet}
+                    <div className="space-y-4">
+                      {projectStructure.map((section) => {
+                        const sectionKey = section.id as keyof typeof translations.sections;
+                        const sectionTranslation = translations.sections[sectionKey];
+                        const sectionExpansionKey = `conception-${section.id}`;
+                        const isSectionExpanded = expandedSections[sectionExpansionKey];
+                        
+                        return (
+                          <div key={section.id} className="border border-gray-200 rounded-lg">
+                            {/* En-tête de section avec bouton d'expansion */}
+                            <button
+                              onClick={() => toggleSection('conception', section.id)}
+                              className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors"
+                            >
+                              <h4 className="font-semibold text-gray-800">
+                                Section {section.id}: {sectionTranslation?.title || section.title}
+                              </h4>
+                              <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                                {section.items.length} étapes
+                              </Badge>
+                            </button>
+                            
+                            {/* Contenu de la section (étapes) */}
+                            {isSectionExpanded && (
+                              <div className="border-t border-gray-200 p-4 space-y-3">
+                                {section.items.map((subsection) => {
+                                  const subsectionKey = subsection.id as keyof typeof sectionTranslation.items;
+                                  const subsectionTranslation = sectionTranslation?.items?.[subsectionKey];
+                                  const subsectionExpansionKey = `conception-${section.id}-${subsection.id}`;
+                                  const isSubsectionExpanded = expandedSubsections[subsectionExpansionKey];
+                                  
+                                  return (
+                                    <div key={subsection.id} className="border border-gray-100 rounded-md ml-4">
+                                      {/* En-tête de sous-section avec bouton d'expansion */}
+                                      <button
+                                        onClick={() => toggleSubsection('conception', section.id, subsection.id)}
+                                        className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-25 transition-colors"
+                                      >
+                                        <h5 className="font-medium text-gray-700">
+                                          Étape {subsection.id}: {subsectionTranslation?.title || subsection.title}
+                                        </h5>
+                                        <Badge variant="outline" className="bg-green-50 text-green-700">
+                                          {subsection.tasks.length} tâches
+                                        </Badge>
+                                      </button>
+                                      
+                                      {/* Contenu de la sous-section (tâches) */}
+                                      {isSubsectionExpanded && (
+                                        <div className="border-t border-gray-100 p-3 space-y-2">
+                                          {subsection.tasks.map((task, index) => {
+                                            const translatedTask = subsectionTranslation?.tasks?.[index] || task;
+                                            const taskAssignment = getTaskAssignment('conception', section.id, subsection.id, task);
+                                            const key = `conception-${section.id}-${subsection.id}-${task}`;
+                                            const isExpanded = expandedInfoSheets[key];
+                                            const isLoading = loadingInfoSheets[key];
+                                            const infoSheet = taskInfoSheets[key];
+                                            
+                                            return (
+                                              <div key={index} className="border border-gray-50 rounded">
+                                                <div className="p-3 bg-gray-25">
+                                                  <div className="flex items-start justify-between mb-2">
+                                                    <span className="text-sm font-medium text-gray-800 flex-1">
+                                                      {translatedTask}
+                                                    </span>
+                                                    <div className="flex items-center gap-2 ml-3">
+                                                      {taskAssignment && (
+                                                        <>
+                                                          <Badge className={getStatusColor(taskAssignment.status)}>
+                                                            {getStatusIcon(taskAssignment.status)}
+                                                            <span className="ml-1">{getStatusLabel(taskAssignment.status)}</span>
+                                                          </Badge>
+                                                          {taskAssignment.file_url && (
+                                                            <Button
+                                                              variant="ghost"
+                                                              size="sm"
+                                                              onClick={() => window.open(taskAssignment.file_url, '_blank')}
+                                                              className="h-6 px-2"
+                                                            >
+                                                              <Download className="h-3 w-3" />
+                                                            </Button>
+                                                          )}
+                                                        </>
+                                                      )}
+                                                      <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => toggleInfoSheet('conception', section.id, subsection.id, task)}
+                                                        disabled={isLoading}
+                                                        className="h-6 px-2"
+                                                      >
+                                                        {isLoading ? (
+                                                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-aphs-teal"></div>
+                                                        ) : (
+                                                          <FileText className="h-3 w-3" />
+                                                        )}
+                                                      </Button>
+                                                    </div>
+                                                  </div>
+                                                  
+                                                  {/* Informations sur l'assignation */}
+                                                  {taskAssignment && (
+                                                    <div className="text-xs text-gray-600 flex items-center gap-2">
+                                                      <User className="h-3 w-3" />
+                                                      <span>Assigné à: {getIntervenantName(taskAssignment.assigned_to)}</span>
+                                                      {taskAssignment.deadline && (
+                                                        <>
+                                                          <Calendar className="h-3 w-3 ml-2" />
+                                                          <span>Échéance: {new Date(taskAssignment.deadline).toLocaleDateString('fr-FR')}</span>
+                                                        </>
+                                                      )}
+                                                    </div>
+                                                  )}
+                                                </div>
+                                                
+                                                {/* Fiche informative */}
+                                                {isExpanded && infoSheet && (
+                                                  <div className="p-3 bg-gradient-to-r from-aphs-teal/5 to-aphs-navy/5 border-t border-l-4 border-l-aphs-teal">
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                      <Badge variant="outline" className="bg-aphs-teal bg-opacity-10 text-aphs-teal border-aphs-teal text-xs">
+                                                        Document de référence
+                                                      </Badge>
+                                                      <Badge variant="outline" className="bg-blue-500 bg-opacity-10 text-blue-600 border-blue-500 text-xs">
+                                                        Instructions détaillées
+                                                      </Badge>
+                                                    </div>
+                                                    <div className="prose prose-sm max-w-none">
+                                                      <div className="whitespace-pre-line text-xs text-gray-700 leading-relaxed">
+                                                        {infoSheet.info_sheet}
+                                                      </div>
+                                                    </div>
+                                                  </div>
+                                                )}
                                               </div>
-                                            </div>
-                                          </div>
-                                        )}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
                               </div>
-                            );
-                          })}
-                        </div>
-                      );
-                    })}
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </AccordionContent>
                 </AccordionItem>
 
@@ -652,72 +764,152 @@ const IntervenantProjectDetails: React.FC = () => {
                 <AccordionItem value="realization">
                   <AccordionTrigger>{translations.realization}</AccordionTrigger>
                   <AccordionContent>
-                    {realizationStructure.map((section) => {
-                      const sectionKey = section.id as keyof typeof translations.sections;
-                      const sectionTranslation = translations.sections[sectionKey];
-                      return (
-                        <div key={section.id} className="mb-4">
-                          <h4 className="font-medium mb-2">Section {section.id}: {sectionTranslation?.title || section.title}</h4>
-                          {section.items.map((subsection) => {
-                            const subsectionKey = subsection.id as keyof typeof sectionTranslation.items;
-                            const subsectionTranslation = sectionTranslation?.items?.[subsectionKey];
-                            return (
-                              <div key={subsection.id} className="ml-4 mb-2">
-                                <h5 className="text-sm font-medium mb-1">Sous-section {subsection.id}: {subsectionTranslation?.title || subsection.title}</h5>
-                                <div className="ml-4 space-y-2">
-                                  {subsection.tasks.map((task, index) => {
-                                    const translatedTask = subsectionTranslation?.tasks?.[index] || task;
-                                    const key = `realization-${section.id}-${subsection.id}-${task}`;
-                                    const isExpanded = expandedInfoSheets[key];
-                                    const isLoading = loadingInfoSheets[key];
-                                    const infoSheet = taskInfoSheets[key];
-                                    
-                                    return (
-                                      <div key={index} className="border rounded-lg">
-                                        <div className="flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 transition-colors">
-                                          <span className="text-sm text-gray-700">{translatedTask}</span>
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => toggleInfoSheet('realization', section.id, subsection.id, task)}
-                                            disabled={isLoading}
-                                            className="flex items-center gap-2"
-                                          >
-                                            {isLoading ? (
-                                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-aphs-teal"></div>
-                                            ) : (
-                                              <FileText className="h-4 w-4" />
-                                            )}
-                                            {isExpanded ? 'Masquer' : 'Voir la fiche'}
-                                          </Button>
-                                        </div>
-                                        {isExpanded && infoSheet && (
-                                          <div className="p-4 bg-gradient-to-r from-aphs-teal/5 to-aphs-navy/5 border-t border-l-4 border-l-aphs-teal">
-                                            <div className="flex items-center gap-2 mb-3">
-                                              <Badge variant="outline" className="bg-aphs-teal bg-opacity-10 text-aphs-teal border-aphs-teal">
-                                                Document de référence
-                                              </Badge>
-                                              <Badge variant="outline" className="bg-blue-500 bg-opacity-10 text-blue-600 border-blue-500">
-                                                Instructions détaillées
-                                              </Badge>
-                                            </div>
-                                            <div className="prose prose-sm max-w-none">
-                                              <div className="whitespace-pre-line text-sm text-gray-700 leading-relaxed">
-                                                {infoSheet.info_sheet}
+                    <div className="space-y-4">
+                      {realizationStructure.map((section) => {
+                        const sectionKey = section.id as keyof typeof translations.sections;
+                        const sectionTranslation = translations.sections[sectionKey];
+                        const sectionExpansionKey = `realization-${section.id}`;
+                        const isSectionExpanded = expandedSections[sectionExpansionKey];
+                        
+                        return (
+                          <div key={section.id} className="border border-gray-200 rounded-lg">
+                            {/* En-tête de section avec bouton d'expansion */}
+                            <button
+                              onClick={() => toggleSection('realization', section.id)}
+                              className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors"
+                            >
+                              <h4 className="font-semibold text-gray-800">
+                                Section {section.id}: {sectionTranslation?.title || section.title}
+                              </h4>
+                              <Badge variant="outline" className="bg-orange-50 text-orange-700">
+                                {section.items.length} étapes
+                              </Badge>
+                            </button>
+                            
+                            {/* Contenu de la section (étapes) */}
+                            {isSectionExpanded && (
+                              <div className="border-t border-gray-200 p-4 space-y-3">
+                                {section.items.map((subsection) => {
+                                  const subsectionKey = subsection.id as keyof typeof sectionTranslation.items;
+                                  const subsectionTranslation = sectionTranslation?.items?.[subsectionKey];
+                                  const subsectionExpansionKey = `realization-${section.id}-${subsection.id}`;
+                                  const isSubsectionExpanded = expandedSubsections[subsectionExpansionKey];
+                                  
+                                  return (
+                                    <div key={subsection.id} className="border border-gray-100 rounded-md ml-4">
+                                      {/* En-tête de sous-section avec bouton d'expansion */}
+                                      <button
+                                        onClick={() => toggleSubsection('realization', section.id, subsection.id)}
+                                        className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-25 transition-colors"
+                                      >
+                                        <h5 className="font-medium text-gray-700">
+                                          Étape {subsection.id}: {subsectionTranslation?.title || subsection.title}
+                                        </h5>
+                                        <Badge variant="outline" className="bg-green-50 text-green-700">
+                                          {subsection.tasks.length} tâches
+                                        </Badge>
+                                      </button>
+                                      
+                                      {/* Contenu de la sous-section (tâches) */}
+                                      {isSubsectionExpanded && (
+                                        <div className="border-t border-gray-100 p-3 space-y-2">
+                                          {subsection.tasks.map((task, index) => {
+                                            const translatedTask = subsectionTranslation?.tasks?.[index] || task;
+                                            const taskAssignment = getTaskAssignment('realization', section.id, subsection.id, task);
+                                            const key = `realization-${section.id}-${subsection.id}-${task}`;
+                                            const isExpanded = expandedInfoSheets[key];
+                                            const isLoading = loadingInfoSheets[key];
+                                            const infoSheet = taskInfoSheets[key];
+                                            
+                                            return (
+                                              <div key={index} className="border border-gray-50 rounded">
+                                                <div className="p-3 bg-gray-25">
+                                                  <div className="flex items-start justify-between mb-2">
+                                                    <span className="text-sm font-medium text-gray-800 flex-1">
+                                                      {translatedTask}
+                                                    </span>
+                                                    <div className="flex items-center gap-2 ml-3">
+                                                      {taskAssignment && (
+                                                        <>
+                                                          <Badge className={getStatusColor(taskAssignment.status)}>
+                                                            {getStatusIcon(taskAssignment.status)}
+                                                            <span className="ml-1">{getStatusLabel(taskAssignment.status)}</span>
+                                                          </Badge>
+                                                          {taskAssignment.file_url && (
+                                                            <Button
+                                                              variant="ghost"
+                                                              size="sm"
+                                                              onClick={() => window.open(taskAssignment.file_url, '_blank')}
+                                                              className="h-6 px-2"
+                                                            >
+                                                              <Download className="h-3 w-3" />
+                                                            </Button>
+                                                          )}
+                                                        </>
+                                                      )}
+                                                      <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => toggleInfoSheet('realization', section.id, subsection.id, task)}
+                                                        disabled={isLoading}
+                                                        className="h-6 px-2"
+                                                      >
+                                                        {isLoading ? (
+                                                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-aphs-teal"></div>
+                                                        ) : (
+                                                          <FileText className="h-3 w-3" />
+                                                        )}
+                                                      </Button>
+                                                    </div>
+                                                  </div>
+                                                  
+                                                  {/* Informations sur l'assignation */}
+                                                  {taskAssignment && (
+                                                    <div className="text-xs text-gray-600 flex items-center gap-2">
+                                                      <User className="h-3 w-3" />
+                                                      <span>Assigné à: {getIntervenantName(taskAssignment.assigned_to)}</span>
+                                                      {taskAssignment.deadline && (
+                                                        <>
+                                                          <Calendar className="h-3 w-3 ml-2" />
+                                                          <span>Échéance: {new Date(taskAssignment.deadline).toLocaleDateString('fr-FR')}</span>
+                                                        </>
+                                                      )}
+                                                    </div>
+                                                  )}
+                                                </div>
+                                                
+                                                {/* Fiche informative */}
+                                                {isExpanded && infoSheet && (
+                                                  <div className="p-3 bg-gradient-to-r from-aphs-teal/5 to-aphs-navy/5 border-t border-l-4 border-l-aphs-teal">
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                      <Badge variant="outline" className="bg-aphs-teal bg-opacity-10 text-aphs-teal border-aphs-teal text-xs">
+                                                        Document de référence
+                                                      </Badge>
+                                                      <Badge variant="outline" className="bg-blue-500 bg-opacity-10 text-blue-600 border-blue-500 text-xs">
+                                                        Instructions détaillées
+                                                      </Badge>
+                                                    </div>
+                                                    <div className="prose prose-sm max-w-none">
+                                                      <div className="whitespace-pre-line text-xs text-gray-700 leading-relaxed">
+                                                        {infoSheet.info_sheet}
+                                                      </div>
+                                                    </div>
+                                                  </div>
+                                                )}
                                               </div>
-                                            </div>
-                                          </div>
-                                        )}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
                               </div>
-                            );
-                          })}
-                        </div>
-                      );
-                    })}
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </AccordionContent>
                 </AccordionItem>
               </Accordion>
