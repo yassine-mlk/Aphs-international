@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { useSupabase } from '../hooks/useSupabase';
-import { COMPANY_SPECIALITIES, Company } from '../types/company';
+import { Company } from '../types/company';
 
 interface CompanyFormProps {
   company?: Partial<Company>;
@@ -247,18 +247,17 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess, mode }) =
         
         <div>
           <Label htmlFor="company-specialite">Spécialité de l'entreprise *</Label>
-          <Select value={specialite} onValueChange={setSpecialite}>
-            <SelectTrigger>
-              <SelectValue placeholder="Sélectionner une spécialité" />
-            </SelectTrigger>
-            <SelectContent>
-              {COMPANY_SPECIALITIES.map((speciality) => (
-                <SelectItem key={speciality} value={speciality}>
-                  {speciality}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Input
+            id="company-specialite"
+            type="text"
+            value={specialite}
+            onChange={(e) => setSpecialite(e.target.value)}
+            placeholder="Saisir la spécialité de l'entreprise"
+            required
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            Exemple: Construction, Électricité, Plomberie, Architecture, etc.
+          </p>
         </div>
         
         <div>
