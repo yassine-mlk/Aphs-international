@@ -184,6 +184,11 @@ export function useMessages() {
       const conversationIds = participations.map((p: any) => p.conversation_id);
       
       // Récupérer les informations sur les conversations
+      if (conversationIds.length === 0) {
+        console.log('Aucune conversation trouvée pour cet utilisateur');
+        return [];
+      }
+      
       const { data: conversationsData, error: conversationsError } = await supabase
         .from('conversations')
         .select('*')
@@ -253,6 +258,10 @@ export function useMessages() {
               
               // Fallback: utiliser la table profiles
               try {
+                if (participantIds.length === 0) {
+                  throw new Error('Aucun participant ID à rechercher');
+                }
+                
                 const { data: profilesData, error: profilesError } = await supabase
                   .from('profiles')
                   .select('user_id, role, first_name, last_name, email, specialty')
@@ -472,6 +481,10 @@ export function useMessages() {
           
           // Fallback: utiliser la table profiles
           try {
+            if (senderIds.length === 0) {
+              throw new Error('Aucun sender ID à rechercher');
+            }
+            
             const { data: profilesData, error: profilesError } = await supabase
               .from('profiles')
               .select('id, user_id, role, first_name, last_name, email, specialty')

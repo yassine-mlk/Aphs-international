@@ -85,8 +85,18 @@ const IntervenantProjects: React.FC = () => {
         
         if (memberData && memberData.length > 0) {
           // Récupérer les détails des projets
-          const projectIds = memberData.map(member => member.project_id);
+          const projectIds = memberData
+            .map(member => member.project_id)
+            .filter(id => id && typeof id === 'string' && id.trim() !== ''); // Filtrer les IDs valides
+          
           console.log('IDs des projets à récupérer:', projectIds);
+          
+          if (projectIds.length === 0) {
+            console.log('Aucun ID de projet valide trouvé');
+            setProjects([]);
+            setTaskStats({});
+            return;
+          }
           
           // Utiliser une requête directe Supabase au lieu du helper générique pour le filtre 'in'
           const { data: projectsData, error } = await supabase
@@ -95,6 +105,7 @@ const IntervenantProjects: React.FC = () => {
             .in('id', projectIds);
           
           if (error) {
+            console.error('Erreur lors de la récupération des données depuis projects:', error);
             throw error;
           }
           
