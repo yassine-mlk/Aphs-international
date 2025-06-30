@@ -25,7 +25,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
-import OptimizedVideoCall from '@/components/OptimizedVideoCall';
+import { EnhancedVideoConference } from '@/components/EnhancedVideoConference';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -385,7 +385,7 @@ const VideoConference: React.FC = () => {
     if (!activeMeetingRoom) return null;
     
     return (
-      <OptimizedVideoCall 
+      <EnhancedVideoConference 
         roomId={activeMeetingRoom.roomId}
         userName={user?.email || 'Utilisateur'}
         onLeave={() => setActiveMeetingRoom(null)}
