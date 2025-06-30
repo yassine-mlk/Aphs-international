@@ -5,8 +5,56 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
-import { useSupabase, UserRole, SPECIALTIES, Company } from '../hooks/useSupabase';
+import { useSupabase, UserRole, Company } from '../hooks/useSupabase';
 import PasswordInput from '@/components/ui/password-input';
+
+// Spécialités par catégorie (même que dans CreateUserForm)
+const CONCEPTION_SPECIALTIES = [
+  'MOA Maître d\'ouvrage',
+  'AMO Assistant maîtrise d\'ouvrage',
+  'Géomètre',
+  'MOE Maître d\'oeuvre',
+  'Commission de sécurité',
+  'Monuments historiques',
+  'Elus locaux',
+  'Futurs usagers',
+  'Gestionnaire',
+  'Programmiste',
+  'Architectes',
+  'Membres du Jury',
+  'Bureau de contrôle',
+  'Bureau d\'étude de sol',
+  'Bureau d\'étude structure',
+  'Bureau d\'étude thermique',
+  'Bureau d\'étude acoustique',
+  'Bureau d\'étude électricité',
+  'Bureau d\'étude plomberie, chauffage, ventilation, climatisation',
+  'Bureau d\'étude VRD voirie, réseaux divers',
+  'Architecte d\'intérieur',
+  'COORDINATEUR OPC',
+  'COORDINATEUR SPS',
+  'COORDINATEUR SSI'
+];
+
+const REALISATION_SPECIALTIES = [
+  'Entreprise fondation',
+  'Entreprise Gros-Œuvre',
+  'Entreprise VRD voirie-réseaux divers',
+  'Entreprise Charpente/Couverture/Étanchéité',
+  'Entreprise Menuiseries extérieures',
+  'Entreprise Menuiseries intérieures',
+  'Entreprise Électricité',
+  'Entreprise Plomberie/Chauffage/Ventilation/Climatisation',
+  'Entreprise Cloison/Doublage',
+  'Entreprise Revêtement de sol',
+  'Entreprise Métallerie/Serrurerie',
+  'Entreprise Peinture',
+  'Entreprise Ascenseur',
+  'Entreprise Agencement',
+  'Entreprise Paysage/Espace vert',
+  'Fournisseurs indirects',
+  'Services extérieurs'
+];
 
 interface EditUserFormProps {
   userId: string;
@@ -26,6 +74,7 @@ const EditUserForm: React.FC<EditUserFormProps> = ({ userId, userData, onSuccess
   const [email, setEmail] = useState(userData.email || '');
   const [firstName, setFirstName] = useState(userData.first_name || '');
   const [lastName, setLastName] = useState(userData.last_name || '');
+  const [category, setCategory] = useState(''); // Nouvelle state pour la catégorie
   const [specialty, setSpecialty] = useState(userData.specialty || '');
   const [company, setCompany] = useState(userData.company || 'Indépendant');
   const [companyId, setCompanyId] = useState(userData.company_id || '');
@@ -42,6 +91,43 @@ const EditUserForm: React.FC<EditUserFormProps> = ({ userId, userData, onSuccess
   
   const { toast } = useToast();
   const { adminUpdateUser, getCompanies } = useSupabase();
+
+  // Fonction pour déterminer la catégorie d'une spécialité
+  const getCategoryFromSpecialty = (specialty: string): string => {
+    if (CONCEPTION_SPECIALTIES.includes(specialty)) {
+      return 'conception';
+    } else if (REALISATION_SPECIALTIES.includes(specialty)) {
+      return 'realisation';
+    }
+    return '';
+  };
+
+  // Obtenir les spécialités selon la catégorie sélectionnée
+  const getSpecialtiesByCategory = (selectedCategory: string) => {
+    switch (selectedCategory) {
+      case 'conception':
+        return CONCEPTION_SPECIALTIES;
+      case 'realisation':
+        return REALISATION_SPECIALTIES;
+      default:
+        return [];
+    }
+  };
+
+  // Initialiser la catégorie basée sur la spécialité existante
+  useEffect(() => {
+    if (userData.specialty) {
+      const initialCategory = getCategoryFromSpecialty(userData.specialty);
+      setCategory(initialCategory);
+    }
+  }, [userData.specialty]);
+
+  // Réinitialiser la spécialité quand la catégorie change (sauf à l'initialisation)
+  useEffect(() => {
+    if (category && !userData.specialty) {
+      setSpecialty('');
+    }
+  }, [category, userData.specialty]);
 
   // Charger la liste des entreprises
   useEffect(() => {
@@ -272,17 +358,44 @@ const EditUserForm: React.FC<EditUserFormProps> = ({ userId, userData, onSuccess
         </div>
         
         <div>
+          <Label htmlFor="edit-category">Catégorie *</Label>
+          <Select
+            value={category}
+            onValueChange={(value) => {
+              setCategory(value);
+              // Réinitialiser la spécialité si on change de catégorie
+              if (value !== getCategoryFromSpecialty(specialty)) {
+                setSpecialty('');
+              }
+            }}
+            required
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Sélectionner une catégorie" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="conception">Conception</SelectItem>
+              <SelectItem value="realisation">Réalisation</SelectItem>
+            </SelectContent>
+          </Select>
+          <div className="mt-1 text-xs text-gray-500">
+            Choisissez d'abord la catégorie pour voir les spécialités correspondantes
+          </div>
+        </div>
+        
+        <div>
           <Label htmlFor="edit-specialty">Spécialité *</Label>
           <Select
             value={specialty}
             onValueChange={(value) => setSpecialty(value)}
             required
+            disabled={!category}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Sélectionner une spécialité" />
+              <SelectValue placeholder={!category ? "Sélectionnez d'abord une catégorie" : "Sélectionner une spécialité"} />
             </SelectTrigger>
             <SelectContent className="max-h-72">
-              {SPECIALTIES.map((spec) => (
+              {getSpecialtiesByCategory(category).map((spec) => (
                 <SelectItem key={spec} value={spec}>
                   {spec}
                 </SelectItem>
@@ -292,7 +405,8 @@ const EditUserForm: React.FC<EditUserFormProps> = ({ userId, userData, onSuccess
           <div className="mt-1 text-sm text-gray-500">
             {specialty === 'MOA Maître d\'ouvrage' ? 
               'Rôle: Propriétaire (owner)' : 
-              specialty ? 'Rôle: Intervenant' : ''}
+              specialty ? 'Rôle: Intervenant' : 
+              category ? `${getSpecialtiesByCategory(category).length} spécialités disponibles` : ''}
           </div>
         </div>
         
