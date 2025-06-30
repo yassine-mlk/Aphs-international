@@ -44,7 +44,7 @@ interface TaskInfoSheet {
 
 const Settings: React.FC = () => {
   const { toast } = useToast();
-  const { getUserSettings, updateUserSettings, updateUserPassword, fetchData, insertData, updateData, uploadFile, getFileUrl, createStorageBucketIfNotExists } = useSupabase();
+  const { getUserSettings, updateUserSettings, updateUserPassword, fetchData, insertData, updateData, uploadFile, getFileUrl } = useSupabase();
   const { language, setLanguage } = useLanguage();
   const { theme, setTheme } = useTheme();
   const { user: currentUser } = useAuth();
@@ -185,29 +185,26 @@ const Settings: React.FC = () => {
 
     setUploadingAvatar(true);
     try {
-      // S'assurer que le bucket 'avatars' existe
-      await createStorageBucketIfNotExists('avatars');
-
       const fileExt = avatarFile.name.split('.').pop();
       const fileName = `${user.id}_${Date.now()}.${fileExt}`;
-      const filePath = fileName; // Pas besoin du préfixe 'avatars/' car c'est le nom du bucket
 
-      // Upload du fichier
-      const uploadResult = await uploadFile('avatars', filePath, avatarFile);
+      // Upload du fichier directement (le bucket doit être créé au préalable via SQL)
+      const uploadResult = await uploadFile('avatars', fileName, avatarFile);
       
       if (uploadResult.error) {
+        console.error('Erreur d\'upload:', uploadResult.error);
         throw uploadResult.error;
       }
 
       // Obtenir l'URL publique
-      const publicUrl = await getFileUrl('avatars', filePath);
+      const publicUrl = await getFileUrl('avatars', fileName);
       
       return publicUrl;
     } catch (error) {
       console.error('Erreur lors de l\'upload de l\'avatar:', error);
       toast({
         title: "Erreur",
-        description: "Impossible d'uploader la photo de profil",
+        description: `Impossible d'uploader la photo de profil: ${error.message || 'Erreur inconnue'}`,
         variant: "destructive",
       });
       return null;
