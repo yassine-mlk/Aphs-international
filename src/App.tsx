@@ -22,6 +22,7 @@ import Companies from "./pages/Companies";
 import WorkGroups from "./pages/WorkGroups";
 import Messages from "./pages/Messages";
 import VideoConference from "./pages/VideoConference";
+import VideoConferenceDemo from "./pages/VideoConferenceDemo";
 import Settings from "./pages/Settings";
 import TestUpload from "./test-upload";
 import IntervenantProjects from "./pages/IntervenantProjects";
@@ -263,6 +264,11 @@ const App = () => {
                 <Route path="video" element={
                   <SharedRoute>
                     <VideoConference />
+                  </SharedRoute>
+                } />
+                <Route path="video-demo" element={
+                  <SharedRoute>
+                    <VideoConferenceDemo />
                   </SharedRoute>
                 } />
                 <Route path="parametres" element={<Settings />} />
