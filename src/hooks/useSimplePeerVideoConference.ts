@@ -2,6 +2,13 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import SimplePeer from 'simple-peer';
 import { useAuth } from '../contexts/AuthContext';
 import { useSupabase } from './useSupabase';
+import { 
+  checkWebRTCSupport, 
+  defaultSimplePeerOptions, 
+  getOptimalMediaConstraints,
+  handleMediaError,
+  cleanupMediaStream 
+} from '../utils/webrtc';
 
 interface UseSimplePeerVideoConferenceProps {
   roomId: string;
@@ -118,61 +125,67 @@ export const useSimplePeerVideoConference = ({
 
     console.log(`🔗 Creating peer connection with ${participantId}, initiator: ${initiator}`);
 
-    const peer = new SimplePeer({
-      initiator,
-      trickle: false,
-      stream: localStreamRef.current,
-      config: {
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' },
-          { urls: 'stun:stun2.l.google.com:19302' }
-        ]
+    try {
+      const peerOptions = defaultSimplePeerOptions(
+        initiator, 
+        localStreamRef.current, 
+        participantId
+      );
+      
+      const peer = new SimplePeer(peerOptions);
+
+      peersRef.current[participantId] = peer;
+
+      // Gérer les signaux
+      peer.on('signal', (signal) => {
+        console.log(`📤 Sending signal to ${participantId}:`, signal.type);
+        sendSignal(participantId, signal);
+      });
+
+      // Gérer le stream reçu
+      peer.on('stream', (remoteStream) => {
+        console.log(`🎥 Received stream from ${participantId}`);
+        setParticipants(prev => prev.map(p => 
+          p.id === participantId 
+            ? { ...p, stream: remoteStream, isConnected: true }
+            : p
+        ));
+      });
+
+      // Gérer la connexion établie
+      peer.on('connect', () => {
+        console.log(`✅ Peer connected: ${participantId}`);
+        setParticipants(prev => prev.map(p => 
+          p.id === participantId 
+            ? { ...p, isConnected: true }
+            : p
+        ));
+      });
+
+      // Gérer les erreurs
+      peer.on('error', (err) => {
+        console.error(`❌ Peer error with ${participantId}:`, err);
+        cleanupPeer(participantId);
+        if (onError) {
+          onError(new Error(`Peer connection error: ${err.message}`));
+        }
+      });
+
+      // Gérer la fermeture
+      peer.on('close', () => {
+        console.log(`🔌 Peer connection closed: ${participantId}`);
+        cleanupPeer(participantId);
+      });
+
+      return peer;
+    } catch (error) {
+      console.error(`❌ Failed to create peer connection with ${participantId}:`, error);
+      if (onError) {
+        onError(new Error(`Failed to create peer connection: ${error.message}`));
       }
-    });
-
-    peersRef.current[participantId] = peer;
-
-    // Gérer les signaux
-    peer.on('signal', (signal) => {
-      console.log(`📤 Sending signal to ${participantId}:`, signal.type);
-      sendSignal(participantId, signal);
-    });
-
-    // Gérer le stream reçu
-    peer.on('stream', (remoteStream) => {
-      console.log(`🎥 Received stream from ${participantId}`);
-      setParticipants(prev => prev.map(p => 
-        p.id === participantId 
-          ? { ...p, stream: remoteStream, isConnected: true }
-          : p
-      ));
-    });
-
-    // Gérer la connexion établie
-    peer.on('connect', () => {
-      console.log(`✅ Peer connected: ${participantId}`);
-      setParticipants(prev => prev.map(p => 
-        p.id === participantId 
-          ? { ...p, isConnected: true }
-          : p
-      ));
-    });
-
-    // Gérer les erreurs
-    peer.on('error', (err) => {
-      console.error(`❌ Peer error with ${participantId}:`, err);
-      cleanupPeer(participantId);
-    });
-
-    // Gérer la fermeture
-    peer.on('close', () => {
-      console.log(`🔌 Peer connection closed: ${participantId}`);
-      cleanupPeer(participantId);
-    });
-
-    return peer;
-  }, [sendSignal, cleanupPeer]);
+      return null;
+    }
+  }, [sendSignal, cleanupPeer, onError]);
 
   // Gérer les signaux WebRTC reçus
   const handleWebRTCSignal = useCallback((message: WebRTCSignal) => {
@@ -240,12 +253,8 @@ export const useSimplePeerVideoConference = ({
     }
 
     // Arrêter le stream local
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(track => {
-        track.stop();
-      });
-      localStreamRef.current = null;
-    }
+    cleanupMediaStream(localStreamRef.current);
+    localStreamRef.current = null;
 
     setLocalStream(null);
     setParticipants([]);
@@ -320,26 +329,43 @@ export const useSimplePeerVideoConference = ({
       return;
     }
 
+    // Vérifier le support WebRTC
+    const webrtcSupport = checkWebRTCSupport();
+    if (!webrtcSupport.supported) {
+      const error = new Error(webrtcSupport.error);
+      console.error('❌ WebRTC not supported:', error);
+      setError('WebRTC n\'est pas supporté dans ce navigateur');
+      setConnectionStatus('error');
+      if (onError) {
+        onError(error);
+      }
+      return;
+    }
+
     isInitializedRef.current = true;
     mountedRef.current = true;
 
     const initializeEverything = async () => {
       try {
+        setConnectionStatus('connecting');
+        
         // 1. Initialiser le stream local
         console.log('🎥 Initializing local media stream...');
         
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            width: { ideal: 1280, max: 1920 },
-            height: { ideal: 720, max: 1080 },
-            frameRate: { ideal: 30 }
-          },
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true
+        let stream: MediaStream;
+        try {
+          const mediaConstraints = getOptimalMediaConstraints('medium');
+          stream = await navigator.mediaDevices.getUserMedia(mediaConstraints);
+        } catch (mediaError) {
+          console.error('❌ Failed to get user media:', mediaError);
+          const errorMessage = handleMediaError(mediaError as Error);
+          setError(errorMessage);
+          setConnectionStatus('error');
+          if (onError) {
+            onError(new Error(`Media access denied: ${mediaError.message}`));
           }
-        });
+          return;
+        }
 
         if (!mountedRef.current) {
           stream.getTracks().forEach(track => track.stop());
