@@ -307,10 +307,15 @@ export function useDashboardStats() {
       if (recentTasks) {
         // Récupérer les noms des projets séparément
         const projectIds = recentTasks.map(task => task.project_id).filter(Boolean);
-        const { data: projects } = await supabase
-          .from('projects')
-          .select('id, name')
-          .in('id', projectIds);
+        let projects = null;
+        
+        if (projectIds.length > 0) {
+          const { data: projectsData } = await supabase
+            .from('projects')
+            .select('id, name')
+            .in('id', projectIds);
+          projects = projectsData;
+        }
 
         recentTasks.forEach(task => {
           const project = projects?.find(p => p.id === task.project_id);
