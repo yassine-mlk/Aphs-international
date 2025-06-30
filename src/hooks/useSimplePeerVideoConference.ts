@@ -39,6 +39,7 @@ export const useSimplePeerVideoConference = ({
   const channelRef = useRef<any>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const mountedRef = useRef(true);
+  const isInitializedRef = useRef(false);
   
   // States
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
@@ -69,7 +70,7 @@ export const useSimplePeerVideoConference = ({
 
   // Envoyer un signal WebRTC
   const sendSignal = useCallback(async (targetUserId: string, signal: any) => {
-    if (!channelRef.current || !isConnected) {
+    if (!channelRef.current) {
       console.warn('Cannot send signal: not connected to room');
       return false;
     }
@@ -97,7 +98,7 @@ export const useSimplePeerVideoConference = ({
       console.error('Failed to send WebRTC signal:', error);
       return false;
     }
-  }, [currentUserId, roomId, isConnected]);
+  }, [currentUserId, roomId]);
 
   // Créer une connexion peer
   const createPeerConnection = useCallback((participantId: string, initiator: boolean = false) => {
@@ -212,169 +213,12 @@ export const useSimplePeerVideoConference = ({
     }
   }, [roomId, currentUserId, createPeerConnection, cleanupPeer]);
 
-  // Initialiser le stream local
-  const initializeLocalStream = useCallback(async () => {
-    try {
-      console.log('🎥 Initializing local media stream...');
-      
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 1280, max: 1920 },
-          height: { ideal: 720, max: 1080 },
-          frameRate: { ideal: 30 }
-        },
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        }
-      });
-
-      if (!mountedRef.current) {
-        stream.getTracks().forEach(track => track.stop());
-        return null;
-      }
-
-      localStreamRef.current = stream;
-      setLocalStream(stream);
-      
-      console.log('✅ Local media stream initialized');
-      return stream;
-    } catch (error) {
-      console.error('❌ Error accessing media:', error);
-      const errorMessage = 'Impossible d\'accéder à la caméra/microphone';
-      setError(errorMessage);
-      setConnectionStatus('error');
-      
-      if (onError) {
-        onError(new Error(errorMessage));
-      }
-      
-      return null;
-    }
-  }, [onError]);
-
-  // Se connecter à la room
-  const connectToRoom = useCallback(async () => {
-    if (!supabase || channelRef.current) {
-      return;
-    }
-
-    try {
-      console.log(`🚪 Connecting to room: ${roomId}`);
-      setConnectionStatus('connecting');
-
-      // Créer le canal Supabase Realtime
-      const channel = supabase.channel(`simple_video_room_${roomId}`, {
-        config: {
-          broadcast: { self: false, ack: false },
-          presence: { key: currentUserId }
-        }
-      });
-
-      channelRef.current = channel;
-
-      // Écouter les signaux WebRTC
-      channel.on('broadcast', { event: 'webrtc_signal' }, ({ payload }) => {
-        handleWebRTCSignal(payload);
-      });
-
-      // Gérer les présences
-      channel
-        .on('presence', { event: 'sync' }, () => {
-          const state = channel.presenceState();
-          const participantIds = Object.keys(state).filter(id => id !== currentUserId);
-          
-          console.log(`👥 Room participants: ${participantIds.length}`, participantIds);
-          
-          // Initier des connexions avec les participants existants
-          participantIds.forEach(participantId => {
-            if (!peersRef.current[participantId]) {
-              console.log(`🤝 Initiating connection with existing participant: ${participantId}`);
-              createPeerConnection(participantId, true);
-              
-              setParticipants(prev => {
-                if (!prev.find(p => p.id === participantId)) {
-                  return [...prev, {
-                    id: participantId,
-                    name: participantId.substring(0, 8),
-                    isConnected: false,
-                    joinedAt: new Date()
-                  }];
-                }
-                return prev;
-              });
-            }
-          });
-        })
-        .on('presence', { event: 'join' }, ({ key }) => {
-          if (key !== currentUserId) {
-            console.log(`👋 New participant joined: ${key}`);
-            
-            // Attendre un peu puis initier la connexion
-            setTimeout(() => {
-              if (mountedRef.current && !peersRef.current[key]) {
-                console.log(`🤝 Initiating connection with new participant: ${key}`);
-                createPeerConnection(key, true);
-                
-                setParticipants(prev => {
-                  if (!prev.find(p => p.id === key)) {
-                    return [...prev, {
-                      id: key,
-                      name: key.substring(0, 8),
-                      isConnected: false,
-                      joinedAt: new Date()
-                    }];
-                  }
-                  return prev;
-                });
-              }
-            }, 1000);
-          }
-        })
-        .on('presence', { event: 'leave' }, ({ key }) => {
-          if (key !== currentUserId) {
-            console.log(`👋 Participant left: ${key}`);
-            cleanupPeer(key);
-          }
-        });
-
-      // S'abonner au canal
-      await channel.subscribe(async (status) => {
-        console.log(`📡 Realtime subscription status: ${status}`);
-        
-        if (status === 'SUBSCRIBED') {
-          setIsConnected(true);
-          setConnectionStatus('connected');
-          
-          // S'annoncer comme présent
-          await channel.track({
-            user_id: currentUserId,
-            user_name: displayName,
-            joined_at: new Date().toISOString()
-          });
-          
-          console.log('✅ Successfully connected to room');
-        } else if (status === 'CHANNEL_ERROR') {
-          setConnectionStatus('error');
-          setError('Erreur de connexion à la room');
-        }
-      });
-
-    } catch (error) {
-      console.error('❌ Error connecting to room:', error);
-      setConnectionStatus('error');
-      setError('Impossible de se connecter à la room');
-      
-      if (onError) {
-        onError(new Error('Erreur de connexion à la room'));
-      }
-    }
-  }, [supabase, roomId, currentUserId, displayName, handleWebRTCSignal, createPeerConnection, cleanupPeer, onError]);
-
   // Se déconnecter de la room
   const disconnectFromRoom = useCallback(async () => {
     console.log('🚪 Disconnecting from room...');
+    
+    // Marquer comme déconnecté pour éviter les actions supplémentaires
+    mountedRef.current = false;
     
     // Nettoyer toutes les connexions peer
     Object.keys(peersRef.current).forEach(participantId => {
@@ -404,6 +248,7 @@ export const useSimplePeerVideoConference = ({
     setIsConnected(false);
     setConnectionStatus('idle');
     setError(null);
+    isInitializedRef.current = false;
   }, [cleanupPeer]);
 
   // Contrôles média
@@ -464,26 +309,165 @@ export const useSimplePeerVideoConference = ({
     }
   }, []);
 
-  // Initialisation
+  // Initialisation unique
   useEffect(() => {
+    // Éviter la double initialisation
+    if (isInitializedRef.current || !roomId) {
+      return;
+    }
+
+    isInitializedRef.current = true;
     mountedRef.current = true;
 
-    const initialize = async () => {
-      if (!mountedRef.current) return;
-      
-      const stream = await initializeLocalStream();
-      if (stream && mountedRef.current) {
-        await connectToRoom();
+    const initializeEverything = async () => {
+      try {
+        // 1. Initialiser le stream local
+        console.log('🎥 Initializing local media stream...');
+        
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 1280, max: 1920 },
+            height: { ideal: 720, max: 1080 },
+            frameRate: { ideal: 30 }
+          },
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          }
+        });
+
+        if (!mountedRef.current) {
+          stream.getTracks().forEach(track => track.stop());
+          return;
+        }
+
+        localStreamRef.current = stream;
+        setLocalStream(stream);
+        console.log('✅ Local media stream initialized');
+
+        // 2. Se connecter à la room
+        if (!supabase || channelRef.current) {
+          return;
+        }
+
+        console.log(`🚪 Connecting to room: ${roomId}`);
+        setConnectionStatus('connecting');
+
+        // Créer le canal Supabase Realtime
+        const channel = supabase.channel(`simple_video_room_${roomId}`, {
+          config: {
+            broadcast: { self: false, ack: false },
+            presence: { key: currentUserId }
+          }
+        });
+
+        channelRef.current = channel;
+
+        // Écouter les signaux WebRTC
+        channel.on('broadcast', { event: 'webrtc_signal' }, ({ payload }) => {
+          handleWebRTCSignal(payload);
+        });
+
+        // Gérer les présences
+        channel
+          .on('presence', { event: 'sync' }, () => {
+            const state = channel.presenceState();
+            const participantIds = Object.keys(state).filter(id => id !== currentUserId);
+            
+            console.log(`👥 Room participants: ${participantIds.length}`, participantIds);
+            
+            // Initier des connexions avec les participants existants
+            participantIds.forEach(participantId => {
+              if (!peersRef.current[participantId] && mountedRef.current) {
+                console.log(`🤝 Initiating connection with existing participant: ${participantId}`);
+                createPeerConnection(participantId, true);
+                
+                setParticipants(prev => {
+                  if (!prev.find(p => p.id === participantId)) {
+                    return [...prev, {
+                      id: participantId,
+                      name: participantId.substring(0, 8),
+                      isConnected: false,
+                      joinedAt: new Date()
+                    }];
+                  }
+                  return prev;
+                });
+              }
+            });
+          })
+          .on('presence', { event: 'join' }, ({ key }) => {
+            if (key !== currentUserId && mountedRef.current) {
+              console.log(`👋 New participant joined: ${key}`);
+              
+              // Attendre un peu puis initier la connexion
+              setTimeout(() => {
+                if (mountedRef.current && !peersRef.current[key]) {
+                  console.log(`🤝 Initiating connection with new participant: ${key}`);
+                  createPeerConnection(key, true);
+                  
+                  setParticipants(prev => {
+                    if (!prev.find(p => p.id === key)) {
+                      return [...prev, {
+                        id: key,
+                        name: key.substring(0, 8),
+                        isConnected: false,
+                        joinedAt: new Date()
+                      }];
+                    }
+                    return prev;
+                  });
+                }
+              }, 1000);
+            }
+          })
+          .on('presence', { event: 'leave' }, ({ key }) => {
+            if (key !== currentUserId) {
+              console.log(`👋 Participant left: ${key}`);
+              cleanupPeer(key);
+            }
+          });
+
+        // S'abonner au canal
+        await channel.subscribe(async (status) => {
+          console.log(`📡 Realtime subscription status: ${status}`);
+          
+          if (status === 'SUBSCRIBED' && mountedRef.current) {
+            setIsConnected(true);
+            setConnectionStatus('connected');
+            
+            // S'annoncer comme présent
+            await channel.track({
+              user_id: currentUserId,
+              user_name: displayName,
+              joined_at: new Date().toISOString()
+            });
+            
+            console.log('✅ Successfully connected to room');
+          } else if (status === 'CHANNEL_ERROR') {
+            setConnectionStatus('error');
+            setError('Erreur de connexion à la room');
+          }
+        });
+
+      } catch (error) {
+        console.error('❌ Error during initialization:', error);
+        setConnectionStatus('error');
+        setError('Impossible d\'initialiser la vidéoconférence');
+        
+        if (onError) {
+          onError(new Error('Erreur d\'initialisation'));
+        }
       }
     };
 
-    initialize();
+    initializeEverything();
 
     return () => {
-      mountedRef.current = false;
       disconnectFromRoom();
     };
-  }, [initializeLocalStream, connectToRoom, disconnectFromRoom]);
+  }, [roomId]); // Seulement roomId comme dépendance !
 
   return {
     // States
