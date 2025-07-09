@@ -20,7 +20,8 @@ import {
   Eye,
   UserMinus,
   XCircle,
-  Download
+  Download,
+  Search
 } from 'lucide-react';
 import { useSupabase } from '@/hooks/useSupabase';
 import {
@@ -78,6 +79,7 @@ interface Intervenant {
   first_name: string;
   last_name: string;
   role: string;
+  specialty?: string;
 }
 
 // Task assignment interface
@@ -1372,6 +1374,9 @@ const ProjectDetails: React.FC = () => {
     comment: ''
   });
   
+  // Estado para búsqueda en formulario de asignación
+  const [assignmentSearchQuery, setAssignmentSearchQuery] = useState('');
+  
   // États pour la gestion des détails de tâche et validation admin
   const [isTaskDetailsDialogOpen, setIsTaskDetailsDialogOpen] = useState(false);
   const [selectedTaskDetails, setSelectedTaskDetails] = useState<TaskAssignment | null>(null);
@@ -1486,6 +1491,20 @@ const ProjectDetails: React.FC = () => {
     }
   };
   
+  // Filtrar especialistas según la búsqueda
+  const filteredIntervenantsForAssignment = intervenants.filter(intervenant => {
+    if (!assignmentSearchQuery) return true;
+    
+    const searchLower = assignmentSearchQuery.toLowerCase();
+    const fullName = `${intervenant.first_name} ${intervenant.last_name}`.toLowerCase();
+    const email = intervenant.email.toLowerCase();
+    const specialty = (intervenant.specialty || '').toLowerCase();
+    
+    return fullName.includes(searchLower) || 
+           email.includes(searchLower) || 
+           specialty.includes(searchLower);
+  });
+
   // Ouvrir le dialogue d'assignation de tâche
   const handleOpenAssignTask = (phase: 'conception' | 'realisation', section: string, subsection: string, taskName: string) => {
     if (!isAdmin) {
@@ -1513,6 +1532,9 @@ const ProjectDetails: React.FC = () => {
       file_extension: 'pdf',
       comment: ''
     });
+    
+    // Reiniciar búsqueda
+    setAssignmentSearchQuery('');
     
     // Charger les intervenants si ce n'est pas déjà fait
     if (intervenants.length === 0) {
@@ -2220,6 +2242,27 @@ const ProjectDetails: React.FC = () => {
           </DialogHeader>
           
           <div className="grid gap-4 py-4">
+            {/* Campo de búsqueda */}
+            <div className="grid grid-cols-1 gap-2">
+              <Label htmlFor="search">Buscar especialista</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  id="search"
+                  type="text"
+                  placeholder="Buscar por nombre, email o especialidad..."
+                  value={assignmentSearchQuery}
+                  onChange={(e) => setAssignmentSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              {assignmentSearchQuery && (
+                <div className="text-xs text-gray-500">
+                  {filteredIntervenantsForAssignment.length} especialista(s) encontrado(s)
+                </div>
+              )}
+            </div>
+            
             <div className="grid grid-cols-1 gap-2">
               <Label htmlFor="assigned_to">Responsable<span className="text-red-500">*</span></Label>
               <Select
@@ -2229,17 +2272,29 @@ const ProjectDetails: React.FC = () => {
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Seleccionar un responsable" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-60 overflow-y-auto">
                   <SelectGroup>
                     <SelectLabel>Responsables</SelectLabel>
                     {loadingIntervenants ? (
                       <SelectItem value="loading" disabled>Cargando...</SelectItem>
-                    ) : (
-                      intervenants.map(intervenant => (
+                    ) : filteredIntervenantsForAssignment.length > 0 ? (
+                      filteredIntervenantsForAssignment.map(intervenant => (
                         <SelectItem key={intervenant.id} value={intervenant.id}>
-                          {intervenant.first_name} {intervenant.last_name}
+                          <div className="flex flex-col">
+                            <span className="font-medium">
+                              {intervenant.first_name} {intervenant.last_name}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              {intervenant.email}
+                              {intervenant.specialty && ` • ${intervenant.specialty}`}
+                            </span>
+                          </div>
                         </SelectItem>
                       ))
+                    ) : (
+                      <SelectItem value="no-results" disabled>
+                        Ningún especialista encontrado
+                      </SelectItem>
                     )}
                   </SelectGroup>
                 </SelectContent>
@@ -2282,14 +2337,14 @@ const ProjectDetails: React.FC = () => {
             
             <div className="grid grid-cols-1 gap-2">
               <Label htmlFor="validators">Validadores<span className="text-red-500">*</span></Label>
-              <div className="border rounded-md p-3">
-                {intervenants.length > 0 ? (
-                  intervenants.map(intervenant => (
-                    <div key={intervenant.id} className="flex items-center my-1">
+              <div className="border rounded-md p-3 max-h-60 overflow-y-auto">
+                {filteredIntervenantsForAssignment.length > 0 ? (
+                  filteredIntervenantsForAssignment.map(intervenant => (
+                    <div key={intervenant.id} className="flex items-center my-1 p-2 hover:bg-gray-50 rounded transition-colors">
                       <input
                         type="checkbox"
                         id={`validator-${intervenant.id}`}
-                        className="mr-2 h-4 w-4"
+                        className="mr-3 h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
                         checked={assignmentForm.validators.includes(intervenant.id)}
                         onChange={(e) => {
                           if (e.target.checked) {
@@ -2306,15 +2361,35 @@ const ProjectDetails: React.FC = () => {
                         }}
                         disabled={intervenant.id === assignmentForm.assigned_to}
                       />
-                      <label htmlFor={`validator-${intervenant.id}`} className={`text-sm ${intervenant.id === assignmentForm.assigned_to ? 'text-gray-400' : ''}`}>
-                        {intervenant.first_name} {intervenant.last_name}
-                        {intervenant.id === assignmentForm.assigned_to && ' (ya asignado como responsable)'}
+                      <label htmlFor={`validator-${intervenant.id}`} className={`text-sm cursor-pointer flex-1 ${intervenant.id === assignmentForm.assigned_to ? 'text-gray-400' : 'text-gray-700'}`}>
+                        <div className="font-medium">
+                          {intervenant.first_name} {intervenant.last_name}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {intervenant.email}
+                          {intervenant.specialty && ` • ${intervenant.specialty}`}
+                        </div>
+                        {intervenant.id === assignmentForm.assigned_to && (
+                          <div className="text-xs text-gray-400 italic">
+                            (ya asignado como responsable)
+                          </div>
+                        )}
                       </label>
                     </div>
                   ))
                 ) : (
-                  <p className="text-sm text-gray-500">Cargando responsables...</p>
+                  <p className="text-sm text-gray-500 p-2">
+                    {loadingIntervenants ? 'Cargando especialistas...' : 
+                     assignmentSearchQuery ? 'Ningún especialista encontrado para esta búsqueda' : 
+                     'Ningún especialista disponible'}
+                  </p>
                 )}
+              </div>
+              <div className="text-xs text-gray-500 mt-1">
+                {assignmentForm.validators.length > 0 ? 
+                  `${assignmentForm.validators.length} validador(es) seleccionado(s)` : 
+                  'Ningún validador seleccionado'
+                }
               </div>
             </div>
             

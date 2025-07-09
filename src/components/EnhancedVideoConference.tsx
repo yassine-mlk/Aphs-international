@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
@@ -12,7 +12,8 @@ import {
   MonitorOff,
   Users,
   Copy,
-  MessageSquare
+  MessageSquare,
+  Info
 } from 'lucide-react';
 import { useToast } from './ui/use-toast';
 import { useAuth } from '../contexts/AuthContext';
@@ -44,6 +45,7 @@ export const EnhancedVideoConference: React.FC<EnhancedVideoConferenceProps> = (
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [localVideoReady, setLocalVideoReady] = useState(false);
 
   // Hook de vidéoconférence
   const {
@@ -64,11 +66,158 @@ export const EnhancedVideoConference: React.FC<EnhancedVideoConferenceProps> = (
     onError
   });
 
-  // Attacher automatiquement le stream local quand il est disponible
+  // Timeout pour forcer l'affichage de la vidéo locale si elle tarde à se charger
   useEffect(() => {
+    if (localStream && !localVideoReady) {
+      const timer = setTimeout(() => {
+        console.log('⏰ Forcing local video ready after timeout');
+        setLocalVideoReady(true);
+      }, 3000); // 3 secondes max
+
+      return () => clearTimeout(timer);
+    }
+  }, [localStream, localVideoReady]);
+
+  // Attacher automatiquement le stream local - nouvelle approche avec meilleur timing
+  useEffect(() => {
+    console.log('🔄 Checking stream attachment conditions:', { 
+      hasStream: !!localStream, 
+      hasVideoRef: !!localVideoRef.current,
+      videoReady: localVideoReady
+    });
+
     if (localStream && localVideoRef.current) {
-      localVideoRef.current.srcObject = localStream;
-      console.log('📺 Local stream attached to video element');
+      console.log('🎥 ✅ BOTH conditions met - Attaching local stream to video element...', localStream);
+      
+      // Vérifier que le stream a des tracks vidéo actifs
+      const videoTracks = localStream.getVideoTracks();
+      console.log('📹 Video tracks:', videoTracks.length, videoTracks.map(t => ({
+        enabled: t.enabled,
+        readyState: t.readyState,
+        muted: t.muted
+      })));
+      
+      const videoElement = localVideoRef.current;
+      
+      // Clear any existing srcObject first
+      if (videoElement.srcObject) {
+        console.log('🧹 Clearing existing srcObject');
+        videoElement.srcObject = null;
+      }
+      
+      // Set the new stream
+      videoElement.srcObject = localStream;
+      videoElement.muted = true; // Important pour éviter l'écho
+      videoElement.autoplay = true;
+      videoElement.playsInline = true;
+      
+      // Forcer immédiatement la vidéo prête pour éviter l'écran noir
+      setLocalVideoReady(true);
+      
+      // S'assurer que la vidéo est prête à être affichée
+      const handleCanPlay = () => {
+        setLocalVideoReady(true);
+        console.log('✅ Local video ready to play');
+      };
+      
+      const handleLoadedMetadata = () => {
+        setLocalVideoReady(true);
+        console.log('✅ Local video metadata loaded');
+      };
+      
+      const handlePlay = () => {
+        setLocalVideoReady(true);
+        console.log('✅ Local video started playing');
+      };
+      
+      const handleLoadStart = () => {
+        console.log('🔄 Local video load started');
+      };
+
+      const handleError = (e) => {
+        console.error('❌ Video element error:', e);
+        setLocalVideoReady(false);
+      };
+      
+      // Ajouter les event listeners
+      videoElement.addEventListener('canplay', handleCanPlay);
+      videoElement.addEventListener('loadedmetadata', handleLoadedMetadata);
+      videoElement.addEventListener('play', handlePlay);
+      videoElement.addEventListener('loadstart', handleLoadStart);
+      videoElement.addEventListener('error', handleError);
+      
+      // Forcer la lecture de la vidéo avec retry plus agressif
+      const attemptPlay = () => {
+        console.log('🎬 Attempting to play local video...');
+        videoElement.play().then(() => {
+          console.log('✅ Local video playing successfully');
+          setLocalVideoReady(true);
+        }).catch(error => {
+          console.warn('⚠️ Could not auto-play local video:', error);
+          // Même en cas d'erreur d'autoplay, on peut toujours afficher la vidéo
+          setLocalVideoReady(true);
+        });
+      };
+      
+      // Essayer plusieurs fois avec des délais différents
+      attemptPlay();
+      setTimeout(attemptPlay, 50);
+      setTimeout(attemptPlay, 200);
+      setTimeout(attemptPlay, 500);
+      
+      console.log('✅ Local stream attached to video element with aggressive retry');
+      
+      // Cleanup function
+      return () => {
+        if (videoElement) {
+          videoElement.removeEventListener('canplay', handleCanPlay);
+          videoElement.removeEventListener('loadedmetadata', handleLoadedMetadata);
+          videoElement.removeEventListener('play', handlePlay);
+          videoElement.removeEventListener('loadstart', handleLoadStart);
+          videoElement.removeEventListener('error', handleError);
+        }
+      };
+    } else {
+      console.log('⚠️ Stream attachment conditions not met:', { 
+        localStream: !!localStream, 
+        videoRef: !!localVideoRef.current 
+      });
+      
+      // Si on a le stream mais pas le ref, on peut réessayer dans un moment
+      if (localStream && !localVideoRef.current) {
+        console.log('⏳ Stream available but ref not ready, will retry...');
+        setTimeout(() => {
+          if (localVideoRef.current && localStream) {
+            console.log('🔄 Retry: attempting to attach stream...');
+            // Trigger a re-render by updating localVideoReady
+            setLocalVideoReady(false);
+            setTimeout(() => setLocalVideoReady(true), 10);
+          }
+        }, 100);
+      }
+      
+      setLocalVideoReady(false);
+    }
+  }, [localStream]); // Seulement localStream comme dépendance
+  
+  // UseLayoutEffect pour s'assurer que l'élément vidéo est attaché immédiatement après le render
+  useLayoutEffect(() => {
+    if (localStream && localVideoRef.current) {
+      console.log('🎬 useLayoutEffect: Force attaching stream to video element');
+      const videoElement = localVideoRef.current;
+      
+      if (videoElement.srcObject !== localStream) {
+        videoElement.srcObject = localStream;
+        videoElement.muted = true;
+        setLocalVideoReady(true);
+        
+        videoElement.play().catch(error => {
+          console.warn('⚠️ useLayoutEffect play failed:', error);
+          setLocalVideoReady(true); // Force ready même en cas d'erreur
+        });
+        
+        console.log('✅ useLayoutEffect: Stream attached successfully');
+      }
     }
   }, [localStream]);
 
@@ -171,6 +320,70 @@ export const EnhancedVideoConference: React.FC<EnhancedVideoConferenceProps> = (
     });
   }, [roomId, toast]);
 
+  // Fonction de diagnostic pour déboguer les problèmes de vidéo
+  const runDiagnostics = useCallback(() => {
+    console.log('🔍 === DIAGNOSTIC VIDÉO ===');
+    console.log('🎥 Local stream:', localStream);
+    console.log('📹 Local video ref:', localVideoRef.current);
+    console.log('⚙️ Connection status:', connectionStatus);
+    console.log('🔗 Is connected:', isConnected);
+    console.log('🎮 Controls:', { isAudioEnabled, isVideoEnabled });
+    console.log('✅ Local video ready:', localVideoReady);
+    
+    if (localStream) {
+      const videoTracks = localStream.getVideoTracks();
+      const audioTracks = localStream.getAudioTracks();
+      console.log('📹 Video tracks active:', videoTracks.map(t => ({
+        enabled: t.enabled,
+        readyState: t.readyState,
+        muted: t.muted,
+        settings: t.getSettings()
+      })));
+      console.log('🎤 Audio tracks active:', audioTracks.map(t => ({
+        enabled: t.enabled,
+        readyState: t.readyState,
+        muted: t.muted
+      })));
+    }
+    
+    if (localVideoRef.current) {
+      const video = localVideoRef.current;
+      console.log('📺 Video element:', {
+        srcObject: video.srcObject,
+        videoWidth: video.videoWidth,
+        videoHeight: video.videoHeight,
+        readyState: video.readyState,
+        paused: video.paused,
+        muted: video.muted,
+        autoplay: video.autoplay
+      });
+      
+      // Essayer de forcer l'attachement si pas déjà fait
+      if (localStream && video.srcObject !== localStream) {
+        console.log('🔧 Forcing stream attachment...');
+        video.srcObject = localStream;
+        video.muted = true;
+        setLocalVideoReady(true);
+        
+        video.play().then(() => {
+          console.log('✅ Forced video play successful');
+          setLocalVideoReady(true);
+        }).catch(error => {
+          console.warn('⚠️ Forced video play failed:', error);
+          setLocalVideoReady(true);
+        });
+      }
+    }
+    
+    // Forcer localVideoReady à true pour tester
+    setLocalVideoReady(true);
+    
+    toast({
+      title: "Diagnostic terminé",
+      description: "Stream forcé - vérifiez la console (F12)",
+    });
+  }, [localStream, connectionStatus, isConnected, isAudioEnabled, isVideoEnabled, localVideoReady, toast]);
+
 
 
   // Afficher les erreurs
@@ -263,6 +476,16 @@ export const EnhancedVideoConference: React.FC<EnhancedVideoConferenceProps> = (
                   Chat
                 </Button>
                 <Button
+                  onClick={runDiagnostics}
+                  variant="outline"
+                  size="sm"
+                  className="text-gray-300 border-gray-600 hover:bg-gray-700"
+                  title="Diagnostic vidéo (Ouvre la console)"
+                >
+                  <Info className="h-4 w-4 mr-2" />
+                  Debug
+                </Button>
+                <Button
                   onClick={handleLeave}
                   variant="destructive"
                   size="sm"
@@ -287,13 +510,45 @@ export const EnhancedVideoConference: React.FC<EnhancedVideoConferenceProps> = (
                   playsInline
                   muted
                   className="w-full h-full object-cover"
+                  style={{ transform: 'scaleX(-1)' }} // Effet miroir pour la vidéo locale
+                  onLoadedMetadata={() => {
+                    console.log('🎬 Local video metadata loaded');
+                    setLocalVideoReady(true);
+                  }}
+                  onCanPlay={() => {
+                    console.log('🎬 Local video can play');
+                    setLocalVideoReady(true);
+                  }}
+                  onError={(e) => {
+                    console.error('❌ Local video error:', e);
+                    setLocalVideoReady(false);
+                  }}
                 />
                 <div className="absolute bottom-4 left-4 bg-black/70 text-white px-3 py-1 rounded text-sm">
                   {displayName} (Vous)
                 </div>
                 {!isVideoEnabled && (
                   <div className="absolute inset-0 flex items-center justify-center bg-gray-700">
-                    <VideoOff className="h-12 w-12 text-gray-400" />
+                    <div className="text-center">
+                      <VideoOff className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                      <p className="text-gray-400 text-sm">Vidéo désactivée</p>
+                    </div>
+                  </div>
+                )}
+                {isVideoEnabled && !localStream && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-2"></div>
+                      <p className="text-gray-400 text-sm">Accès à la caméra...</p>
+                    </div>
+                  </div>
+                )}
+                {isVideoEnabled && localStream && !localVideoReady && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-gray-800/50">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-400 mx-auto mb-2"></div>
+                      <p className="text-gray-400 text-xs">Chargement...</p>
+                    </div>
                   </div>
                 )}
                 {isScreenSharing && (

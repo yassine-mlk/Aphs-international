@@ -380,6 +380,19 @@ const IntervenantProjectDetailsAr: React.FC = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {project.image_url && (
+                <div className="mb-4 rounded overflow-hidden">
+                  <img 
+                    src={project.image_url} 
+                    alt={project.name} 
+                    className="w-full h-64 object-cover"
+                    onError={(e) => {
+                      e.currentTarget.src = 'https://placehold.co/600x400?text=الصورة+غير+متوفرة';
+                    }}
+                  />
+                </div>
+              )}
+              
               <div>
                 <Label className="text-sm font-medium">الوصف</Label>
                 <p className="text-sm text-gray-600 mt-1">{project.description}</p>

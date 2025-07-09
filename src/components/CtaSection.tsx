@@ -28,27 +28,6 @@ const CtaSection: React.FC = () => {
                   {t.buttons.trial}
                 </Button>
               </div>
-
-              <div className="mt-8 flex items-center">
-                <img 
-                  src="/team/person1.jpg" 
-                  alt="Said Kharrat - PDG APHS"
-                  className="w-16 h-16 rounded-full object-cover border-4 border-white"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.style.display = 'none';
-                    const fallback = target.nextElementSibling as HTMLElement;
-                    if (fallback) fallback.style.display = 'flex';
-                  }}
-                />
-                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-white to-gray-200 text-aphs-navy text-xl font-bold hidden items-center justify-center border-4 border-white">
-                  SK
-                </div>
-                <div className="ml-4">
-                  <p className="text-white font-medium">{t.testimonial.quote}</p>
-                  <p className="text-white/70 text-sm">{t.testimonial.author}</p>
-                </div>
-              </div>
             </div>
             <div className="w-full md:w-1/2 bg-white/10 backdrop-blur-sm p-8 md:p-12">
               <form className="space-y-4">

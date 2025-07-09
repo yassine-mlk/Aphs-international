@@ -732,6 +732,38 @@ export const realizationStructure = [
         tasks: [
           "MISE AU POINT MARCHÉ"
         ]
+      },
+      {
+        id: "J10",
+        title: "SIGNATURE DES MARCHES",
+        tasks: [
+          "ACTES D'ENGAGEMENT",
+          "NOTIFICATIONS DU MARCHE",
+          "CERTIFICAT DE CESSIBILITE"
+        ]
+      },
+      {
+        id: "J11",
+        title: "INFORMATION DES CANDIDATS",
+        tasks: [
+          "NOTIFICATION DE REFUS",
+          "AVIS D'ATTRIBUTION"
+        ]
+      },
+      {
+        id: "J12",
+        title: "PERMIS DE CONSTRUIRE MODIFICATIF",
+        tasks: [
+          "PERMIS DE CONSTRUIRE MODIFICATIF"
+        ]
+      },
+      {
+        id: "J13",
+        title: "PLAN COMMERCIAUX",
+        tasks: [
+          "PLAN COMMERCIAUX",
+          "CONTRAINTE REGLEMENTAIRE"
+        ]
       }
     ]
   },

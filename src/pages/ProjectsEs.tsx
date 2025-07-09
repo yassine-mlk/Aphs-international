@@ -371,57 +371,66 @@ const ProjectsEs: React.FC = () => {
       
       {/* Diálogo de Crear Proyecto */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="sm:max-w-[525px]">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-[525px] max-h-[85vh] flex flex-col">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle>Crear nuevo proyecto</DialogTitle>
             <DialogDescription>
               Complete los detalles para su nuevo proyecto
             </DialogDescription>
           </DialogHeader>
           
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="name">Nombre del proyecto</Label>
-              <Input 
-                id="name" 
-                placeholder="Ingrese nombre del proyecto" 
-                value={newProject.name}
-                onChange={(e) => setNewProject({...newProject, name: e.target.value})}
-              />
-            </div>
-            
-            <div className="grid gap-2">
-              <Label htmlFor="description">Descripción</Label>
-              <Textarea 
-                id="description" 
-                placeholder="Ingrese descripción del proyecto" 
-                value={newProject.description}
-                onChange={(e) => setNewProject({...newProject, description: e.target.value})}
-              />
-            </div>
-            
-            <div className="grid gap-2">
-              <Label htmlFor="start_date">Fecha de inicio</Label>
-              <Input 
-                id="start_date" 
-                type="date"
-                value={newProject.start_date}
-                onChange={(e) => setNewProject({...newProject, start_date: e.target.value})}
-              />
-            </div>
-            
-            <div className="grid gap-2">
-              <Label htmlFor="image_url">URL de imagen (opcional)</Label>
-              <Input 
-                id="image_url" 
-                placeholder="Ingrese URL de imagen" 
-                value={newProject.image_url}
-                onChange={(e) => setNewProject({...newProject, image_url: e.target.value})}
-              />
+          <div className="flex-1 overflow-y-auto px-1">
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="name">Nombre del proyecto *</Label>
+                <Input 
+                  id="name" 
+                  placeholder="Ingrese nombre del proyecto" 
+                  value={newProject.name}
+                  onChange={(e) => setNewProject({...newProject, name: e.target.value})}
+                  required
+                />
+              </div>
+              
+              <div className="grid gap-2">
+                <Label htmlFor="description">Descripción *</Label>
+                <Textarea 
+                  id="description" 
+                  placeholder="Ingrese descripción detallada del proyecto..." 
+                  value={newProject.description}
+                  onChange={(e) => setNewProject({...newProject, description: e.target.value})}
+                  className="min-h-[120px] max-h-[300px] resize-none"
+                  required
+                />
+                <p className="text-xs text-gray-500">
+                  Describa los objetivos, contexto y especificidades del proyecto
+                </p>
+              </div>
+              
+              <div className="grid gap-2">
+                <Label htmlFor="start_date">Fecha de inicio *</Label>
+                <Input 
+                  id="start_date" 
+                  type="date"
+                  value={newProject.start_date}
+                  onChange={(e) => setNewProject({...newProject, start_date: e.target.value})}
+                  required
+                />
+              </div>
+              
+              <div className="grid gap-2">
+                <Label htmlFor="image_url">URL de imagen (opcional)</Label>
+                <Input 
+                  id="image_url" 
+                  placeholder="Ingrese URL de imagen" 
+                  value={newProject.image_url}
+                  onChange={(e) => setNewProject({...newProject, image_url: e.target.value})}
+                />
+              </div>
             </div>
           </div>
           
-          <DialogFooter>
+          <DialogFooter className="flex-shrink-0 border-t pt-4 mt-4">
             <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancelar</Button>
             <Button onClick={handleSubmitNewProject}>Crear</Button>
           </DialogFooter>

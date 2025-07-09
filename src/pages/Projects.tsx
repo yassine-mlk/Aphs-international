@@ -485,81 +485,87 @@ const Projects: React.FC = () => {
 
       {/* Boîte de dialogue pour ajouter un nouveau projet */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="sm:max-w-[540px]">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-[540px] max-h-[85vh] flex flex-col">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle>Créer un nouveau projet</DialogTitle>
             <DialogDescription>
               Remplissez le formulaire ci-dessous pour créer un nouveau projet.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-1 gap-2">
-              <Label htmlFor="name">Nom du projet<span className="text-red-500">*</span></Label>
-              <Input
-                id="name"
-                value={newProject.name}
-                onChange={(e) => setNewProject({...newProject, name: e.target.value})}
-                placeholder="Nom du projet"
-                required
-              />
-            </div>
-            <div className="grid grid-cols-1 gap-2">
-              <Label htmlFor="description">Description<span className="text-red-500">*</span></Label>
-              <Textarea
-                id="description"
-                value={newProject.description}
-                onChange={(e) => setNewProject({...newProject, description: e.target.value})}
-                placeholder="Description du projet"
-                required
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
+          <div className="flex-1 overflow-y-auto px-1">
+            <div className="grid gap-4 py-4">
               <div className="grid grid-cols-1 gap-2">
-                <Label htmlFor="start_date">Date de début<span className="text-red-500">*</span></Label>
+                <Label htmlFor="name">Nom du projet<span className="text-red-500">*</span></Label>
                 <Input
-                  id="start_date"
-                  type="date"
-                  value={newProject.start_date}
-                  onChange={(e) => setNewProject({...newProject, start_date: e.target.value})}
+                  id="name"
+                  value={newProject.name}
+                  onChange={(e) => setNewProject({...newProject, name: e.target.value})}
+                  placeholder="Nom du projet"
                   required
                 />
               </div>
               <div className="grid grid-cols-1 gap-2">
-                <Label htmlFor="end_date">Date de fin</Label>
-                <Input
-                  id="end_date"
-                  type="date"
-                  value={newProject.end_date || ''}
-                  onChange={(e) => setNewProject({...newProject, end_date: e.target.value || undefined})}
-                  min={newProject.start_date}
+                <Label htmlFor="description">Description<span className="text-red-500">*</span></Label>
+                <Textarea
+                  id="description"
+                  value={newProject.description}
+                  onChange={(e) => setNewProject({...newProject, description: e.target.value})}
+                  placeholder="Description détaillée du projet..."
+                  className="min-h-[120px] max-h-[300px] resize-none"
+                  required
                 />
+                <p className="text-xs text-gray-500">
+                  Décrivez les objectifs, le contexte et les spécificités du projet
+                </p>
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-2">
+                  <Label htmlFor="start_date">Date de début<span className="text-red-500">*</span></Label>
+                  <Input
+                    id="start_date"
+                    type="date"
+                    value={newProject.start_date}
+                    onChange={(e) => setNewProject({...newProject, start_date: e.target.value})}
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-1 gap-2">
+                  <Label htmlFor="end_date">Date de fin</Label>
+                  <Input
+                    id="end_date"
+                    type="date"
+                    value={newProject.end_date || ''}
+                    onChange={(e) => setNewProject({...newProject, end_date: e.target.value || undefined})}
+                    min={newProject.start_date}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-2">
+                <Label htmlFor="status">Statut</Label>
+                <select
+                  id="status"
+                  value={newProject.status}
+                  onChange={(e) => setNewProject({...newProject, status: e.target.value as Project['status']})}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  {PROJECT_STATUSES.map(status => (
+                    <option key={status.value} value={status.value}>
+                      {status.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <ImageUpload
+                currentImageUrl={newProject.image_url}
+                onImageUploaded={(imageUrl) => setNewProject({...newProject, image_url: imageUrl})}
+                onImageRemoved={() => setNewProject({...newProject, image_url: ''})}
+                bucketName="project-images"
+                folderPath="projects"
+                maxSizeMB={5}
+              />
             </div>
-            <div className="grid grid-cols-1 gap-2">
-              <Label htmlFor="status">Statut</Label>
-              <select
-                id="status"
-                value={newProject.status}
-                onChange={(e) => setNewProject({...newProject, status: e.target.value as Project['status']})}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                {PROJECT_STATUSES.map(status => (
-                  <option key={status.value} value={status.value}>
-                    {status.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <ImageUpload
-              currentImageUrl={newProject.image_url}
-              onImageUploaded={(imageUrl) => setNewProject({...newProject, image_url: imageUrl})}
-              onImageRemoved={() => setNewProject({...newProject, image_url: ''})}
-              bucketName="project-images"
-              folderPath="projects"
-              maxSizeMB={5}
-            />
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-shrink-0 border-t pt-4 mt-4">
             <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Annuler</Button>
             <Button onClick={handleSubmitNewProject}>Créer</Button>
           </DialogFooter>
@@ -568,21 +574,21 @@ const Projects: React.FC = () => {
 
       {/* Boîte de dialogue pour modifier un projet */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[540px]">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-[540px] max-h-[85vh] flex flex-col">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle>Modifier le projet</DialogTitle>
             <DialogDescription>
               Modifiez les informations du projet.
             </DialogDescription>
           </DialogHeader>
-          {selectedProject && (
+          <div className="flex-1 overflow-y-auto px-1">
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-1 gap-2">
                 <Label htmlFor="edit-name">Nom du projet<span className="text-red-500">*</span></Label>
                 <Input
                   id="edit-name"
-                  value={selectedProject.name}
-                  onChange={(e) => setSelectedProject({...selectedProject, name: e.target.value})}
+                  value={selectedProject?.name || ''}
+                  onChange={(e) => setSelectedProject(prev => prev ? {...prev, name: e.target.value} : null)}
                   placeholder="Nom du projet"
                   required
                 />
@@ -591,60 +597,64 @@ const Projects: React.FC = () => {
                 <Label htmlFor="edit-description">Description<span className="text-red-500">*</span></Label>
                 <Textarea
                   id="edit-description"
-                  value={selectedProject.description}
-                  onChange={(e) => setSelectedProject({...selectedProject, description: e.target.value})}
-                  placeholder="Description du projet"
+                  value={selectedProject?.description || ''}
+                  onChange={(e) => setSelectedProject(prev => prev ? {...prev, description: e.target.value} : null)}
+                  placeholder="Description détaillée du projet..."
+                  className="min-h-[120px] max-h-[300px] resize-none"
                   required
                 />
-                              </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid grid-cols-1 gap-2">
-                    <Label htmlFor="edit-start_date">Date de début<span className="text-red-500">*</span></Label>
-                    <Input
-                      id="edit-start_date"
-                      type="date"
-                      value={selectedProject.start_date}
-                      onChange={(e) => setSelectedProject({...selectedProject, start_date: e.target.value})}
-                      required
-                    />
-                  </div>
-                  <div className="grid grid-cols-1 gap-2">
-                    <Label htmlFor="edit-end_date">Date de fin</Label>
-                    <Input
-                      id="edit-end_date"
-                      type="date"
-                      value={selectedProject.end_date || ''}
-                      onChange={(e) => setSelectedProject({...selectedProject, end_date: e.target.value || undefined})}
-                      min={selectedProject.start_date}
-                    />
-                  </div>
+                <p className="text-xs text-gray-500">
+                  Décrivez les objectifs, le contexte et les spécificités du projet
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-2">
+                  <Label htmlFor="edit-start_date">Date de début<span className="text-red-500">*</span></Label>
+                  <Input
+                    id="edit-start_date"
+                    type="date"
+                    value={selectedProject?.start_date || ''}
+                    onChange={(e) => setSelectedProject(prev => prev ? {...prev, start_date: e.target.value} : null)}
+                    required
+                  />
                 </div>
                 <div className="grid grid-cols-1 gap-2">
-                  <Label htmlFor="edit-status">Statut</Label>
-                  <select
-                    id="edit-status"
-                    value={selectedProject.status}
-                    onChange={(e) => setSelectedProject({...selectedProject, status: e.target.value as Project['status']})}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  >
-                    {PROJECT_STATUSES.map(status => (
-                      <option key={status.value} value={status.value}>
-                        {status.label}
-                      </option>
-                    ))}
-                  </select>
+                  <Label htmlFor="edit-end_date">Date de fin</Label>
+                  <Input
+                    id="edit-end_date"
+                    type="date"
+                    value={selectedProject?.end_date || ''}
+                    onChange={(e) => setSelectedProject(prev => prev ? {...prev, end_date: e.target.value || undefined} : null)}
+                    min={selectedProject?.start_date}
+                  />
                 </div>
-                <ImageUpload
-                currentImageUrl={selectedProject.image_url}
-                onImageUploaded={(imageUrl) => setSelectedProject({...selectedProject, image_url: imageUrl})}
-                onImageRemoved={() => setSelectedProject({...selectedProject, image_url: ''})}
+              </div>
+              <div className="grid grid-cols-1 gap-2">
+                <Label htmlFor="edit-status">Statut</Label>
+                <select
+                  id="edit-status"
+                  value={selectedProject?.status || 'active'}
+                  onChange={(e) => setSelectedProject(prev => prev ? {...prev, status: e.target.value as Project['status']} : null)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  {PROJECT_STATUSES.map(status => (
+                    <option key={status.value} value={status.value}>
+                      {status.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <ImageUpload
+                currentImageUrl={selectedProject?.image_url || ''}
+                onImageUploaded={(imageUrl) => setSelectedProject(prev => prev ? {...prev, image_url: imageUrl} : null)}
+                onImageRemoved={() => setSelectedProject(prev => prev ? {...prev, image_url: ''} : null)}
                 bucketName="project-images"
                 folderPath="projects"
                 maxSizeMB={5}
               />
             </div>
-          )}
-          <DialogFooter>
+          </div>
+          <DialogFooter className="flex-shrink-0 border-t pt-4 mt-4">
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Annuler</Button>
             <Button onClick={handleSubmitEditProject}>Enregistrer</Button>
           </DialogFooter>
