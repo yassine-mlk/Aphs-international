@@ -235,7 +235,7 @@ export const translations = {
     },
     heroSection: {
       title: "Simplify Your Construction Projects Management",
-      subtitle: "Streamline workflows, enhance communication, and deliver projects on time with APHS - the all-in-one construction project management solution.",
+      subtitle: "Streamline workflows, enhance communication, and deliver projects on time with APHS : the all-in-one construction project management solution.",
       cta: {
         primary: "Start Free Trial",
         secondary: "Watch Demo"
@@ -322,10 +322,6 @@ export const translations = {
       buttons: {
         trial: "Start",
         demo: "Book a Demo"
-      },
-      testimonial: {
-        quote: "We reduced our project delays by 20%",
-        author: "David Miller, Project Director"
       },
       form: {
         name: "Full Name",
@@ -558,7 +554,7 @@ export const translations = {
     navbar: {
       home: "Accueil",
       accompagnement: "Accompagnement",
-      support: "fonctionalite",
+      support: "Fonctionnalités",
       benefits: "Avantages",
       testimonials: "Témoignages",
       about: "À Propos",
@@ -588,7 +584,7 @@ export const translations = {
     },
     heroSection: {
       title: "Simplifiez la Gestion de vos Projets de Construction",
-      subtitle: "Rationalisez les flux de travail, améliorez la communication et livrez les projets à temps avec APHS - la solution tout-en-un de gestion de projets de construction.",
+      subtitle: "Rationalisez les flux de travail, améliorez la communication et livrez les projets à temps avec APHS : la solution tout-en-un de gestion de projets de construction.",
       cta: {
         primary: "Essai Gratuit",
         secondary: "Voir la Démo"
@@ -675,10 +671,6 @@ export const translations = {
       buttons: {
         trial: "Démarrer",
         demo: "Réserver une Démo"
-      },
-      testimonial: {
-        quote: "Nous avons réduit nos retards de projet de 20%",
-        author: "David Miller, Directeur de Projet"
       },
       form: {
         name: "Nom Complet",
@@ -1305,7 +1297,7 @@ export const translations = {
     },
     heroSection: {
       title: "Simplifique la Gestión de sus Proyectos de Construcción",
-      subtitle: "Optimice los flujos de trabajo, mejore la comunicación y entregue proyectos a tiempo con APHS - la solución todo en uno para la gestión de proyectos de construcción.",
+      subtitle: "Optimice los flujos de trabajo, mejore la comunicación y entregue proyectos a tiempo con APHS : la solución todo en uno para la gestión de proyectos de construcción.",
       cta: {
         primary: "Comenzar Prueba Gratuita",
         secondary: "Ver Demostración"
@@ -1392,10 +1384,6 @@ export const translations = {
       buttons: {
         trial: "Comenzar",
         demo: "Reservar una Demostración"
-      },
-      testimonial: {
-        quote: "Redujimos nuestros retrasos de proyecto en un 20%",
-        author: "David Miller, Director de Proyecto"
       },
       form: {
         name: "Nombre Completo",
@@ -1826,7 +1814,7 @@ export const translations = {
     },
     heroSection: {
       title: "بسّط إدارة مشاريع البناء الخاصة بك",
-      subtitle: "قم بتبسيط سير العمل، وتعزيز التواصل، وتسليم المشاريع في الوقت المحدد مع APHS - الحل الشامل لإدارة مشاريع البناء.",
+      subtitle: "قم بتبسيط سير العمل، وتعزيز التواصل، وتسليم المشاريع في الوقت المحدد مع APHS : الحل الشامل لإدارة مشاريع البناء.",
       cta: {
         primary: "ابدأ النسخة التجريبية المجانية",
         secondary: "شاهد العرض التوضيحي"
@@ -1913,10 +1901,6 @@ export const translations = {
       buttons: {
         trial: "ابدأ الآن",
         demo: "احجز عرضًا توضيحيًا"
-      },
-      testimonial: {
-        quote: "قمنا بتقليل تأخيرات المشروع بنسبة 20%",
-        author: "ديفيد ميلر، مدير المشروع"
       },
       form: {
         name: "الاسم الكامل",

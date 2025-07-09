@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import { useSupabase } from '@/hooks/useSupabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRecentActivities, type RecentActivity } from '@/hooks/useRecentActivities';
+import { ActivityIcon } from '@/components/ActivityIcon';
 
 interface IntervenantStats {
   totalTasks: number;
@@ -44,15 +46,6 @@ interface TaskItem {
 
 
 
-interface RecentActivity {
-  id: string;
-  type: string;
-  title: string;
-  description: string;
-  timestamp: string;
-  icon: React.ReactNode;
-}
-
 const IntervenantDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -73,8 +66,10 @@ const IntervenantDashboard: React.FC = () => {
   
   const [loading, setLoading] = useState(true);
   const [recentTasks, setRecentTasks] = useState<TaskItem[]>([]);
-  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  
+  // Utiliser le hook pour les activités récentes
+  const { activities: recentActivities, loading: activitiesLoading } = useRecentActivities();
 
 
 
@@ -135,35 +130,7 @@ const IntervenantDashboard: React.FC = () => {
       setRecentTasks(tasksWithProjects);
       setLastUpdate(new Date());
 
-      // Générer des activités récentes
-      const activities: RecentActivity[] = [
-        {
-          id: '1',
-          type: 'task_assigned',
-          title: 'Nouvelle tâche assignée',
-          description: 'Une nouvelle tâche vous a été assignée',
-          timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-          icon: <ClipboardCheck className="h-4 w-4 text-blue-500" />
-        },
-        {
-          id: '2',
-          type: 'task_validated',
-          title: 'Tâche validée',
-          description: 'Votre tâche a été validée avec succès',
-          timestamp: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
-          icon: <CheckCircle className="h-4 w-4 text-green-500" />
-        },
-        {
-          id: '3',
-          type: 'deadline_reminder',
-          title: 'Rappel d\'échéance',
-          description: 'Une échéance approche dans 2 jours',
-          timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
-          icon: <Clock className="h-4 w-4 text-orange-500" />
-        }
-      ];
-
-      setRecentActivities(activities);
+      // Les activités récentes sont maintenant gérées par le hook useRecentActivities
 
     } catch (error) {
       console.error('Erreur lors du chargement des statistiques:', error);
@@ -433,18 +400,30 @@ const IntervenantDashboard: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {recentActivities.map((activity) => (
-                    <div key={activity.id} className="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
-                      <div className="flex-shrink-0 mt-1">
-                        {activity.icon}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900">{activity.title}</p>
-                        <p className="text-sm text-gray-500">{activity.description}</p>
-                        <p className="text-xs text-gray-400 mt-1">{formatTimeAgo(activity.timestamp)}</p>
-                      </div>
+                  {activitiesLoading ? (
+                    <div className="text-center py-4">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                      <p className="text-sm text-gray-500 mt-2">Chargement des activités...</p>
                     </div>
-                  ))}
+                  ) : recentActivities.length > 0 ? (
+                    recentActivities.map((activity) => (
+                      <div key={activity.id} className="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
+                        <div className="flex-shrink-0 mt-1">
+                          <ActivityIcon type={activity.iconType} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900">{activity.title}</p>
+                          <p className="text-sm text-gray-500">{activity.description}</p>
+                          <p className="text-xs text-gray-400 mt-1">{formatTimeAgo(activity.timestamp)}</p>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <Activity className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                      <p>Aucune activité récente</p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

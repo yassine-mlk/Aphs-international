@@ -273,6 +273,24 @@ const IntervenantProjects: React.FC = () => {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {/* Image du projet */}
+                  {project.image_url && (
+                    <div className="mb-4 rounded overflow-hidden">
+                      <img 
+                        src={project.image_url} 
+                        alt={project.name} 
+                        className="w-full h-40 object-cover"
+                        onError={(e) => {
+                          const fallbackText = language === 'en' ? 'Image+unavailable' :
+                                               language === 'es' ? 'Imagen+no+disponible' :
+                                               language === 'ar' ? 'الصورة+غير+متوفرة' :
+                                               'Image+indisponible';
+                          e.currentTarget.src = `https://placehold.co/600x400?text=${fallbackText}`;
+                        }}
+                      />
+                    </div>
+                  )}
+                  
                   <p className="text-sm text-gray-600 line-clamp-3">
                     {project.description}
                   </p>

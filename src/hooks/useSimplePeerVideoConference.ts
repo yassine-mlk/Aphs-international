@@ -387,8 +387,29 @@ export const useSimplePeerVideoConference = ({
         
         let stream: MediaStream;
         try {
-          const mediaConstraints = getOptimalMediaConstraints('medium');
-          stream = await navigator.mediaDevices.getUserMedia(mediaConstraints);
+          // Commencer par des contraintes plus simples pour éviter les problèmes
+          let mediaConstraints = getOptimalMediaConstraints('low');
+          console.log('🎥 Trying media constraints:', mediaConstraints);
+          
+          try {
+            stream = await navigator.mediaDevices.getUserMedia(mediaConstraints);
+          } catch (lowQualityError) {
+            console.warn('⚠️ Low quality failed, trying basic constraints:', lowQualityError);
+            // Fallback vers des contraintes très basiques
+            mediaConstraints = {
+              video: {
+                width: { ideal: 640, max: 1280 },
+                height: { ideal: 480, max: 720 },
+                frameRate: { ideal: 15, max: 30 }
+              },
+              audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true
+              }
+            };
+            stream = await navigator.mediaDevices.getUserMedia(mediaConstraints);
+          }
         } catch (mediaError) {
           console.error('❌ Failed to get user media:', mediaError);
           const errorMessage = handleMediaError(mediaError as Error);
@@ -407,6 +428,26 @@ export const useSimplePeerVideoConference = ({
 
         localStreamRef.current = stream;
         setLocalStream(stream);
+        
+        // Debug des tracks du stream
+        const videoTracks = stream.getVideoTracks();
+        const audioTracks = stream.getAudioTracks();
+        console.log('🎥 Video tracks:', videoTracks.length, videoTracks.map(t => ({
+          id: t.id,
+          label: t.label,
+          enabled: t.enabled,
+          readyState: t.readyState,
+          muted: t.muted,
+          settings: t.getSettings()
+        })));
+        console.log('🎤 Audio tracks:', audioTracks.length, audioTracks.map(t => ({
+          id: t.id,
+          label: t.label,
+          enabled: t.enabled,
+          readyState: t.readyState,
+          muted: t.muted
+        })));
+        
         console.log('✅ Local media stream initialized');
 
         // 2. Se connecter à la room

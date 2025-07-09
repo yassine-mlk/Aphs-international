@@ -69,8 +69,24 @@ const OptimizedVideoCall: React.FC<OptimizedVideoCallProps> = ({
   // Attacher le stream local à l'élément vidéo
   useEffect(() => {
     if (localVideoRef.current && localStream) {
+      console.log('🎥 Attaching local stream to video element (OptimizedVideoCall)...', localStream);
+      
       localVideoRef.current.srcObject = localStream;
       localVideoRef.current.muted = true;
+      
+      // Forcer la lecture de la vidéo
+      localVideoRef.current.play().then(() => {
+        console.log('✅ Local video playing successfully (OptimizedVideoCall)');
+      }).catch(error => {
+        console.warn('⚠️ Could not auto-play local video (OptimizedVideoCall):', error);
+      });
+      
+      console.log('✅ Local stream attached to video element (OptimizedVideoCall)');
+    } else {
+      console.log('⚠️ Local stream not available (OptimizedVideoCall):', { 
+        localStream: !!localStream, 
+        videoRef: !!localVideoRef.current 
+      });
     }
   }, [localStream]);
 
@@ -133,7 +149,7 @@ const OptimizedVideoCall: React.FC<OptimizedVideoCallProps> = ({
       } else {
         // Partager l'écran
         const screenStream = await navigator.mediaDevices.getDisplayMedia({
-          video: { cursor: 'always' },
+          video: true,
           audio: true
         });
         
@@ -291,6 +307,7 @@ const OptimizedVideoCall: React.FC<OptimizedVideoCallProps> = ({
                   playsInline
                   muted
                   className="w-full h-full object-cover"
+                  style={{ transform: 'scaleX(-1)' }} // Effet miroir pour la vidéo locale
                 />
                 <div className="absolute bottom-4 left-4 bg-black/70 text-white px-3 py-1 rounded text-sm">
                   {displayName} (Vous)

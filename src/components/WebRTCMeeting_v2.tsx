@@ -160,8 +160,18 @@ export function WebRTCMeeting({
       setLocalStream(stream);
       
       if (localVideoRef.current) {
+        console.log('🎥 Attaching local stream to video element (WebRTCMeeting_v2)...', stream);
         localVideoRef.current.srcObject = stream;
         localVideoRef.current.muted = true;
+        
+        // Forcer la lecture de la vidéo
+        localVideoRef.current.play().then(() => {
+          console.log('✅ Local video playing successfully (WebRTCMeeting_v2)');
+        }).catch(error => {
+          console.warn('⚠️ Could not auto-play local video (WebRTCMeeting_v2):', error);
+        });
+        
+        console.log('✅ Local stream attached to video element (WebRTCMeeting_v2)');
       }
       
       toast({
@@ -495,6 +505,7 @@ export function WebRTCMeeting({
             playsInline
             muted
             className="w-full h-full object-cover"
+            style={{ transform: 'scaleX(-1)' }} // Effet miroir pour la vidéo locale
           />
           <div className="absolute bottom-2 left-2 bg-black/70 text-white px-2 py-1 rounded text-sm">
             {getLocalDisplayName()} {!isVideoEnabled && "(caméra off)"}

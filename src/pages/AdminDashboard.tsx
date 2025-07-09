@@ -3,14 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
 import { 
   Briefcase, 
   Users, 
   ClipboardCheck, 
-  TrendingUp,
   Activity,
   AlertTriangle,
   CheckCircle,
@@ -19,6 +16,8 @@ import {
 } from 'lucide-react';
 import { useSupabase } from '@/hooks/useSupabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRecentActivities, type RecentActivity } from '@/hooks/useRecentActivities';
+import { ActivityIcon } from '@/components/ActivityIcon';
 
 interface DashboardStats {
   totalProjects: number;
@@ -32,15 +31,6 @@ interface DashboardStats {
 }
 
 
-
-interface RecentActivity {
-  id: string;
-  type: string;
-  title: string;
-  description: string;
-  timestamp: string;
-  icon: React.ReactNode;
-}
 
 const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -60,8 +50,10 @@ const AdminDashboard: React.FC = () => {
   });
   
   const [loading, setLoading] = useState(true);
-  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  
+  // Utiliser le hook pour les activités récentes
+  const { activities: recentActivities, loading: activitiesLoading } = useRecentActivities();
 
 
 
@@ -80,10 +72,14 @@ const AdminDashboard: React.FC = () => {
         filters: [{ column: 'role', operator: 'neq', value: 'admin' }]
       }) || [];
 
-      // Charger les tâches
-      const tasks = await fetchData('task_assignments', {
+      // Charger les tâches depuis task_assignments
+      const taskAssignments = await fetchData('task_assignments', {
         columns: 'id, status, deadline'
       }) || [];
+
+      // Debug pour vérifier les données
+      console.log('Task assignments chargées:', taskAssignments);
+      console.log('Nombre de tâches trouvées:', taskAssignments.length);
 
       // Calculer les statistiques
       const now = new Date();
@@ -92,48 +88,26 @@ const AdminDashboard: React.FC = () => {
         activeProjects: projects.filter((p: any) => p.status === 'active' || p.status === 'in_progress').length,
         completedProjects: projects.filter((p: any) => p.status === 'completed').length,
         totalIntervenants: intervenants.length,
-        totalTasks: tasks.length,
-        pendingTasks: tasks.filter((t: any) => t.status === 'assigned' || t.status === 'in_progress').length,
-        completedTasks: tasks.filter((t: any) => t.status === 'validated').length,
-        overdueTasks: tasks.filter((t: any) => 
+        totalTasks: taskAssignments.length,
+        pendingTasks: taskAssignments.filter((t: any) => 
+          t.status === 'assigned' || 
+          t.status === 'in_progress' || 
+          t.status === 'submitted'
+        ).length,
+        completedTasks: taskAssignments.filter((t: any) => t.status === 'validated').length,
+        overdueTasks: taskAssignments.filter((t: any) => 
           t.deadline && 
           new Date(t.deadline) < now && 
           t.status !== 'validated'
         ).length
       };
 
+      console.log('Statistiques calculées:', newStats);
+
       setStats(newStats);
       setLastUpdate(new Date());
 
-      // Générer des activités récentes factices pour l'exemple
-      const activities: RecentActivity[] = [
-        {
-          id: '1',
-          type: 'project_created',
-          title: 'Nouveau projet créé',
-          description: 'Un nouveau projet a été créé avec succès',
-          timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-          icon: <Briefcase className="h-4 w-4 text-blue-500" />
-        },
-        {
-          id: '2',
-          type: 'task_completed',
-          title: 'Tâche validée',
-          description: 'Une tâche a été validée par un intervenant',
-          timestamp: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
-          icon: <CheckCircle className="h-4 w-4 text-green-500" />
-        },
-        {
-          id: '3',
-          type: 'user_joined',
-          title: 'Nouvel intervenant',
-          description: 'Un nouvel intervenant a rejoint la plateforme',
-          timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
-          icon: <Users className="h-4 w-4 text-purple-500" />
-        }
-      ];
-
-      setRecentActivities(activities);
+      // Les activités récentes sont maintenant gérées par le hook useRecentActivities
 
     } catch (error) {
       console.error('Erreur lors du chargement des statistiques:', error);
@@ -263,15 +237,7 @@ const AdminDashboard: React.FC = () => {
           </Card>
         </div>
 
-        {/* Onglets avec contenu */}
-        <Tabs defaultValue="activities" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="activities">Activités Récentes</TabsTrigger>
-            <TabsTrigger value="analytics">Analytiques</TabsTrigger>
-          </TabsList>
-
           {/* Activités récentes */}
-          <TabsContent value="activities" className="space-y-6">
             <Card className="border-0 shadow-lg">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -284,94 +250,33 @@ const AdminDashboard: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {recentActivities.map((activity) => (
-                    <div key={activity.id} className="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
-                      <div className="flex-shrink-0 mt-1">
-                        {activity.icon}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900">{activity.title}</p>
-                        <p className="text-sm text-gray-500">{activity.description}</p>
-                        <p className="text-xs text-gray-400 mt-1">{formatTimeAgo(activity.timestamp)}</p>
-                      </div>
+                  {activitiesLoading ? (
+                    <div className="text-center py-4">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                      <p className="text-sm text-gray-500 mt-2">Chargement des activités...</p>
                     </div>
-                  ))}
+                  ) : recentActivities.length > 0 ? (
+                    recentActivities.map((activity) => (
+                      <div key={activity.id} className="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
+                        <div className="flex-shrink-0 mt-1">
+                          <ActivityIcon type={activity.iconType} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900">{activity.title}</p>
+                          <p className="text-sm text-gray-500">{activity.description}</p>
+                          <p className="text-xs text-gray-400 mt-1">{formatTimeAgo(activity.timestamp)}</p>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <Clock className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                      <p>Aucune activité récente</p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
-
-          {/* Analytiques */}
-          <TabsContent value="analytics" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card className="border-0 shadow-lg">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-blue-600" />
-                    Performance des Projets
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div>
-                      <div className="flex justify-between text-sm">
-                        <span>Projets Actifs</span>
-                        <span>{stats.activeProjects}/{stats.totalProjects}</span>
-                      </div>
-                      <Progress 
-                        value={stats.totalProjects > 0 ? (stats.activeProjects / stats.totalProjects) * 100 : 0} 
-                        className="mt-2"
-                      />
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-sm">
-                        <span>Projets Terminés</span>
-                        <span>{stats.completedProjects}/{stats.totalProjects}</span>
-                      </div>
-                      <Progress 
-                        value={stats.totalProjects > 0 ? (stats.completedProjects / stats.totalProjects) * 100 : 0} 
-                        className="mt-2"
-                      />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-0 shadow-lg">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <ClipboardCheck className="h-5 w-5 text-green-600" />
-                    Statut des Tâches
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div>
-                      <div className="flex justify-between text-sm">
-                        <span>Tâches Validées</span>
-                        <span>{stats.completedTasks}/{stats.totalTasks}</span>
-                      </div>
-                      <Progress 
-                        value={stats.totalTasks > 0 ? (stats.completedTasks / stats.totalTasks) * 100 : 0} 
-                        className="mt-2"
-                      />
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-sm">
-                        <span>Tâches en Cours</span>
-                        <span>{stats.pendingTasks}/{stats.totalTasks}</span>
-                      </div>
-                      <Progress 
-                        value={stats.totalTasks > 0 ? (stats.pendingTasks / stats.totalTasks) * 100 : 0} 
-                        className="mt-2"
-                      />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-        </Tabs>
       </div>
     </div>
   );
