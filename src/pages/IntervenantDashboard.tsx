@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import { useSupabase } from '@/hooks/useSupabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { translations } from '@/lib/translations';
 import { useRecentActivities, type RecentActivity } from '@/hooks/useRecentActivities';
 import { ActivityIcon } from '@/components/ActivityIcon';
 
@@ -51,6 +53,7 @@ const IntervenantDashboard: React.FC = () => {
   const { toast } = useToast();
   const { fetchData } = useSupabase();
   const { user } = useAuth();
+  const { language } = useLanguage();
 
   const [stats, setStats] = useState<IntervenantStats>({
     totalTasks: 0,
@@ -71,6 +74,13 @@ const IntervenantDashboard: React.FC = () => {
   // Utiliser le hook pour les activités récentes
   const { activities: recentActivities, loading: activitiesLoading } = useRecentActivities();
 
+  // Déterminer le rôle de l'utilisateur pour l'affichage
+  const userRole = user?.user_metadata?.role || JSON.parse(localStorage.getItem('user') || '{}')?.role;
+  const isMaitreOuvrage = userRole === 'maitre_ouvrage';
+  
+  // Obtenir les traductions appropriées
+  const t = translations[language as keyof typeof translations];
+  const dashboardTranslations = isMaitreOuvrage ? t.dashboard.masterOwner : t.dashboard.specialist;
 
 
   // Charger les statistiques
@@ -250,7 +260,7 @@ const IntervenantDashboard: React.FC = () => {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">
-              Tableau de Bord Intervenant
+              {dashboardTranslations.title}
             </h1>
             <p className="text-gray-600 mt-1">
               Dernière mise à jour : {lastUpdate.toLocaleTimeString('fr-FR')}
@@ -258,7 +268,7 @@ const IntervenantDashboard: React.FC = () => {
           </div>
           <Button onClick={loadStats} variant="outline" className="flex items-center gap-2">
             <RefreshCw className="h-4 w-4" />
-            Actualiser
+            {dashboardTranslations.refresh}
           </Button>
         </div>
 
@@ -273,10 +283,10 @@ const IntervenantDashboard: React.FC = () => {
               <div className="text-2xl font-bold text-gray-900">{stats.totalTasks}</div>
               <div className="flex items-center space-x-2 text-sm text-gray-600 mt-1">
                 <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
-                  {stats.inProgressTasks} en cours
+                  {stats.inProgressTasks} {dashboardTranslations.stats.inProgress}
                 </Badge>
                 <Badge variant="secondary" className="bg-green-100 text-green-800">
-                  {stats.validatedTasks} validées
+                  {stats.validatedTasks} {dashboardTranslations.stats.validated}
                 </Badge>
               </div>
             </CardContent>
@@ -303,7 +313,7 @@ const IntervenantDashboard: React.FC = () => {
             <CardContent>
               <div className="text-2xl font-bold text-gray-900">{stats.completionRate}%</div>
               <p className="text-sm text-gray-600 mt-1">
-                Taux de completion
+                {dashboardTranslations.stats.successRate}
               </p>
             </CardContent>
           </Card>
@@ -316,7 +326,7 @@ const IntervenantDashboard: React.FC = () => {
             <CardContent>
               <div className="text-2xl font-bold text-gray-900">{stats.overdueTasks}</div>
               <p className="text-sm text-red-600 mt-1">
-                Tâches en retard
+                {dashboardTranslations.stats.overdueTasks}
               </p>
             </CardContent>
           </Card>
@@ -325,8 +335,8 @@ const IntervenantDashboard: React.FC = () => {
         {/* Onglets avec contenu */}
         <Tabs defaultValue="tasks" className="space-y-6">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="tasks">Tâches Récentes</TabsTrigger>
-            <TabsTrigger value="activities">Activités</TabsTrigger>
+            <TabsTrigger value="tasks">{dashboardTranslations.recentTasks.title}</TabsTrigger>
+            <TabsTrigger value="activities">{dashboardTranslations.recentActivities.title}</TabsTrigger>
           </TabsList>
 
           {/* Tâches récentes */}
@@ -335,10 +345,10 @@ const IntervenantDashboard: React.FC = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <ClipboardCheck className="h-5 w-5 text-blue-600" />
-                  Mes Tâches Récentes
+                  {dashboardTranslations.recentTasks.title}
                 </CardTitle>
                 <CardDescription>
-                  Aperçu de vos tâches les plus récentes
+                  {dashboardTranslations.recentTasks.description}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -378,7 +388,7 @@ const IntervenantDashboard: React.FC = () => {
                   }) : (
                     <div className="text-center py-8 text-gray-500">
                       <ClipboardCheck className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                      <p>Aucune tâche récente</p>
+                      <p>{dashboardTranslations.recentTasks.noTasks}</p>
                     </div>
                   )}
                 </div>
@@ -392,10 +402,10 @@ const IntervenantDashboard: React.FC = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Clock className="h-5 w-5 text-blue-600" />
-                  Activités Récentes
+                  {dashboardTranslations.recentActivities.title}
                 </CardTitle>
                 <CardDescription>
-                  Historique de vos dernières actions
+                  {dashboardTranslations.recentActivities.description}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -403,7 +413,7 @@ const IntervenantDashboard: React.FC = () => {
                   {activitiesLoading ? (
                     <div className="text-center py-4">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                      <p className="text-sm text-gray-500 mt-2">Chargement des activités...</p>
+                      <p className="text-sm text-gray-500 mt-2">{dashboardTranslations.loading}</p>
                     </div>
                   ) : recentActivities.length > 0 ? (
                     recentActivities.map((activity) => (
@@ -421,7 +431,7 @@ const IntervenantDashboard: React.FC = () => {
                   ) : (
                     <div className="text-center py-8 text-gray-500">
                       <Activity className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                      <p>Aucune activité récente</p>
+                      <p>{dashboardTranslations.recentActivities.noActivities}</p>
                     </div>
                   )}
                 </div>

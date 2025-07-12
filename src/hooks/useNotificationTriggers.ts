@@ -1,8 +1,10 @@
 import { useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { NotificationType } from '@/hooks/useNotifications';
+import { useTranslatedNotifications } from '@/hooks/useTranslatedNotifications';
 
 export function useNotificationTriggers() {
+  const { formatMessage, translations } = useTranslatedNotifications();
   
   // Créer une notification pour un utilisateur spécifique
   const createNotification = useCallback(async (
@@ -72,13 +74,17 @@ export function useNotificationTriggers() {
     uploaderName: string,
     projectName?: string
   ) => {
+    const notifConfig = translations.types.file_uploaded;
+    const title = formatMessage(notifConfig.title, { uploaderName, fileName, projectName });
+    const message = formatMessage(notifConfig.message, { uploaderName, fileName, projectName });
+    
     await createAdminNotification(
       'file_uploaded',
-      'Nouveau fichier uploadé',
-      `${uploaderName} a uploadé le fichier "${fileName}"${projectName ? ` dans le projet ${projectName}` : ''}`,
+      title,
+      message,
       { fileName, uploaderName, projectName }
     );
-  }, [createAdminNotification]);
+  }, [createAdminNotification, formatMessage, translations]);
 
   // Notifications pour la validation de tâches
   const notifyTaskValidated = useCallback(async (
@@ -86,13 +92,17 @@ export function useNotificationTriggers() {
     validatorName: string,
     projectName?: string
   ) => {
+    const notifConfig = translations.types.task_validated;
+    const title = formatMessage(notifConfig.title, { validatorName, taskName, projectName });
+    const message = formatMessage(notifConfig.message, { validatorName, taskName, projectName });
+    
     await createAdminNotification(
       'task_validated',
-      'Tâche validée',
-      `${validatorName} a validé la tâche "${taskName}"${projectName ? ` du projet ${projectName}` : ''}`,
+      title,
+      message,
       { taskName, validatorName, projectName }
     );
-  }, [createAdminNotification]);
+  }, [createAdminNotification, formatMessage, translations]);
 
   // Notifications pour les nouveaux messages
   const notifyNewMessage = useCallback(async (
@@ -100,14 +110,18 @@ export function useNotificationTriggers() {
     senderName: string,
     subject?: string
   ) => {
+    const notifConfig = translations.types.message_received;
+    const title = formatMessage(notifConfig.title, { senderName, subject });
+    const message = formatMessage(notifConfig.message, { senderName, subject });
+    
     await createNotification(
       recipientId,
       'message_received',
-      'Nouveau message',
-      `Vous avez reçu un nouveau message de ${senderName}${subject ? ` : "${subject}"` : ''}`,
+      title,
+      message,
       { senderName, subject }
     );
-  }, [createNotification]);
+  }, [createNotification, formatMessage, translations]);
 
   // Notifications pour les demandes de réunion
   const notifyMeetingRequest = useCallback(async (
@@ -115,13 +129,18 @@ export function useNotificationTriggers() {
     requesterName: string,
     scheduledTime: string
   ) => {
+    const notifConfig = translations.types.meeting_request;
+    const scheduledDate = new Date(scheduledTime).toLocaleDateString();
+    const title = formatMessage(notifConfig.title, { meetingTitle, requesterName, scheduledDate });
+    const message = formatMessage(notifConfig.message, { meetingTitle, requesterName, scheduledDate });
+    
     await createAdminNotification(
       'meeting_request',
-      'Demande de réunion',
-      `${requesterName} a demandé une réunion : "${meetingTitle}" prévue le ${new Date(scheduledTime).toLocaleDateString('fr-FR')}`,
-      { meetingTitle, requesterName, scheduledTime }
+      title,
+      message,
+      { meetingTitle, requesterName, scheduledTime, scheduledDate }
     );
-  }, [createAdminNotification]);
+  }, [createAdminNotification, formatMessage, translations]);
 
   // Notifications pour l'assignation de tâches
   const notifyTaskAssigned = useCallback(async (
@@ -130,14 +149,18 @@ export function useNotificationTriggers() {
     projectName?: string,
     assignerName?: string
   ) => {
+    const notifConfig = translations.types.task_assigned;
+    const title = formatMessage(notifConfig.title, { taskName, projectName, assignerName });
+    const message = formatMessage(notifConfig.message, { taskName, projectName, assignerName });
+    
     await createNotification(
       intervenantId,
       'task_assigned',
-      'Nouvelle tâche assignée',
-      `Une nouvelle tâche "${taskName}" vous a été assignée${projectName ? ` pour le projet ${projectName}` : ''}${assignerName ? ` par ${assignerName}` : ''}`,
+      title,
+      message,
       { taskName, projectName, assignerName }
     );
-  }, [createNotification]);
+  }, [createNotification, formatMessage, translations]);
 
   // Notifications pour l'ajout à un projet
   const notifyProjectAdded = useCallback(async (
@@ -177,14 +200,18 @@ export function useNotificationTriggers() {
     uploaderName: string,
     projectName?: string
   ) => {
+    const notifConfig = translations.types.file_validation_request;
+    const title = formatMessage(notifConfig.title, { fileName, uploaderName, projectName });
+    const message = formatMessage(notifConfig.message, { fileName, uploaderName, projectName });
+    
     await createNotification(
       validatorId,
       'file_validation_request',
-      'Fichier à valider',
-      `${uploaderName} a uploadé le fichier "${fileName}" qui nécessite votre validation${projectName ? ` pour le projet ${projectName}` : ''}`,
+      title,
+      message,
       { fileName, uploaderName, projectName }
     );
-  }, [createNotification]);
+  }, [createNotification, formatMessage, translations]);
 
   // Notifications pour les réponses aux demandes de réunion
   const notifyMeetingRequestResponse = useCallback(async (

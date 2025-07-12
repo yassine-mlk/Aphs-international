@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/components/ui/use-toast";
+import { useTranslatedNotifications } from "@/hooks/useTranslatedNotifications";
 import { useSupabase } from '../hooks/useSupabase';
 import { Company } from '../types/company';
 
@@ -22,7 +22,7 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess, mode }) =
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   
-  const { toast } = useToast();
+  const { showSuccess, showError } = useTranslatedNotifications();
   const { addCompany, updateCompany, supabase } = useSupabase();
 
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -41,22 +41,14 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess, mode }) =
   const uploadLogo = async (file: File): Promise<string | null> => {
     // Vérifier que le fichier n'est pas trop volumineux (2MB max)
     if (file.size > 2 * 1024 * 1024) {
-      toast({
-        title: "Fichier trop volumineux",
-        description: "Le logo ne doit pas dépasser 2MB.",
-        variant: "destructive",
-      });
+      showError('fileTooLarge');
       return null;
     }
 
     // Vérifier le type du fichier
     const validImageTypes = ['image/jpeg', 'image/png', 'image/svg+xml', 'image/gif', 'image/webp'];
     if (!validImageTypes.includes(file.type)) {
-      toast({
-        title: "Type de fichier non supporté",
-        description: "Veuillez utiliser un format d'image (JPG, PNG, SVG, GIF, WEBP).",
-        variant: "destructive",
-      });
+      showError('invalidFileType');
       return null;
     }
 
@@ -102,11 +94,7 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess, mode }) =
     } catch (error) {
       console.error('Erreur lors de l\'upload du logo:', error);
       setUploadProgress(0);
-      toast({
-        title: "Erreur d'upload",
-        description: "Impossible d'uploader le logo. Veuillez réessayer.",
-        variant: "destructive",
-      });
+      showError('fileUploadError');
       return null;
     }
   };
@@ -125,20 +113,12 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess, mode }) =
     e.preventDefault();
     
     if (!name) {
-      toast({
-        title: "Erreur",
-        description: "Le nom de l'entreprise est obligatoire",
-        variant: "destructive",
-      });
+      showError('missingFields');
       return;
     }
 
     if (!specialite) {
-      toast({
-        title: "Erreur",
-        description: "La spécialité de l'entreprise est obligatoire",
-        variant: "destructive",
-      });
+      showError('missingFields');
       return;
     }
     
@@ -177,12 +157,7 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess, mode }) =
       }
       
       if (result.success) {
-        toast({
-          title: "Succès",
-          description: mode === 'create' 
-            ? `L'entreprise ${name} a été créée avec succès` 
-            : `L'entreprise ${name} a été mise à jour avec succès`,
-        });
+        showSuccess(mode === 'create' ? 'companyCreated' : 'companyUpdated', { name });
         
         // Réinitialiser le formulaire si c'est une création
         if (mode === 'create') {
@@ -204,11 +179,7 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess, mode }) =
       }
     } catch (error) {
       console.error('Erreur lors de l\'opération sur l\'entreprise:', error);
-      toast({
-        title: "Erreur",
-        description: `Impossible de ${mode === 'create' ? 'créer' : 'modifier'} l'entreprise. Vérifiez les informations et réessayez.`,
-        variant: "destructive",
-      });
+      showError(mode === 'create' ? 'cannotCreateCompany' : 'cannotUpdateCompany');
     } finally {
       setLoading(false);
     }

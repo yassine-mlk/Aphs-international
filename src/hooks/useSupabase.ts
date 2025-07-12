@@ -3,7 +3,7 @@ import { supabase, supabaseAdmin } from '../lib/supabase';
 import { useToast } from '@/components/ui/use-toast';
 
 // Type pour les rôles disponibles dans l'application
-export type UserRole = 'admin' | 'intervenant' | 'owner';
+export type UserRole = 'admin' | 'intervenant' | 'owner' | 'maitre_ouvrage';
 
 // Liste des spécialités d'intervenants disponibles
 export const SPECIALTIES = [
