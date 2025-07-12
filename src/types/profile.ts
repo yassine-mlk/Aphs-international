@@ -1,6 +1,6 @@
 // Types pour les profils utilisateurs
 
-export type UserRole = 'admin' | 'intervenant' | 'owner';
+export type UserRole = 'admin' | 'intervenant' | 'owner' | 'maitre_ouvrage';
 export type UserStatus = 'active' | 'inactive';
 export type UserTheme = 'light' | 'dark';
 export type UserLanguage = 'fr' | 'en' | 'es' | 'ar';

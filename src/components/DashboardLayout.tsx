@@ -68,7 +68,8 @@ const dashboardTranslations = {
     myAccount: "My Account",
     profile: "Profile",
     administrator: "Administrator",
-    specialist: "Specialist"
+    specialist: "Specialist",
+    masterOwner: "Project Owner"
   },
   fr: {
     dashboard: "Tableau de bord",
@@ -86,7 +87,8 @@ const dashboardTranslations = {
     myAccount: "Mon Compte",
     profile: "Profil",
     administrator: "Administrateur",
-    specialist: "Intervenant"
+    specialist: "Intervenant",
+    masterOwner: "Maître d'ouvrage"
   },
   es: {
     dashboard: "Panel de control",
@@ -104,7 +106,8 @@ const dashboardTranslations = {
     myAccount: "Mi cuenta",
     profile: "Perfil",
     administrator: "Administrador",
-    specialist: "Especialista"
+    specialist: "Especialista",
+    masterOwner: "Propietario del proyecto"
   },
   ar: {
     dashboard: "لوحة التحكم",
@@ -122,7 +125,8 @@ const dashboardTranslations = {
     myAccount: "حسابي",
     profile: "الملف الشخصي",
     administrator: "المسؤول",
-    specialist: "متخصص"
+    specialist: "متخصص",
+    masterOwner: "مالك المشروع"
   }
 };
 
@@ -247,6 +251,7 @@ const DashboardLayout: React.FC = () => {
   // Make sure we correctly identify admin role
   // Check both the role and directly for admin email
   const isAdmin = user?.role === 'admin' || user?.email === 'admin@aphs.com';
+  const isMaitreOuvrage = user?.role === 'maitre_ouvrage';
   
   const t = dashboardTranslations[language];
 
@@ -302,15 +307,15 @@ const DashboardLayout: React.FC = () => {
                 </SidebarMenuItem>
               )}
               
-              {/* Projets Menu Item - Intervenant access */}
-              {!isAdmin && (
+              {/* Projets Menu Item - Intervenant and Maitre d'ouvrage access */}
+              {(!isAdmin && (user?.role === 'intervenant' || user?.role === 'maitre_ouvrage')) && (
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
                     tooltip={t.myProjects}
-                    isActive={isLinkActive("/dashboard/intervenant/projets")}
+                    isActive={isLinkActive("/dashboard/intervenant/projets") || isLinkActive("/dashboard/maitre-ouvrage/projets")}
                   >
-                    <Link to="/dashboard/intervenant/projets">
+                    <Link to={isMaitreOuvrage ? "/dashboard/maitre-ouvrage/projets" : "/dashboard/intervenant/projets"}>
                       <Briefcase />
                       <span>{t.myProjects}</span>
                     </Link>
@@ -424,13 +429,12 @@ const DashboardLayout: React.FC = () => {
                 <User size={12} />
                 <p>{user?.email}</p>
               </div>
-              <div className={cn(
-                "inline-flex items-center px-2 py-1 rounded-full text-xs",
-                isAdmin 
-                  ? "bg-purple-100 text-purple-800"
-                  : "bg-blue-100 text-blue-800"
-              )}>
-                {isAdmin ? t.administrator : t.specialist}
+              <div className="px-3 py-2 text-center">
+                <div className="text-sm text-gray-600">
+                  {isAdmin ? t.administrator : 
+                   user?.role === 'maitre_ouvrage' ? t.masterOwner : 
+                   t.specialist}
+                </div>
               </div>
             </div>
           </div>
@@ -451,6 +455,8 @@ const DashboardLayout: React.FC = () => {
                  location.pathname === "/dashboard/tasks" ? t.tasks :
                  location.pathname === "/dashboard/intervenant/projets" ? t.myProjects :
                  location.pathname.startsWith("/dashboard/intervenant/projets/") ? t.projectDetails :
+                 location.pathname === "/dashboard/maitre-ouvrage/projets" ? t.myProjects :
+                 location.pathname.startsWith("/dashboard/maitre-ouvrage/projets/") ? t.projectDetails :
                  location.pathname === "/dashboard/parametres" ? t.settings : ""
                 }
               </h2>

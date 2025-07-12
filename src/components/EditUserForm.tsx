@@ -149,7 +149,7 @@ const EditUserForm: React.FC<EditUserFormProps> = ({ userId, userData, onSuccess
   // Met à jour automatiquement le rôle en fonction de la spécialité
   useEffect(() => {
     if (specialty === 'MOA Maître d\'ouvrage') {
-      setRole('owner' as UserRole);
+      setRole('maitre_ouvrage' as UserRole);
     } else if (role !== 'admin') {
       setRole('intervenant');
     }

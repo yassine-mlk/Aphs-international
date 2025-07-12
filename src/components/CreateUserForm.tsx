@@ -114,7 +114,7 @@ export default function CreateUserForm({ onSuccess }: CreateUserFormProps) {
   // Met à jour automatiquement le rôle en fonction de la spécialité
   useEffect(() => {
     if (specialty === 'MOA Maître d\'ouvrage') {
-      setRole('owner' as UserRole);
+      setRole('maitre_ouvrage' as UserRole);
     } else {
       setRole('intervenant');
     }

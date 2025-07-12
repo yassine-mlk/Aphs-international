@@ -136,6 +136,149 @@ export const translations = {
           messages: "Messages",
           videoconference: "Video Conference"
         }
+      },
+      masterOwner: {
+        title: "Project Owner Dashboard",
+        subtitle: "Track your tasks and projects",
+        refresh: "Refresh",
+        retry: "Retry",
+        reloadPage: "Reload page",
+        noData: "No data available",
+        loading: "Loading your data...",
+        stats: {
+          totalTasks: "Total tasks",
+          allTasks: "All your tasks",
+          successRate: "Success rate",
+          validated: "validated",
+          inProgress: "In progress",
+          inProgressTasks: "Tasks in progress",
+          overdue: "Overdue",
+          overdueTasks: "Overdue tasks"
+        },
+        recentTasks: {
+          title: "My recent tasks",
+          description: "Your 10 latest assigned tasks",
+          deadline: "Deadline",
+          noTasks: "No assigned tasks"
+        },
+        recentActivities: {
+          title: "Recent activities",
+          description: "Your latest activities",
+          noActivities: "No recent activities"
+        },
+        myProjects: {
+          title: "My projects",
+          description: "Projects you are assigned to",
+          active: "Active",
+          progress: "Progress",
+          tasks: "tasks",
+          startDate: "Start",
+          noProjects: "No assigned projects",
+          viewAll: "View all my projects"
+        },
+        quickActions: {
+          title: "Quick Actions",
+          description: "Quick access to your main features",
+          myTasks: "My tasks",
+          myProjects: "My projects",
+          messages: "Messages",
+          videoconference: "Video Conference"
+        }
+      }
+    },
+    notifications: {
+      // Types de notifications système
+      types: {
+        file_uploaded: {
+          title: "New file uploaded",
+          message: "{uploaderName} uploaded the file \"{fileName}\"{projectName, select, undefined {} other { in project {projectName}}}"
+        },
+        task_validated: {
+          title: "Task validated",
+          message: "{validatorName} validated the task \"{taskName}\"{projectName, select, undefined {} other { in project {projectName}}}"
+        },
+        message_received: {
+          title: "New message",
+          message: "You received a new message from {senderName}{subject, select, undefined {} other { : \"{subject}\"}}"
+        },
+        meeting_request: {
+          title: "Meeting request",
+          message: "{requesterName} requested a meeting: \"{meetingTitle}\" scheduled for {scheduledDate}"
+        },
+        task_assigned: {
+          title: "New task assigned",
+          message: "A new task \"{taskName}\" has been assigned to you{projectName, select, undefined {} other { for project {projectName}}}{assignerName, select, undefined {} other { by {assignerName}}}"
+        },
+        project_added: {
+          title: "Added to new project",
+          message: "You have been added to project \"{projectName}\"{adminName, select, undefined {} other { by {adminName}}}"
+        },
+        task_validation_request: {
+          title: "Task validation request",
+          message: "{intervenantName} requests validation of task \"{taskName}\"{projectName, select, undefined {} other { in project {projectName}}}"
+        },
+        file_validation_request: {
+          title: "File to validate",
+          message: "{uploaderName} uploaded the file \"{fileName}\" that requires your validation{projectName, select, undefined {} other { for project {projectName}}}"
+        },
+        meeting_request_approved: {
+          title: "Meeting request approved",
+          message: "Your meeting request \"{meetingTitle}\" has been approved{adminName, select, undefined {} other { by {adminName}}}{responseMessage, select, undefined {} other {. Message: {responseMessage}}}"
+        },
+        meeting_request_rejected: {
+          title: "Meeting request rejected",
+          message: "Your meeting request \"{meetingTitle}\" has been rejected{adminName, select, undefined {} other { by {adminName}}}{responseMessage, select, undefined {} other {. Message: {responseMessage}}}"
+        },
+        meeting_invitation: {
+          title: "Meeting invitation",
+          message: "{organizerName} invites you to the meeting \"{meetingTitle}\" scheduled for {scheduledDate}"
+        }
+      },
+      // Messages toast communs
+      common: {
+        success: "Success",
+        error: "Error",
+        warning: "Warning",
+        info: "Information",
+        loading: "Loading...",
+        saved: "Saved successfully",
+        deleted: "Deleted successfully",
+        updated: "Updated successfully",
+        created: "Created successfully",
+        cancelled: "Cancelled",
+        confirm: "Are you sure?",
+        confirmDelete: "Are you sure you want to delete this item?",
+        cannotUndo: "This action cannot be undone.",
+        networkError: "Network error",
+        checkConnection: "Please check your internet connection",
+        unknownError: "An unknown error occurred",
+        tryAgain: "Please try again",
+        missingFields: "Please fill in all required fields",
+        invalidEmail: "Please enter a valid email address",
+        passwordTooShort: "Password must be at least 6 characters long",
+        passwordsDontMatch: "Passwords do not match",
+        fileUploadError: "Error uploading file",
+        fileTooLarge: "File is too large",
+        invalidFileType: "Invalid file type",
+        taskSubmitted: "Task submitted successfully",
+        taskAssigned: "Task assigned successfully",
+        taskUpdated: "Assignment updated successfully",
+        meetingRequested: "Meeting request sent successfully",
+        cannotSendMeetingRequest: "Unable to send your meeting request",
+        missingTitle: "Title missing",
+        enterMeetingTitle: "Please enter a title for the meeting request",
+        missingDate: "Date missing",
+        selectMeetingDate: "Please select a date for the meeting",
+        missingProject: "Project missing",
+        selectProjectForMeeting: "Please select a project for this meeting",
+        requestSent: "Request sent",
+        cannotSubmitTask: "Unable to submit task",
+        companyCreated: "Company \"{name}\" has been created successfully",
+        companyUpdated: "Company \"{name}\" has been updated successfully",
+        cannotCreateCompany: "Unable to create company. Check the information and try again.",
+        cannotUpdateCompany: "Unable to update company. Check the information and try again.",
+        passwordUpdateError: "Unable to update your password",
+        notificationPrefsError: "Unable to update your notification preferences"
       }
     },
     messages: {
@@ -781,6 +924,149 @@ export const translations = {
           messages: "Messages",
           videoconference: "Visioconférence"
         }
+      },
+      masterOwner: {
+        title: "Tableau de Bord Maître d'ouvrage",
+        subtitle: "Suivi de vos tâches et projets",
+        refresh: "Actualiser",
+        retry: "Réessayer",
+        reloadPage: "Recharger la page",
+        noData: "Aucune donnée disponible",
+        loading: "Chargement de vos données...",
+        stats: {
+          totalTasks: "Total tâches",
+          allTasks: "Toutes vos tâches",
+          successRate: "Taux de réussite",
+          validated: "validées",
+          inProgress: "En cours",
+          inProgressTasks: "Tâches en cours",
+          overdue: "En retard",
+          overdueTasks: "Tâches en retard"
+        },
+        recentTasks: {
+          title: "Mes tâches récentes",
+          description: "Vos 10 dernières tâches assignées",
+          deadline: "Échéance",
+          noTasks: "Aucune tâche assignée"
+        },
+        recentActivities: {
+          title: "Activités récentes",
+          description: "Vos dernières activités",
+          noActivities: "Aucune activité récente"
+        },
+        myProjects: {
+          title: "Mes projets",
+          description: "Projets dans lesquels vous êtes assigné",
+          active: "Actif",
+          progress: "Progression",
+          tasks: "tâches",
+          startDate: "Début",
+          noProjects: "Aucun projet assigné",
+          viewAll: "Voir tous mes projets"
+        },
+        quickActions: {
+          title: "Actions rapides",
+          description: "Accès rapide à vos principales fonctionnalités",
+          myTasks: "Mes tâches",
+          myProjects: "Mes projets",
+          messages: "Messages",
+          videoconference: "Visioconférence"
+        }
+      }
+    },
+    notifications: {
+      // Types de notifications système
+      types: {
+        file_uploaded: {
+          title: "Nouveau fichier uploadé",
+          message: "{uploaderName} a uploadé le fichier \"{fileName}\"{projectName, select, undefined {} other { dans le projet {projectName}}}"
+        },
+        task_validated: {
+          title: "Tâche validée",
+          message: "{validatorName} a validé la tâche \"{taskName}\"{projectName, select, undefined {} other { du projet {projectName}}}"
+        },
+        message_received: {
+          title: "Nouveau message",
+          message: "Vous avez reçu un nouveau message de {senderName}{subject, select, undefined {} other { : \"{subject}\"}}"
+        },
+        meeting_request: {
+          title: "Demande de réunion",
+          message: "{requesterName} a demandé une réunion : \"{meetingTitle}\" prévue le {scheduledDate}"
+        },
+        task_assigned: {
+          title: "Nouvelle tâche assignée",
+          message: "Une nouvelle tâche \"{taskName}\" vous a été assignée{projectName, select, undefined {} other { pour le projet {projectName}}}{assignerName, select, undefined {} other { par {assignerName}}}"
+        },
+        project_added: {
+          title: "Ajouté à un nouveau projet",
+          message: "Vous avez été ajouté au projet \"{projectName}\"{adminName, select, undefined {} other { par {adminName}}}"
+        },
+        task_validation_request: {
+          title: "Demande de validation de tâche",
+          message: "{intervenantName} demande la validation de la tâche \"{taskName}\"{projectName, select, undefined {} other { du projet {projectName}}}"
+        },
+        file_validation_request: {
+          title: "Fichier à valider",
+          message: "{uploaderName} a uploadé le fichier \"{fileName}\" qui nécessite votre validation{projectName, select, undefined {} other { pour le projet {projectName}}}"
+        },
+        meeting_request_approved: {
+          title: "Demande de réunion approuvée",
+          message: "Votre demande de réunion \"{meetingTitle}\" a été approuvée{adminName, select, undefined {} other { par {adminName}}}{responseMessage, select, undefined {} other {. Message : {responseMessage}}}"
+        },
+        meeting_request_rejected: {
+          title: "Demande de réunion refusée",
+          message: "Votre demande de réunion \"{meetingTitle}\" a été refusée{adminName, select, undefined {} other { par {adminName}}}{responseMessage, select, undefined {} other {. Message : {responseMessage}}}"
+        },
+        meeting_invitation: {
+          title: "Invitation à une réunion",
+          message: "{organizerName} vous invite à la réunion \"{meetingTitle}\" prévue le {scheduledDate}"
+        }
+      },
+      // Messages toast communs
+      common: {
+        success: "Succès",
+        error: "Erreur",
+        warning: "Attention",
+        info: "Information",
+        loading: "Chargement...",
+        saved: "Enregistré avec succès",
+        deleted: "Supprimé avec succès",
+        updated: "Mis à jour avec succès",
+        created: "Créé avec succès",
+        cancelled: "Annulé",
+        confirm: "Êtes-vous sûr ?",
+        confirmDelete: "Êtes-vous sûr de vouloir supprimer cet élément ?",
+        cannotUndo: "Cette action ne peut pas être annulée.",
+        networkError: "Erreur réseau",
+        checkConnection: "Veuillez vérifier votre connexion Internet",
+        unknownError: "Une erreur inconnue s'est produite",
+        tryAgain: "Veuillez réessayer",
+        missingFields: "Veuillez remplir tous les champs obligatoires",
+        invalidEmail: "Veuillez saisir une adresse email valide",
+        passwordTooShort: "Le mot de passe doit contenir au moins 6 caractères",
+        passwordsDontMatch: "Les mots de passe ne correspondent pas",
+        fileUploadError: "Erreur lors de l'upload du fichier",
+        fileTooLarge: "Le fichier est trop volumineux",
+        invalidFileType: "Type de fichier invalide",
+        taskSubmitted: "Tâche soumise avec succès",
+        taskAssigned: "Tâche assignée avec succès",
+        taskUpdated: "Assignation mise à jour avec succès",
+        meetingRequested: "Demande de réunion envoyée avec succès",
+        cannotSendMeetingRequest: "Impossible d'envoyer votre demande de réunion",
+        missingTitle: "Titre manquant",
+        enterMeetingTitle: "Veuillez saisir un titre pour la demande de réunion",
+        missingDate: "Date manquante",
+        selectMeetingDate: "Veuillez sélectionner une date pour la réunion",
+        missingProject: "Projet manquant",
+        selectProjectForMeeting: "Veuillez sélectionner un projet pour cette réunion",
+        requestSent: "Demande envoyée",
+        cannotSubmitTask: "Impossible de soumettre la tâche",
+        companyCreated: "L'entreprise \"{name}\" a été créée avec succès",
+        companyUpdated: "L'entreprise \"{name}\" a été mise à jour avec succès",
+        cannotCreateCompany: "Impossible de créer l'entreprise. Vérifiez les informations et réessayez.",
+        cannotUpdateCompany: "Impossible de modifier l'entreprise. Vérifiez les informations et réessayez.",
+        passwordUpdateError: "Impossible de mettre à jour votre mot de passe",
+        notificationPrefsError: "Impossible de mettre à jour vos préférences de notification"
       }
     },
     messages: {
@@ -1198,6 +1484,149 @@ export const translations = {
           messages: "Mensajes",
           videoconference: "Videoconferencia"
         }
+      },
+      masterOwner: {
+        title: "Panel de Control del Propietario del Proyecto",
+        subtitle: "Seguimiento de sus tareas y proyectos",
+        refresh: "Actualizar",
+        retry: "Reintentar",
+        reloadPage: "Recargar página",
+        noData: "No hay datos disponibles",
+        loading: "Cargando sus datos...",
+        stats: {
+          totalTasks: "Total de tareas",
+          allTasks: "Todas sus tareas",
+          successRate: "Tasa de éxito",
+          validated: "validadas",
+          inProgress: "En progreso",
+          inProgressTasks: "Tareas en progreso",
+          overdue: "Vencidas",
+          overdueTasks: "Tareas vencidas"
+        },
+        recentTasks: {
+          title: "Mis tareas recientes",
+          description: "Sus 10 últimas tareas asignadas",
+          deadline: "Fecha límite",
+          noTasks: "No hay tareas asignadas"
+        },
+        recentActivities: {
+          title: "Actividades recientes",
+          description: "Sus últimas actividades",
+          noActivities: "No hay actividades recientes"
+        },
+        myProjects: {
+          title: "Mis proyectos",
+          description: "Proyectos en los que está asignado",
+          active: "Activo",
+          progress: "Progreso",
+          tasks: "tareas",
+          startDate: "Inicio",
+          noProjects: "No hay proyectos asignados",
+          viewAll: "Ver todos mis proyectos"
+        },
+        quickActions: {
+          title: "Acciones rápidas",
+          description: "Acceso rápido a sus principales características",
+          myTasks: "Mis tareas",
+          myProjects: "Mis proyectos",
+          messages: "Mensajes",
+          videoconference: "Videoconferencia"
+        }
+      }
+    },
+    notifications: {
+      // Types de notifications système
+      types: {
+        file_uploaded: {
+          title: "Nuevo archivo subido",
+          message: "{uploaderName} subió el archivo \"{fileName}\"{projectName, select, undefined {} other { en el proyecto {projectName}}}"
+        },
+        task_validated: {
+          title: "Tarea validada",
+          message: "{validatorName} validó la tarea \"{taskName}\"{projectName, select, undefined {} other { del proyecto {projectName}}}"
+        },
+        message_received: {
+          title: "Nuevo mensaje",
+          message: "Recibió un nuevo mensaje de {senderName}{subject, select, undefined {} other { : \"{subject}\"}}"
+        },
+        meeting_request: {
+          title: "Solicitud de reunión",
+          message: "{requesterName} solicitó una reunión: \"{meetingTitle}\" programada para {scheduledDate}"
+        },
+        task_assigned: {
+          title: "Nueva tarea asignada",
+          message: "Se le asignó una nueva tarea \"{taskName}\"{projectName, select, undefined {} other { para el proyecto {projectName}}}{assignerName, select, undefined {} other { por {assignerName}}}"
+        },
+        project_added: {
+          title: "Agregado a nuevo proyecto",
+          message: "Ha sido agregado al proyecto \"{projectName}\"{adminName, select, undefined {} other { por {adminName}}}"
+        },
+        task_validation_request: {
+          title: "Solicitud de validación de tarea",
+          message: "{intervenantName} solicita la validación de la tarea \"{taskName}\"{projectName, select, undefined {} other { del proyecto {projectName}}}"
+        },
+        file_validation_request: {
+          title: "Archivo para validar",
+          message: "{uploaderName} subió el archivo \"{fileName}\" que requiere su validación{projectName, select, undefined {} other { para el proyecto {projectName}}}"
+        },
+        meeting_request_approved: {
+          title: "Solicitud de reunión aprobada",
+          message: "Su solicitud de reunión \"{meetingTitle}\" ha sido aprobada{adminName, select, undefined {} other { por {adminName}}}{responseMessage, select, undefined {} other {. Mensaje: {responseMessage}}}"
+        },
+        meeting_request_rejected: {
+          title: "Solicitud de reunión rechazada",
+          message: "Su solicitud de reunión \"{meetingTitle}\" ha sido rechazada{adminName, select, undefined {} other { por {adminName}}}{responseMessage, select, undefined {} other {. Mensaje: {responseMessage}}}"
+        },
+        meeting_invitation: {
+          title: "Invitación a reunión",
+          message: "{organizerName} lo invita a la reunión \"{meetingTitle}\" programada para {scheduledDate}"
+        }
+      },
+      // Messages toast communs
+      common: {
+        success: "Éxito",
+        error: "Error",
+        warning: "Advertencia",
+        info: "Información",
+        loading: "Cargando...",
+        saved: "Guardado exitosamente",
+        deleted: "Eliminado exitosamente",
+        updated: "Actualizado exitosamente",
+        created: "Creado exitosamente",
+        cancelled: "Cancelado",
+        confirm: "¿Está seguro?",
+        confirmDelete: "¿Está seguro de que desea eliminar este elemento?",
+        cannotUndo: "Esta acción no se puede deshacer.",
+        networkError: "Error de red",
+        checkConnection: "Por favor verifique su conexión a Internet",
+        unknownError: "Ocurrió un error desconocido",
+        tryAgain: "Por favor intente de nuevo",
+        missingFields: "Por favor complete todos los campos obligatorios",
+        invalidEmail: "Por favor ingrese una dirección de correo válida",
+        passwordTooShort: "La contraseña debe tener al menos 6 caracteres",
+        passwordsDontMatch: "Las contraseñas no coinciden",
+        fileUploadError: "Error al subir archivo",
+        fileTooLarge: "El archivo es demasiado grande",
+        invalidFileType: "Tipo de archivo inválido",
+        taskSubmitted: "Tarea enviada exitosamente",
+        taskAssigned: "Tarea asignada exitosamente",
+        taskUpdated: "Asignación actualizada exitosamente",
+        meetingRequested: "Solicitud de reunión enviada exitosamente",
+        cannotSendMeetingRequest: "No se puede enviar su solicitud de reunión",
+        missingTitle: "Título faltante",
+        enterMeetingTitle: "Por favor ingrese un título para la solicitud de reunión",
+        missingDate: "Fecha faltante",
+        selectMeetingDate: "Por favor seleccione una fecha para la reunión",
+        missingProject: "Proyecto faltante",
+        selectProjectForMeeting: "Por favor seleccione un proyecto para esta reunión",
+        requestSent: "Solicitud enviada",
+        cannotSubmitTask: "No se puede enviar la tarea",
+        companyCreated: "La empresa \"{name}\" ha sido creada exitosamente",
+        companyUpdated: "La empresa \"{name}\" ha sido actualizada exitosamente",
+        cannotCreateCompany: "No se puede crear la empresa. Verifique la información e intente de nuevo.",
+        cannotUpdateCompany: "No se puede modificar la empresa. Verifique la información e intente de nuevo.",
+        passwordUpdateError: "No se puede actualizar su contraseña",
+        notificationPrefsError: "No se pueden actualizar sus preferencias de notificación"
       }
     },
     messages: {
@@ -1715,6 +2144,149 @@ export const translations = {
           messages: "الرسائل",
           videoconference: "مؤتمر فيديو"
         }
+      },
+      masterOwner: {
+        title: "لوحة قيادة مالك المشروع",
+        subtitle: "تتبع مهامك ومشاريعك",
+        refresh: "تحديث",
+        retry: "إعادة المحاولة",
+        reloadPage: "إعادة تحميل الصفحة",
+        noData: "لا توجد بيانات متاحة",
+        loading: "تحميل بياناتك...",
+        stats: {
+          totalTasks: "إجمالي المهام",
+          allTasks: "جميع مهامك",
+          successRate: "معدل النجاح",
+          validated: "مصدّقة",
+          inProgress: "قيد التنفيذ",
+          inProgressTasks: "مهام قيد التنفيذ",
+          overdue: "متأخرة",
+          overdueTasks: "مهام متأخرة"
+        },
+        recentTasks: {
+          title: "مهامي الأخيرة",
+          description: "آخر 10 مهام تم تعيينها لك",
+          deadline: "الموعد النهائي",
+          noTasks: "لا توجد مهام معينة"
+        },
+        recentActivities: {
+          title: "الأنشطة الأخيرة",
+          description: "آخر أنشطتك",
+          noActivities: "لا توجد أنشطة حديثة"
+        },
+        myProjects: {
+          title: "مشاريعي",
+          description: "المشاريع التي تم تعيينك بها",
+          active: "نشط",
+          progress: "التقدم",
+          tasks: "مهام",
+          startDate: "البداية",
+          noProjects: "لا توجد مشاريع معينة",
+          viewAll: "عرض جميع مشاريعي"
+        },
+        quickActions: {
+          title: "إجراءات سريعة",
+          description: "وصول سريع إلى خصائصك الرئيسية",
+          myTasks: "مهامي",
+          myProjects: "مشاريعي",
+          messages: "الرسائل",
+          videoconference: "مؤتمر فيديو"
+        }
+      }
+    },
+    notifications: {
+      // Types de notifications système
+      types: {
+        file_uploaded: {
+          title: "تم رفع ملف جديد",
+          message: "{uploaderName} رفع الملف \"{fileName}\"{projectName, select, undefined {} other { في المشروع {projectName}}}"
+        },
+        task_validated: {
+          title: "تم التصديق على المهمة",
+          message: "{validatorName} صدّق على المهمة \"{taskName}\"{projectName, select, undefined {} other { في المشروع {projectName}}}"
+        },
+        message_received: {
+          title: "رسالة جديدة",
+          message: "تلقيت رسالة جديدة من {senderName}{subject, select, undefined {} other { : \"{subject}\"}}"
+        },
+        meeting_request: {
+          title: "طلب اجتماع",
+          message: "{requesterName} طلب اجتماعاً: \"{meetingTitle}\" مجدول في {scheduledDate}"
+        },
+        task_assigned: {
+          title: "مهمة جديدة معيّنة",
+          message: "تم تعيين مهمة جديدة \"{taskName}\" لك{projectName, select, undefined {} other { للمشروع {projectName}}}{assignerName, select, undefined {} other { من قبل {assignerName}}}"
+        },
+        project_added: {
+          title: "تمت الإضافة لمشروع جديد",
+          message: "تمت إضافتك للمشروع \"{projectName}\"{adminName, select, undefined {} other { من قبل {adminName}}}"
+        },
+        task_validation_request: {
+          title: "طلب التصديق على مهمة",
+          message: "{intervenantName} يطلب التصديق على المهمة \"{taskName}\"{projectName, select, undefined {} other { في المشروع {projectName}}}"
+        },
+        file_validation_request: {
+          title: "ملف للتصديق",
+          message: "{uploaderName} رفع الملف \"{fileName}\" الذي يتطلب تصديقك{projectName, select, undefined {} other { للمشروع {projectName}}}"
+        },
+        meeting_request_approved: {
+          title: "تم الموافقة على طلب الاجتماع",
+          message: "تم الموافقة على طلب اجتماعك \"{meetingTitle}\"{adminName, select, undefined {} other { من قبل {adminName}}}{responseMessage, select, undefined {} other {. الرسالة: {responseMessage}}}"
+        },
+        meeting_request_rejected: {
+          title: "تم رفض طلب الاجتماع",
+          message: "تم رفض طلب اجتماعك \"{meetingTitle}\"{adminName, select, undefined {} other { من قبل {adminName}}}{responseMessage, select, undefined {} other {. الرسالة: {responseMessage}}}"
+        },
+        meeting_invitation: {
+          title: "دعوة لاجتماع",
+          message: "{organizerName} يدعوك للاجتماع \"{meetingTitle}\" المجدول في {scheduledDate}"
+        }
+      },
+      // Messages toast communs
+      common: {
+        success: "نجح",
+        error: "خطأ",
+        warning: "تحذير",
+        info: "معلومات",
+        loading: "جاري التحميل...",
+        saved: "تم الحفظ بنجاح",
+        deleted: "تم الحذف بنجاح",
+        updated: "تم التحديث بنجاح",
+        created: "تم الإنشاء بنجاح",
+        cancelled: "تم الإلغاء",
+        confirm: "هل أنت متأكد؟",
+        confirmDelete: "هل أنت متأكد من أنك تريد حذف هذا العنصر؟",
+        cannotUndo: "لا يمكن التراجع عن هذا الإجراء.",
+        networkError: "خطأ في الشبكة",
+        checkConnection: "يرجى التحقق من اتصالك بالإنترنت",
+        unknownError: "حدث خطأ غير معروف",
+        tryAgain: "يرجى المحاولة مرة أخرى",
+        missingFields: "يرجى ملء جميع الحقول المطلوبة",
+        invalidEmail: "يرجى إدخال عنوان بريد إلكتروني صحيح",
+        passwordTooShort: "يجب أن تحتوي كلمة المرور على 6 أحرف على الأقل",
+        passwordsDontMatch: "كلمات المرور غير متطابقة",
+        fileUploadError: "خطأ في رفع الملف",
+        fileTooLarge: "الملف كبير جداً",
+        invalidFileType: "نوع الملف غير صحيح",
+        taskSubmitted: "تم إرسال المهمة بنجاح",
+        taskAssigned: "تم تعيين المهمة بنجاح",
+        taskUpdated: "تم تحديث التعيين بنجاح",
+        meetingRequested: "تم إرسال طلب الاجتماع بنجاح",
+        cannotSendMeetingRequest: "لا يمكن إرسال طلب اجتماعك",
+        missingTitle: "العنوان مفقود",
+        enterMeetingTitle: "يرجى إدخال عنوان لطلب الاجتماع",
+        missingDate: "التاريخ مفقود",
+        selectMeetingDate: "يرجى اختيار تاريخ للاجتماع",
+        missingProject: "المشروع مفقود",
+        selectProjectForMeeting: "يرجى اختيار مشروع لهذا الاجتماع",
+        requestSent: "تم إرسال الطلب",
+        cannotSubmitTask: "لا يمكن إرسال المهمة",
+        companyCreated: "تم إنشاء الشركة \"{name}\" بنجاح",
+        companyUpdated: "تم تحديث الشركة \"{name}\" بنجاح",
+        cannotCreateCompany: "لا يمكن إنشاء الشركة. تحقق من المعلومات وحاول مرة أخرى.",
+        cannotUpdateCompany: "لا يمكن تعديل الشركة. تحقق من المعلومات وحاول مرة أخرى.",
+        passwordUpdateError: "لا يمكن تحديث كلمة المرور",
+        notificationPrefsError: "لا يمكن تحديث تفضيلات الإشعارات"
       }
     },
     messages: {

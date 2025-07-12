@@ -130,15 +130,22 @@ const App = () => {
 
   // Composant pour les routes accessibles aux intervenants
   const IntervenantRoute = ({ children }: { children: React.ReactNode }) => {
-    const hasAccess = user?.user_metadata?.role === 'intervenant' || 
-                      localUserRole === 'intervenant';
+    const hasAccess = user?.user_metadata?.role === 'intervenant' || user?.user_metadata?.role === 'maitre_ouvrage' || 
+                      localUserRole === 'intervenant' || localUserRole === 'maitre_ouvrage';
+    return hasAccess ? <>{children}</> : <Navigate to="/dashboard" replace />;
+  };
+  
+  // Composant pour les routes accessibles aux maîtres d'ouvrage
+  const MaitreOuvrageRoute = ({ children }: { children: React.ReactNode }) => {
+    const hasAccess = user?.user_metadata?.role === 'maitre_ouvrage' || 
+                      localUserRole === 'maitre_ouvrage';
     return hasAccess ? <>{children}</> : <Navigate to="/dashboard" replace />;
   };
   
   // Composant pour les routes accessibles aux admins et intervenants
   const SharedRoute = ({ children }: { children: React.ReactNode }) => {
-    const hasAccess = user?.user_metadata?.role === 'admin' || user?.user_metadata?.role === 'intervenant' || 
-                      localUserRole === 'admin' || localUserRole === 'intervenant' ||
+    const hasAccess = user?.user_metadata?.role === 'admin' || user?.user_metadata?.role === 'intervenant' || user?.user_metadata?.role === 'maitre_ouvrage' || 
+                      localUserRole === 'admin' || localUserRole === 'intervenant' || localUserRole === 'maitre_ouvrage' ||
                       user?.email === 'admin@aphs.com';
     return hasAccess ? <>{children}</> : <Navigate to="/dashboard" replace />;
   };
@@ -238,6 +245,18 @@ const App = () => {
                   <IntervenantRoute>
                     <IntervenantProjectDetailsLangSwitch />
                   </IntervenantRoute>
+                } />
+                
+                {/* Routes spécifiques aux maîtres d'ouvrage */}
+                <Route path="maitre-ouvrage/projets" element={
+                  <MaitreOuvrageRoute>
+                    <IntervenantProjects />
+                  </MaitreOuvrageRoute>
+                } />
+                <Route path="maitre-ouvrage/projets/:id" element={
+                  <MaitreOuvrageRoute>
+                    <IntervenantProjectDetailsLangSwitch />
+                  </MaitreOuvrageRoute>
                 } />
                 
                 <Route path="intervenants" element={

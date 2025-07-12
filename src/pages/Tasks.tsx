@@ -88,7 +88,7 @@ const Tasks: React.FC = () => {
   
   // Check user role
   const userRole = user?.user_metadata?.role || '';
-  const isIntervenant = userRole === 'intervenant';
+  const isIntervenant = userRole === 'intervenant' || userRole === 'maitre_ouvrage';
   
   // Redirect admins to another page
   if (user && !isIntervenant) {
