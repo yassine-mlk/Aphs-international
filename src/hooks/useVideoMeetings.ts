@@ -48,6 +48,7 @@ export function useVideoMeetings() {
   const { supabase } = useSupabase();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { notifyMeetingStarted } = useNotificationTriggers();
   const [loading, setLoading] = useState(false);
   const [meetings, setMeetings] = useState<VideoMeeting[]>([]);
   const [loadingMeetings, setLoadingMeetings] = useState(false);
@@ -430,10 +431,44 @@ export function useVideoMeetings() {
       }
       
       // Marquer la réunion comme active
-      await supabase
+      const { data: updatedMeeting } = await supabase
         .from('video_meetings')
         .update({ status: 'active' })
-        .eq('id', meetingId);
+        .eq('id', meetingId)
+        .select()
+        .single();
+      
+      // Notifier les autres participants que la réunion a démarré
+      if (updatedMeeting) {
+        try {
+          // Récupérer les participants de la réunion (excepté l'utilisateur actuel)
+          const { data: participants } = await supabase
+            .from('video_meeting_participants')
+            .select('user_id')
+            .eq('meeting_id', meetingId)
+            .neq('user_id', user.id);
+          
+          if (participants && participants.length > 0) {
+            // Récupérer le nom de l'organisateur
+            const organizerName = user.user_metadata?.first_name && user.user_metadata?.last_name 
+              ? `${user.user_metadata.first_name} ${user.user_metadata.last_name}`
+              : user.email || 'Un organisateur';
+            
+            // Envoyer la notification aux participants
+            const participantIds = participants.map(p => p.user_id);
+            await notifyMeetingStarted(
+              participantIds,
+              meetingData.title,
+              organizerName,
+              meetingId,
+              meetingData.room_id
+            );
+          }
+        } catch (notificationError) {
+          console.error('Erreur lors de l\'envoi des notifications de démarrage:', notificationError);
+          // Ne pas faire échouer la connexion si les notifications échouent
+        }
+      }
       
       toast({
         title: 'Réunion rejointe',
@@ -455,7 +490,7 @@ export function useVideoMeetings() {
     } finally {
       setLoading(false);
     }
-  }, [user, supabase, toast]);
+  }, [user, supabase, toast, notifyMeetingStarted]);
 
   // Quitter une réunion (sans la terminer - la réunion reste active)
   const leaveMeeting = useCallback(async (meetingId: string): Promise<boolean> => {

@@ -232,6 +232,10 @@ export const translations = {
         meeting_invitation: {
           title: "Meeting invitation",
           message: "{organizerName} invites you to the meeting \"{meetingTitle}\" scheduled for {scheduledDate}"
+        },
+        meeting_started: {
+          title: "Meeting started",
+          message: "The meeting \"{meetingTitle}\" has started! Join now."
         }
       },
       // Messages toast communs
@@ -289,6 +293,15 @@ export const translations = {
         all: "All",
         direct: "Direct",
         groups: "Groups"
+      },
+      admin: {
+        deleteConversation: "Delete Conversation",
+        deleteConfirmTitle: "Delete Conversation",
+        deleteConfirmMessage: "Are you sure you want to delete this conversation? This action cannot be undone and will permanently delete all messages.",
+        deleteSuccess: "Conversation deleted successfully",
+        deleteError: "Error deleting conversation",
+        cannotDeleteWorkgroup: "Cannot delete workgroup conversations",
+        accessDenied: "Access denied: Admin permissions required"
       },
       noConversations: "No conversations found",
       tryOtherSearch: "Try with a different search",
@@ -600,7 +613,8 @@ export const translations = {
       subtitle: "Manage your assigned tasks",
       search: {
         placeholder: "Search for a task...",
-        noResults: "No tasks found"
+        noResults: "No tasks found",
+        label: "Search"
       },
       filters: {
         all: "All",
@@ -612,14 +626,18 @@ export const translations = {
         phase: "Phase",
         allPhases: "All phases",
         conception: "Conception",
-        realization: "Realization"
+        realization: "Realization",
+        statusLabel: "Status",
+        clearFilters: "Clear filters",
+        clear: "Clear"
       },
       status: {
         assigned: "Assigned",
         inProgress: "In Progress",
         submitted: "Submitted",
         validated: "Validated",
-        rejected: "Rejected"
+        rejected: "Rejected",
+        unknown: "Unknown"
       },
       card: {
         deadline: "Deadline",
@@ -629,13 +647,30 @@ export const translations = {
         project: "Project",
         viewDetails: "View details",
         submit: "Submit",
-        download: "Download"
+        download: "Download",
+        task: "Task",
+        taskList: "Task list",
+        taskListDesc: "Click on a task to view details.",
+        type: "Type"
       },
       empty: {
         noTasks: "No assigned tasks",
         noTasksDesc: "You have no assigned tasks at the moment",
         noResults: "No tasks found",
         noResultsDesc: "No tasks match your search criteria"
+      },
+      dateFormat: {
+        invalidDate: "Invalid date",
+        today: "Today",
+        daysRemaining: "days remaining",
+        daysOverdue: "days overdue",
+        overdue: "Overdue by"
+      },
+      messages: {
+        warning: "Warning",
+        error: "Error",
+        errorLoadingTasks: "Unable to load your tasks",
+        errorLoadingProjects: "Unable to load projects"
       },
       details: {
         title: "Task details",
@@ -685,7 +720,63 @@ export const translations = {
           rejected: "Rejected"
         },
         actions: "Actions",
-        close: "Close"
+        close: "Close",
+        taskNotFound: "Task not found",
+        taskNotFoundMessage: "The task you are looking for does not exist or has been deleted.",
+        backToTasks: "Back to tasks",
+        assignedSpecialist: "Assigned specialist",
+        validationDeadlineShort: "Validation deadline",
+        submissionDeadline: "Submission deadline",
+        expectedFileFormat: "Expected file format",
+        instructions: "Instructions",
+        submittedFile: "Submitted file",
+        downloadFile: "Download",
+        infoSheet: "Info sheet",
+        referenceDocument: "Reference document",
+        clickToExpand: "Click to expand",
+        clickToCollapse: "Click to collapse",
+        detailedInstructions: "Click to view detailed instructions",
+        history: "History",
+        taskCreated: "Task created",
+        noValidators: "No validators defined",
+        unassigned: "Unassigned",
+        overdue: "Overdue",
+        remainingDays: "days remaining",
+        start: "Start",
+        submit: "Submit",
+        validate: "Validate",
+        reject: "Reject",
+        finalize: "Finalize",
+        pendingValidation: "Pending validation - waiting for validators to review",
+        pendingSubmission: "Pending submission - task has been submitted but not yet validated",
+        fileTypes: {
+          pdf: "PDF Document (.pdf)",
+          doc: "Word Document (.doc, .docx)",
+          xls: "Excel Spreadsheet (.xls, .xlsx)",
+          ppt: "PowerPoint Presentation (.ppt, .pptx)",
+          txt: "Text File (.txt)",
+          jpg: "JPEG Image (.jpg, .jpeg)",
+          png: "PNG Image (.png)",
+          zip: "ZIP Archive (.zip)",
+          dwg: "AutoCAD Drawing (.dwg)",
+          other: "Other format"
+        },
+                 toasts: {
+           success: "Success",
+           error: "Error",
+           taskStarted: "Task started successfully",
+           taskSubmitted: "Task submitted successfully",
+           taskValidated: "Task validated successfully",
+           taskRejected: "Task rejected",
+           taskFinalized: "Task finalized and permanently closed",
+           cannotLoadDetails: "Unable to load task details",
+           cannotStartTask: "Unable to start task",
+           cannotSubmitTask: "Unable to submit task",
+           cannotValidateTask: "Unable to validate task",
+           cannotRejectTask: "Unable to reject task",
+           cannotFinalizeTask: "Unable to finalize task"
+         },
+         taskFinalized: "This task has been finalized and permanently closed by administration"
       }
     }
   },
@@ -1020,6 +1111,10 @@ export const translations = {
         meeting_invitation: {
           title: "Invitation à une réunion",
           message: "{organizerName} vous invite à la réunion \"{meetingTitle}\" prévue le {scheduledDate}"
+        },
+        meeting_started: {
+          title: "Réunion démarrée",
+          message: "La réunion \"{meetingTitle}\" a démarré ! Rejoignez-la maintenant."
         }
       },
       // Messages toast communs
@@ -1077,6 +1172,15 @@ export const translations = {
         all: "Tous",
         direct: "Directs",
         groups: "Groupes"
+      },
+      admin: {
+        deleteConversation: "Supprimer la conversation",
+        deleteConfirmTitle: "Supprimer la conversation",
+        deleteConfirmMessage: "Êtes-vous sûr de vouloir supprimer cette conversation ? Cette action ne peut pas être annulée et supprimera définitivement tous les messages.",
+        deleteSuccess: "Conversation supprimée avec succès",
+        deleteError: "Erreur lors de la suppression de la conversation",
+        cannotDeleteWorkgroup: "Impossible de supprimer les conversations de workgroup",
+        accessDenied: "Accès refusé : Permissions administrateur requises"
       },
       noConversations: "Aucune conversation trouvée",
       tryOtherSearch: "Essayez avec une autre recherche",
@@ -1288,7 +1392,8 @@ export const translations = {
       subtitle: "Gérez vos tâches assignées",
       search: {
         placeholder: "Rechercher une tâche...",
-        noResults: "Aucune tâche trouvée"
+        noResults: "Aucune tâche trouvée",
+        label: "Recherche"
       },
       filters: {
         all: "Toutes",
@@ -1300,14 +1405,18 @@ export const translations = {
         phase: "Phase",
         allPhases: "Toutes les phases",
         conception: "Conception",
-        realization: "Réalisation"
+        realization: "Réalisation",
+        statusLabel: "Statut",
+        clearFilters: "Effacer les filtres",
+        clear: "Effacer"
       },
       status: {
         assigned: "Assignée",
         inProgress: "En cours",
         submitted: "Soumise",
         validated: "Validée",
-        rejected: "Rejetée"
+        rejected: "Rejetée",
+        unknown: "Inconnue"
       },
       card: {
         deadline: "Échéance",
@@ -1317,13 +1426,30 @@ export const translations = {
         project: "Projet",
         viewDetails: "Voir détails",
         submit: "Soumettre",
-        download: "Télécharger"
+        download: "Télécharger",
+        task: "Tâche",
+        taskList: "Liste des tâches",
+        taskListDesc: "Cliquez sur une tâche pour voir les détails.",
+        type: "Type"
       },
       empty: {
         noTasks: "Aucune tâche assignée",
         noTasksDesc: "Vous n'avez aucune tâche assignée pour le moment",
         noResults: "Aucune tâche trouvée",
         noResultsDesc: "Aucune tâche ne correspond à vos critères de recherche"
+      },
+      dateFormat: {
+        invalidDate: "Date invalide",
+        today: "Aujourd'hui",
+        daysRemaining: "jours restants",
+        daysOverdue: "jours de retard",
+        overdue: "Dépassée de"
+      },
+      messages: {
+        warning: "Avertissement",
+        error: "Erreur",
+        errorLoadingTasks: "Impossible de charger vos tâches",
+        errorLoadingProjects: "Impossible de charger les projets"
       },
       details: {
         title: "Détails de la tâche",
@@ -1345,7 +1471,63 @@ export const translations = {
         file: "Fichier",
         noFile: "Aucun fichier",
         actions: "Actions",
-        close: "Fermer"
+        close: "Fermer",
+        taskNotFound: "Tâche non trouvée",
+        taskNotFoundMessage: "La tâche que vous recherchez n'existe pas ou a été supprimée.",
+        backToTasks: "Retour aux tâches",
+        assignedSpecialist: "Intervenant assigné",
+        validationDeadlineShort: "Date limite de validation",
+        submissionDeadline: "Date limite de livraison",
+        expectedFileFormat: "Format de fichier attendu",
+        instructions: "Instructions",
+        submittedFile: "Fichier soumis",
+        downloadFile: "Télécharger",
+        infoSheet: "Fiche informative",
+        referenceDocument: "Document de référence",
+        clickToExpand: "Cliquez pour développer",
+        clickToCollapse: "Cliquez pour réduire",
+        detailedInstructions: "Cliquez pour afficher les instructions détaillées",
+        history: "Historique",
+        taskCreated: "Tâche créée",
+        noValidators: "Aucun validateur défini",
+        unassigned: "Non assigné",
+        overdue: "Délai dépassé",
+        remainingDays: "jours restants",
+        start: "Démarrer",
+        submit: "Soumettre",
+        validate: "Valider",
+        reject: "Rejeter",
+        finalize: "Finaliser",
+        pendingValidation: "En attente de validation - en attente de révision par les validateurs",
+        pendingSubmission: "En attente de soumission - tâche soumise mais pas encore validée",
+        fileTypes: {
+          pdf: "Document PDF (.pdf)",
+          doc: "Document Word (.doc, .docx)",
+          xls: "Feuille de calcul Excel (.xls, .xlsx)",
+          ppt: "Présentation PowerPoint (.ppt, .pptx)",
+          txt: "Fichier texte (.txt)",
+          jpg: "Image JPEG (.jpg, .jpeg)",
+          png: "Image PNG (.png)",
+          zip: "Archive ZIP (.zip)",
+          dwg: "Dessin AutoCAD (.dwg)",
+          other: "Autre format"
+        },
+                 toasts: {
+           success: "Succès",
+           error: "Erreur",
+           taskStarted: "La tâche a été démarrée avec succès",
+           taskSubmitted: "La tâche a été soumise avec succès",
+           taskValidated: "La tâche a été validée avec succès",
+           taskRejected: "La tâche a été rejetée",
+           taskFinalized: "La tâche a été finalisée et clôturée définitivement",
+           cannotLoadDetails: "Impossible de charger les détails de la tâche",
+           cannotStartTask: "Impossible de démarrer la tâche",
+           cannotSubmitTask: "Impossible de soumettre la tâche",
+           cannotValidateTask: "Impossible de valider la tâche",
+           cannotRejectTask: "Impossible de rejeter la tâche",
+           cannotFinalizeTask: "Impossible de finaliser la tâche"
+         },
+         taskFinalized: "Cette tâche a été finalisée et clôturée définitivement par l'administration"
       }
     }
   },
@@ -1580,6 +1762,10 @@ export const translations = {
         meeting_invitation: {
           title: "Invitación a reunión",
           message: "{organizerName} lo invita a la reunión \"{meetingTitle}\" programada para {scheduledDate}"
+        },
+        meeting_started: {
+          title: "Reunión iniciada",
+          message: "¡La reunión \"{meetingTitle}\" ha comenzado! Únase ahora."
         }
       },
       // Messages toast communs
@@ -1637,6 +1823,15 @@ export const translations = {
         all: "Todos",
         direct: "Directos",
         groups: "Grupos"
+      },
+      admin: {
+        deleteConversation: "Eliminar Conversación",
+        deleteConfirmTitle: "Eliminar Conversación",
+        deleteConfirmMessage: "¿Está seguro de que desea eliminar esta conversación? Esta acción no se puede deshacer y eliminará permanentemente todos los mensajes.",
+        deleteSuccess: "Conversación eliminada exitosamente",
+        deleteError: "Error al eliminar la conversación",
+        cannotDeleteWorkgroup: "No se pueden eliminar las conversaciones de grupos de trabajo",
+        accessDenied: "Acceso denegado: Se requieren permisos de administrador"
       },
       noConversations: "No se encontraron conversaciones",
       tryOtherSearch: "Intente con otra búsqueda",
@@ -1948,7 +2143,8 @@ export const translations = {
       subtitle: "Gestiona tus tareas asignadas",
       search: {
         placeholder: "Buscar una tarea...",
-        noResults: "No se encontraron tareas"
+        noResults: "No se encontraron tareas",
+        label: "Buscar"
       },
       filters: {
         all: "Todas",
@@ -1960,14 +2156,18 @@ export const translations = {
         phase: "Fase",
         allPhases: "Todas las fases",
         conception: "Concepción",
-        realization: "Réalisation"
+        realization: "Realización",
+        statusLabel: "Estado",
+        clearFilters: "Limpiar filtros",
+        clear: "Limpiar"
       },
       status: {
         assigned: "Asignada",
         inProgress: "En Progreso",
-        submitted: "Soumise",
+        submitted: "Enviada",
         validated: "Validada",
-        rejected: "Rejetée"
+        rejected: "Rechazada",
+        unknown: "Desconocida"
       },
       card: {
         deadline: "Plazo",
@@ -1977,13 +2177,30 @@ export const translations = {
         project: "Proyecto",
         viewDetails: "Ver detalles",
         submit: "Enviar",
-        download: "Descargar"
+        download: "Descargar",
+        task: "Tarea",
+        taskList: "Lista de tareas",
+        taskListDesc: "Haz clic en una tarea para ver los detalles.",
+        type: "Tipo"
       },
       empty: {
         noTasks: "No hay tareas asignadas",
         noTasksDesc: "No tienes tareas asignadas en este momento",
         noResults: "No se encontraron tareas",
         noResultsDesc: "Ninguna tarea coincide con tus criterios de búsqueda"
+      },
+      dateFormat: {
+        invalidDate: "Fecha inválida",
+        today: "Hoy",
+        daysRemaining: "días restantes",
+        daysOverdue: "días de retraso",
+        overdue: "Vencida por"
+      },
+      messages: {
+        warning: "Advertencia",
+        error: "Error",
+        errorLoadingTasks: "No se pueden cargar tus tareas",
+        errorLoadingProjects: "No se pueden cargar los proyectos"
       },
       details: {
         title: "Detalles de la tarea",
@@ -1999,13 +2216,69 @@ export const translations = {
         status: "Estado",
         comment: "Comentario",
         validationComment: "Comentario de validación",
-        submittedAt: "Soumis le",
-        validatedAt: "Validé le",
-        validatedBy: "Validé par",
+        submittedAt: "Enviada el",
+        validatedAt: "Validada el",
+        validatedBy: "Validada por",
         file: "Archivo",
         noFile: "No hay archivo",
         actions: "Acciones",
-        close: "Cerrar"
+        close: "Cerrar",
+        taskNotFound: "Tarea no encontrada",
+        taskNotFoundMessage: "La tarea que busca no existe o ha sido eliminada.",
+        backToTasks: "Volver a tareas",
+        assignedSpecialist: "Especialista asignado",
+        validationDeadlineShort: "Fecha límite de validación",
+        submissionDeadline: "Fecha límite de entrega",
+        expectedFileFormat: "Formato de archivo esperado",
+        instructions: "Instrucciones",
+        submittedFile: "Archivo enviado",
+        downloadFile: "Descargar",
+        infoSheet: "Hoja informativa",
+        referenceDocument: "Documento de referencia",
+        clickToExpand: "Haga clic para expandir",
+        clickToCollapse: "Haga clic para contraer",
+        detailedInstructions: "Haga clic para ver instrucciones detalladas",
+        history: "Historial",
+        taskCreated: "Tarea creada",
+        noValidators: "No hay validadores definidos",
+        unassigned: "No asignado",
+        overdue: "Vencido",
+        remainingDays: "días restantes",
+        start: "Iniciar",
+        submit: "Enviar",
+        validate: "Validar",
+        reject: "Rechazar",
+        finalize: "Finalizar",
+        pendingValidation: "Pendiente de validación - esperando revisión de validadores",
+        pendingSubmission: "Pendiente de envío - tarea enviada pero aún no validada",
+        fileTypes: {
+          pdf: "Documento PDF (.pdf)",
+          doc: "Documento Word (.doc, .docx)",
+          xls: "Hoja de cálculo Excel (.xls, .xlsx)",
+          ppt: "Presentación PowerPoint (.ppt, .pptx)",
+          txt: "Archivo de texto (.txt)",
+          jpg: "Imagen JPEG (.jpg, .jpeg)",
+          png: "Imagen PNG (.png)",
+          zip: "Archivo ZIP (.zip)",
+          dwg: "Dibujo AutoCAD (.dwg)",
+          other: "Otro formato"
+        },
+                 toasts: {
+           success: "Éxito",
+           error: "Error",
+           taskStarted: "Tarea iniciada con éxito",
+           taskSubmitted: "Tarea enviada con éxito",
+           taskValidated: "Tarea validada con éxito",
+           taskRejected: "Tarea rechazada",
+           taskFinalized: "Tarea finalizada y cerrada permanentemente",
+           cannotLoadDetails: "No se pueden cargar los detalles de la tarea",
+           cannotStartTask: "No se puede iniciar la tarea",
+           cannotSubmitTask: "No se puede enviar la tarea",
+           cannotValidateTask: "No se puede validar la tarea",
+           cannotRejectTask: "No se puede rechazar la tarea",
+           cannotFinalizeTask: "No se puede finalizar la tarea"
+         },
+         taskFinalized: "Esta tarea ha sido finalizada y cerrada permanentemente por la administración"
       }
     }
   },
@@ -2240,6 +2513,10 @@ export const translations = {
         meeting_invitation: {
           title: "دعوة لاجتماع",
           message: "{organizerName} يدعوك للاجتماع \"{meetingTitle}\" المجدول في {scheduledDate}"
+        },
+        meeting_started: {
+          title: "بدأ الاجتماع",
+          message: "بدأ الاجتماع \"{meetingTitle}\" ! انضم الآن."
         }
       },
       // Messages toast communs
@@ -2297,6 +2574,15 @@ export const translations = {
         all: "الكل",
         direct: "مباشر",
         groups: "مجموعات"
+      },
+      admin: {
+        deleteConversation: "حذف المحادثة",
+        deleteConfirmTitle: "حذف المحادثة",
+        deleteConfirmMessage: "هل أنت متأكد من أنك تريد حذف هذه المحادثة؟ هذا الإجراء لا يمكن التراجع عنه وسيحذف جميع الرسائل نهائياً.",
+        deleteSuccess: "تم حذف المحادثة بنجاح",
+        deleteError: "خطأ في حذف المحادثة",
+        cannotDeleteWorkgroup: "لا يمكن حذف محادثات مجموعات العمل",
+        accessDenied: "الوصول مرفوض: مطلوب صلاحيات المدير"
       },
       noConversations: "لم يتم العثور على محادثات",
       tryOtherSearch: "جرب بحثاً آخر",
@@ -2608,7 +2894,8 @@ export const translations = {
       subtitle: "إدارة المهام المخصصة لك",
       search: {
         placeholder: "البحث عن مهمة...",
-        noResults: "لم يتم العثور على مهام"
+        noResults: "لم يتم العثور على مهام",
+        label: "البحث"
       },
       filters: {
         all: "الكل",
@@ -2620,14 +2907,18 @@ export const translations = {
         phase: "المرحلة",
         allPhases: "جميع المراحل",
         conception: "التصميم",
-        realization: "التنفيذ"
+        realization: "التنفيذ",
+        statusLabel: "الحالة",
+        clearFilters: "مسح الفلاتر",
+        clear: "مسح"
       },
       status: {
         assigned: "مخصصة",
         inProgress: "قيد التنفيذ",
         submitted: "مرسلة",
         validated: "معتمدة",
-        rejected: "مرفوضة"
+        rejected: "مرفوضة",
+        unknown: "غير معروف"
       },
       card: {
         deadline: "الموعد النهائي",
@@ -2637,13 +2928,30 @@ export const translations = {
         project: "المشروع",
         viewDetails: "عرض التفاصيل",
         submit: "إرسال",
-        download: "تحميل"
+        download: "تحميل",
+        task: "المهمة",
+        taskList: "قائمة المهام",
+        taskListDesc: "انقر على مهمة لرؤية التفاصيل.",
+        type: "النوع"
       },
       empty: {
         noTasks: "لا توجد مهام مخصصة",
         noTasksDesc: "ليس لديك مهام مخصصة في الوقت الحالي",
         noResults: "لم يتم العثور على مهام",
         noResultsDesc: "لا توجد مهام تطابق معايير البحث الخاصة بك"
+      },
+      dateFormat: {
+        invalidDate: "تاريخ غير صحيح",
+        today: "اليوم",
+        daysRemaining: "يوم متبقي",
+        daysOverdue: "يوم تأخير",
+        overdue: "متأخر بـ"
+      },
+      messages: {
+        warning: "تحذير",
+        error: "خطأ",
+        errorLoadingTasks: "تعذر تحميل مهامك",
+        errorLoadingProjects: "تعذر تحميل المشاريع"
       },
       details: {
         title: "تفاصيل المهمة",
@@ -2665,7 +2973,63 @@ export const translations = {
         file: "الملف",
         noFile: "لا يوجد ملف",
         actions: "الإجراءات",
-        close: "إغلاق"
+        close: "إغلاق",
+        taskNotFound: "المهمة غير موجودة",
+        taskNotFoundMessage: "المهمة التي تبحث عنها غير موجودة أو تم حذفها.",
+        backToTasks: "العودة للمهام",
+        assignedSpecialist: "المتخصص المكلف",
+        validationDeadlineShort: "موعد التحقق النهائي",
+        submissionDeadline: "موعد التسليم النهائي",
+        expectedFileFormat: "تنسيق الملف المتوقع",
+        instructions: "التعليمات",
+        submittedFile: "الملف المرسل",
+        downloadFile: "تحميل",
+        infoSheet: "ورقة معلومات",
+        referenceDocument: "وثيقة مرجعية",
+        clickToExpand: "اضغط للتوسيع",
+        clickToCollapse: "اضغط للإطباق",
+        detailedInstructions: "اضغط لعرض التعليمات التفصيلية",
+        history: "التاريخ",
+        taskCreated: "تم إنشاء المهمة",
+        noValidators: "لا يوجد مدققين محددين",
+        unassigned: "غير مخصص",
+        overdue: "متأخر",
+        remainingDays: "يوم متبقي",
+        start: "بدء",
+        submit: "إرسال",
+        validate: "اعتماد",
+        reject: "رفض",
+        finalize: "إنهاء",
+        pendingValidation: "في انتظار التحقق - في انتظار مراجعة المدققين",
+        pendingSubmission: "في انتظار الإرسال - تم إرسال المهمة لكن لم يتم اعتمادها بعد",
+        fileTypes: {
+          pdf: "وثيقة PDF (.pdf)",
+          doc: "وثيقة Word (.doc, .docx)",
+          xls: "جدول بيانات Excel (.xls, .xlsx)",
+          ppt: "عرض PowerPoint (.ppt, .pptx)",
+          txt: "ملف نصي (.txt)",
+          jpg: "صورة JPEG (.jpg, .jpeg)",
+          png: "صورة PNG (.png)",
+          zip: "أرشيف ZIP (.zip)",
+          dwg: "رسم AutoCAD (.dwg)",
+          other: "تنسيق آخر"
+        },
+                 toasts: {
+           success: "نجح",
+           error: "خطأ",
+           taskStarted: "تم بدء المهمة بنجاح",
+           taskSubmitted: "تم إرسال المهمة بنجاح",
+           taskValidated: "تم اعتماد المهمة بنجاح",
+           taskRejected: "تم رفض المهمة",
+           taskFinalized: "تم إنهاء المهمة وإغلاقها نهائياً",
+           cannotLoadDetails: "تعذر تحميل تفاصيل المهمة",
+           cannotStartTask: "تعذر بدء المهمة",
+           cannotSubmitTask: "تعذر إرسال المهمة",
+           cannotValidateTask: "تعذر اعتماد المهمة",
+           cannotRejectTask: "تعذر رفض المهمة",
+           cannotFinalizeTask: "تعذر إنهاء المهمة"
+         },
+         taskFinalized: "تم إنهاء هذه المهمة وإغلاقها نهائياً من قبل الإدارة"
       }
     }
   }

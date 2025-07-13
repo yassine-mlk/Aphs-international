@@ -2227,8 +2227,8 @@ const ProjectDetails: React.FC = () => {
       
       {/* Boîte de dialogue pour l'assignation de tâche */}
       <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-[700px] max-h-[85vh] flex flex-col">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle>Assigner une tâche</DialogTitle>
             <DialogDescription>
               {selectedTask && (
@@ -2241,7 +2241,8 @@ const ProjectDetails: React.FC = () => {
             </DialogDescription>
           </DialogHeader>
           
-          <div className="grid gap-4 py-4">
+          <div className="flex-1 overflow-y-auto px-1">
+            <div className="grid gap-4 py-4">
             {/* Search field */}
             <div className="grid grid-cols-1 gap-2">
               <Label htmlFor="search">Search specialist</Label>
@@ -2337,14 +2338,14 @@ const ProjectDetails: React.FC = () => {
             
             <div className="grid grid-cols-1 gap-2">
               <Label htmlFor="validators">Validators<span className="text-red-500">*</span></Label>
-              <div className="border rounded-md p-3 max-h-60 overflow-y-auto">
+              <div className="border rounded-md p-2 max-h-48 overflow-y-auto">
                 {filteredIntervenantsForAssignment.length > 0 ? (
                   filteredIntervenantsForAssignment.map(intervenant => (
-                    <div key={intervenant.id} className="flex items-center my-1 p-2 hover:bg-gray-50 rounded transition-colors">
+                    <div key={intervenant.id} className="flex items-center my-1 p-1 hover:bg-gray-50 rounded transition-colors">
                       <input
                         type="checkbox"
                         id={`validator-${intervenant.id}`}
-                        className="mr-3 h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                        className="mr-2 h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
                         checked={assignmentForm.validators.includes(intervenant.id)}
                         onChange={(e) => {
                           if (e.target.checked) {
@@ -2368,12 +2369,10 @@ const ProjectDetails: React.FC = () => {
                         <div className="text-xs text-gray-500">
                           {intervenant.email}
                           {intervenant.specialty && ` • ${intervenant.specialty}`}
+                          {intervenant.id === assignmentForm.assigned_to && (
+                            <span className="text-gray-400 italic"> (already assigned)</span>
+                          )}
                         </div>
-                        {intervenant.id === assignmentForm.assigned_to && (
-                          <div className="text-xs text-gray-400 italic">
-                            (already assigned as responsible)
-                          </div>
-                        )}
                       </label>
                     </div>
                   ))
@@ -2411,12 +2410,13 @@ const ProjectDetails: React.FC = () => {
                 value={assignmentForm.comment}
                 onChange={(e) => setAssignmentForm({...assignmentForm, comment: e.target.value})}
                 placeholder="Instructions ou informations supplémentaires"
-                rows={3}
+                rows={2}
               />
+            </div>
             </div>
           </div>
           
-          <DialogFooter>
+          <DialogFooter className="flex-shrink-0">
             <Button variant="outline" onClick={() => setIsAssignDialogOpen(false)}>Annuler</Button>
             <Button onClick={handleSubmitAssignment} className="bg-aphs-teal hover:bg-aphs-navy">
               <FileUp className="mr-2 h-4 w-4" />

@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { translations } from '@/lib/translations';
 
 export interface Notification {
   id: string;
@@ -13,6 +15,11 @@ export interface Notification {
   read: boolean;
   created_at: string;
   updated_at: string;
+  // Nouveaux champs pour les traductions
+  title_key?: string;
+  message_key?: string;
+  title_params?: Record<string, any>;
+  message_params?: Record<string, any>;
 }
 
 export type NotificationType =
@@ -31,7 +38,32 @@ export type NotificationType =
   | 'meeting_accepted'
   | 'meeting_declined'
   | 'meeting_request_approved'
-  | 'meeting_request_rejected';
+  | 'meeting_request_rejected'
+  | 'meeting_started';
+
+// Fonction utilitaire pour formater les messages avec paramètres
+const formatMessage = (template: string, params: Record<string, any> = {}): string => {
+  if (!template) return '';
+  
+  return template.replace(/\{(\w+)(?:,\s*select,\s*([^}]+))?\}/g, (match, key, selectClause) => {
+    const value = params[key];
+    
+    if (selectClause) {
+      // Gérer les conditions select (ex: {projectName, select, undefined {} other {text}})
+      const selectOptions = selectClause.split(' other ');
+      if (selectOptions.length === 2) {
+        const [undefinedOption, otherOption] = selectOptions;
+        if (value === undefined || value === null || value === '') {
+          return undefinedOption.replace(/[{}]/g, '');
+        } else {
+          return otherOption.replace(/[{}]/g, '').replace(/\{(\w+)\}/g, (m, k) => params[k] || '');
+        }
+      }
+    }
+    
+    return value !== undefined ? String(value) : '';
+  });
+};
 
 export function useNotifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -42,9 +74,35 @@ export function useNotifications() {
   
   const { toast } = useToast();
   const { user } = useAuth();
+  const { language } = useLanguage();
   const channelRef = useRef<any>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
   const lastFetchRef = useRef<number>(0);
+
+  // Obtenir les traductions pour la langue actuelle
+  const getTranslations = useCallback(() => {
+    return translations[language as keyof typeof translations];
+  }, [language]);
+
+  // Traduire une notification selon la langue actuelle
+  const translateNotification = useCallback((notification: Notification): Notification => {
+    const t = getTranslations();
+    
+    // Si la notification a des clés de traduction, les utiliser
+    if (notification.title_key && notification.message_key) {
+      const titleTemplate = t.notifications.types[notification.type]?.title || notification.title;
+      const messageTemplate = t.notifications.types[notification.type]?.message || notification.message;
+      
+      return {
+        ...notification,
+        title: formatMessage(titleTemplate, notification.title_params || {}),
+        message: formatMessage(messageTemplate, notification.message_params || {})
+      };
+    }
+    
+    // Sinon, utiliser les textes existants
+    return notification;
+  }, [getTranslations]);
 
   // Jouer un son de notification (simplifié)
   const playNotificationSound = useCallback(() => {
@@ -92,14 +150,17 @@ export function useNotifications() {
 
       if (error) throw error;
 
-      setNotifications(data || []);
+      // Traduire les notifications
+      const translatedNotifications = (data || []).map(notification => translateNotification(notification));
+
+      setNotifications(translatedNotifications);
       setUnreadCount(data?.filter(n => !n.read).length || 0);
     } catch (error) {
       console.error('Erreur lors de la récupération des notifications:', error);
     } finally {
       setLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id, translateNotification]);
 
   // Marquer une notification comme lue
   const markAsRead = useCallback(async (notificationId: string) => {
@@ -165,22 +226,30 @@ export function useNotifications() {
     }
   }, [notifications]);
 
-  // Créer une nouvelle notification
+  // Créer une nouvelle notification avec traduction
   const createNotification = useCallback(async (
     userId: string,
     type: NotificationType,
-    title: string,
-    message: string,
+    titleParams: Record<string, any> = {},
+    messageParams: Record<string, any> = {},
     data: Record<string, any> = {}
   ) => {
     try {
+      const t = getTranslations();
+      const titleTemplate = t.notifications.types[type]?.title || 'Notification';
+      const messageTemplate = t.notifications.types[type]?.message || 'Vous avez une nouvelle notification';
+      
       const { error } = await supabase
         .from('notifications')
         .insert({
           user_id: userId,
           type,
-          title,
-          message,
+          title: formatMessage(titleTemplate, titleParams),
+          message: formatMessage(messageTemplate, messageParams),
+          title_key: type,
+          message_key: type,
+          title_params: titleParams,
+          message_params: messageParams,
           data
         });
 
@@ -188,13 +257,13 @@ export function useNotifications() {
     } catch (error) {
       console.error('Erreur lors de la création de notification:', error);
     }
-  }, []);
+  }, [getTranslations]);
 
   // Créer une notification pour tous les admins
   const createAdminNotification = useCallback(async (
     type: NotificationType,
-    title: string,
-    message: string,
+    titleParams: Record<string, any> = {},
+    messageParams: Record<string, any> = {},
     data: Record<string, any> = {}
   ) => {
     try {
@@ -208,15 +277,7 @@ export function useNotifications() {
 
       // Créer une notification pour chaque admin
       const notificationPromises = users?.map(admin => 
-        supabase
-          .from('notifications')
-          .insert({
-            user_id: admin.user_id,
-            type,
-            title,
-            message,
-            data
-          })
+        createNotification(admin.user_id, type, titleParams, messageParams, data)
       ) || [];
 
       if (notificationPromises.length > 0) {
@@ -225,7 +286,7 @@ export function useNotifications() {
     } catch (error) {
       console.error('Erreur lors de la création de notifications admin:', error);
     }
-  }, []);
+  }, [createNotification]);
 
   // Fonction pour établir la connexion temps réel (optimisée)
   const setupRealtimeConnection = useCallback(() => {
@@ -248,14 +309,15 @@ export function useNotifications() {
           filter: `user_id=eq.${user.id}`
         },
         (payload) => {
-          const newNotification = payload.new as Notification;
+          const rawNotification = payload.new as Notification;
+          const newNotification = translateNotification(rawNotification);
           
           setNotifications(prev => [newNotification, ...prev.slice(0, 19)]);
           setUnreadCount(prev => prev + 1);
           setHasNewNotification(true);
           
           // Son et toast seulement pour les notifications importantes
-          if (['task_assigned', 'meeting_invitation', 'message_received'].includes(newNotification.type)) {
+          if (['task_assigned', 'meeting_invitation', 'meeting_started', 'message_received'].includes(newNotification.type)) {
             playNotificationSound();
             toast({
               title: newNotification.title,
@@ -277,7 +339,8 @@ export function useNotifications() {
           filter: `user_id=eq.${user.id}`
         },
         (payload) => {
-          const updatedNotification = payload.new as Notification;
+          const rawNotification = payload.new as Notification;
+          const updatedNotification = translateNotification(rawNotification);
           setNotifications(prev =>
             prev.map(n =>
               n.id === updatedNotification.id ? updatedNotification : n
@@ -313,7 +376,7 @@ export function useNotifications() {
       });
 
     channelRef.current = channel;
-  }, [user?.id, toast, playNotificationSound]);
+  }, [user?.id, toast, playNotificationSound, translateNotification]);
 
   // Écouter les nouvelles notifications en temps réel
   useEffect(() => {
@@ -334,7 +397,14 @@ export function useNotifications() {
         clearTimeout(reconnectTimeoutRef.current);
       }
     };
-  }, [user?.id]); // Supprimer les dépendances qui causent des re-renders
+  }, [user?.id, setupRealtimeConnection, fetchNotifications]);
+
+  // Recharger les notifications quand la langue change
+  useEffect(() => {
+    if (notifications.length > 0) {
+      setNotifications(prev => prev.map(notification => translateNotification(notification)));
+    }
+  }, [language, translateNotification]);
 
   // Fonction pour reconnecter manuellement
   const reconnect = useCallback(() => {

@@ -717,6 +717,69 @@ export function useMessages() {
     }
   }, [user, supabase, toast]);
 
+  // Supprimer une conversation (admin uniquement)
+  const deleteConversation = useCallback(async (conversationId: string): Promise<boolean> => {
+    if (!user) return false;
+    
+    try {
+      setLoading(true);
+      
+      const { error } = await supabase
+        .rpc('admin_delete_conversation', {
+          p_conversation_id: conversationId,
+          p_user_id: user.id
+        });
+      
+      if (error) throw error;
+      
+      toast({
+        title: 'Conversation supprimée',
+        description: 'La conversation et tous ses messages ont été supprimés définitivement',
+        variant: 'default'
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('Erreur lors de la suppression de la conversation:', error);
+      toast({
+        title: 'Erreur',
+        description: error.message || 'Impossible de supprimer la conversation',
+        variant: 'destructive'
+      });
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, [user, supabase, toast]);
+
+  // Obtenir les statistiques de conversation (admin uniquement)
+  const getConversationStats = useCallback(async () => {
+    if (!user) return [];
+    
+    try {
+      setLoading(true);
+      
+      const { data, error } = await supabase
+        .rpc('admin_get_conversation_stats', {
+          p_user_id: user.id
+        });
+      
+      if (error) throw error;
+      
+      return data || [];
+    } catch (error) {
+      console.error('Erreur lors de la récupération des statistiques:', error);
+      toast({
+        title: 'Erreur',
+        description: 'Impossible de récupérer les statistiques des conversations',
+        variant: 'destructive'
+      });
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  }, [user, supabase, toast]);
+
   return {
     loading,
     getAvailableContacts,
@@ -724,6 +787,8 @@ export function useMessages() {
     getMessages,
     sendMessage,
     createDirectConversation,
-    createGroupConversation
+    createGroupConversation,
+    deleteConversation,
+    getConversationStats
   };
 } 
