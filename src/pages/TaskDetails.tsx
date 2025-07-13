@@ -50,6 +50,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useLanguage } from '@/contexts/LanguageContext';
+import { translations } from '@/lib/translations';
 import {
   TaskSubmissionHistory,
   TaskSubmissionHistoryWithUser,
@@ -121,12 +122,22 @@ interface ProfileData {
   role: string;
 }
 
-const statusLabels = {
-  assigned: { label: 'Assignée', color: 'bg-yellow-500' },
-  in_progress: { label: 'En cours', color: 'bg-blue-500' },
-  submitted: { label: 'Soumise', color: 'bg-orange-500' },
-  validated: { label: 'Validée', color: 'bg-green-500' },
-  rejected: { label: 'Rejetée', color: 'bg-red-500' }
+// Moved statusLabels to use translations instead of hardcoded French
+const getStatusLabel = (status: string, t: any) => {
+  switch (status) {
+    case 'assigned':
+      return { label: t.status.assigned, color: 'bg-yellow-500' };
+    case 'in_progress':
+      return { label: t.status.inProgress, color: 'bg-blue-500' };
+    case 'submitted':
+      return { label: t.status.submitted, color: 'bg-orange-500' };
+    case 'validated':
+      return { label: t.status.validated, color: 'bg-green-500' };
+    case 'rejected':
+      return { label: t.status.rejected, color: 'bg-red-500' };
+    default:
+      return { label: t.status.unknown, color: 'bg-gray-500' };
+  }
 };
 
 const TaskDetails: React.FC = () => {
@@ -140,6 +151,8 @@ const TaskDetails: React.FC = () => {
     notifyFileValidationRequest,
     createAdminNotification
   } = useNotificationTriggers();
+  
+  const t = translations[language as keyof typeof translations].tasks;
   
   const [task, setTask] = useState<TaskAssignment | null>(null);
   const [project, setProject] = useState<Project | null>(null);
@@ -367,8 +380,8 @@ const TaskDetails: React.FC = () => {
       } catch (error) {
         console.error('Erreur lors de la récupération des détails de la tâche:', error);
         toast({
-          title: "Erreur",
-          description: "Impossible de charger les détails de la tâche",
+          title: t.details.toasts.error,
+          description: t.details.toasts.cannotLoadDetails,
           variant: "destructive",
         });
       } finally {
@@ -397,16 +410,16 @@ const TaskDetails: React.FC = () => {
       });
       
       toast({
-        title: "Succès",
-        description: "La tâche a été démarrée avec succès",
+        title: t.details.toasts.success,
+        description: t.details.toasts.taskStarted,
       });
     } catch (error) {
       console.error('Erreur lors du démarrage de la tâche:', error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de démarrer la tâche",
-        variant: "destructive",
-      });
+              toast({
+          title: t.details.toasts.error,
+          description: t.details.toasts.cannotStartTask,
+          variant: "destructive",
+        });
     }
   };
   
@@ -559,8 +572,8 @@ const TaskDetails: React.FC = () => {
       }
       
       toast({
-        title: "Succès",
-        description: "La tâche a été soumise avec succès",
+        title: t.details.toasts.success,
+        description: t.details.toasts.taskSubmitted,
       });
       
       // Recharger l'historique pour mettre à jour l'affichage
@@ -569,11 +582,11 @@ const TaskDetails: React.FC = () => {
       setIsSubmitDialogOpen(false);
     } catch (error: any) {
       console.error('Erreur lors de la soumission de la tâche:', error);
-      toast({
-        title: "Erreur",
-        description: error.message || "Impossible de soumettre la tâche",
-        variant: "destructive",
-      });
+              toast({
+          title: t.details.toasts.error,
+          description: error.message || t.details.toasts.cannotSubmitTask,
+          variant: "destructive",
+        });
     } finally {
       setUploading(false);
     }
@@ -636,8 +649,8 @@ const TaskDetails: React.FC = () => {
       });
       
       toast({
-        title: "Succès",
-        description: "La tâche a été validée avec succès",
+        title: t.details.toasts.success,
+        description: t.details.toasts.taskValidated,
       });
       
       // Recharger l'historique pour mettre à jour l'affichage
@@ -646,11 +659,11 @@ const TaskDetails: React.FC = () => {
       setIsValidateDialogOpen(false);
     } catch (error) {
       console.error('Erreur lors de la validation de la tâche:', error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de valider la tâche",
-        variant: "destructive",
-      });
+              toast({
+          title: t.details.toasts.error,
+          description: t.details.toasts.cannotValidateTask,
+          variant: "destructive",
+        });
     }
   };
   
@@ -696,8 +709,8 @@ const TaskDetails: React.FC = () => {
       });
       
       toast({
-        title: "Succès",
-        description: "La tâche a été rejetée",
+        title: t.details.toasts.success,
+        description: t.details.toasts.taskRejected,
       });
       
       // Recharger l'historique pour mettre à jour l'affichage
@@ -707,8 +720,8 @@ const TaskDetails: React.FC = () => {
     } catch (error) {
       console.error('Erreur lors du rejet de la tâche:', error);
       toast({
-        title: "Erreur",
-        description: "Impossible de rejeter la tâche",
+        title: t.details.toasts.error,
+        description: t.details.toasts.cannotRejectTask,
         variant: "destructive",
       });
     }
@@ -757,8 +770,8 @@ const TaskDetails: React.FC = () => {
       });
       
       toast({
-        title: "Succès",
-        description: "La tâche a été finalisée et clôturée définitivement",
+        title: t.details.toasts.success,
+        description: t.details.toasts.taskFinalized,
       });
       
       // Recharger l'historique pour mettre à jour l'affichage
@@ -768,8 +781,8 @@ const TaskDetails: React.FC = () => {
     } catch (error) {
       console.error('Erreur lors de la finalisation de la tâche:', error);
       toast({
-        title: "Erreur",
-        description: "Impossible de finaliser la tâche",
+        title: t.details.toasts.error,
+        description: t.details.toasts.cannotFinalizeTask,
         variant: "destructive",
       });
     }
@@ -823,17 +836,7 @@ const TaskDetails: React.FC = () => {
     }
   };
   
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'assigned': return 'Assignée';
-      case 'in_progress': return 'En cours';
-      case 'submitted': return 'Soumise';
-      case 'validated': return 'Validée';
-      case 'rejected': return 'Rejetée';
-      case 'finalized': return 'Finalisée';
-      default: return 'Inconnu';
-    }
-  };
+
   
   if (loading) {
     return (
@@ -846,9 +849,9 @@ const TaskDetails: React.FC = () => {
   if (!task || !project) {
     return (
       <div className="text-center py-12">
-        <h3 className="text-lg font-medium mb-2">Tâche non trouvée</h3>
-        <p className="text-gray-500 mb-4">La tâche que vous recherchez n'existe pas ou a été supprimée.</p>
-        <Button onClick={handleBackToTasks}>Retour aux tâches</Button>
+        <h3 className="text-lg font-medium mb-2">{t.details.taskNotFound}</h3>
+        <p className="text-gray-500 mb-4">{t.details.taskNotFoundMessage}</p>
+        <Button onClick={handleBackToTasks}>{t.details.backToTasks}</Button>
       </div>
     );
   }
@@ -876,9 +879,9 @@ const TaskDetails: React.FC = () => {
                 {project.name}
               </button>
               {' > '}
-              Phase {task.phase_id === 'conception' ? 'Conception' : 'Réalisation'} {' > '}
-              Section {task.section_id} {' > '}
-              Sous-section {task.subsection_id}
+              {t.details.phase} {task.phase_id === 'conception' ? t.filters.conception : t.filters.realization} {' > '}
+              {t.details.section} {task.section_id} {' > '}
+              {t.details.subsection} {task.subsection_id}
             </p>
           </div>
         </div>
@@ -886,7 +889,7 @@ const TaskDetails: React.FC = () => {
           <Badge 
             className={`${getStatusColor(task.status)} text-white px-3 py-1 text-xs`}
           >
-            {getStatusLabel(task.status)}
+            {getStatusLabel(task.status, t).label}
           </Badge>
         </div>
       </div>
@@ -907,13 +910,13 @@ const TaskDetails: React.FC = () => {
             <AccordionTrigger className="px-6 py-3 hover:no-underline">
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="bg-aphs-teal bg-opacity-10 text-aphs-teal border-aphs-teal">
-                  Fiche informative
+                  {t.details.infoSheet}
                 </Badge>
                 <Badge variant="outline" className="bg-blue-500 bg-opacity-10 text-blue-600 border-blue-500">
-                  Document de référence
+                  {t.details.referenceDocument}
                 </Badge>
                 <span className="text-sm text-gray-500 ml-3">
-                  {expandedInfoSheet ? "Cliquez pour réduire" : "Cliquez pour afficher les instructions détaillées"}
+                  {expandedInfoSheet ? t.details.clickToCollapse : t.details.detailedInstructions}
                 </span>
               </div>
             </AccordionTrigger>
@@ -933,12 +936,12 @@ const TaskDetails: React.FC = () => {
         {/* Task info */}
         <Card className="md:col-span-2 border-0 shadow-md">
           <CardHeader>
-            <CardTitle>Détails de la tâche</CardTitle>
+            <CardTitle>{t.details.title}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <Label className="text-md font-medium mb-2 block">Intervenant assigné</Label>
+                <Label className="text-md font-medium mb-2 block">{t.details.assignedSpecialist}</Label>
                 <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-md">
                   <User className="h-5 w-5 text-gray-500" />
                   <span>
@@ -948,12 +951,12 @@ const TaskDetails: React.FC = () => {
                         : assignedUser.first_name || assignedUser.last_name
                         ? `${assignedUser.first_name || ''} ${assignedUser.last_name || ''}`.trim()
                         : assignedUser.email
-                    ) : 'Non assigné'}
+                    ) : t.details.unassigned}
                   </span>
                 </div>
               </div>
               <div>
-                <Label className="text-md font-medium mb-2 block">Validateurs</Label>
+                <Label className="text-md font-medium mb-2 block">{t.details.validators}</Label>
                 <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-md">
                   <Users className="h-5 w-5 text-gray-500" />
                   <span>
@@ -967,7 +970,7 @@ const TaskDetails: React.FC = () => {
                             return v.email;
                           }
                         }).join(', ')
-                      : 'Aucun validateur défini'}
+                      : t.details.noValidators}
                   </span>
                 </div>
               </div>
@@ -975,53 +978,53 @@ const TaskDetails: React.FC = () => {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <Label className="text-md font-medium mb-2 block">Date limite de livraison</Label>
+                <Label className="text-md font-medium mb-2 block">{t.details.submissionDeadline}</Label>
                 <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-md">
                   <Calendar className="h-5 w-5 text-gray-500" />
                   <span>{formatDate(task.deadline)}</span>
                   {getRemainingDays(task.deadline) > 0 ? (
-                    <Badge className="ml-2 bg-blue-500">{getRemainingDays(task.deadline)} jours restants</Badge>
+                    <Badge className="ml-2 bg-blue-500">{getRemainingDays(task.deadline)} {t.details.remainingDays}</Badge>
                   ) : (
-                    <Badge className="ml-2 bg-red-500">Délai dépassé</Badge>
+                    <Badge className="ml-2 bg-red-500">{t.details.overdue}</Badge>
                   )}
                 </div>
               </div>
               <div>
-                <Label className="text-md font-medium mb-2 block">Date limite de validation</Label>
+                <Label className="text-md font-medium mb-2 block">{t.details.validationDeadlineShort}</Label>
                 <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-md">
                   <Calendar className="h-5 w-5 text-gray-500" />
                   <span>{formatDate(task.validation_deadline)}</span>
                   {getRemainingDays(task.validation_deadline) > 0 ? (
-                    <Badge className="ml-2 bg-blue-500">{getRemainingDays(task.validation_deadline)} jours restants</Badge>
+                    <Badge className="ml-2 bg-blue-500">{getRemainingDays(task.validation_deadline)} {t.details.remainingDays}</Badge>
                   ) : (
-                    <Badge className="ml-2 bg-red-500">Délai dépassé</Badge>
+                    <Badge className="ml-2 bg-red-500">{t.details.overdue}</Badge>
                   )}
                 </div>
               </div>
             </div>
             
             <div>
-              <Label className="text-md font-medium mb-2 block">Format de fichier attendu</Label>
+              <Label className="text-md font-medium mb-2 block">{t.details.expectedFileFormat}</Label>
               <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-md">
                 <FileUp className="h-5 w-5 text-gray-500" />
                 <span>
-                  {task.file_extension === 'pdf' && 'Document PDF (.pdf)'}
-                  {task.file_extension === 'doc' && 'Document Word (.doc, .docx)'}
-                  {task.file_extension === 'xls' && 'Feuille de calcul Excel (.xls, .xlsx)'}
-                  {task.file_extension === 'ppt' && 'Présentation PowerPoint (.ppt, .pptx)'}
-                  {task.file_extension === 'txt' && 'Fichier texte (.txt)'}
-                  {task.file_extension === 'jpg' && 'Image JPEG (.jpg, .jpeg)'}
-                  {task.file_extension === 'png' && 'Image PNG (.png)'}
-                  {task.file_extension === 'zip' && 'Archive ZIP (.zip)'}
-                  {task.file_extension === 'dwg' && 'Dessin AutoCAD (.dwg)'}
-                  {task.file_extension === 'other' && 'Autre format'}
+                  {task.file_extension === 'pdf' && t.details.fileTypes.pdf}
+                  {task.file_extension === 'doc' && t.details.fileTypes.doc}
+                  {task.file_extension === 'xls' && t.details.fileTypes.xls}
+                  {task.file_extension === 'ppt' && t.details.fileTypes.ppt}
+                  {task.file_extension === 'txt' && t.details.fileTypes.txt}
+                  {task.file_extension === 'jpg' && t.details.fileTypes.jpg}
+                  {task.file_extension === 'png' && t.details.fileTypes.png}
+                  {task.file_extension === 'zip' && t.details.fileTypes.zip}
+                  {task.file_extension === 'dwg' && t.details.fileTypes.dwg}
+                  {task.file_extension === 'other' && t.details.fileTypes.other}
                 </span>
               </div>
             </div>
             
             {task.comment && (
               <div>
-                <Label className="text-md font-medium mb-2 block">Instructions</Label>
+                <Label className="text-md font-medium mb-2 block">{t.details.instructions}</Label>
                 <div className="p-3 bg-gray-50 rounded-md whitespace-pre-line">
                   {task.comment}
                 </div>
@@ -1030,11 +1033,11 @@ const TaskDetails: React.FC = () => {
             
             {task.file_url && (
               <div>
-                <Label className="text-md font-medium mb-2 block">Fichier soumis</Label>
+                <Label className="text-md font-medium mb-2 block">{t.details.submittedFile}</Label>
                 <div className="flex items-center justify-between p-3 bg-gray-50 rounded-md">
                   <div className="flex items-center gap-2">
                     <FileUp className="h-5 w-5 text-gray-500" />
-                    <span>{task.submitted_at ? `Soumis le ${formatDateTime(task.submitted_at)}` : 'Fichier téléchargé'}</span>
+                    <span>{task.submitted_at ? `${t.details.submittedAt} ${formatDateTime(task.submitted_at)}` : 'Fichier téléchargé'}</span>
                   </div>
                   <Button
                     variant="outline"
@@ -1042,7 +1045,7 @@ const TaskDetails: React.FC = () => {
                     onClick={() => window.open(task.file_url, '_blank')}
                   >
                     <Download className="h-4 w-4 mr-2" />
-                    Télécharger
+                    {t.details.downloadFile}
                   </Button>
                 </div>
               </div>
@@ -1050,7 +1053,7 @@ const TaskDetails: React.FC = () => {
             
             {task.validation_comment && (
               <div>
-                <Label className="text-md font-medium mb-2 block">Commentaire de validation</Label>
+                <Label className="text-md font-medium mb-2 block">{t.details.validationComment}</Label>
                 <div className="p-3 bg-gray-50 rounded-md whitespace-pre-line">
                   {task.validation_comment}
                 </div>
@@ -1065,7 +1068,7 @@ const TaskDetails: React.FC = () => {
                 onClick={handleStartTask}
                 className="bg-blue-600 hover:bg-blue-700"
               >
-                Démarrer la tâche
+                {t.details.start}
               </Button>
             )}
             
@@ -1075,14 +1078,14 @@ const TaskDetails: React.FC = () => {
                 className="bg-green-600 hover:bg-green-700"
               >
                 <FileUp className="h-4 w-4 mr-2" />
-                Soumettre le livrable
+                {t.details.submit}
               </Button>
             )}
             
             {/* Message when submission is pending */}
             {isAssignedUser && hasPendingSubmission && task.status !== 'finalized' && (
               <div className="text-sm text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
-                Une soumission est en attente de validation. Vous pourrez soumettre à nouveau après validation ou rejet.
+                {t.details.pendingValidation}
               </div>
             )}
             
@@ -1090,7 +1093,7 @@ const TaskDetails: React.FC = () => {
             {task.status === 'finalized' && (
               <div className="text-sm text-purple-600 bg-purple-50 p-2 rounded border border-purple-200">
                 <CheckCircle2 className="h-4 w-4 inline mr-2" />
-                Cette tâche a été finalisée et clôturée définitivement par l'administration.
+                {t.details.taskFinalized}
               </div>
             )}
             
@@ -1102,14 +1105,14 @@ const TaskDetails: React.FC = () => {
                   className="bg-green-600 hover:bg-green-700"
                 >
                   <CheckCircle2 className="h-4 w-4 mr-2" />
-                  Valider
+                  {t.details.validate}
                 </Button>
                 <Button 
                   onClick={handleOpenRejectDialog}
                   variant="destructive"
                 >
                   <XCircle className="h-4 w-4 mr-2" />
-                  Rejeter
+                  {t.details.reject}
                 </Button>
               </div>
             )}
@@ -1121,7 +1124,7 @@ const TaskDetails: React.FC = () => {
                 className="bg-purple-600 hover:bg-purple-700"
               >
                 <CheckCircle2 className="h-4 w-4 mr-2" />
-                Validation finale (Clôturer)
+                {t.details.finalize}
               </Button>
             )}
           </CardFooter>
@@ -1130,7 +1133,7 @@ const TaskDetails: React.FC = () => {
         {/* Timeline */}
         <Card className="border-0 shadow-md">
           <CardHeader>
-            <CardTitle>Historique</CardTitle>
+            <CardTitle>{t.details.history}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -1138,7 +1141,7 @@ const TaskDetails: React.FC = () => {
               <div className="relative pl-6 pb-6 border-l-2 border-gray-200">
                 <div className="absolute left-[-9px] top-0 w-4 h-4 rounded-full bg-aphs-teal border-4 border-white"></div>
                 <div className="text-sm">
-                  <p className="font-medium">Tâche créée</p>
+                  <p className="font-medium">{t.details.taskCreated}</p>
                   <p className="text-gray-500">{formatDateTime(task.created_at)}</p>
                 </div>
               </div>

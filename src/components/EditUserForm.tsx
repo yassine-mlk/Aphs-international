@@ -404,7 +404,7 @@ const EditUserForm: React.FC<EditUserFormProps> = ({ userId, userData, onSuccess
           </Select>
           <div className="mt-1 text-sm text-gray-500">
             {specialty === 'MOA Maître d\'ouvrage' ? 
-              'Rôle: Propriétaire (owner)' : 
+              'Rôle: Intervenant' : 
               specialty ? 'Rôle: Intervenant' : 
               category ? `${getSpecialtiesByCategory(category).length} spécialités disponibles` : ''}
           </div>

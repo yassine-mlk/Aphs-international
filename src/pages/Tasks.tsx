@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { fr, enUS, es, ar } from 'date-fns/locale';
 import { useSupabase } from '@/hooks/useSupabase';
 import { useTaskMigration } from '@/hooks/useTaskMigration';
 import { LegacyTaskAssignment } from '../types/legacy-migration';
@@ -142,7 +142,7 @@ const Tasks: React.FC = () => {
         // Afficher l'erreur de migration si elle existe
         if (taskMigrationError) {
           toast({
-            title: "Avertissement",
+            title: t.messages.warning,
             description: taskMigrationError,
             variant: "destructive",
           });
@@ -150,8 +150,8 @@ const Tasks: React.FC = () => {
       } catch (error) {
         console.error('Erreur lors de la récupération des tâches:', error);
         toast({
-          title: "Erreur",
-          description: "Impossible de charger vos tâches",
+          title: t.messages.error,
+          description: t.messages.errorLoadingTasks,
           variant: "destructive",
         });
       } finally {
@@ -209,15 +209,22 @@ const Tasks: React.FC = () => {
       case 'rejected':
         return <Badge className="bg-red-500">{t.status.rejected}</Badge>;
       default:
-        return <Badge className="bg-gray-500">Inconnue</Badge>;
+        return <Badge className="bg-gray-500">{t.status.unknown}</Badge>;
     }
   };
   
   const formatDate = (dateString: string) => {
     try {
-      return format(new Date(dateString), 'dd MMM yyyy', { locale: fr });
+      const localeMap = {
+        fr: fr,
+        en: enUS,
+        es: es,
+        ar: ar
+      };
+      const locale = localeMap[language as keyof typeof localeMap] || enUS;
+      return format(new Date(dateString), 'dd MMM yyyy', { locale });
     } catch (error) {
-      return 'Date invalide';
+      return t.dateFormat.invalidDate;
     }
   };
   
@@ -237,15 +244,15 @@ const Tasks: React.FC = () => {
     const days = getRemainingDays(deadlineDate);
     
     if (days < 0) {
-      return <Badge variant="destructive">Dépassée de {Math.abs(days)} jours</Badge>;
+      return <Badge variant="destructive">{t.dateFormat.overdue} {Math.abs(days)} {t.dateFormat.daysOverdue}</Badge>;
     } else if (days === 0) {
-      return <Badge variant="destructive">Aujourd'hui</Badge>;
+      return <Badge variant="destructive">{t.dateFormat.today}</Badge>;
     } else if (days <= 3) {
-      return <Badge variant="destructive">{days} jours restants</Badge>;
+      return <Badge variant="destructive">{days} {t.dateFormat.daysRemaining}</Badge>;
     } else if (days <= 7) {
-      return <Badge variant="default" className="bg-orange-500">{days} jours restants</Badge>;
+      return <Badge variant="default" className="bg-orange-500">{days} {t.dateFormat.daysRemaining}</Badge>;
     } else {
-      return <Badge variant="outline">{days} jours restants</Badge>;
+      return <Badge variant="outline">{days} {t.dateFormat.daysRemaining}</Badge>;
     }
   };
   
@@ -276,7 +283,7 @@ const Tasks: React.FC = () => {
       <div className="bg-white rounded-lg shadow-sm border p-5 mb-6">
         <div className="flex flex-col md:flex-row gap-4 items-end">
           <div className="flex-1">
-            <label className="block text-sm font-medium mb-1">Recherche</label>
+            <label className="block text-sm font-medium mb-1">{t.search.label}</label>
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
               <Input
@@ -290,7 +297,7 @@ const Tasks: React.FC = () => {
           </div>
           
           <div className="w-full md:w-48">
-            <label className="block text-sm font-medium mb-1">Statut</label>
+            <label className="block text-sm font-medium mb-1">{t.filters.statusLabel}</label>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger>
                 <SelectValue placeholder={t.filters.all} />
@@ -327,7 +334,7 @@ const Tasks: React.FC = () => {
               className="flex items-center gap-1 h-10"
             >
               <X className="h-4 w-4" />
-              <span>Effacer</span>
+              <span>{t.filters.clear}</span>
             </Button>
           )}
         </div>
@@ -336,11 +343,11 @@ const Tasks: React.FC = () => {
       {/* Task List */}
       <Card className="border shadow-sm">
         <CardHeader className="pb-2">
-          <CardTitle>Liste des tâches ({filteredTasks.length})</CardTitle>
+          <CardTitle>{t.card.taskList} ({filteredTasks.length})</CardTitle>
           <CardDescription>
             {filteredTasks.length === 0 ? 
               t.search.noResults : 
-              'Cliquez sur une tâche pour voir les détails.'}
+              t.card.taskListDesc}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -349,11 +356,11 @@ const Tasks: React.FC = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Tâche</TableHead>
+                    <TableHead>{t.card.task}</TableHead>
                     <TableHead>{t.card.project}</TableHead>
-                    <TableHead>Statut</TableHead>
+                    <TableHead>{t.filters.statusLabel}</TableHead>
                     <TableHead>{t.card.deadline}</TableHead>
-                    <TableHead>Type</TableHead>
+                    <TableHead>{t.card.type}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -367,7 +374,7 @@ const Tasks: React.FC = () => {
                         <div className="flex flex-col">
                           <span>{task.task_name}</span>
                           <span className="text-xs text-gray-500">
-                            {task.phase_id === 'conception' ? 'Conception' : 'Réalisation'} &gt; {task.section_id} &gt; {task.subsection_id}
+                            {task.phase_id === 'conception' ? t.filters.conception : t.filters.realization} &gt; {task.section_id} &gt; {task.subsection_id}
                           </span>
                         </div>
                       </TableCell>
@@ -423,7 +430,7 @@ const Tasks: React.FC = () => {
                   onClick={clearFilters}
                   className="mt-4"
                 >
-                  Effacer les filtres
+                  {t.filters.clearFilters}
                 </Button>
               )}
             </div>

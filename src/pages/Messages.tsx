@@ -17,7 +17,8 @@ import {
   Users,
   RefreshCw,
   Plus,
-  AlertCircle
+  AlertCircle,
+  Trash2
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -62,6 +63,7 @@ const Messages: React.FC = () => {
     sendMessage, 
     createDirectConversation,
     createGroupConversation,
+    deleteConversation,
     loading: messagesLoading 
   } = useMessages();
   const [activeTab, setActiveTab] = useState("tous");
@@ -86,6 +88,15 @@ const Messages: React.FC = () => {
   const [contactsError, setContactsError] = useState<boolean>(false);
   const [conversationsError, setConversationsError] = useState<boolean>(false);
   const [messagesError, setMessagesError] = useState<boolean>(false);
+  
+  // États pour la suppression de conversation (admin uniquement)
+  const [deleteConversationDialogOpen, setDeleteConversationDialogOpen] = useState(false);
+  const [conversationToDelete, setConversationToDelete] = useState<Conversation | null>(null);
+  
+  // Vérifier si l'utilisateur est admin
+  const isAdmin = user?.user_metadata?.role === 'admin' || 
+                 user?.email === 'admin@aphs.com' || 
+                 JSON.parse(localStorage.getItem('user') || '{}')?.role === 'admin';
   
   // Charger les contacts disponibles
   useEffect(() => {
@@ -502,6 +513,36 @@ const Messages: React.FC = () => {
     
     return matchesTab && matchesSearch;
   });
+
+  // Fonction pour ouvrir la modal de suppression
+  const handleDeleteConversation = (conversation: Conversation) => {
+    setConversationToDelete(conversation);
+    setDeleteConversationDialogOpen(true);
+  };
+
+  // Fonction pour confirmer la suppression
+  const confirmDeleteConversation = async () => {
+    if (!conversationToDelete) return;
+    
+    const success = await deleteConversation(conversationToDelete.id);
+    
+    if (success) {
+      // Supprimer la conversation de la liste locale
+      setConversations(prev => prev.filter(conv => conv.id !== conversationToDelete.id));
+      
+      // Si c'est la conversation active, la désélectionner
+      if (activeConversation?.id === conversationToDelete.id) {
+        setActiveConversation(null);
+        setMessages([]);
+      }
+      
+      // Recharger les conversations
+      await loadConversations(false);
+    }
+    
+    setDeleteConversationDialogOpen(false);
+    setConversationToDelete(null);
+  };
   
   // Formatage de l'heure pour l'affichage
   const formatTimestamp = (date: Date) => {
@@ -671,9 +712,26 @@ const Messages: React.FC = () => {
                             : conv.name
                           }
                         </h3>
-                        <span className="text-xs text-gray-500 whitespace-nowrap ml-2">
-                          {conv.lastMessage ? formatTimestamp(conv.lastMessage.timestamp) : ''}
-                        </span>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs text-gray-500 whitespace-nowrap">
+                            {conv.lastMessage ? formatTimestamp(conv.lastMessage.timestamp) : ''}
+                          </span>
+                          {/* Bouton de suppression pour les admins (sauf conversations workgroup) */}
+                          {isAdmin && conv.type !== 'workgroup' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteConversation(conv);
+                              }}
+                              title={t.admin.deleteConversation}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
                       
                       {conv.type === 'group' && (
@@ -1036,6 +1094,73 @@ const Messages: React.FC = () => {
               onClick={() => setNewConversationDialogOpen(false)}
             >
               Annuler
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Dialogue de confirmation pour supprimer une conversation */}
+      <Dialog open={deleteConversationDialogOpen} onOpenChange={setDeleteConversationDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-red-600">
+              {t.admin.deleteConfirmTitle}
+            </DialogTitle>
+            <DialogDescription>
+              {t.admin.deleteConfirmMessage}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {conversationToDelete && (
+            <div className="py-4">
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                <Avatar className="h-10 w-10">
+                  <AvatarFallback className={`
+                    ${conversationToDelete.type === 'group' ? 'bg-aphs-navy' : 'bg-aphs-teal'}
+                    text-white
+                  `}>
+                    {conversationToDelete.type === 'direct' && conversationToDelete.participants.length > 0
+                      ? getInitials(conversationToDelete.participants[0])
+                      : <Users className="h-5 w-5" />
+                    }
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <h4 className="font-medium">
+                    {conversationToDelete.type === 'direct' && conversationToDelete.participants.length > 0
+                      ? formatUserName(conversationToDelete.participants[0])
+                      : conversationToDelete.name
+                    }
+                  </h4>
+                  <p className="text-sm text-gray-500">
+                    {conversationToDelete.type === 'direct' ? 'Conversation directe' : 
+                     conversationToDelete.type === 'group' ? 'Conversation de groupe' : 
+                     'Conversation workgroup'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter className="sm:justify-start">
+            <Button 
+              type="button" 
+              variant="destructive" 
+              onClick={confirmDeleteConversation}
+              disabled={messagesLoading}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              {t.admin.deleteConversation}
+            </Button>
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => {
+                setDeleteConversationDialogOpen(false);
+                setConversationToDelete(null);
+              }}
+            >
+              {t.cancel}
             </Button>
           </DialogFooter>
         </DialogContent>

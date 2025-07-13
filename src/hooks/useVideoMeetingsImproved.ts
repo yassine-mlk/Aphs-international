@@ -73,7 +73,7 @@ export function useVideoMeetingsImproved() {
   const { supabase } = useSupabase();
   const { user } = useAuth();
   const { toast } = useToast();
-  const { notifyMeetingRequest } = useNotificationTriggers();
+  const { notifyMeetingRequest, notifyMeetingStarted } = useNotificationTriggers();
   const [loading, setLoading] = useState(false);
   const [meetings, setMeetings] = useState<VideoMeeting[]>([]);
   const [loadingMeetings, setLoadingMeetings] = useState(false);
@@ -442,6 +442,36 @@ export function useVideoMeetingsImproved() {
 
       if (meetingError) throw meetingError;
 
+      // Notifier les autres participants que la réunion a démarré
+      try {
+        // Récupérer les participants de la réunion (excepté l'utilisateur actuel)
+        const { data: participants } = await supabase
+          .from('video_meeting_participants')
+          .select('user_id')
+          .eq('meeting_id', meetingId)
+          .neq('user_id', user.id);
+        
+        if (participants && participants.length > 0) {
+          // Récupérer le nom de l'organisateur
+          const organizerName = user.user_metadata?.first_name && user.user_metadata?.last_name 
+            ? `${user.user_metadata.first_name} ${user.user_metadata.last_name}`
+            : user.email || 'Un organisateur';
+          
+          // Envoyer la notification aux participants
+          const participantIds = participants.map(p => p.user_id);
+          await notifyMeetingStarted(
+            participantIds,
+            meeting.title,
+            organizerName,
+            meetingId,
+            meeting.room_id
+          );
+        }
+      } catch (notificationError) {
+        console.error('Erreur lors de l\'envoi des notifications de démarrage:', notificationError);
+        // Ne pas faire échouer la connexion si les notifications échouent
+      }
+
       return {
         roomId: meeting.room_id,
         title: meeting.title,
@@ -458,7 +488,7 @@ export function useVideoMeetingsImproved() {
     } finally {
       setLoading(false);
     }
-  }, [user, supabase, toast]);
+  }, [user, supabase, toast, notifyMeetingStarted]);
 
   // Obtenir les enregistrements d'une réunion
   const getMeetingRecordings = useCallback(async (meetingId: string): Promise<MeetingRecording[]> => {
