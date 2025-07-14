@@ -26,6 +26,7 @@ import {
   Search
 } from 'lucide-react';
 import { useSupabase } from '@/hooks/useSupabase';
+import { useProjectStructure } from '@/hooks/useProjectStructure';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -221,8 +222,17 @@ const ProjectDetails: React.FC = () => {
   const [memberToRemove, setMemberToRemove] = useState<ProjectMember | null>(null);
   
   // États pour la gestion de la structure
-  const [customProjectStructure, setCustomProjectStructure] = useState(projectStructure);
-  const [customRealizationStructure, setCustomRealizationStructure] = useState(realizationStructure);
+  const {
+    customProjectStructure,
+    customRealizationStructure,
+    loading: structureLoading,
+    deleteSection,
+    deleteSubsection,
+    restoreStructure,
+    isDeleted,
+    refreshStructures
+  } = useProjectStructure(id || '');
+  
   const [isDeleteStepDialogOpen, setIsDeleteStepDialogOpen] = useState(false);
   const [stepToDelete, setStepToDelete] = useState<{type: 'section' | 'subsection', sectionId: string, subsectionId?: string, phase: 'conception' | 'realisation'} | null>(null);
   
@@ -1084,66 +1094,22 @@ const ProjectDetails: React.FC = () => {
     try {
       const { type, sectionId, subsectionId, phase } = stepToDelete;
 
+      let success = false;
+
       if (type === 'section') {
         // Supprimer toute une section
-        if (phase === 'conception') {
-          const newStructure = customProjectStructure.filter(section => section.id !== sectionId);
-          setCustomProjectStructure(newStructure);
-        } else {
-          const newStructure = customRealizationStructure.filter(section => section.id !== sectionId);
-          setCustomRealizationStructure(newStructure);
-        }
-
-        // Supprimer toutes les tâches assignées de cette section
-        const tasksToDelete = taskAssignments.filter(
-          task => task.section_id === sectionId && task.phase_id === phase
-        );
-
-        for (const task of tasksToDelete) {
-          if (task.id) {
-            await deleteData('task_assignments', task.id);
-          }
-        }
-
-        // Mettre à jour la liste locale des tâches
-        setTaskAssignments(prev => 
-          prev.filter(task => !(task.section_id === sectionId && task.phase_id === phase))
-        );
-
-        toast({
-          title: "Succès",
-          description: `Section ${sectionId} supprimée avec succès`
-        });
-
+        success = await deleteSection(sectionId, phase);
       } else if (type === 'subsection' && subsectionId) {
         // Supprimer seulement une sous-section
-        if (phase === 'conception') {
-          const newStructure = customProjectStructure.map(section => {
-            if (section.id === sectionId) {
-              return {
-                ...section,
-                items: section.items.filter(item => item.id !== subsectionId)
-              };
-            }
-            return section;
-          });
-          setCustomProjectStructure(newStructure);
-        } else {
-          const newStructure = customRealizationStructure.map(section => {
-            if (section.id === sectionId) {
-              return {
-                ...section,
-                items: section.items.filter(item => item.id !== subsectionId)
-              };
-            }
-            return section;
-          });
-          setCustomRealizationStructure(newStructure);
-        }
+        success = await deleteSubsection(sectionId, subsectionId, phase);
+      }
 
-        // Supprimer les tâches assignées de cette sous-section
+      if (success) {
+        // Supprimer les tâches assignées correspondantes
         const tasksToDelete = taskAssignments.filter(
-          task => task.section_id === sectionId && task.subsection_id === subsectionId && task.phase_id === phase
+          task => task.section_id === sectionId && 
+                  task.phase_id === phase &&
+                  (type === 'section' || task.subsection_id === subsectionId)
         );
 
         for (const task of tasksToDelete) {
@@ -1154,13 +1120,12 @@ const ProjectDetails: React.FC = () => {
 
         // Mettre à jour la liste locale des tâches
         setTaskAssignments(prev => 
-          prev.filter(task => !(task.section_id === sectionId && task.subsection_id === subsectionId && task.phase_id === phase))
+          prev.filter(task => !(
+            task.section_id === sectionId && 
+            task.phase_id === phase &&
+            (type === 'section' || task.subsection_id === subsectionId)
+          ))
         );
-
-        toast({
-          title: "Succès",
-          description: `Sous-section ${subsectionId} supprimée avec succès`
-        });
       }
 
     } catch (error) {

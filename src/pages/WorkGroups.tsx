@@ -666,7 +666,7 @@ const WorkGroups: React.FC = () => {
 
       {/* Dialogue de création de groupe */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent className="sm:max-w-[650px]">
+        <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Créer un nouveau groupe de travail</DialogTitle>
             <DialogDescription>
@@ -724,12 +724,13 @@ const WorkGroups: React.FC = () => {
               </div>
               
               {loadingUsers ? (
-                <div className="flex justify-center items-center h-[200px] border rounded-md">
+                <div className="flex justify-center items-center h-[250px] border rounded-md bg-gray-50">
                   <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
                   <span className="ml-2 text-gray-500">Chargement des intervenants...</span>
                 </div>
               ) : (
-                <ScrollArea className="h-[200px] border rounded-md p-2">
+                <div className="border rounded-lg bg-gray-50 p-3">
+                  <ScrollArea className="h-[350px]">
                   {filteredUsersForCreate.length > 0 ? (
                     <div className="space-y-2">
                       {filteredUsersForCreate.map(user => (
@@ -771,6 +772,7 @@ const WorkGroups: React.FC = () => {
                     <p className="text-center py-4 text-sm text-gray-500">Aucun intervenant trouvé.</p>
                   )}
                 </ScrollArea>
+                </div>
               )}
               
               <div className="text-sm text-gray-500 mt-2">
@@ -865,23 +867,31 @@ const WorkGroups: React.FC = () => {
 
       {/* Dialogue de gestion des membres */}
       <Dialog open={membersDialogOpen} onOpenChange={setMembersDialogOpen}>
-        <DialogContent className="sm:max-w-[625px]">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-[800px] max-h-[90vh] flex flex-col">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle>Gérer les membres du groupe</DialogTitle>
             <DialogDescription>
               Ajoutez ou retirez des intervenants de ce groupe de travail
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-4 flex-1 overflow-hidden">
             {/* Liste des membres actuels */}
-            <div>
-              <h3 className="text-sm font-medium mb-2">Membres actuels</h3>
-              {renderMembersList(selectedGroup?.members || [], 'dialog')}
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                Membres actuels ({selectedGroup?.members?.length || 0})
+              </h3>
+              <div className="max-h-[150px] overflow-y-auto">
+                {renderMembersList(selectedGroup?.members || [], 'dialog')}
+              </div>
             </div>
             
             {/* Ajouter des membres */}
-            <div>
-              <h3 className="text-sm font-medium mb-2">Ajouter des intervenants</h3>
+            <div className="flex-1 flex flex-col min-h-0">
+              <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+                <UserPlus className="h-4 w-4" />
+                Ajouter des intervenants
+              </h3>
               <div className="relative mb-3">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
                 <Input
@@ -892,7 +902,7 @@ const WorkGroups: React.FC = () => {
                 />
               </div>
               
-              <ScrollArea className="h-[200px] border rounded-md p-2">
+              <ScrollArea className="flex-1 border rounded-md p-2" style={{ minHeight: '300px' }}>
                 {filteredUsers.length > 0 ? (
                   <div className="space-y-2">
                     {filteredUsers.map(user => (
@@ -939,15 +949,17 @@ const WorkGroups: React.FC = () => {
               </ScrollArea>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setMembersDialogOpen(false)}>Annuler</Button>
+          <DialogFooter className="flex-shrink-0 border-t pt-4">
+            <Button variant="outline" onClick={() => setMembersDialogOpen(false)}>
+              Annuler
+            </Button>
             <Button 
               onClick={handleAddMembers} 
               disabled={selectedUsers.length === 0}
               className="flex items-center"
             >
-              <Users className="mr-2 h-4 w-4" />
-              Ajouter les intervenants sélectionnés
+              <UserPlus className="mr-2 h-4 w-4" />
+              Ajouter {selectedUsers.length > 0 ? `(${selectedUsers.length})` : ''} intervenant{selectedUsers.length > 1 ? 's' : ''}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -255,10 +255,8 @@ const EditUserForm: React.FC<EditUserFormProps> = ({ userId, userData, onSuccess
   };
 
   return (
-    <div className="bg-white p-6 rounded-xl">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">Modifier un utilisateur</h2>
-      
-      <form className="space-y-4" onSubmit={handleSubmit}>
+    <div className="bg-white">
+      <form className="space-y-6" onSubmit={handleSubmit}>
         <div className="grid grid-cols-2 gap-4">
           <div>
             <Label htmlFor="edit-firstName">Prénom *</Label>
@@ -422,36 +420,40 @@ const EditUserForm: React.FC<EditUserFormProps> = ({ userId, userData, onSuccess
         </div>
         
         {changePassword && (
-          <div className="space-y-4 pt-2 pb-2 border-t border-b border-gray-100">
-            <div>
-              <Label htmlFor="new-password">Nouveau mot de passe *</Label>
-              <PasswordInput
-                id="new-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••••"
-                required={changePassword}
-              />
-            </div>
-            
-            <div>
-              <Label htmlFor="confirm-password">Confirmer le mot de passe *</Label>
-              <PasswordInput
-                id="confirm-password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="••••••••••"
-                required={changePassword}
-              />
+          <div className="bg-gray-50 p-4 rounded-lg border">
+            <h3 className="text-sm font-medium text-gray-700 mb-3">Modification du mot de passe</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="new-password">Nouveau mot de passe *</Label>
+                <PasswordInput
+                  id="new-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••••"
+                  required={changePassword}
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="confirm-password">Confirmer le mot de passe *</Label>
+                <PasswordInput
+                  id="confirm-password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="••••••••••"
+                  required={changePassword}
+                />
+              </div>
             </div>
           </div>
         )}
         
-        <div className="pt-4 flex justify-end space-x-3">
+        <div className="sticky bottom-0 bg-white pt-6 mt-6 border-t flex justify-end space-x-3">
           <Button
             type="button"
             variant="outline"
             onClick={onSuccess}
+            disabled={loading}
           >
             Annuler
           </Button>
