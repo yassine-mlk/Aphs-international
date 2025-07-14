@@ -190,7 +190,7 @@ export const translations = {
       // Types de notifications système
       types: {
         file_uploaded: {
-          title: "New file uploaded",
+          title: "Nouveau fichier uploadé",
           message: "{uploaderName} uploaded the file \"{fileName}\"{projectName, select, undefined {} other { in project {projectName}}}"
         },
         task_validated: {
@@ -282,7 +282,12 @@ export const translations = {
         cannotCreateCompany: "Unable to create company. Check the information and try again.",
         cannotUpdateCompany: "Unable to update company. Check the information and try again.",
         passwordUpdateError: "Unable to update your password",
-        notificationPrefsError: "Unable to update your notification preferences"
+        notificationPrefsError: "Unable to update your notification preferences",
+        // Propriétés pour l'interface des notifications
+        notifications: "Notifications",
+        markAllRead: "Tout marquer",
+        noNotifications: "Aucune notification importante",
+        viewAll: "Voir l'activité récente"
       }
     },
     messages: {

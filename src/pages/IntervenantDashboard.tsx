@@ -51,7 +51,7 @@ interface TaskItem {
 const IntervenantDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { fetchData } = useSupabase();
+  const { fetchData, supabase } = useSupabase();
   const { user } = useAuth();
   const { language } = useLanguage();
 
@@ -87,23 +87,56 @@ const IntervenantDashboard: React.FC = () => {
   const loadStats = async () => {
     setLoading(true);
     try {
-      // Charger les tâches de l'intervenant
-      const tasks = await fetchData('task_assignments', {
-        columns: 'id, task_name, status, deadline, project_id',
-        filters: [{ column: 'assigned_to', operator: 'eq', value: user?.id }]
-      }) || [];
-
-      // Charger les projets via les tâches
-      const projectIds = [...new Set(tasks.map((t: any) => t.project_id).filter(Boolean))];
-      let projects = [];
-      if (projectIds.length > 0) {
-        projects = await fetchData('projects', {
-          columns: 'id, name, status',
-          filters: [{ column: 'id', operator: 'in', value: projectIds }]
-        }) || [];
+      if (!user?.id) {
+        console.log('Aucun utilisateur connecté');
+        setLoading(false);
+        return;
       }
 
-      // Calculer les statistiques
+      // 1. Récupérer les projets dont l'utilisateur est membre (même logique que IntervenantProjects.tsx)
+      const memberData = await fetchData('membre', {
+        columns: '*',
+        filters: [{ column: 'user_id', operator: 'eq', value: user.id }]
+      }) || [];
+      
+      console.log('Données membres récupérées:', memberData);
+
+      let projects = [];
+      if (memberData && memberData.length > 0) {
+        // Récupérer les détails des projets
+        const projectIds = memberData
+          .map((member: any) => member.project_id)
+          .filter((id: any) => id && typeof id === 'string' && id.trim() !== '');
+        
+        console.log('IDs des projets à récupérer:', projectIds);
+        
+        if (projectIds.length > 0) {
+          // Utiliser une requête directe Supabase au lieu du helper générique pour le filtre 'in'
+          const { data: projectsData, error } = await supabase
+            .from('projects')
+            .select('id, name, status')
+            .in('id', projectIds);
+          
+          if (error) {
+            console.error('Erreur lors de la récupération des données depuis projects:', error);
+            throw error;
+          }
+          
+          projects = projectsData || [];
+        }
+      }
+
+      console.log('Projets récupérés:', projects);
+
+      // 2. Récupérer toutes les tâches assignées à l'utilisateur
+      const tasks = await fetchData('task_assignments', {
+        columns: 'id, task_name, status, deadline, project_id',
+        filters: [{ column: 'assigned_to', operator: 'eq', value: user.id }]
+      }) || [];
+
+      console.log('Tâches récupérées:', tasks);
+
+      // 3. Calculer les statistiques
       const now = new Date();
       const newStats: IntervenantStats = {
         totalTasks: tasks.length,
@@ -121,9 +154,10 @@ const IntervenantDashboard: React.FC = () => {
         activeProjects: projects.filter((p: any) => p.status === 'active' || p.status === 'in_progress').length
       };
 
+      console.log('Statistiques calculées:', newStats);
       setStats(newStats);
 
-      // Préparer les tâches récentes avec noms de projets
+      // 4. Préparer les tâches récentes avec noms de projets
       const projectMap = new Map(projects.map((p: any) => [p.id, p.name]));
       const tasksWithProjects: TaskItem[] = tasks.slice(0, 5).map((task: any) => ({
         id: task.id,

@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { useToast } from '@/components/ui/use-toast';
+import { translations } from '@/lib/translations';
 import { 
   Briefcase, 
   CheckCircle, 
@@ -11,7 +13,9 @@ import {
   FileUp,
   Clock,
   UserPlus,
-  MessageSquare
+  MessageSquare,
+  Video,
+  Target
 } from 'lucide-react';
 
 export interface RecentActivity {
@@ -24,116 +28,182 @@ export interface RecentActivity {
   project_name?: string;
   user_name?: string;
   read?: boolean;
+  // Nouveaux champs pour les traductions
+  title_key?: string;
+  message_key?: string;
+  title_params?: Record<string, any>;
+  message_params?: Record<string, any>;
 }
 
 export function useRecentActivities() {
   const [activities, setActivities] = useState<RecentActivity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
   const { user } = useAuth();
+  const { language } = useLanguage();
   const { toast } = useToast();
 
-  // Fonction pour obtenir le type d'icône basée sur le type de notification
-  const getNotificationIconType = (type: string): string => {
+  // Obtenir les traductions pour la langue actuelle
+  const getTranslations = useCallback(() => {
+    return translations[language as keyof typeof translations];
+  }, [language]);
+
+  // Fonction pour formater les messages avec paramètres
+  const formatMessage = useCallback((template: string, params: Record<string, any> = {}): string => {
+    let result = template;
+    
+    // Remplacer les paramètres simples {paramName}
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        const regex = new RegExp(`{${key}}`, 'g');
+        result = result.replace(regex, String(value));
+      }
+    });
+
+    // Gérer les conditions select {param, select, undefined {} other {text}}
+    const selectRegex = /{(\w+),\s*select,\s*undefined\s*{}\s*other\s*{\s*([^}]+)\s*}}/g;
+    result = result.replace(selectRegex, (match, paramName, otherText) => {
+      const value = params[paramName];
+      return value !== undefined && value !== null && value !== '' ? otherText : '';
+    });
+
+    return result;
+  }, []);
+
+  // Traduire une notification selon la langue actuelle
+  const translateActivity = useCallback((activity: any): RecentActivity => {
+    const t = getTranslations();
+    
+    // Si l'activité a des clés de traduction, les utiliser
+    if (activity.title_key && activity.message_key && t.notifications?.types?.[activity.type]) {
+      const notificationConfig = t.notifications.types[activity.type];
+      
+      return {
+        ...activity,
+        title: formatMessage(notificationConfig.title, activity.title_params || {}),
+        description: formatMessage(notificationConfig.message, activity.message_params || {}),
+        iconType: getIconType(activity.type)
+      };
+    }
+    
+    // Sinon, utiliser les textes existants ou générer des traductions basiques
+    const basicTranslation = getBasicTranslation(activity.type, activity, t);
+    
+    return {
+      ...activity,
+      title: basicTranslation.title,
+      description: basicTranslation.description,
+      iconType: getIconType(activity.type)
+    };
+  }, [getTranslations, formatMessage]);
+
+  // Obtenir le type d'icône selon le type de notification
+  const getIconType = useCallback((type: string): string => {
+    const iconMap: Record<string, string> = {
+      'file_uploaded': 'file',
+      'file_validation_request': 'file',
+      'task_assigned': 'task',
+      'task_validated': 'check',
+      'task_validation_request': 'task',
+      'project_added': 'project',
+      'meeting_invitation': 'meeting',
+      'meeting_started': 'meeting',
+      'meeting_request': 'meeting',
+      'meeting_request_approved': 'meeting',
+      'meeting_request_rejected': 'meeting',
+      'message_received': 'message',
+      'new_message': 'message',
+      'user_joined': 'user',
+      'project_created': 'project',
+      'project_completed': 'check',
+      'task_completed': 'check'
+    };
+    
+    return iconMap[type] || 'clock';
+  }, []);
+
+  // Traductions basiques pour les activités sans clés de traduction
+  const getBasicTranslation = useCallback((type: string, activity: any, t: any) => {
+    const activityTranslations = t.dashboard?.specialist?.recentActivities || t.dashboard?.masterOwner?.recentActivities;
+    
     switch (type) {
       case 'task_assigned':
-        return 'task_assigned';
+        return {
+          title: activityTranslations?.taskAssigned || 'Nouvelle tâche assignée',
+          description: `${activity.task_name || 'Tâche'} - ${activity.project_name || 'Projet'}`
+        };
       case 'task_validated':
-        return 'task_validated';
+        return {
+          title: activityTranslations?.taskValidated || 'Tâche validée',
+          description: `${activity.task_name || 'Tâche'} a été validée`
+        };
       case 'project_added':
-        return 'project_added';
-      case 'file_uploaded':
-        return 'file_uploaded';
-      case 'meeting_request':
-        return 'meeting_request';
+        return {
+          title: activityTranslations?.projectAdded || 'Ajouté au projet',
+          description: `Vous avez été ajouté au projet ${activity.project_name || 'Projet'}`
+        };
       case 'meeting_invitation':
-        return 'meeting_invitation';
-      case 'new_message':
-        return 'new_message';
-      case 'task_validation_request':
-        return 'task_validation_request';
+        return {
+          title: activityTranslations?.meetingInvitation || 'Invitation à une réunion',
+          description: `Réunion: ${activity.meeting_title || 'Réunion'}`
+        };
+      case 'meeting_started':
+        return {
+          title: activityTranslations?.meetingStarted || 'Réunion démarrée',
+          description: `La réunion ${activity.meeting_title || 'Réunion'} a commencé`
+        };
+      case 'file_uploaded':
+        return {
+          title: activityTranslations?.fileUploaded || 'Fichier uploadé',
+          description: `${activity.file_name || 'Fichier'} a été uploadé`
+        };
+      case 'message_received':
+        return {
+          title: activityTranslations?.messageReceived || 'Nouveau message',
+          description: `Message de ${activity.sender_name || 'Utilisateur'}`
+        };
       default:
-        return 'default';
-    }
-  };
-
-  // Fonction pour obtenir les informations utilisateur
-  const getUserInfo = useCallback(async (userId: string) => {
-    try {
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('first_name, last_name')
-        .eq('user_id', userId)
-        .single();
-
-      if (error) throw error;
-      return profile ? `${profile.first_name} ${profile.last_name}` : 'Utilisateur inconnu';
-    } catch (error) {
-      console.error('Erreur lors de la récupération des informations utilisateur:', error);
-      return 'Utilisateur inconnu';
+        return {
+          title: activity.title || 'Activité',
+          description: activity.description || activity.message || 'Nouvelle activité'
+        };
     }
   }, []);
 
-  // Fonction pour obtenir les informations projet
-  const getProjectInfo = useCallback(async (projectId: string) => {
-    try {
-      const { data: project, error } = await supabase
-        .from('projects')
-        .select('name')
-        .eq('id', projectId)
-        .single();
-
-      if (error) throw error;
-      return project?.name || 'Projet inconnu';
-    } catch (error) {
-      console.error('Erreur lors de la récupération des informations projet:', error);
-      return 'Projet inconnu';
-    }
-  }, []);
-
-  // Fonction pour enrichir les notifications avec les informations supplémentaires
-  const enrichNotifications = useCallback(async (notifications: any[]) => {
-    const enrichedActivities: RecentActivity[] = [];
-
-    for (const notification of notifications) {
-      let description = notification.message;
-      let userName = '';
-      let projectName = '';
-
-      // Enrichir avec les informations utilisateur si disponible
-      if (notification.data?.user_id) {
-        userName = await getUserInfo(notification.data.user_id);
-      }
-
-      // Enrichir avec les informations projet si disponible
-      if (notification.data?.project_id) {
-        projectName = await getProjectInfo(notification.data.project_id);
-      }
-
-      // Enrichir la description
-      if (userName && projectName) {
-        description = `${userName} - ${projectName}`;
-      } else if (userName) {
-        description = `${userName} - ${description}`;
-      } else if (projectName) {
-        description = `${projectName} - ${description}`;
-      }
-
-      enrichedActivities.push({
-        id: notification.id,
-        type: notification.type,
-        title: notification.title,
-        description,
-        timestamp: notification.created_at,
-        iconType: getNotificationIconType(notification.type),
-        project_name: projectName,
-        user_name: userName,
-        read: notification.read
-      });
-    }
-
+  // Enrichir les notifications avec des données supplémentaires
+  const enrichNotifications = useCallback(async (notifications: any[]): Promise<RecentActivity[]> => {
+    const enrichedActivities = await Promise.all(
+      notifications.map(async (notification) => {
+        let enrichedActivity = { ...notification };
+        
+        // Enrichir selon le type de notification
+        if (notification.data) {
+          try {
+            const data = typeof notification.data === 'string' 
+              ? JSON.parse(notification.data) 
+              : notification.data;
+            
+            enrichedActivity = {
+              ...enrichedActivity,
+              project_name: data.projectName,
+              task_name: data.taskName,
+              file_name: data.fileName,
+              meeting_title: data.meetingTitle,
+              sender_name: data.senderName,
+              user_name: data.userName
+            };
+          } catch (error) {
+            console.warn('Erreur parsing data notification:', error);
+          }
+        }
+        
+        return translateActivity(enrichedActivity);
+      })
+    );
+    
     return enrichedActivities;
-  }, [getUserInfo, getProjectInfo]);
+  }, [translateActivity]);
 
   // Fonction pour récupérer les activités récentes pour un intervenant
   const fetchIntervenantActivities = useCallback(async () => {
@@ -145,7 +215,7 @@ export function useRecentActivities() {
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(10);
+        .limit(15); // Augmenter la limite pour plus d'activités
 
       if (error) throw error;
 
@@ -164,7 +234,7 @@ export function useRecentActivities() {
         .from('notifications')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(15);
+        .limit(20); // Plus d'activités pour les admins
 
       if (error) throw error;
 
@@ -250,46 +320,19 @@ export function useRecentActivities() {
     fetchActivities();
   }, [fetchActivities]);
 
-  // Configurer les mises à jour en temps réel
+  // Charger les activités au montage
   useEffect(() => {
-    if (!user?.id) return;
-
-    // Charger les activités initialement
     fetchActivities();
+  }, [fetchActivities]);
 
-    // Configurer les mises à jour en temps réel
-    const channel = supabase
-      .channel('activities_updates')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications'
-        },
-        () => {
-          // Rafraîchir les activités quand une nouvelle notification arrive
-          fetchActivities();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'notifications'
-        },
-        () => {
-          // Rafraîchir les activités quand une notification est mise à jour
-          fetchActivities();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      channel.unsubscribe();
-    };
-  }, [user?.id, fetchActivities]);
+  // Recharger les activités quand la langue change
+  useEffect(() => {
+    if (activities.length > 0) {
+      // Re-traduire les activités existantes
+      const retranslatedActivities = activities.map(activity => translateActivity(activity));
+      setActivities(retranslatedActivities);
+    }
+  }, [language]);
 
   return {
     activities,
