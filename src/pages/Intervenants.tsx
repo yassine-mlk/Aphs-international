@@ -451,7 +451,7 @@ const Intervenants: React.FC = () => {
       {/* Dialogue de modification */}
       {selectedIntervenant && (
         <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Modifier l'intervenant</DialogTitle>
               <DialogDescription>

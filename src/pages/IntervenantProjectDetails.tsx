@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { useSupabase } from "../hooks/useSupabase";
 import { useAuth } from "../contexts/AuthContext";
+import { useProjectStructure } from "../hooks/useProjectStructure";
 import { projectStructure, realizationStructure } from "../data/project-structure";
 import { projectStructureTranslations } from "../data/project-structure-translations";
 
@@ -122,6 +123,13 @@ const IntervenantProjectDetails: React.FC = () => {
   // États pour la navigation progressive de la structure
   const [expandedSections, setExpandedSections] = useState<{[key: string]: boolean}>({});
   const [expandedSubsections, setExpandedSubsections] = useState<{[key: string]: boolean}>({});
+
+  // Hook pour la structure personnalisée du projet
+  const {
+    customProjectStructure,
+    customRealizationStructure,
+    loading: structureLoading
+  } = useProjectStructure(id || '');
 
   // Get translations
   const translations = projectStructureTranslations.fr;
@@ -612,7 +620,7 @@ const IntervenantProjectDetails: React.FC = () => {
                   <AccordionTrigger>{translations.conception}</AccordionTrigger>
                   <AccordionContent>
                     <div className="space-y-4">
-                      {projectStructure.map((section) => {
+                      {customProjectStructure.map((section) => {
                         const sectionKey = section.id as keyof typeof translations.sections;
                         const sectionTranslation = translations.sections[sectionKey];
                         const sectionExpansionKey = `conception-${section.id}`;
@@ -765,7 +773,7 @@ const IntervenantProjectDetails: React.FC = () => {
                   <AccordionTrigger>{translations.realization}</AccordionTrigger>
                   <AccordionContent>
                     <div className="space-y-4">
-                      {realizationStructure.map((section) => {
+                      {customRealizationStructure.map((section) => {
                         const sectionKey = section.id as keyof typeof translations.sections;
                         const sectionTranslation = translations.sections[sectionKey];
                         const sectionExpansionKey = `realization-${section.id}`;
