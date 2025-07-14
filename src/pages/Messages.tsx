@@ -823,27 +823,7 @@ const Messages: React.FC = () => {
                   </div>
                 </div>
                 
-                <div className="flex items-center space-x-2">
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="text-gray-500"
-                    onClick={() => loadMessages(activeConversation.id, true)}
-                    disabled={messagesLoading}
-                    title="Actualiser les messages"
-                  >
-                    <RefreshCw className={`h-4 w-4 ${messagesLoading ? 'animate-spin' : ''}`} />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="text-gray-500">
-                    <Phone className="h-5 w-5" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="text-gray-500">
-                    <VideoIcon className="h-5 w-5" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="text-gray-500">
-                    <MoreVertical className="h-5 w-5" />
-                  </Button>
-                </div>
+
               </div>
               
               {/* Corps de la conversation (messages) */}
