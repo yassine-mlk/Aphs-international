@@ -7,7 +7,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
 import { Calendar, FolderOpen } from 'lucide-react';
-import { MultiSelect } from '@/components/ui/multi-select';
 import { useVideoMeetingsImproved } from '@/hooks/useVideoMeetingsImproved';
 import { useSupabase } from '@/hooks/useSupabase';
 
@@ -20,54 +19,18 @@ export function MeetingRequestFormImproved({ onRequestSubmitted }: MeetingReques
   const { requestMeeting, projects, loadUserProjects } = useVideoMeetingsImproved();
   const { supabase } = useSupabase();
   const [loading, setLoading] = useState(false);
-  const [loadingUsers, setLoadingUsers] = useState(true);
-  const [users, setUsers] = useState<{value: string, label: string}[]>([]);
   
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     projectId: '',
-    scheduledTime: '',
-    selectedParticipants: [] as string[]
+    scheduledTime: ''
   });
   
-  // Charger la liste des utilisateurs pour les suggestions
+  // Charger les projets de l'utilisateur
   useEffect(() => {
-    const loadUsers = async () => {
-      setLoadingUsers(true);
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('user_id, first_name, last_name, email')
-          .order('first_name');
-          
-        if (error) throw error;
-        
-        if (data && Array.isArray(data)) {
-          const formattedUsers = data.map(user => ({
-            value: user.user_id,
-            label: `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email
-          }));
-          setUsers(formattedUsers);
-        } else {
-          setUsers([]);
-        }
-      } catch (error) {
-        console.error("Erreur lors du chargement des utilisateurs:", error);
-        setUsers([]); // S'assurer que users est toujours un tableau
-        toast({
-          title: "Erreur",
-          description: "Impossible de charger la liste des participants",
-          variant: "destructive"
-        });
-      } finally {
-        setLoadingUsers(false);
-      }
-    };
-    
-    loadUsers();
     loadUserProjects();
-  }, [supabase, loadUserProjects, toast]);
+  }, [loadUserProjects]);
   
   const handleSubmit = async () => {
     if (!formData.title) {
@@ -104,14 +67,14 @@ export function MeetingRequestFormImproved({ onRequestSubmitted }: MeetingReques
         formData.title,
         formData.description,
         new Date(formData.scheduledTime),
-        formData.selectedParticipants,
+        [], // Pas de participants sélectionnés - l'admin les choisira
         formData.projectId
       );
       
       if (success) {
         toast({
           title: "Demande envoyée",
-          description: "Votre demande de réunion a été envoyée avec succès"
+          description: "Votre demande de réunion a été envoyée avec succès. L'administrateur choisira les participants lors de l'approbation."
         });
         
         // Réinitialiser le formulaire
@@ -119,8 +82,7 @@ export function MeetingRequestFormImproved({ onRequestSubmitted }: MeetingReques
           title: '',
           description: '',
           projectId: '',
-          scheduledTime: '',
-          selectedParticipants: []
+          scheduledTime: ''
         });
         
         // Notifier le parent si nécessaire
@@ -226,46 +188,29 @@ export function MeetingRequestFormImproved({ onRequestSubmitted }: MeetingReques
           </div>
         </div>
         
-        <div className="space-y-2">
-          <Label htmlFor="request-participants">Participants suggérés</Label>
-          {loadingUsers ? (
-            <div className="border border-input px-3 py-2 text-sm rounded-md text-gray-500">
-              Chargement des participants...
-            </div>
-          ) : (
-            <MultiSelect
-              id="request-participants"
-              placeholder="Sélectionnez des participants..."
-              selected={Array.isArray(formData.selectedParticipants) ? formData.selectedParticipants : []}
-              options={Array.isArray(users) ? users : []}
-              onChange={(values) => {
-                const safeValues = Array.isArray(values) ? values : [];
-                setFormData({...formData, selectedParticipants: safeValues});
-              }}
-            />
-          )}
-          <p className="text-xs text-gray-500 mt-1">
-            {loadingUsers 
-              ? "Chargement de la liste des participants..." 
-              : users.length === 0 
-                ? "Aucun participant disponible."
-                : "Les participants seront invités si l'administrateur approuve votre demande."
-            }
+        {/* Message informatif sur la sélection des participants */}
+        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center gap-2 text-blue-800">
+            <Calendar className="h-4 w-4" />
+            <span className="font-medium">Sélection des participants</span>
+          </div>
+          <p className="text-blue-700 text-sm mt-1">
+            L'administrateur choisira les participants lors de l'approbation de votre demande selon le projet sélectionné.
           </p>
         </div>
 
         {/* Affichage du projet sélectionné si disponible */}
         {formData.projectId && (
-          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <div className="flex items-center gap-2 text-blue-800">
+          <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+            <div className="flex items-center gap-2 text-green-800">
               <FolderOpen className="h-4 w-4" />
               <span className="font-medium">Projet sélectionné:</span>
             </div>
-            <p className="text-blue-700 text-sm mt-1">
+            <p className="text-green-700 text-sm mt-1">
               {projects.find(p => p.id === formData.projectId)?.name}
             </p>
             {projects.find(p => p.id === formData.projectId)?.description && (
-              <p className="text-blue-600 text-xs mt-1">
+              <p className="text-green-600 text-xs mt-1">
                 {projects.find(p => p.id === formData.projectId)?.description}
               </p>
             )}

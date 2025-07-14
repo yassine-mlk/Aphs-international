@@ -113,7 +113,8 @@ export function useVideoMeetingRequests() {
     requestId: string,
     approved: boolean,
     responseMessage?: string,
-    scheduledTime?: Date
+    scheduledTime?: Date,
+    selectedParticipants?: string[]
   ): Promise<boolean> => {
     if (!user || !isAdmin) return false;
     setLoading(true);
@@ -171,25 +172,36 @@ export function useVideoMeetingRequests() {
 
         if (meetingError) throw meetingError;
 
+        // Utiliser les participants sélectionnés par l'admin ou récupérer ceux suggérés
+        let participantIds: string[] = [];
+        
+        if (selectedParticipants && selectedParticipants.length > 0) {
+          // Utiliser les participants sélectionnés par l'admin
+          participantIds = selectedParticipants;
+        } else {
+          // Fallback: utiliser les participants suggérés (pour rétrocompatibilité)
+          const { data: suggestedParticipants } = await supabase
+            .from('video_meeting_request_participants')
+            .select('user_id')
+            .eq('request_id', requestId);
+
+          participantIds = suggestedParticipants?.map(p => p.user_id) || [];
+        }
+
         // Ajouter les participants à la réunion
-        const { data: participants } = await supabase
-          .from('video_meeting_request_participants')
-          .select('user_id')
-          .eq('request_id', requestId);
+        for (const participantId of participantIds) {
+          await supabase
+            .from('video_meeting_participants')
+            .insert({
+              meeting_id: meeting.id,
+              user_id: participantId,
+              role: 'participant',
+              status: 'invited'
+            });
+        }
 
-        if (participants) {
-          for (const participant of participants) {
-            await supabase
-              .from('video_meeting_participants')
-              .insert({
-                meeting_id: meeting.id,
-                user_id: participant.user_id,
-                role: 'participant',
-                status: 'invited'
-              });
-          }
-
-          // Ajouter le demandeur
+        // Toujours ajouter le demandeur s'il n'est pas déjà inclus
+        if (!participantIds.includes(requestData.requested_by)) {
           await supabase
             .from('video_meeting_participants')
             .insert({

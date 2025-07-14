@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +11,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { MultiSelect } from '@/components/ui/multi-select';
+import { useSupabase } from '@/hooks/useSupabase';
 import {
   Dialog,
   DialogContent,
@@ -23,23 +25,71 @@ import {
 export function MeetingRequestsManagerImproved() {
   const { toast } = useToast();
   const { loading, requests, getMeetingRequests, respondToMeetingRequest } = useVideoMeetingRequests();
+  const { supabase } = useSupabase();
   const [responseDialog, setResponseDialog] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
   const [responseMessage, setResponseMessage] = useState('');
   const [scheduledTime, setScheduledTime] = useState('');
+  const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
+  const [users, setUsers] = useState<{value: string, label: string}[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
   const [respondingState, setRespondingState] = useState<'idle' | 'approving' | 'rejecting'>('idle');
   const [processing, setProcessing] = useState(false);
   
+  // Charger les utilisateurs pour la sélection des participants
+  useEffect(() => {
+    const loadUsers = async () => {
+      setLoadingUsers(true);
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name, email')
+          .order('first_name');
+          
+        if (error) throw error;
+        
+        if (data && Array.isArray(data)) {
+          const formattedUsers = data.map(user => ({
+            value: user.user_id,
+            label: `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email
+          }));
+          setUsers(formattedUsers);
+        } else {
+          setUsers([]);
+        }
+      } catch (error) {
+        console.error("Erreur lors du chargement des utilisateurs:", error);
+        setUsers([]);
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger la liste des participants",
+          variant: "destructive"
+        });
+      } finally {
+        setLoadingUsers(false);
+      }
+    };
+    
+    loadUsers();
+  }, [supabase, toast]);
+
   const handleOpenResponse = (request: any, approving: boolean) => {
     setSelectedRequest(request);
     setResponseDialog(true);
     setRespondingState(approving ? 'approving' : 'rejecting');
     setResponseMessage('');
+    setSelectedParticipants([]);
+    
     // Pré-remplir avec la date demandée si on approuve
     if (approving && request.scheduledTime) {
       setScheduledTime(format(request.scheduledTime, 'yyyy-MM-dd\'T\'HH:mm'));
     } else {
       setScheduledTime('');
+    }
+    
+    // Pré-sélectionner le demandeur comme participant
+    if (approving && request.requestedBy) {
+      setSelectedParticipants([request.requestedBy]);
     }
   };
   
@@ -57,7 +107,8 @@ export function MeetingRequestsManagerImproved() {
         selectedRequest.id,
         respondingState === 'approving',
         responseMessage,
-        scheduledDate
+        scheduledDate,
+        selectedParticipants
       );
       
       if (success) {
@@ -65,6 +116,7 @@ export function MeetingRequestsManagerImproved() {
         setSelectedRequest(null);
         setResponseMessage('');
         setScheduledTime('');
+        setSelectedParticipants([]);
       }
     } catch (error) {
       console.error("Erreur lors de la réponse à la demande:", error);
@@ -98,105 +150,110 @@ export function MeetingRequestsManagerImproved() {
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold">Demandes de réunion</h2>
-          <p className="text-gray-600">
-            {pendingRequests.length} demande(s) en attente • {processedRequests.length} traitée(s)
-          </p>
+          <p className="text-gray-600">Gérer les demandes de réunion des intervenants</p>
         </div>
         <Button 
           variant="outline" 
+          size="sm"
           onClick={getMeetingRequests}
           disabled={loading}
         >
-          <RefreshCw className="mr-2 h-4 w-4" />
-          {loading ? "Chargement..." : "Actualiser"}
+          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+          Actualiser
         </Button>
       </div>
       
       {loading ? (
-        <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-aphs-teal mx-auto mb-4"></div>
-          <p className="text-gray-500">Chargement des demandes...</p>
+        <div className="flex items-center justify-center p-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-aphs-teal"></div>
         </div>
       ) : (
         <div className="space-y-6">
+          {/* Statistiques */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-yellow-500" />
+                  <div>
+                    <p className="text-sm text-gray-600">En attente</p>
+                    <p className="text-2xl font-bold">{pendingRequests.length}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2">
+                  <Check className="h-5 w-5 text-green-500" />
+                  <div>
+                    <p className="text-sm text-gray-600">Traitées</p>
+                    <p className="text-2xl font-bold">{processedRequests.length}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+          
           {/* Demandes en attente */}
           {pendingRequests.length > 0 && (
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-orange-700 flex items-center gap-2">
+              <h3 className="text-lg font-semibold text-gray-700 flex items-center gap-2">
                 <Clock className="h-5 w-5" />
                 Demandes en attente ({pendingRequests.length})
               </h3>
-              <ScrollArea className="max-h-[400px]">
-                <div className="space-y-4">
-                  {pendingRequests.map((request) => (
-                    <Card key={request.id} className="border-orange-200 bg-orange-50">
-                      <CardHeader className="pb-2">
-                        <div className="flex justify-between items-start">
-                          <CardTitle className="text-lg flex items-center gap-2">
-                            {request.title}
-                            {renderStatusBadge(request.status)}
-                          </CardTitle>
-                          <div className="text-sm text-gray-600">
-                            <span>Par {request.requestedByName}</span>
-                          </div>
+              <div className="space-y-4">
+                {pendingRequests.map((request) => (
+                  <Card key={request.id} className="border-yellow-200 bg-yellow-50">
+                    <CardHeader className="pb-2">
+                      <div className="flex justify-between items-start">
+                        <CardTitle className="text-lg">{request.title}</CardTitle>
+                        <div className="text-sm text-gray-500">
+                          <span>Par {request.requestedByName}</span>
                         </div>
-                      </CardHeader>
-                      <CardContent className="pb-3 pt-0">
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pb-2 pt-0">
+                      <div className="space-y-2 text-sm">
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4" />
+                          <span>Souhaitée pour: {formatRequestTime(request.scheduledTime || request.requestedTime)}</span>
+                        </div>
+                        {request.projectName && (
+                          <div className="flex items-center gap-2">
+                            <FolderOpen className="h-4 w-4" />
+                            <span>Projet: {request.projectName}</span>
+                          </div>
+                        )}
                         {request.description && (
-                          <p className="text-sm text-gray-700 mb-4">{request.description}</p>
-                        )}
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-4">
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4 text-gray-400" />
-                            <span>Date souhaitée: {formatRequestTime(request.scheduledTime || request.requestedTime)}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Users className="h-4 w-4 text-gray-400" />
-                            <span>{request.suggestedParticipants.length} participants suggérés</span>
-                          </div>
-                          {request.projectName && (
-                            <div className="flex items-center gap-2">
-                              <FolderOpen className="h-4 w-4 text-gray-400" />
-                              <span>Projet: {request.projectName}</span>
-                            </div>
-                          )}
-                          <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4 text-gray-400" />
-                            <span>Demandé le: {formatRequestTime(request.createdAt)}</span>
-                          </div>
-                        </div>
-                        
-                        {request.suggestedParticipants.length > 0 && (
-                          <div className="flex flex-wrap gap-2 mb-4">
-                            {request.suggestedParticipants.map(participant => (
-                              <Badge key={participant.id} variant="outline" className="bg-white/50">
-                                {participant.name}
-                              </Badge>
-                            ))}
+                          <div className="p-2 bg-white rounded text-gray-700">
+                            {request.description}
                           </div>
                         )}
-                      </CardContent>
-                      
-                      <CardFooter className="flex justify-end gap-2 pt-0">
-                        <Button 
-                          variant="outline" 
-                          className="border-red-200 hover:bg-red-50 text-red-700"
-                          onClick={() => handleOpenResponse(request, false)}
-                        >
-                          <X className="h-4 w-4 mr-2" /> Refuser
-                        </Button>
-                        <Button 
-                          className="bg-green-600 hover:bg-green-700"
-                          onClick={() => handleOpenResponse(request, true)}
-                        >
-                          <Check className="h-4 w-4 mr-2" /> Approuver
-                        </Button>
-                      </CardFooter>
-                    </Card>
-                  ))}
-                </div>
-              </ScrollArea>
+                      </div>
+                    </CardContent>
+                    <CardFooter className="space-x-2">
+                      <Button
+                        size="sm"
+                        onClick={() => handleOpenResponse(request, true)}
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        <Check className="h-4 w-4 mr-1" />
+                        Approuver
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleOpenResponse(request, false)}
+                        className="border-red-300 text-red-600 hover:bg-red-50"
+                      >
+                        <X className="h-4 w-4 mr-1" />
+                        Refuser
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                ))}
+              </div>
             </div>
           )}
           
@@ -257,7 +314,7 @@ export function MeetingRequestsManagerImproved() {
       
       {/* Dialog de réponse */}
       <Dialog open={responseDialog} onOpenChange={setResponseDialog}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>
               {respondingState === 'approving' ? 'Approuver' : 'Refuser'} la demande
@@ -269,18 +326,40 @@ export function MeetingRequestsManagerImproved() {
           
           <div className="space-y-4 py-4">
             {respondingState === 'approving' && (
-              <div className="space-y-2">
-                <Label htmlFor="scheduled-time">Date et heure de la réunion *</Label>
-                <Input
-                  id="scheduled-time"
-                  type="datetime-local"
-                  value={scheduledTime}
-                  onChange={(e) => setScheduledTime(e.target.value)}
-                />
-                <p className="text-sm text-gray-500">
-                  La réunion sera programmée à cette date et tous les participants seront notifiés.
-                </p>
-              </div>
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="scheduled-time">Date et heure de la réunion *</Label>
+                  <Input
+                    id="scheduled-time"
+                    type="datetime-local"
+                    value={scheduledTime}
+                    onChange={(e) => setScheduledTime(e.target.value)}
+                  />
+                  <p className="text-sm text-gray-500">
+                    La réunion sera programmée à cette date et tous les participants seront notifiés.
+                  </p>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="participants">Participants à la réunion *</Label>
+                  {loadingUsers ? (
+                    <div className="border border-input px-3 py-2 text-sm rounded-md text-gray-500">
+                      Chargement des participants...
+                    </div>
+                  ) : (
+                    <MultiSelect
+                      id="participants"
+                      placeholder="Sélectionnez les participants..."
+                      selected={selectedParticipants}
+                      options={users}
+                      onChange={setSelectedParticipants}
+                    />
+                  )}
+                  <p className="text-sm text-gray-500">
+                    Sélectionnez les personnes qui participeront à cette réunion. Le demandeur est automatiquement inclus.
+                  </p>
+                </div>
+              </>
             )}
             
             <div className="space-y-2">
@@ -312,7 +391,7 @@ export function MeetingRequestsManagerImproved() {
               onClick={handleRespond}
               disabled={
                 processing || 
-                (respondingState === 'approving' && !scheduledTime) ||
+                (respondingState === 'approving' && (!scheduledTime || selectedParticipants.length === 0)) ||
                 (respondingState === 'rejecting' && !responseMessage.trim())
               }
               className={

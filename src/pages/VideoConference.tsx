@@ -1,37 +1,43 @@
-import React, { useCallback, useEffect, useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
-import { useLanguage } from '../contexts/LanguageContext';
-import { translations } from '../lib/translations';
 import { 
-  Video as VideoIcon, 
-  Plus, 
+  VideoIcon, 
   Calendar, 
   Users, 
-  Copy,
+  Plus, 
+  Search,
+  Filter,
   Clock,
+  Copy,
   X,
   StopCircle,
+  History,
+  Settings,
   Trash2,
-  History
+  AlertCircle
 } from 'lucide-react';
-import { useVideoMeetings, VideoMeeting } from '@/hooks/useVideoMeetings';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { useAuth } from '@/contexts/AuthContext';
-import { EnhancedVideoConference } from '@/components/EnhancedVideoConference';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { CardFooter } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useSupabase } from '@/hooks/useSupabase';
-import { MeetingRequestForm } from '@/components/MeetingRequestForm';
-import { MeetingRequestsManager } from '@/components/MeetingRequestsManager';
+import { useAuth } from '@/contexts/AuthContext';
+import { useVideoMeetings } from '@/hooks/useVideoMeetings';
+import { EnhancedVideoConference } from '@/components/EnhancedVideoConference';
+import { useLanguage } from '../contexts/LanguageContext';
+import { translations } from '../lib/translations';
+import { MeetingRequestFormImproved } from '@/components/MeetingRequestFormImproved';
+import { MeetingRequestsManagerImproved } from '@/components/MeetingRequestsManagerImproved';
 
 // Interface pour le format de retour de getUsers
 interface UserData {
@@ -46,9 +52,41 @@ interface UserData {
   }>;
 }
 
-// Fonction pour formater la date d'une réunion
+// Fonction pour formater l'heure des réunions
 const formatMeetingTime = (date: Date) => {
-  return format(date, "EEEE d MMMM 'à' HH'h'mm", { locale: fr });
+  return format(date, "d MMM yyyy 'à' HH:mm", { locale: fr });
+};
+
+// Fonction pour vérifier si une réunion peut être rejointe
+const canJoinMeeting = (meeting: any, isAdmin: boolean) => {
+  // Les admins peuvent toujours rejoindre
+  if (isAdmin) return true;
+  
+  // Si la réunion est active, on peut la rejoindre
+  if (meeting.status === 'active') return true;
+  
+  // Si la réunion n'est pas planifiée, on peut la rejoindre
+  if (meeting.status !== 'scheduled') return true;
+  
+  // Si la réunion n'a pas d'heure de début, on peut la rejoindre
+  if (!meeting.scheduledTime) return true;
+  
+  // Vérifier si l'heure de début est passée (avec une marge de 10 minutes avant)
+  const now = new Date();
+  const scheduledTime = new Date(meeting.scheduledTime);
+  const tenMinutesBefore = new Date(scheduledTime.getTime() - 10 * 60 * 1000);
+  
+  return now >= tenMinutesBefore;
+};
+
+// Fonction pour obtenir le message d'erreur pour une réunion non accessible
+const getJoinErrorMessage = (meeting: any) => {
+  if (meeting.status === 'scheduled' && meeting.scheduledTime) {
+    const scheduledTime = new Date(meeting.scheduledTime);
+    const tenMinutesBefore = new Date(scheduledTime.getTime() - 10 * 60 * 1000);
+    return `Cette réunion ne peut être rejointe qu'à partir de ${formatMeetingTime(tenMinutesBefore)}`;
+  }
+  return "Cette réunion n'est pas encore disponible";
 };
 
 const VideoConference: React.FC = () => {
@@ -138,6 +176,18 @@ const VideoConference: React.FC = () => {
   
   const handleJoinMeeting = async (meetingId: string) => {
     if (!user) return;
+    
+    // Vérifier si la réunion peut être rejointe
+    const meeting = meetings?.find(m => m.id === meetingId);
+    if (meeting && !canJoinMeeting(meeting, isAdmin)) {
+      toast({
+        title: "Accès refusé",
+        description: getJoinErrorMessage(meeting),
+        variant: "destructive"
+      });
+      return;
+    }
+    
     setLoadingAction(true);
     
     try {
@@ -150,10 +200,11 @@ const VideoConference: React.FC = () => {
           isModerator: result.isModerator
         });
       }
-    } catch (error: any) {
+    } catch (error) {
+      console.error('Erreur lors de la connexion à la réunion:', error);
       toast({
         title: "Erreur",
-        description: error.message || "Impossible de rejoindre la réunion",
+        description: "Impossible de rejoindre la réunion",
         variant: "destructive"
       });
     } finally {
@@ -162,44 +213,29 @@ const VideoConference: React.FC = () => {
   };
   
   const handleJoinWithId = async () => {
-    if (!meetingIdToJoin.trim()) {
-      toast({
-        title: "Erreur",
-        description: "Veuillez saisir un ID de réunion valide",
-        variant: "destructive"
-      });
-      return;
-    }
+    if (!meetingIdToJoin.trim()) return;
     
     setLoadingAction(true);
-    
     try {
-      const { data, error } = await supabase
-        .from('video_meetings')
-        .select('id')
-        .eq('room_id', meetingIdToJoin.trim())
-        .maybeSingle();
+      const result = await joinMeeting(meetingIdToJoin);
       
-      if (error) throw error;
-
-      if (data) {
-        await handleJoinMeeting(data.id);
-      } else {
-        toast({
-          title: "Réunion introuvable",
-          description: "Aucune réunion ne correspond à cet ID",
-          variant: "destructive"
+      if (result) {
+        setActiveMeetingRoom({
+          roomId: result.roomId,
+          meetingId: meetingIdToJoin,
+          isModerator: result.isModerator
         });
+        setMeetingIdToJoin("");
       }
     } catch (error) {
+      console.error('Erreur lors de la connexion à la réunion:', error);
       toast({
         title: "Erreur",
-        description: "Impossible de rejoindre la réunion",
+        description: "Impossible de rejoindre la réunion avec cet ID",
         variant: "destructive"
       });
     } finally {
       setLoadingAction(false);
-      setMeetingIdToJoin("");
     }
   };
   
@@ -208,7 +244,7 @@ const VideoConference: React.FC = () => {
   };
   
   const handleSubmitNewMeeting = async () => {
-    if (!formData.title) {
+    if (!formData.title.trim()) {
       toast({
         title: "Titre manquant",
         description: "Veuillez saisir un titre pour la réunion",
@@ -219,184 +255,166 @@ const VideoConference: React.FC = () => {
     
     if (!formData.isInstant && !formData.scheduledTime) {
       toast({
-        title: "Date manquante",
-        description: "Veuillez sélectionner une date pour la réunion programmée",
+        title: "Heure manquante",
+        description: "Veuillez sélectionner une heure pour la réunion planifiée",
         variant: "destructive"
       });
       return;
     }
     
-    const meetingId = await createMeeting(
-      formData.title,
-      formData.selectedParticipants,
-      {
-        description: formData.description,
-        scheduledTime: formData.isInstant ? undefined : new Date(formData.scheduledTime),
-        isInstant: formData.isInstant
-      }
-    );
-    
-    if (meetingId) {
-      setNewMeetingDialog(false);
-      setFormData({
-        title: '',
-        description: '',
-        scheduledTime: '',
-        selectedParticipants: [],
-        isInstant: false
-      });
+    setLoadingAction(true);
+    try {
+      const scheduledTime = formData.isInstant ? undefined : new Date(formData.scheduledTime);
       
-      if (formData.isInstant) {
-        await handleJoinMeeting(meetingId);
+      const result = await createMeeting(
+        formData.title,
+        formData.selectedParticipants,
+        {
+          description: formData.description,
+          scheduledTime,
+          isInstant: formData.isInstant
+        }
+      );
+      
+      if (result) {
+        setNewMeetingDialog(false);
+        setFormData({
+          title: '',
+          description: '',
+          scheduledTime: '',
+          selectedParticipants: [],
+          isInstant: false
+        });
+        
+        if (formData.isInstant) {
+          // Rejoindre automatiquement la réunion instantanée
+          setActiveMeetingRoom({
+            roomId: result,
+            meetingId: result,
+            isModerator: true
+          });
+        }
       }
+    } catch (error) {
+      console.error('Erreur lors de la création de la réunion:', error);
+    } finally {
+      setLoadingAction(false);
     }
   };
   
   const handleCopyMeetingId = (meetingId: string) => {
     navigator.clipboard.writeText(meetingId);
-    setCopyTooltip("Copié !");
+    setCopyTooltip("Copié!");
     setTimeout(() => setCopyTooltip("Copier l'ID"), 2000);
   };
   
   const handleLeaveMeeting = async (meetingId: string) => {
-    console.log(`🚪 Leaving meeting: ${meetingId}`);
-    
-    try {
-      const success = await leaveMeeting(meetingId);
-      
-      // Toujours quitter l'interface, même si la BD a eu un problème
-      if (activeMeetingRoom && activeMeetingRoom.meetingId === meetingId) {
-        console.log(`✅ Closing meeting room interface`);
-        setActiveMeetingRoom(null);
-      }
-      
-      // Rafraîchir la liste des réunions
-      if (isAdmin) {
-        await getAllMeetings();
-      } else {
-        await getUserMeetings();
-      }
-      
-    } catch (error) {
-      console.error('Error leaving meeting:', error);
-      // En cas d'erreur, fermer quand même l'interface
-      if (activeMeetingRoom && activeMeetingRoom.meetingId === meetingId) {
-        console.log(`🔄 Force closing meeting room due to error`);
-        setActiveMeetingRoom(null);
-      }
-      
-      toast({
-        title: "Attention",
-        description: "Vous avez quitté la réunion mais il y a eu un problème technique",
-        variant: "default"
-      });
-    }
-  };
-
-  const handleEndMeeting = async (meetingId: string) => {
-    console.log(`🔚 Ending meeting: ${meetingId}`);
     setLoadingAction(true);
-    
     try {
-      const success = await endMeeting(meetingId);
-      
-      if (success) {
-        // Fermer l'interface si c'est la réunion active
-        if (activeMeetingRoom && activeMeetingRoom.meetingId === meetingId) {
-          console.log(`✅ Closing active meeting room interface`);
-          setActiveMeetingRoom(null);
-        }
-        
-        // Rafraîchir OBLIGATOIREMENT la liste des réunions
-        console.log(`🔄 Refreshing meetings list for admin`);
-        if (isAdmin) {
-          await getAllMeetings();
-        } else {
-          await getUserMeetings();
-        }
-        
-        // Notification de succès
-        toast({
-          title: "Réunion terminée",
-          description: "La réunion a été terminée et la liste a été mise à jour",
-          variant: "default"
-        });
-      }
+      await leaveMeeting(meetingId);
+      setActiveMeetingRoom(null);
+      toast({
+        title: "Réunion quittée",
+        description: "Vous avez quitté la réunion"
+      });
     } catch (error) {
-      console.error('Error ending meeting:', error);
+      console.error('Erreur lors de la sortie de la réunion:', error);
       toast({
         title: "Erreur",
-        description: "Problème lors de la fermeture de la réunion",
+        description: "Impossible de quitter la réunion",
         variant: "destructive"
       });
     } finally {
       setLoadingAction(false);
     }
   };
-
-  // Supprimer une réunion individuelle
+  
+  const handleEndMeeting = async (meetingId: string) => {
+    setLoadingAction(true);
+    try {
+      await endMeeting(meetingId);
+      setActiveMeetingRoom(null);
+      toast({
+        title: "Réunion terminée",
+        description: "La réunion a été terminée avec succès"
+      });
+    } catch (error) {
+      console.error('Erreur lors de la fin de la réunion:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de terminer la réunion",
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingAction(false);
+    }
+  };
+  
   const handleDeleteMeeting = async (meetingId: string) => {
-    console.log(`🗑️ Deleting meeting: ${meetingId}`);
     setLoadingAction(true);
-    
     try {
-      const success = await deleteMeeting(meetingId);
-      
-      if (success) {
-        // Rafraîchir la liste des réunions
-        if (isAdmin) {
-          await getAllMeetings();
-        } else {
-          await getUserMeetings();
-        }
-      }
+      await deleteMeeting(meetingId);
+      toast({
+        title: "Réunion supprimée",
+        description: "La réunion a été supprimée"
+      });
     } catch (error) {
-      console.error('Error deleting meeting:', error);
+      console.error('Erreur lors de la suppression de la réunion:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de supprimer la réunion",
+        variant: "destructive"
+      });
     } finally {
       setLoadingAction(false);
     }
   };
-
-  // Nettoyer l'historique des réunions terminées
+  
   const handleClearHistory = async () => {
-    console.log(`🧹 Clearing completed meetings history`);
     setLoadingAction(true);
-    
     try {
-      const success = await clearCompletedMeetings();
-      
-      if (success) {
-        // Rafraîchir la liste des réunions après nettoyage
-        if (isAdmin) {
-          await getAllMeetings();
-        } else {
-          await getUserMeetings();
-        }
-      }
+      await clearCompletedMeetings();
+      toast({
+        title: "Historique nettoyé",
+        description: "Les réunions terminées ont été supprimées"
+      });
     } catch (error) {
-      console.error('Error clearing history:', error);
+      console.error('Erreur lors du nettoyage de l\'historique:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de nettoyer l'historique",
+        variant: "destructive"
+      });
     } finally {
       setLoadingAction(false);
     }
   };
-
-  // Utiliser useMemo pour stabiliser le composant VideoCall et éviter les rerenders
+  
   const memoizedVideoCall = useMemo(() => {
     if (!activeMeetingRoom) return null;
     
     return (
       <EnhancedVideoConference 
         roomId={activeMeetingRoom.roomId}
-        userName={user?.email || 'Utilisateur'}
+        userName={`${user?.user_metadata?.first_name || ''} ${user?.user_metadata?.last_name || ''}`.trim() || user?.email || 'Utilisateur'}
         onLeave={() => setActiveMeetingRoom(null)}
       />
     );
   }, [activeMeetingRoom, user]);
-
-  // Si une réunion WebRTC est active
+  
+  // Charger les réunions au montage
+  useEffect(() => {
+    if (isAdmin) {
+      getAllMeetings();
+    } else {
+      getUserMeetings();
+    }
+  }, [isAdmin, getAllMeetings, getUserMeetings]);
+  
+  // Si l'utilisateur est dans une réunion, afficher seulement l'interface de vidéoconférence
   if (activeMeetingRoom) {
     return (
-      <div className="space-y-6">
+      <div className="min-h-screen bg-gray-50 space-y-6">
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold tracking-tight">{t.currentMeeting}</h1>
           <div className="flex gap-2">
@@ -431,7 +449,7 @@ const VideoConference: React.FC = () => {
         </p>
       </div>
       
-      {/* Navigation par onglets */}
+      {/* Navigation par onglets - Seul "Mes réunions" pour les intervenants */}
       <div className="flex flex-wrap gap-2 mb-6">
         <Button 
           variant={activeTab === "meetings" ? "default" : "outline"}
@@ -440,15 +458,6 @@ const VideoConference: React.FC = () => {
         >
           <VideoIcon className="mr-2 h-4 w-4" /> {t.myMeetings}
         </Button>
-        {!isAdmin && (
-          <Button 
-            variant={activeTab === "request" ? "default" : "outline"}
-            onClick={() => setActiveTab("request")}
-            className={activeTab === "request" ? "bg-aphs-teal hover:bg-aphs-navy" : ""}
-          >
-            <Calendar className="mr-2 h-4 w-4" /> {t.requestMeeting}
-          </Button>
-        )}
         {isAdmin && (
           <Button 
             variant={activeTab === "requests" ? "default" : "outline"}
@@ -569,118 +578,138 @@ const VideoConference: React.FC = () => {
               </div>
             ) : (
               <div className="grid gap-4">
-                {filteredMeetings.filter(meeting => meeting.id !== activeMeeting?.id).map((meeting) => (
-                  <Card key={meeting.id} className="border-0 shadow-sm hover:shadow-md transition-shadow">
-                    <CardHeader className="pb-2">
-                      <div className="flex justify-between items-center">
-                        <CardTitle className="text-lg flex items-center gap-2">
-                          {meeting.status === "scheduled" && <Badge variant="outline">Programmée</Badge>}
-                          {meeting.status === "active" && <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Active</Badge>}
-                          {meeting.status === "ended" && <Badge variant="secondary">Terminée</Badge>}
-                          {meeting.title}
-                        </CardTitle>
-                        {meeting.scheduledTime && (
-                          <div className="text-sm text-gray-500 flex items-center gap-1">
-                            <Clock className="h-4 w-4" />
-                            {formatMeetingTime(meeting.scheduledTime)}
-                          </div>
-                        )}
-                      </div>
-                    </CardHeader>
-                    <CardContent className="pb-3 pt-0">
-                      {meeting.description && (
-                        <p className="text-sm text-gray-700 mb-4">{meeting.description}</p>
-                      )}
-                      
-                      <div className="flex items-center gap-1 text-sm text-gray-600 mb-4">
-                        <Users className="h-4 w-4 text-gray-400" />
-                        <span>Participants ({meeting.participants.length}):</span>
-                      </div>
-                      
-                      <div className="flex flex-wrap gap-2 mb-4">
-                        {meeting.participants.map(participant => (
-                          <div key={participant.id} className="flex items-center gap-1 bg-gray-100 rounded-full px-2 py-1">
-                            <Avatar className="h-5 w-5">
-                              <AvatarFallback className="text-xs bg-aphs-navy text-white">
-                                {participant.name.split(' ').map(n => n[0]).join('')}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span className="text-xs">{participant.name}</span>
-                            {participant.role === 'host' && (
-                              <Badge variant="outline" className="ml-1 text-[0.6rem] h-4 bg-blue-50 text-blue-700 hover:bg-blue-50">
-                                Hôte
-                              </Badge>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                      
-                      <div className="bg-gray-50 p-3 rounded-md">
-                        <p className="text-xs text-gray-500">ID de réunion:</p>
-                        <div className="flex items-center justify-between mt-1">
-                          <code className="bg-gray-100 px-2 py-1 rounded text-sm">{meeting.roomId}</code>
-                          <button 
-                            onClick={() => handleCopyMeetingId(meeting.roomId)}
-                            className="text-gray-500 hover:text-aphs-teal"
-                            title={copyTooltip}
-                          >
-                            <Copy className="h-4 w-4" />
-                          </button>
+                {filteredMeetings.filter(meeting => meeting.id !== activeMeeting?.id).map((meeting) => {
+                  const canJoin = canJoinMeeting(meeting, isAdmin);
+                  
+                  return (
+                    <Card key={meeting.id} className="border-0 shadow-sm hover:shadow-md transition-shadow">
+                      <CardHeader className="pb-2">
+                        <div className="flex justify-between items-center">
+                          <CardTitle className="text-lg flex items-center gap-2">
+                            {meeting.status === "scheduled" && <Badge variant="outline">Programmée</Badge>}
+                            {meeting.status === "active" && <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Active</Badge>}
+                            {meeting.status === "ended" && <Badge variant="secondary">Terminée</Badge>}
+                            {meeting.title}
+                          </CardTitle>
+                          {meeting.scheduledTime && (
+                            <div className="text-sm text-gray-500 flex items-center gap-1">
+                              <Clock className="h-4 w-4" />
+                              {formatMeetingTime(meeting.scheduledTime)}
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    </CardContent>
-                    <CardFooter className="flex justify-between pt-0">
-                      <div className="flex gap-2">
-                        <Button 
-                          className="bg-aphs-teal hover:bg-aphs-navy"
-                          onClick={() => handleJoinMeeting(meeting.id)}
-                        >
-                          <VideoIcon className="mr-2 h-4 w-4" /> Rejoindre
-                        </Button>
-                        
-                        {(meeting.status === 'active') && 
-                         (isAdmin || meeting.createdBy === user?.id) && (
-                          <Button 
-                            variant="destructive"
-                            onClick={() => handleEndMeeting(meeting.id)}
-                            disabled={loadingAction}
-                          >
-                            <StopCircle className="mr-2 h-4 w-4" /> Terminer
-                          </Button>
+                      </CardHeader>
+                      <CardContent className="pb-3 pt-0">
+                        {meeting.description && (
+                          <p className="text-sm text-gray-700 mb-4">{meeting.description}</p>
                         )}
-                      </div>
-
-                      {/* Bouton supprimer pour les réunions terminées/annulées */}
-                      {(meeting.status === 'ended' || meeting.status === 'cancelled') && 
-                       (isAdmin || meeting.createdBy === user?.id) && (
-                        <Button 
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDeleteMeeting(meeting.id)}
-                          disabled={loadingAction}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" /> Supprimer
-                        </Button>
-                      )}
-                    </CardFooter>
-                  </Card>
-                ))}
-              </div>
-            )}
-            
-            {!loadingMeetings && filteredMeetings.length === (activeMeeting ? 1 : 0) && (
-              <div className="text-center py-12">
-                <VideoIcon className="mx-auto h-12 w-12 text-gray-300 mb-2" />
-                <h3 className="text-lg font-medium mb-2">Aucune réunion trouvée</h3>
-                <p className="text-gray-500">Vous n'avez pas de réunions {filter === "planifiees" ? "planifiées" : filter === "actives" ? "actives" : ""}</p>
-                {isAdmin && (
-                  <Button 
-                    className="mt-4 bg-aphs-teal hover:bg-aphs-navy"
-                    onClick={handleCreateMeeting}
-                  >
-                    Planifier une réunion
-                  </Button>
+                        
+                        {/* Affichage d'un avertissement pour les réunions non accessibles */}
+                        {!canJoin && (
+                          <div className="bg-orange-50 border border-orange-200 rounded-md p-3 mb-4">
+                            <div className="flex items-center gap-2 text-orange-800">
+                              <AlertCircle className="h-4 w-4" />
+                              <span className="text-sm font-medium">Réunion non accessible</span>
+                            </div>
+                            <p className="text-sm text-orange-700 mt-1">
+                              {getJoinErrorMessage(meeting)}
+                            </p>
+                          </div>
+                        )}
+                        
+                        <div className="flex items-center gap-1 text-sm text-gray-600 mb-4">
+                          <Users className="h-4 w-4 text-gray-400" />
+                          <span>Participants ({meeting.participants.length}):</span>
+                        </div>
+                        
+                        <div className="flex flex-wrap gap-2 mb-4">
+                          {meeting.participants.map(participant => (
+                            <div key={participant.id} className="flex items-center gap-1 bg-gray-100 rounded-full px-2 py-1">
+                              <Avatar className="h-5 w-5">
+                                <AvatarFallback className="text-xs bg-aphs-navy text-white">
+                                  {participant.name.split(' ').map(n => n[0]).join('')}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="text-xs">{participant.name}</span>
+                              {participant.role === 'host' && (
+                                <Badge variant="outline" className="ml-1 text-[0.6rem] h-4 bg-blue-50 text-blue-700 hover:bg-blue-50">
+                                  Hôte
+                                </Badge>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        
+                        <div className="bg-gray-50 p-3 rounded-md">
+                          <p className="text-xs text-gray-500">ID de réunion:</p>
+                          <div className="flex items-center justify-between mt-1">
+                            <code className="bg-gray-100 px-2 py-1 rounded text-sm">{meeting.roomId}</code>
+                            <button 
+                              onClick={() => handleCopyMeetingId(meeting.roomId)}
+                              className="text-gray-500 hover:text-aphs-teal"
+                              title={copyTooltip}
+                            >
+                              <Copy className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </CardContent>
+                      <CardFooter className="flex justify-between pt-0">
+                        <div className="flex gap-2">
+                          <Button 
+                            className="bg-aphs-teal hover:bg-aphs-navy"
+                            onClick={() => handleJoinMeeting(meeting.id)}
+                            disabled={!canJoin}
+                          >
+                            <VideoIcon className="mr-2 h-4 w-4" /> Rejoindre
+                          </Button>
+                          
+                          {(meeting.status === 'active') && 
+                           (isAdmin || meeting.createdBy === user?.id) && (
+                            <Button 
+                              variant="destructive"
+                              onClick={() => handleEndMeeting(meeting.id)}
+                              disabled={loadingAction}
+                            >
+                              <StopCircle className="mr-2 h-4 w-4" /> Terminer
+                            </Button>
+                          )}
+                          
+                          {isAdmin && (
+                            <Button 
+                              variant="outline"
+                              onClick={() => handleDeleteMeeting(meeting.id)}
+                              disabled={loadingAction}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" /> Supprimer
+                            </Button>
+                          )}
+                        </div>
+                        
+                        {meeting.status === 'scheduled' && (
+                          <div className="text-xs text-gray-500">
+                            Programmée pour le {formatMeetingTime(meeting.scheduledTime)}
+                          </div>
+                        )}
+                      </CardFooter>
+                    </Card>
+                  );
+                })}
+                
+                {!loadingMeetings && filteredMeetings.length === (activeMeeting ? 1 : 0) && (
+                  <div className="text-center py-12">
+                    <VideoIcon className="mx-auto h-12 w-12 text-gray-300 mb-2" />
+                    <h3 className="text-lg font-medium mb-2">Aucune réunion trouvée</h3>
+                    <p className="text-gray-500">Vous n'avez pas de réunions {filter === "planifiees" ? "planifiées" : filter === "actives" ? "actives" : ""}</p>
+                    {isAdmin && (
+                      <Button 
+                        className="mt-4 bg-aphs-teal hover:bg-aphs-navy"
+                        onClick={handleCreateMeeting}
+                      >
+                        Planifier une réunion
+                      </Button>
+                    )}
+                  </div>
                 )}
               </div>
             )}
@@ -688,25 +717,10 @@ const VideoConference: React.FC = () => {
         </div>
       )}
 
-      {/* Onglet pour faire une demande de réunion (non-admins) */}
-      {activeTab === "request" && !isAdmin && (
-        <div className="max-w-2xl mx-auto">
-          <MeetingRequestForm 
-            onRequestSubmitted={() => {
-              toast({
-                title: "Demande envoyée",
-                description: "Votre demande de réunion a été envoyée à l'administrateur",
-              });
-              setActiveTab("meetings");
-            }}
-          />
-        </div>
-      )}
-
-      {/* Onglet pour gérer les demandes de réunion (admins) */}
+      {/* Onglet pour gérer les demandes de réunion (admins seulement) */}
       {activeTab === "requests" && isAdmin && (
         <div>
-          <MeetingRequestsManager />
+          <MeetingRequestsManagerImproved />
         </div>
       )}
       
