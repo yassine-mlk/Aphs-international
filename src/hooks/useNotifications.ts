@@ -39,7 +39,9 @@ export type NotificationType =
   | 'meeting_declined'
   | 'meeting_request_approved'
   | 'meeting_request_rejected'
-  | 'meeting_started';
+  | 'meeting_started'
+  // Pour tous les membres du projet
+  | 'task_status_changed';
 
 // Fonction utilitaire pour formater les messages avec paramètres
 const formatMessage = (template: string, params: Record<string, any> = {}): string => {

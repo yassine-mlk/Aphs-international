@@ -24,7 +24,9 @@ const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, curre
   const { fetchData, insertData, updateData, uploadFile } = useSupabase();
   const {
     notifyFileValidationRequest,
-    createAdminNotification
+    createAdminNotification,
+    notifyTaskStatusChange,
+    notifyFileUploadedToProject
   } = useNotificationTriggers();
   
   const [tasks, setTasks] = useState<ProjectTask[]>([]);
@@ -202,32 +204,25 @@ const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, curre
             `${uploaderUser.first_name} ${uploaderUser.last_name}` : 
             'Intervenant inconnu';
             
-          // 1. Notifier l'admin de l'upload du fichier
-          await createAdminNotification(
-            'file_uploaded',
-            'Nouveau fichier uploadé',
-            `${uploaderName} a uploadé le fichier "${selectedFile.name}" pour la tâche "${task.title}"${projectName ? ` du projet ${projectName}` : ''}`,
-            {
-              fileName: selectedFile.name,
-              uploaderName,
-              projectName,
-              taskName: task.title,
-              taskId: task.id,
-              fileUrl: updatedTask.file_url
-            }
+          // 1. Notifier tous les membres du projet et l'admin
+          await notifyFileUploadedToProject(
+            projectId,
+            selectedFile.name,
+            uploaderName,
+            task.title,
+            projectName
           );
           
-          // 2. Notifier chaque validateur qu'un fichier est disponible pour validation
-          for (const validatorId of task.validators) {
-            await notifyFileValidationRequest(
-              validatorId,
-              selectedFile.name,
-              uploaderName,
-              projectName
-            );
-          }
+          // 2. Notifier le changement de statut
+          await notifyTaskStatusChange(
+            projectId,
+            task.title,
+            'submitted',
+            uploaderName,
+            projectName
+          );
           
-          console.log(`TaskManager: Notifications envoyées: Admin + ${task.validators.length} validateur(s)`);
+          console.log(`TaskManager: Notifications envoyées pour tous les membres du projet`);
         } catch (notificationError) {
           console.error('Erreur lors de l\'envoi des notifications:', notificationError);
           // Ne pas faire échouer la soumission si les notifications échouent

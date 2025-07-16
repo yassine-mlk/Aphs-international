@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
 import { 
@@ -13,7 +13,7 @@ import {
   CheckCircle,
   Briefcase,
   TrendingUp,
-  Eye,
+
   Activity,
   RefreshCw
 } from 'lucide-react';
@@ -404,19 +404,7 @@ const IntervenantDashboard: React.FC = () => {
                             {deadline.text}
                           </p>
                         </div>
-                        <div className="flex items-center space-x-3">
-                          <div className="text-center">
-                            <div className="text-sm font-medium text-gray-900">{task.progress}%</div>
-                            <Progress value={task.progress} className="w-16 h-2" />
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => navigate(`/dashboard/tache/${task.id}`)}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </div>
+
                       </div>
                     );
                   }) : (

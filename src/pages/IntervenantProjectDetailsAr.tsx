@@ -487,7 +487,7 @@ const IntervenantProjectDetailsAr: React.FC = () => {
                                         <Button
                                           variant="ghost"
                                           size="sm"
-                                          onClick={() => handleViewInfoSheet('realization', section.id, subsection.id, task)}
+                                          onClick={() => handleViewInfoSheet('realisation', section.id, subsection.id, task)}
                                         >
                                           <FileText className="h-4 w-4" />
                                         </Button>

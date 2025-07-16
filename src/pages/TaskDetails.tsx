@@ -149,7 +149,9 @@ const TaskDetails: React.FC = () => {
   const { language } = useLanguage();
   const {
     notifyFileValidationRequest,
-    createAdminNotification
+    createAdminNotification,
+    notifyTaskStatusChange,
+    notifyFileUploadedToProject
   } = useNotificationTriggers();
   
   const t = translations[language as keyof typeof translations].tasks;
@@ -540,30 +542,23 @@ const TaskDetails: React.FC = () => {
           `${assignedUser.first_name} ${assignedUser.last_name}` : 
           'Intervenant inconnu';
           
-        // 1. Notifier l'admin de l'upload du fichier
-        await createAdminNotification(
-          'file_uploaded',
-          'Nouveau fichier uploadé',
-          `${uploaderName} a uploadé le fichier "${selectedFile.name}" pour la tâche "${task.task_name}"${project ? ` du projet ${project.name}` : ''}`,
-          {
-            fileName: selectedFile.name,
-            uploaderName,
-            projectName: project?.name,
-            taskName: task.task_name,
-            taskId: task.id,
-            fileUrl
-          }
+        // 1. Notifier tous les membres du projet et l'admin
+        await notifyFileUploadedToProject(
+          task.project_id,
+          selectedFile.name,
+          uploaderName,
+          task.task_name,
+          project?.name
         );
         
-        // 2. Notifier chaque validateur qu'un fichier est disponible pour validation
-        for (const validatorId of task.validators) {
-          await notifyFileValidationRequest(
-            validatorId,
-            selectedFile.name,
-            uploaderName,
-            project?.name
-          );
-        }
+        // 2. Notifier le changement de statut
+        await notifyTaskStatusChange(
+          task.project_id,
+          task.task_name,
+          'submitted',
+          uploaderName,
+          project?.name
+        );
         
         console.log(`Notifications envoyées: Admin + ${task.validators.length} validateur(s)`);
       } catch (notificationError) {
@@ -648,6 +643,27 @@ const TaskDetails: React.FC = () => {
         updated_at: new Date().toISOString()
       });
       
+      // === NOTIFICATIONS SYSTÈME ===
+      try {
+        // Récupérer le nom du validateur
+        const validatorName = user?.user_metadata?.first_name && user?.user_metadata?.last_name 
+          ? `${user.user_metadata.first_name} ${user.user_metadata.last_name}`
+          : user?.email || 'Validateur inconnu';
+          
+        // Notifier le changement de statut
+        await notifyTaskStatusChange(
+          task.project_id,
+          task.task_name,
+          'validated',
+          validatorName,
+          project?.name
+        );
+        
+        console.log(`Notification de validation envoyée pour la tâche ${task.task_name}`);
+      } catch (notificationError) {
+        console.error('Erreur lors de l\'envoi de la notification:', notificationError);
+      }
+      
       toast({
         title: t.details.toasts.success,
         description: t.details.toasts.taskValidated,
@@ -707,6 +723,27 @@ const TaskDetails: React.FC = () => {
         validated_by: user?.id,
         updated_at: new Date().toISOString()
       });
+      
+      // === NOTIFICATIONS SYSTÈME ===
+      try {
+        // Récupérer le nom du validateur
+        const validatorName = user?.user_metadata?.first_name && user?.user_metadata?.last_name 
+          ? `${user.user_metadata.first_name} ${user.user_metadata.last_name}`
+          : user?.email || 'Validateur inconnu';
+          
+        // Notifier le changement de statut
+        await notifyTaskStatusChange(
+          task.project_id,
+          task.task_name,
+          'rejected',
+          validatorName,
+          project?.name
+        );
+        
+        console.log(`Notification de rejet envoyée pour la tâche ${task.task_name}`);
+      } catch (notificationError) {
+        console.error('Erreur lors de l\'envoi de la notification:', notificationError);
+      }
       
       toast({
         title: t.details.toasts.success,
