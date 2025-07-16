@@ -85,6 +85,12 @@ const Tasks: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [phaseFilter, setPhaseFilter] = useState<string>('all');
+  const [projectFilter, setProjectFilter] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<string>('deadline');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  
+  // Projects list for filter
+  const [projects, setProjects] = useState<Project[]>([]);
   
   // Check user role
   const userRole = user?.user_metadata?.role || '';
@@ -139,6 +145,22 @@ const Tasks: React.FC = () => {
           setTasks(userTasks);
         }
         
+        // Récupérer la liste des projets pour le filtre
+        const projectIds = Array.from(new Set(
+          userTasks.map(task => task.project_id)
+        )).filter(id => id);
+        
+        if (projectIds.length > 0) {
+          const projectsData = await fetchData<Project>('projects', {
+            columns: 'id,name',
+            filters: projectIds.map(id => ({ column: 'id', operator: 'eq', value: id }))
+          });
+          
+          if (projectsData) {
+            setProjects(projectsData);
+          }
+        }
+        
         // Afficher l'erreur de migration si elle existe
         if (taskMigrationError) {
           toast({
@@ -189,7 +211,44 @@ const Tasks: React.FC = () => {
     // Phase filter
     const matchesPhase = phaseFilter === 'all' || task.phase_id === phaseFilter;
     
-    return matchesSearch && matchesStatus && matchesPhase;
+    // Project filter
+    const matchesProject = projectFilter === 'all' || task.project_id === projectFilter;
+    
+    return matchesSearch && matchesStatus && matchesPhase && matchesProject;
+  });
+  
+  // Sort tasks
+  const sortedTasks = [...filteredTasks].sort((a, b) => {
+    let aValue: any;
+    let bValue: any;
+    
+    switch (sortBy) {
+      case 'deadline':
+        aValue = new Date(a.deadline);
+        bValue = new Date(b.deadline);
+        break;
+      case 'task_name':
+        aValue = a.task_name.toLowerCase();
+        bValue = b.task_name.toLowerCase();
+        break;
+      case 'project':
+        aValue = (a.project?.name || '').toLowerCase();
+        bValue = (b.project?.name || '').toLowerCase();
+        break;
+      case 'status':
+        aValue = a.status;
+        bValue = b.status;
+        break;
+      default:
+        aValue = new Date(a.deadline);
+        bValue = new Date(b.deadline);
+    }
+    
+    if (sortOrder === 'asc') {
+      return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+    } else {
+      return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
+    }
   });
   
   const handleTaskClick = (taskId: string) => {
@@ -260,6 +319,9 @@ const Tasks: React.FC = () => {
     setSearchQuery('');
     setStatusFilter('all');
     setPhaseFilter('all');
+    setProjectFilter('all');
+    setSortBy('deadline');
+    setSortOrder('asc');
   };
   
   if (loading) {
@@ -281,7 +343,7 @@ const Tasks: React.FC = () => {
       
       {/* Filters */}
       <div className="bg-white rounded-lg shadow-sm border p-5 mb-6">
-        <div className="flex flex-col md:flex-row gap-4 items-end">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
           <div className="flex-1">
             <label className="block text-sm font-medium mb-1">{t.search.label}</label>
             <div className="relative">
@@ -296,7 +358,7 @@ const Tasks: React.FC = () => {
             </div>
           </div>
           
-          <div className="w-full md:w-48">
+          <div className="w-full">
             <label className="block text-sm font-medium mb-1">{t.filters.statusLabel}</label>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger>
@@ -313,7 +375,7 @@ const Tasks: React.FC = () => {
             </Select>
           </div>
           
-          <div className="w-full md:w-48">
+          <div className="w-full">
             <label className="block text-sm font-medium mb-1">{t.filters.phase}</label>
             <Select value={phaseFilter} onValueChange={setPhaseFilter}>
               <SelectTrigger>
@@ -327,7 +389,55 @@ const Tasks: React.FC = () => {
             </Select>
           </div>
           
-          {(searchQuery || statusFilter !== 'all' || phaseFilter !== 'all') && (
+          <div className="w-full">
+            <label className="block text-sm font-medium mb-1">Projet</label>
+            <Select value={projectFilter} onValueChange={setProjectFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Tous les projets" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous les projets</SelectItem>
+                {projects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        
+        {/* Sort controls */}
+        <div className="flex flex-col md:flex-row gap-4 items-end">
+          <div className="w-full md:w-48">
+            <label className="block text-sm font-medium mb-1">Trier par</label>
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="deadline">Échéance</SelectItem>
+                <SelectItem value="task_name">Nom de la tâche</SelectItem>
+                <SelectItem value="project">Projet</SelectItem>
+                <SelectItem value="status">Statut</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="w-full md:w-48">
+            <label className="block text-sm font-medium mb-1">Ordre</label>
+            <Select value={sortOrder} onValueChange={(value: 'asc' | 'desc') => setSortOrder(value)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="asc">Croissant</SelectItem>
+                <SelectItem value="desc">Décroissant</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          {(searchQuery || statusFilter !== 'all' || phaseFilter !== 'all' || projectFilter !== 'all') && (
             <Button 
               variant="ghost" 
               onClick={clearFilters}
@@ -343,15 +453,15 @@ const Tasks: React.FC = () => {
       {/* Task List */}
       <Card className="border shadow-sm">
         <CardHeader className="pb-2">
-          <CardTitle>{t.card.taskList} ({filteredTasks.length})</CardTitle>
+          <CardTitle>{t.card.taskList} ({sortedTasks.length})</CardTitle>
           <CardDescription>
-            {filteredTasks.length === 0 ? 
+            {sortedTasks.length === 0 ? 
               t.search.noResults : 
               t.card.taskListDesc}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {filteredTasks.length > 0 ? (
+          {sortedTasks.length > 0 ? (
             <div className="rounded-md border">
               <Table>
                 <TableHeader>
@@ -364,7 +474,7 @@ const Tasks: React.FC = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredTasks.map((task) => (
+                  {sortedTasks.map((task) => (
                     <TableRow 
                       key={task.id}
                       onClick={() => handleTaskClick(task.id)}
@@ -420,11 +530,11 @@ const Tasks: React.FC = () => {
               </div>
               <h3 className="text-lg font-medium mb-1">{t.empty.noTasks}</h3>
               <p className="text-gray-500 max-w-md mx-auto">
-                {searchQuery || statusFilter !== 'all' || phaseFilter !== 'all' ? 
+                {searchQuery || statusFilter !== 'all' || phaseFilter !== 'all' || projectFilter !== 'all' ? 
                   t.empty.noResultsDesc : 
                   t.empty.noTasksDesc}
               </p>
-              {(searchQuery || statusFilter !== 'all' || phaseFilter !== 'all') && (
+              {(searchQuery || statusFilter !== 'all' || phaseFilter !== 'all' || projectFilter !== 'all') && (
                 <Button 
                   variant="outline" 
                   onClick={clearFilters}

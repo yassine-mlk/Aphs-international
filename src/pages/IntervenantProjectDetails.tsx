@@ -21,7 +21,8 @@ import {
   Download,
   FileText,
   Circle,
-  CheckCircle2
+  CheckCircle2,
+  ClipboardCheck
 } from "lucide-react";
 import { useSupabase } from "../hooks/useSupabase";
 import { useAuth } from "../contexts/AuthContext";
@@ -226,6 +227,7 @@ const IntervenantProjectDetails: React.FC = () => {
       
       setLoadingTasks(true);
       try {
+        // Récupérer TOUTES les tâches du projet (pas seulement celles assignées à l'utilisateur)
         const data = await fetchData<TaskAssignment>('task_assignments', {
           columns: '*',
           filters: [{ column: 'project_id', operator: 'eq', value: id }]
@@ -441,6 +443,36 @@ const IntervenantProjectDetails: React.FC = () => {
     }
   };
 
+  // Fonction pour ouvrir un fichier uploadé
+  const handleOpenFile = (fileUrl: string, fileName: string) => {
+    if (fileUrl) {
+      window.open(fileUrl, '_blank');
+    }
+  };
+
+  // Fonction pour télécharger un fichier
+  const handleDownloadFile = async (fileUrl: string, fileName: string) => {
+    try {
+      const response = await fetch(fileUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName || 'fichier';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Erreur lors du téléchargement:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de télécharger le fichier",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (loadingMembership || loading) {
     return (
       <div className="flex justify-center items-center py-12">
@@ -563,6 +595,196 @@ const IntervenantProjectDetails: React.FC = () => {
                         </div>
                       </div>
                     </div>
+                  </div>
+                </div>
+
+                {/* Vue d'ensemble des tâches du projet */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="text-lg font-semibold text-gray-800 mb-4">Vue d'ensemble des tâches</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {/* Tâches assignées */}
+                    <div className="bg-white rounded-lg p-4 shadow-sm">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Badge className="bg-blue-100 text-blue-800">
+                          {taskAssignments.filter(t => t.status === 'assigned').length}
+                        </Badge>
+                        <span className="text-sm font-medium">Assignées</span>
+                      </div>
+                      <p className="text-xs text-gray-500">Tâches en attente de démarrage</p>
+                    </div>
+
+                    {/* Tâches en cours */}
+                    <div className="bg-white rounded-lg p-4 shadow-sm">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Badge className="bg-yellow-100 text-yellow-800">
+                          {taskAssignments.filter(t => t.status === 'in_progress').length}
+                        </Badge>
+                        <span className="text-sm font-medium">En cours</span>
+                      </div>
+                      <p className="text-xs text-gray-500">Tâches en cours de réalisation</p>
+                    </div>
+
+                    {/* Tâches soumises */}
+                    <div className="bg-white rounded-lg p-4 shadow-sm">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Badge className="bg-purple-100 text-purple-800">
+                          {taskAssignments.filter(t => t.status === 'submitted').length}
+                        </Badge>
+                        <span className="text-sm font-medium">Soumises</span>
+                      </div>
+                      <p className="text-xs text-gray-500">En attente de validation</p>
+                    </div>
+
+                    {/* Tâches validées */}
+                    <div className="bg-white rounded-lg p-4 shadow-sm">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Badge className="bg-green-100 text-green-800">
+                          {taskAssignments.filter(t => t.status === 'validated').length}
+                        </Badge>
+                        <span className="text-sm font-medium">Validées</span>
+                      </div>
+                      <p className="text-xs text-gray-500">Tâches terminées et validées</p>
+                    </div>
+
+                    {/* Tâches rejetées */}
+                    <div className="bg-white rounded-lg p-4 shadow-sm">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Badge className="bg-red-100 text-red-800">
+                          {taskAssignments.filter(t => t.status === 'rejected').length}
+                        </Badge>
+                        <span className="text-sm font-medium">Rejetées</span>
+                      </div>
+                      <p className="text-xs text-gray-500">Tâches nécessitant des corrections</p>
+                    </div>
+
+                    {/* Fichiers uploadés */}
+                    <div className="bg-white rounded-lg p-4 shadow-sm">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Badge className="bg-indigo-100 text-indigo-800">
+                          {taskAssignments.filter(t => t.file_url).length}
+                        </Badge>
+                        <span className="text-sm font-medium">Fichiers</span>
+                      </div>
+                      <p className="text-xs text-gray-500">Documents uploadés</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Liste détaillée de toutes les tâches */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="text-lg font-semibold text-gray-800 mb-4">Liste détaillée des tâches</h4>
+                  <div className="space-y-3">
+                    {loadingTasks ? (
+                      <div className="flex justify-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-aphs-teal"></div>
+                      </div>
+                    ) : taskAssignments.length > 0 ? (
+                      taskAssignments.map((task) => (
+                        <div key={task.id} className="bg-white rounded-lg p-4 shadow-sm border">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex-1">
+                              <h5 className="font-medium text-gray-900 mb-1">{task.task_name}</h5>
+                              <div className="flex items-center gap-4 text-sm text-gray-600">
+                                <span>Phase: {task.phase_id === 'conception' ? 'Conception' : 'Réalisation'}</span>
+                                <span>Section: {task.section_id}</span>
+                                <span>Sous-section: {task.subsection_id}</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge className={getStatusColor(task.status)}>
+                                {getStatusIcon(task.status)}
+                                <span className="ml-1">{getStatusLabel(task.status)}</span>
+                              </Badge>
+                            </div>
+                          </div>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <span className="text-gray-600">Assigné à:</span>
+                              <span className="ml-2 font-medium">{getIntervenantName(task.assigned_to)}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">Échéance:</span>
+                              <span className="ml-2 font-medium">
+                                {task.deadline ? new Date(task.deadline).toLocaleDateString('fr-FR') : 'Non définie'}
+                              </span>
+                            </div>
+                            {task.submitted_at && (
+                              <div>
+                                <span className="text-gray-600">Soumis le:</span>
+                                <span className="ml-2 font-medium">
+                                  {new Date(task.submitted_at).toLocaleDateString('fr-FR')}
+                                </span>
+                              </div>
+                            )}
+                            {task.validated_at && (
+                              <div>
+                                <span className="text-gray-600">Validé le:</span>
+                                <span className="ml-2 font-medium">
+                                  {new Date(task.validated_at).toLocaleDateString('fr-FR')}
+                                </span>
+                              </div>
+                            )}
+                            {task.validated_by && (
+                              <div>
+                                <span className="text-gray-600">Validé par:</span>
+                                <span className="ml-2 font-medium">
+                                  {getIntervenantName(task.validated_by)}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Actions pour les fichiers */}
+                          {task.file_url && (
+                            <div className="mt-3 pt-3 border-t border-gray-100">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm text-gray-600">Document:</span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleOpenFile(task.file_url!, task.task_name)}
+                                  className="h-6 px-2"
+                                >
+                                  <Eye className="h-3 w-3 mr-1" />
+                                  Voir
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDownloadFile(task.file_url!, task.task_name)}
+                                  className="h-6 px-2"
+                                >
+                                  <Download className="h-3 w-3 mr-1" />
+                                  Télécharger
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Commentaires */}
+                          {task.comment && (
+                            <div className="mt-3 pt-3 border-t border-gray-100">
+                              <span className="text-sm text-gray-600">Commentaire:</span>
+                              <p className="text-sm text-gray-800 mt-1">{task.comment}</p>
+                            </div>
+                          )}
+
+                          {/* Commentaires de validation */}
+                          {task.validation_comment && (
+                            <div className="mt-3 pt-3 border-t border-gray-100">
+                              <span className="text-sm text-gray-600">Commentaire de validation:</span>
+                              <p className="text-sm text-gray-800 mt-1">{task.validation_comment}</p>
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <ClipboardCheck className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                        <p>Aucune tâche assignée à ce projet</p>
+                      </div>
+                    )}
                   </div>
                 </div>
                 
@@ -694,7 +916,17 @@ const IntervenantProjectDetails: React.FC = () => {
                                                             <Button
                                                               variant="ghost"
                                                               size="sm"
-                                                              onClick={() => window.open(taskAssignment.file_url, '_blank')}
+                                                              onClick={() => handleOpenFile(taskAssignment.file_url, taskAssignment.task_name)}
+                                                              className="h-6 px-2"
+                                                            >
+                                                              <Eye className="h-3 w-3" />
+                                                            </Button>
+                                                          )}
+                                                          {taskAssignment.file_url && (
+                                                            <Button
+                                                              variant="ghost"
+                                                              size="sm"
+                                                              onClick={() => handleDownloadFile(taskAssignment.file_url, taskAssignment.task_name)}
                                                               className="h-6 px-2"
                                                             >
                                                               <Download className="h-3 w-3" />
@@ -769,21 +1001,21 @@ const IntervenantProjectDetails: React.FC = () => {
                 </AccordionItem>
 
                 {/* Phase de réalisation */}
-                <AccordionItem value="realization">
+                <AccordionItem value="realisation">
                   <AccordionTrigger>{translations.realization}</AccordionTrigger>
                   <AccordionContent>
                     <div className="space-y-4">
                       {customRealizationStructure.map((section) => {
                         const sectionKey = section.id as keyof typeof translations.sections;
                         const sectionTranslation = translations.sections[sectionKey];
-                        const sectionExpansionKey = `realization-${section.id}`;
+                        const sectionExpansionKey = `realisation-${section.id}`;
                         const isSectionExpanded = expandedSections[sectionExpansionKey];
                         
                         return (
                           <div key={section.id} className="border border-gray-200 rounded-lg">
                             {/* En-tête de section avec bouton d'expansion */}
                             <button
-                              onClick={() => toggleSection('realization', section.id)}
+                              onClick={() => toggleSection('realisation', section.id)}
                               className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors"
                             >
                               <h4 className="font-semibold text-gray-800">
@@ -800,14 +1032,14 @@ const IntervenantProjectDetails: React.FC = () => {
                                 {section.items.map((subsection) => {
                                   const subsectionKey = subsection.id as keyof typeof sectionTranslation.items;
                                   const subsectionTranslation = sectionTranslation?.items?.[subsectionKey];
-                                  const subsectionExpansionKey = `realization-${section.id}-${subsection.id}`;
+                                  const subsectionExpansionKey = `realisation-${section.id}-${subsection.id}`;
                                   const isSubsectionExpanded = expandedSubsections[subsectionExpansionKey];
                                   
                                   return (
                                     <div key={subsection.id} className="border border-gray-100 rounded-md ml-4">
                                       {/* En-tête de sous-section avec bouton d'expansion */}
                                       <button
-                                        onClick={() => toggleSubsection('realization', section.id, subsection.id)}
+                                        onClick={() => toggleSubsection('realisation', section.id, subsection.id)}
                                         className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-25 transition-colors"
                                       >
                                         <h5 className="font-medium text-gray-700">
@@ -823,8 +1055,8 @@ const IntervenantProjectDetails: React.FC = () => {
                                         <div className="border-t border-gray-100 p-3 space-y-2">
                                           {subsection.tasks.map((task, index) => {
                                             const translatedTask = subsectionTranslation?.tasks?.[index] || task;
-                                            const taskAssignment = getTaskAssignment('realization', section.id, subsection.id, task);
-                                            const key = `realization-${section.id}-${subsection.id}-${task}`;
+                                            const taskAssignment = getTaskAssignment('realisation', section.id, subsection.id, task);
+                                            const key = `realisation-${section.id}-${subsection.id}-${task}`;
                                             const isExpanded = expandedInfoSheets[key];
                                             const isLoading = loadingInfoSheets[key];
                                             const infoSheet = taskInfoSheets[key];
@@ -847,7 +1079,17 @@ const IntervenantProjectDetails: React.FC = () => {
                                                             <Button
                                                               variant="ghost"
                                                               size="sm"
-                                                              onClick={() => window.open(taskAssignment.file_url, '_blank')}
+                                                              onClick={() => handleOpenFile(taskAssignment.file_url, taskAssignment.task_name)}
+                                                              className="h-6 px-2"
+                                                            >
+                                                              <Eye className="h-3 w-3" />
+                                                            </Button>
+                                                          )}
+                                                          {taskAssignment.file_url && (
+                                                            <Button
+                                                              variant="ghost"
+                                                              size="sm"
+                                                              onClick={() => handleDownloadFile(taskAssignment.file_url, taskAssignment.task_name)}
                                                               className="h-6 px-2"
                                                             >
                                                               <Download className="h-3 w-3" />
@@ -858,7 +1100,7 @@ const IntervenantProjectDetails: React.FC = () => {
                                                       <Button
                                                         variant="ghost"
                                                         size="sm"
-                                                        onClick={() => toggleInfoSheet('realization', section.id, subsection.id, task)}
+                                                        onClick={() => toggleInfoSheet('realisation', section.id, subsection.id, task)}
                                                         disabled={isLoading}
                                                         className="h-6 px-2"
                                                       >
@@ -988,8 +1230,17 @@ const IntervenantProjectDetails: React.FC = () => {
                     <Button 
                       variant="outline" 
                       size="sm"
-                      onClick={() => window.open(selectedTaskDetails.file_url, '_blank')}
+                      onClick={() => handleOpenFile(selectedTaskDetails.file_url, selectedTaskDetails.task_name)}
                       className="mt-2"
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      Voir le document
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleDownloadFile(selectedTaskDetails.file_url, selectedTaskDetails.task_name)}
+                      className="mt-2 ml-2"
                     >
                       <Download className="h-4 w-4 mr-2" />
                       Télécharger le document

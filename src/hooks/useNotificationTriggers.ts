@@ -115,6 +115,8 @@ export function useNotificationTriggers() {
         return 'Invitation à une réunion';
       case 'meeting_started':
         return 'Réunion démarrée';
+      case 'task_status_changed':
+        return 'Statut de tâche modifié';
       default:
         return 'Notification';
     }
@@ -146,6 +148,8 @@ export function useNotificationTriggers() {
         return `${params.organizerName || 'Un organisateur'} vous invite à la réunion "${params.meetingTitle || 'réunion'}" prévue le ${params.scheduledDate || 'date à définir'}`;
       case 'meeting_started':
         return `La réunion "${params.meetingTitle || 'réunion'}" a démarré ! Rejoignez-la maintenant.`;
+      case 'task_status_changed':
+        return `${params.userName || 'Un utilisateur'} a ${params.statusLabel || 'modifié'} la tâche "${params.taskName || 'tâche'}"${params.projectName ? ` du projet ${params.projectName}` : ''}`;
       default:
         return 'Vous avez une nouvelle notification';
     }
@@ -239,6 +243,95 @@ export function useNotificationTriggers() {
       { projectName, adminName }
     );
   }, [createNotification]);
+
+  // Notifications pour tous les membres d'un projet
+  const notifyProjectMembers = useCallback(async (
+    projectId: string,
+    type: NotificationType,
+    titleParams: Record<string, any> = {},
+    messageParams: Record<string, any> = {},
+    data: Record<string, any> = {}
+  ) => {
+    try {
+      // Récupérer tous les membres du projet
+      const { data: members, error: membersError } = await supabase
+        .from('membre')
+        .select('user_id')
+        .eq('project_id', projectId);
+
+      if (membersError) throw membersError;
+
+      // Créer une notification pour chaque membre
+      const notificationPromises = members?.map(member => 
+        createNotification(member.user_id, type, titleParams, messageParams, data)
+      ) || [];
+
+      await Promise.all(notificationPromises);
+    } catch (error) {
+      console.error('Erreur lors de la création de notifications pour les membres du projet:', error);
+    }
+  }, [createNotification]);
+
+  // Notifications pour les changements de statut de tâche
+  const notifyTaskStatusChange = useCallback(async (
+    projectId: string,
+    taskName: string,
+    newStatus: string,
+    userName: string,
+    projectName?: string
+  ) => {
+    const statusLabels = {
+      'in_progress': 'démarrée',
+      'submitted': 'soumise pour validation',
+      'validated': 'validée',
+      'rejected': 'rejetée'
+    };
+
+    const statusLabel = statusLabels[newStatus as keyof typeof statusLabels] || newStatus;
+
+    // Notifier tous les membres du projet
+    await notifyProjectMembers(
+      projectId,
+      'task_status_changed',
+      { taskName, statusLabel, userName, projectName },
+      { taskName, statusLabel, userName, projectName },
+      { taskName, newStatus, userName, projectName }
+    );
+
+    // Notifier aussi l'admin
+    await createAdminNotification(
+      'task_status_changed',
+      { taskName, statusLabel, userName, projectName },
+      { taskName, statusLabel, userName, projectName },
+      { taskName, newStatus, userName, projectName }
+    );
+  }, [notifyProjectMembers, createAdminNotification]);
+
+  // Notifications pour les fichiers uploadés
+  const notifyFileUploadedToProject = useCallback(async (
+    projectId: string,
+    fileName: string,
+    uploaderName: string,
+    taskName: string,
+    projectName?: string
+  ) => {
+    // Notifier tous les membres du projet
+    await notifyProjectMembers(
+      projectId,
+      'file_uploaded',
+      { fileName, uploaderName, taskName, projectName },
+      { fileName, uploaderName, taskName, projectName },
+      { fileName, uploaderName, taskName, projectName }
+    );
+
+    // Notifier aussi l'admin
+    await createAdminNotification(
+      'file_uploaded',
+      { fileName, uploaderName, taskName, projectName },
+      { fileName, uploaderName, taskName, projectName },
+      { fileName, uploaderName, taskName, projectName }
+    );
+  }, [notifyProjectMembers, createAdminNotification]);
 
   // Notifications pour la demande de validation de tâche
   const notifyTaskValidationRequest = useCallback(async (
@@ -339,6 +432,9 @@ export function useNotificationTriggers() {
     notifyFileValidationRequest,
     notifyMeetingRequestResponse,
     notifyMeetingInvitation,
-    notifyMeetingStarted
+    notifyMeetingStarted,
+    notifyProjectMembers,
+    notifyTaskStatusChange,
+    notifyFileUploadedToProject
   };
 } 

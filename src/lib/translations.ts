@@ -634,7 +634,15 @@ export const translations = {
         realization: "Realization",
         statusLabel: "Status",
         clearFilters: "Clear filters",
-        clear: "Clear"
+        clear: "Clear",
+        project: "Project",
+        allProjects: "All projects",
+        sortBy: "Sort by",
+        deadline: "Deadline",
+        taskName: "Task name",
+        order: "Order",
+        ascending: "Ascending",
+        descending: "Descending"
       },
       status: {
         assigned: "Assigned",
@@ -1105,6 +1113,10 @@ export const translations = {
           title: "Fichier à valider",
           message: "{uploaderName} a uploadé le fichier \"{fileName}\" qui nécessite votre validation{projectName, select, undefined {} other { pour le projet {projectName}}}"
         },
+        task_status_changed: {
+          title: "Statut de tâche modifié",
+          message: "{userName} a {statusLabel} la tâche \"{taskName}\"{projectName, select, undefined {} other { du projet {projectName}}}"
+        },
         meeting_request_approved: {
           title: "Demande de réunion approuvée",
           message: "Votre demande de réunion \"{meetingTitle}\" a été approuvée{adminName, select, undefined {} other { par {adminName}}}{responseMessage, select, undefined {} other {. Message : {responseMessage}}}"
@@ -1413,7 +1425,15 @@ export const translations = {
         realization: "Réalisation",
         statusLabel: "Statut",
         clearFilters: "Effacer les filtres",
-        clear: "Effacer"
+        clear: "Effacer",
+        project: "Projet",
+        allProjects: "Tous les projets",
+        sortBy: "Trier par",
+        deadline: "Échéance",
+        taskName: "Nom de la tâche",
+        order: "Ordre",
+        ascending: "Croissant",
+        descending: "Décroissant"
       },
       status: {
         assigned: "Assignée",
@@ -1755,6 +1775,10 @@ export const translations = {
         file_validation_request: {
           title: "Archivo para validar",
           message: "{uploaderName} subió el archivo \"{fileName}\" que requiere su validación{projectName, select, undefined {} other { para el proyecto {projectName}}}"
+        },
+        task_status_changed: {
+          title: "Estado de tarea modificado",
+          message: "{userName} ha {statusLabel} la tarea \"{taskName}\"{projectName, select, undefined {} other { del proyecto {projectName}}}"
         },
         meeting_request_approved: {
           title: "Solicitud de reunión aprobada",
@@ -2506,6 +2530,10 @@ export const translations = {
         file_validation_request: {
           title: "ملف للتصديق",
           message: "{uploaderName} رفع الملف \"{fileName}\" الذي يتطلب تصديقك{projectName, select, undefined {} other { للمشروع {projectName}}}"
+        },
+        task_status_changed: {
+          title: "تم تغيير حالة المهمة",
+          message: "{userName} {statusLabel} المهمة \"{taskName}\"{projectName, select, undefined {} other { في المشروع {projectName}}}"
         },
         meeting_request_approved: {
           title: "تم الموافقة على طلب الاجتماع",
