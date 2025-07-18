@@ -445,10 +445,54 @@ const TaskDetails: React.FC = () => {
     setUploadProgress(0);
     
     try {
+      // Vérifier la taille du fichier (limite à 50MB pour les fichiers AutoCAD)
+      const maxSize = selectedFile.name.toLowerCase().endsWith('.dwg') ? 50 * 1024 * 1024 : 10 * 1024 * 1024; // 50MB pour DWG, 10MB pour autres
+      if (selectedFile.size > maxSize) {
+        throw new Error(`Le fichier est trop volumineux. Taille maximale : ${Math.round(maxSize / (1024 * 1024))}MB`);
+      }
+      
       // 1. Generate a unique file name
       const timestamp = Date.now();
-      const fileExt = selectedFile.name.split('.').pop();
+      const fileExt = selectedFile.name.split('.').pop()?.toLowerCase();
       const fileName = `task_${task.id}_${timestamp}.${fileExt}`;
+      
+      // Déterminer le Content-Type approprié - Utiliser les vrais types MIME
+      let contentType = selectedFile.type;
+      if (!contentType || contentType === 'application/octet-stream') {
+        // Fallback pour les types non reconnus - Utiliser les vrais types MIME
+        const mimeTypes: { [key: string]: string } = {
+          'pdf': 'application/pdf',
+          'doc': 'application/msword',
+          'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'xls': 'application/vnd.ms-excel',
+          'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'ppt': 'application/vnd.ms-powerpoint',
+          'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+          'txt': 'text/plain',
+          'jpg': 'image/jpeg',
+          'jpeg': 'image/jpeg',
+          'png': 'image/png',
+          'zip': 'application/zip',
+          'dwg': 'application/acad', // Vrai type MIME pour AutoCAD
+          'dxf': 'application/dxf', // Type MIME pour DXF
+          'rvt': 'application/revit', // Type MIME pour Revit
+          'skp': 'application/sketchup' // Type MIME pour SketchUp
+        };
+        contentType = mimeTypes[fileExt] || 'application/octet-stream';
+      }
+      
+      // Pour les fichiers AutoCAD, utiliser le type MIME correct
+      if (fileExt === 'dwg') {
+        contentType = 'application/acad';
+      }
+      
+      // Créer un nouveau fichier avec le bon type MIME pour forcer l'override
+      const fileWithCorrectType = new File([selectedFile], selectedFile.name, {
+        type: contentType,
+        lastModified: selectedFile.lastModified
+      });
+      
+      console.log(`Uploading file: ${selectedFile.name} (${Math.round(selectedFile.size / 1024)}KB) with type: ${contentType}`);
       
       // Using a timer to simulate upload progress since we don't have actual upload progress
       const progressTimer = setInterval(() => {
@@ -461,40 +505,87 @@ const TaskDetails: React.FC = () => {
         });
       }, 300);
       
-      // Try to create a signed URL approach
-      const { data: signedURLData, error: signedURLError } = await supabase.storage
-        .from('task_submissions')
-        .createSignedUploadUrl(fileName);
-        
-      if (signedURLError) {
-        throw new Error(signedURLError.message);
+      // Essayer d'abord l'upload direct pour les petits fichiers
+      let fileUrl: string;
+      let uploadSuccess = false;
+      
+      if (selectedFile.size <= 5 * 1024 * 1024) { // 5MB
+        try {
+          console.log('Tentative d\'upload direct...');
+          // Essayer d'abord sans Content-Type pour éviter les erreurs MIME
+          let uploadData, uploadError;
+          
+          try {
+            const result = await supabase.storage
+              .from('task_submissions')
+              .upload(fileName, fileWithCorrectType, {
+                cacheControl: '3600',
+                upsert: false
+              });
+            uploadData = result.data;
+            uploadError = result.error;
+          } catch (error) {
+            uploadError = error;
+          }
+          
+          if (uploadError) {
+            console.log('Upload direct échoué, tentative avec URL signée...', uploadError);
+            throw uploadError;
+          }
+          
+          const { data: urlData } = supabase.storage
+            .from('task_submissions')
+            .getPublicUrl(uploadData.path);
+          
+          fileUrl = urlData.publicUrl;
+          uploadSuccess = true;
+          console.log('Upload direct réussi');
+        } catch (directUploadError) {
+          console.log('Upload direct échoué, passage à l\'URL signée...', directUploadError);
+        }
       }
       
-      // Use the signed URL to upload the file
-      const { signedUrl, path } = signedURLData;
-      
-      // Upload file with the signed URL
-      const uploadResponse = await fetch(signedUrl, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': selectedFile.type,
-        },
-        body: selectedFile,
-      });
-      
-      if (!uploadResponse.ok) {
-        throw new Error(`Upload failed with status: ${uploadResponse.status}`);
+      // Si l'upload direct échoue ou pour les gros fichiers, utiliser l'URL signée
+      if (!uploadSuccess) {
+        console.log('Utilisation de l\'URL signée...');
+        
+        // Try to create a signed URL approach
+        const { data: signedURLData, error: signedURLError } = await supabase.storage
+          .from('task_submissions')
+          .createSignedUploadUrl(fileName);
+          
+        if (signedURLError) {
+          throw new Error(`Erreur lors de la création de l'URL signée: ${signedURLError.message}`);
+        }
+        
+        // Use the signed URL to upload the file
+        const { signedUrl, path } = signedURLData;
+        
+        // Upload file with the signed URL - Utiliser le fichier avec le bon type MIME
+        const uploadResponse = await fetch(signedUrl, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': contentType,
+          },
+          body: fileWithCorrectType,
+        });
+        
+        if (!uploadResponse.ok) {
+          const errorText = await uploadResponse.text();
+          console.error('Upload response error:', uploadResponse.status, errorText);
+          throw new Error(`Upload failed with status: ${uploadResponse.status} - ${errorText}`);
+        }
+        
+        // Get the public URL for the uploaded file
+        const { data: urlData } = supabase.storage
+          .from('task_submissions')
+          .getPublicUrl(path);
+        
+        fileUrl = urlData.publicUrl;
       }
       
       clearInterval(progressTimer);
       setUploadProgress(90);
-      
-      // Get the public URL for the uploaded file
-      const { data: urlData } = supabase.storage
-        .from('task_submissions')
-        .getPublicUrl(path);
-      
-      const fileUrl = urlData.publicUrl;
       
       setUploadProgress(95);
       
