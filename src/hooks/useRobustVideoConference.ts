@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSupabase } from '@/hooks/useSupabase';
-import { useToast } from '@/components/ui/use-toast';
 
 interface Participant {
   id: string;
@@ -41,14 +40,13 @@ export function useRobustVideoConference({
 }: UseRobustVideoConferenceProps): UseRobustVideoConferenceReturn {
   const { user } = useAuth();
   const { supabase } = useSupabase();
-  const { toast } = useToast();
-  
+
   // Refs
   const localStreamRef = useRef<MediaStream | null>(null);
   const channelRef = useRef<any>(null);
   const peersRef = useRef<{ [key: string]: RTCPeerConnection }>({});
   const mountedRef = useRef(true);
-  
+
   // States
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -60,7 +58,8 @@ export function useRobustVideoConference({
   const [error, setError] = useState<string | null>(null);
   const [messages, setMessages] = useState<Array<{ id: string; from: string; message: string; timestamp: Date }>>([]);
 
-  const currentUserId = user?.id || `user_${Math.random().toString(36).substr(2, 9)}`;
+  // Générer un ID unique pour cette session
+  const currentUserId = useRef(user?.id || `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`).current;
 
   // Initialiser le stream local
   const initializeLocalStream = useCallback(async () => {
@@ -310,9 +309,29 @@ export function useRobustVideoConference({
       channel
         .on('presence', { event: 'sync' }, () => {
           const state = channel.presenceState();
-          const participantIds = Object.keys(state).filter(id => id !== currentUserId);
+          console.log('👥 Current presence state:', state);
           
+          const participantIds = Object.keys(state).filter(id => id !== currentUserId);
           console.log(`👥 Room participants (${participantIds.length}):`, participantIds);
+          
+          // Mettre à jour la liste des participants
+          setParticipants(prev => {
+            const newParticipants = participantIds.map(id => {
+              const existing = prev.find(p => p.id === id);
+              if (existing) {
+                return existing;
+              }
+              return {
+                id,
+                name: (state[id]?.[0] as any)?.name || id.slice(0, 8) + '...',
+                isConnected: false,
+                joinedAt: new Date()
+              };
+            });
+            
+            console.log('👥 Updated participants list:', newParticipants);
+            return newParticipants;
+          });
           
           // Créer des connexions peer avec les participants existants
           participantIds.forEach(participantId => {
@@ -332,35 +351,24 @@ export function useRobustVideoConference({
                   })
                   .catch(err => console.error('Error creating offer:', err));
               }
-              
-              // Ajouter à la liste des participants
-              setParticipants(prev => {
-                if (!prev.find(p => p.id === participantId)) {
-                  return [...prev, {
-                    id: participantId,
-                    name: participantId.slice(0, 8) + '...',
-                    isConnected: false,
-                    joinedAt: new Date()
-                  }];
-                }
-                return prev;
-              });
             }
           });
         })
         .on('presence', { event: 'join' }, ({ key, newPresences }) => {
           if (key !== currentUserId) {
-            console.log(`👋 User joined: ${key}`);
+            console.log(`👋 User joined: ${key}`, newPresences);
             
             // Ajouter le nouveau participant à la liste
             setParticipants(prev => {
               if (!prev.find(p => p.id === key)) {
-                return [...prev, {
+                const newParticipant = {
                   id: key,
-                  name: key.slice(0, 8) + '...',
+                  name: (newPresences?.[0] as any)?.name || key.slice(0, 8) + '...',
                   isConnected: false,
                   joinedAt: new Date()
-                }];
+                };
+                console.log('👥 Adding new participant:', newParticipant);
+                return [...prev, newParticipant];
               }
               return prev;
             });
@@ -387,7 +395,7 @@ export function useRobustVideoConference({
           }
         })
         .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
-          console.log(`👋 User left: ${key}`);
+          console.log(`👋 User left: ${key}`, leftPresences);
           
           // Fermer la connexion peer
           if (peersRef.current[key]) {
@@ -456,6 +464,7 @@ export function useRobustVideoConference({
       if (audioTrack) {
         audioTrack.enabled = !audioTrack.enabled;
         setIsAudioEnabled(audioTrack.enabled);
+        console.log('🎤 Audio toggled:', audioTrack.enabled);
       }
     }
   }, []);
@@ -466,55 +475,71 @@ export function useRobustVideoConference({
       if (videoTrack) {
         videoTrack.enabled = !videoTrack.enabled;
         setIsVideoEnabled(videoTrack.enabled);
+        console.log('📹 Video toggled:', videoTrack.enabled);
       }
     }
   }, []);
 
   const toggleScreenShare = useCallback(async () => {
     try {
-      if (!isScreenSharing) {
+      if (isScreenSharing) {
+        // Arrêter le partage d'écran
+        if (localStreamRef.current) {
+          localStreamRef.current.getTracks().forEach(track => track.stop());
+        }
+        
+        // Récupérer le stream caméra
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true
+        });
+        
+        localStreamRef.current = stream;
+        setLocalStream(stream);
+        setIsScreenSharing(false);
+        
+        // Mettre à jour les connexions peer
+        Object.values(peersRef.current).forEach(peer => {
+          const videoTrack = stream.getVideoTracks()[0];
+          const sender = peer.getSenders().find(s => s.track?.kind === 'video');
+          if (sender && videoTrack) {
+            sender.replaceTrack(videoTrack);
+          }
+        });
+      } else {
+        // Démarrer le partage d'écran
         const screenStream = await navigator.mediaDevices.getDisplayMedia({
           video: true,
           audio: true
         });
-
-        // Remplacer la vidéo par l'écran
-        const videoTrack = screenStream.getVideoTracks()[0];
-        const sender = Object.values(peersRef.current)[0]?.getSenders().find(s => s.track?.kind === 'video');
         
-        if (sender) {
-          sender.replaceTrack(videoTrack);
-        }
-
+        localStreamRef.current = screenStream;
+        setLocalStream(screenStream);
         setIsScreenSharing(true);
         
-        // Arrêter le partage quand l'utilisateur clique "Stop sharing"
-        videoTrack.onended = () => {
-          setIsScreenSharing(false);
-          // Remettre la caméra
-          if (localStreamRef.current) {
-            const cameraTrack = localStreamRef.current.getVideoTracks()[0];
-            if (sender && cameraTrack) {
-              sender.replaceTrack(cameraTrack);
-            }
+        // Mettre à jour les connexions peer
+        Object.values(peersRef.current).forEach(peer => {
+          const videoTrack = screenStream.getVideoTracks()[0];
+          const sender = peer.getSenders().find(s => s.track?.kind === 'video');
+          if (sender && videoTrack) {
+            sender.replaceTrack(videoTrack);
           }
+        });
+        
+        // Écouter la fin du partage d'écran
+        screenStream.getVideoTracks()[0].onended = () => {
+          toggleScreenShare();
         };
       }
-    } catch (err) {
-      console.error('Error sharing screen:', err);
-      toast({
-        title: "Erreur",
-        description: "Impossible de partager l'écran",
-        variant: "destructive"
-      });
+    } catch (error) {
+      console.error('❌ Error toggling screen share:', error);
     }
-  }, [isScreenSharing, toast]);
+  }, [isScreenSharing]);
 
   // Envoyer un message
   const sendMessage = useCallback((message: string) => {
     if (channelRef.current && message.trim()) {
       const timestamp = new Date().toISOString();
-      
       channelRef.current.send({
         type: 'chat-message',
         payload: {
@@ -523,8 +548,8 @@ export function useRobustVideoConference({
           timestamp
         }
       });
-
-      // Ajouter le message localement
+      
+      // Ajouter le message local
       setMessages(prev => [...prev, {
         id: `${currentUserId}-${timestamp}`,
         from: currentUserId,
@@ -534,7 +559,7 @@ export function useRobustVideoConference({
     }
   }, [currentUserId]);
 
-  // Initialiser la connexion
+  // Initialisation
   useEffect(() => {
     if (mountedRef.current) {
       connectToRoom();
