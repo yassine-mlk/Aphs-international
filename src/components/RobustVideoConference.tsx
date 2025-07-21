@@ -76,9 +76,48 @@ export const RobustVideoConference: React.FC<RobustVideoConferenceProps> = ({
 
   // Attacher les streams distants aux vidéos
   useEffect(() => {
+    console.log('🔄 Attaching remote streams to videos...', participants);
+    
     participants.forEach(participant => {
-      if (participant.stream && remoteVideosRef.current[participant.id]) {
-        remoteVideosRef.current[participant.id].srcObject = participant.stream;
+      const videoElement = remoteVideosRef.current[participant.id];
+      
+      console.log(`📹 Participant ${participant.id}:`, {
+        hasStream: !!participant.stream,
+        hasVideoElement: !!videoElement,
+        streamActive: participant.stream?.active,
+        streamId: participant.stream?.id,
+        isConnected: participant.isConnected
+      });
+      
+      if (participant.stream && videoElement) {
+        // Vérifier si le stream est actif
+        if (participant.stream.active) {
+          console.log(`🎥 Attaching stream to video for ${participant.id}`);
+          
+          // Arrêter l'ancien stream s'il y en a un
+          if (videoElement.srcObject) {
+            console.log(`🔄 Replacing existing stream for ${participant.id}`);
+          }
+          
+          videoElement.srcObject = participant.stream;
+          videoElement.muted = false; // Permettre l'audio des autres participants
+          
+          // Forcer la lecture de la vidéo
+          videoElement.play().then(() => {
+            console.log(`✅ Remote video playing for ${participant.id}`);
+          }).catch(error => {
+            console.warn(`⚠️ Could not auto-play remote video for ${participant.id}:`, error);
+          });
+          
+          console.log(`✅ Stream attached to video for ${participant.id}`);
+        } else {
+          console.warn(`⚠️ Stream not active for ${participant.id}`);
+        }
+      } else {
+        console.log(`⚠️ Missing stream or video element for ${participant.id}:`, {
+          hasStream: !!participant.stream,
+          hasVideoElement: !!videoElement
+        });
       }
     });
   }, [participants]);
@@ -218,7 +257,10 @@ export const RobustVideoConference: React.FC<RobustVideoConferenceProps> = ({
               <CardContent className="p-0 aspect-video relative">
                 <video
                   ref={(el) => {
-                    if (el) remoteVideosRef.current[participant.id] = el;
+                    if (el) {
+                      remoteVideosRef.current[participant.id] = el;
+                      console.log(`📹 Video element created for ${participant.id}`);
+                    }
                   }}
                   autoPlay
                   playsInline
@@ -232,11 +274,32 @@ export const RobustVideoConference: React.FC<RobustVideoConferenceProps> = ({
                     <AlertCircle className="w-3 h-3 ml-1 inline text-yellow-400" />
                   )}
                 </div>
-                {!participant.stream && (
+                
+                {/* Indicateur de chargement/connexion */}
+                {(!participant.stream || !participant.stream.active) && (
                   <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
                     <div className="text-center">
-                      <VideoOff className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                      <p className="text-gray-400 text-sm">En attente...</p>
+                      {participant.isConnected ? (
+                        <>
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-2"></div>
+                          <p className="text-gray-400 text-sm">Connexion en cours...</p>
+                        </>
+                      ) : (
+                        <>
+                          <VideoOff className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                          <p className="text-gray-400 text-sm">En attente...</p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Indicateur de problème de connexion */}
+                {participant.stream && !participant.stream.active && participant.isConnected && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
+                    <div className="text-center">
+                      <AlertCircle className="w-8 h-8 text-yellow-400 mx-auto mb-2" />
+                      <p className="text-yellow-400 text-sm">Problème de flux vidéo</p>
                     </div>
                   </div>
                 )}

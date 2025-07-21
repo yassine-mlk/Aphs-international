@@ -178,52 +178,66 @@ export function useRobustVideoConference({
   const sendRTCSignal = useCallback((to: string, signal: any) => {
     if (channelRef.current) {
       console.log(`📡 Broadcasting RTC signal to ${to}:`, signal.type);
-      channelRef.current.send({
+      
+      const message = {
         type: 'webrtc-signal',
         payload: {
           signal,
           from: currentUserId,
-          to,
+          to: 'broadcast', // Envoyer en broadcast pour que tous les participants reçoivent
           timestamp: new Date().toISOString()
         }
-      });
+      };
+      
+      console.log('📤 Sending message:', message);
+      
+      channelRef.current.send(message)
+        .then(() => {
+          console.log(`✅ Signal ${signal.type} sent successfully to ${to}`);
+        })
+        .catch((error) => {
+          console.error(`❌ Failed to send signal to ${to}:`, error);
+        });
+    } else {
+      console.error('❌ No channel available to send signal');
     }
   }, [currentUserId]);
 
-  // Gérer les signaux WebRTC reçus
+  // Traiter les signaux WebRTC reçus
   const handleRTCSignal = useCallback((payload: any) => {
-    const { signal, from, to } = payload;
+    const { signal, from } = payload;
     
-    // Vérifier si le signal nous est destiné
-    if (to && to !== currentUserId) {
-      console.log(`📨 Signal not for us (${currentUserId}), ignoring`);
+    console.log(`📥 Processing ${signal.type} from ${from}`);
+    
+    // Ignorer les signaux de nous-mêmes
+    if (from === currentUserId) {
+      console.log('📤 Ignoring signal from self');
       return;
     }
     
-    if (from === currentUserId) {
-      console.log(`📨 Ignoring our own signal`);
-      return; // Ignorer nos propres signaux
-    }
-    
-    console.log(`📨 Processing RTC signal from ${from}:`, signal.type);
-    
+    // Trouver ou créer la connexion peer
     let peer = peersRef.current[from];
     if (!peer) {
-      console.log(`🤝 Creating peer connection for signal from ${from}`);
+      console.log(`🤝 Creating new peer connection for ${from}`);
       peer = createPeerConnection(from, false);
     }
-
-    if (peer) {
-      try {
-        if (signal.type === 'offer') {
+    
+    if (!peer) {
+      console.error(`❌ Failed to create peer connection for ${from}`);
+      return;
+    }
+    
+    try {
+      switch (signal.type) {
+        case 'offer':
           console.log(`📥 Processing offer from ${from}`);
-          peer.setRemoteDescription(new RTCSessionDescription(signal))
+          peer.setRemoteDescription(new RTCSessionDescription(signal.sdp))
             .then(() => {
               console.log(`✅ Remote description set for ${from}`);
               return peer.createAnswer();
             })
             .then(answer => {
-              console.log(`📤 Created answer for ${from}`);
+              console.log(`📤 Creating answer for ${from}`);
               return peer.setLocalDescription(answer);
             })
             .then(() => {
@@ -233,35 +247,36 @@ export function useRobustVideoConference({
                 sdp: peer.localDescription
               });
             })
-            .catch(err => {
-              console.error(`❌ Error handling offer from ${from}:`, err);
-            });
-        } else if (signal.type === 'answer') {
+            .catch(err => console.error(`❌ Error processing offer from ${from}:`, err));
+          break;
+          
+        case 'answer':
           console.log(`📥 Processing answer from ${from}`);
-          peer.setRemoteDescription(new RTCSessionDescription(signal))
+          peer.setRemoteDescription(new RTCSessionDescription(signal.sdp))
             .then(() => {
               console.log(`✅ Answer processed for ${from}`);
             })
-            .catch(err => {
-              console.error(`❌ Error handling answer from ${from}:`, err);
-            });
-        } else if (signal.type === 'ice-candidate') {
-          console.log(`🧊 Processing ICE candidate from ${from}`);
-          peer.addIceCandidate(new RTCIceCandidate(signal.candidate))
-            .then(() => {
-              console.log(`✅ ICE candidate added for ${from}`);
-            })
-            .catch(err => {
-              console.error(`❌ Error adding ICE candidate from ${from}:`, err);
-            });
-        }
-      } catch (err) {
-        console.error(`❌ Error processing RTC signal from ${from}:`, err);
+            .catch(err => console.error(`❌ Error processing answer from ${from}:`, err));
+          break;
+          
+        case 'ice-candidate':
+          if (signal.candidate) {
+            console.log(`📥 Processing ICE candidate from ${from}`);
+            peer.addIceCandidate(new RTCIceCandidate(signal.candidate))
+              .then(() => {
+                console.log(`✅ ICE candidate added for ${from}`);
+              })
+              .catch(err => console.error(`❌ Error adding ICE candidate from ${from}:`, err));
+          }
+          break;
+          
+        default:
+          console.warn(`⚠️ Unknown signal type: ${signal.type}`);
       }
-    } else {
-      console.error(`❌ Could not create peer connection for ${from}`);
+    } catch (error) {
+      console.error(`❌ Error handling signal from ${from}:`, error);
     }
-  }, [currentUserId, createPeerConnection, sendRTCSignal]);
+  }, [currentUserId, sendRTCSignal]);
 
   // Se connecter à la room
   const connectToRoom = useCallback(async () => {
@@ -289,7 +304,19 @@ export function useRobustVideoConference({
 
       // Écouter les signaux WebRTC
       channel.on('broadcast', { event: 'webrtc-signal' }, ({ payload }) => {
-        handleRTCSignal(payload);
+        console.log('📨 Signal WebRTC reçu:', payload);
+        console.log('📨 Signal type:', payload.signal?.type);
+        console.log('📨 Signal from:', payload.from);
+        console.log('📨 Signal to:', payload.to);
+        console.log('📨 Current user:', currentUserId);
+        
+        // Vérifier si le signal est pour nous ou en broadcast
+        if (payload.to === currentUserId || payload.to === 'all' || payload.to === 'broadcast') {
+          console.log('📥 Processing signal for current user');
+          handleRTCSignal(payload);
+        } else {
+          console.log('📤 Ignoring signal - not for current user');
+        }
       });
 
       // Écouter les messages de chat
@@ -408,6 +435,7 @@ export function useRobustVideoConference({
 
       // Se connecter au canal
       await channel.subscribe();
+      console.log('✅ Canal Supabase souscrit');
       
       // Se présenter dans la room
       await channel.track({
@@ -415,6 +443,7 @@ export function useRobustVideoConference({
         name: userName,
         joinedAt: new Date().toISOString()
       });
+      console.log('✅ Présence envoyée dans la room');
 
       setIsConnected(true);
       setConnectionStatus('connected');
