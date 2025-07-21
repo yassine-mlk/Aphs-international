@@ -52,9 +52,21 @@ export function SimpleVideoConference({
   useEffect(() => {
     if (localVideoRef.current && localStream) {
       localVideoRef.current.srcObject = localStream;
-      localVideoRef.current.play().catch(err => 
-        console.error('❌ Erreur lecture vidéo locale:', err)
-      );
+      
+      // Gestion robuste de la lecture vidéo
+      const playVideo = async () => {
+        try {
+          await localVideoRef.current?.play();
+        } catch (err) {
+          console.warn('⚠️ Erreur lecture vidéo locale (peut être normal):', err);
+          // Ne pas afficher d'erreur pour les AbortError (normales lors du démontage)
+          if (err instanceof Error && err.name !== 'AbortError') {
+            console.error('❌ Erreur lecture vidéo locale:', err);
+          }
+        }
+      };
+      
+      playVideo();
     }
   }, [localStream]);
 
