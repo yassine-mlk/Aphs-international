@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { useLocalVideoConference } from '@/hooks/useLocalVideoConference';
+import { useWebSocketVideoConference } from '@/hooks/useWebSocketVideoConference';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -42,7 +42,7 @@ export function SimpleVideoConference({
     disconnect,
     sendMessage,
     messages
-  } = useLocalVideoConference({ roomId, userName, onError });
+  } = useWebSocketVideoConference({ roomId, userName, onError });
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const [chatMessage, setChatMessage] = React.useState('');
