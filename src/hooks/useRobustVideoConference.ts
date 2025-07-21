@@ -178,6 +178,7 @@ export function useRobustVideoConference({
   // Envoyer un signal WebRTC
   const sendRTCSignal = useCallback((to: string, signal: any) => {
     if (channelRef.current) {
+      console.log(`📡 Broadcasting RTC signal to ${to}:`, signal.type);
       channelRef.current.send({
         type: 'webrtc-signal',
         payload: {
@@ -192,9 +193,20 @@ export function useRobustVideoConference({
 
   // Gérer les signaux WebRTC reçus
   const handleRTCSignal = useCallback((payload: any) => {
-    const { signal, from } = payload;
+    const { signal, from, to } = payload;
     
-    if (from === currentUserId) return; // Ignorer nos propres signaux
+    // Vérifier si le signal nous est destiné
+    if (to && to !== currentUserId) {
+      console.log(`📨 Signal not for us (${currentUserId}), ignoring`);
+      return;
+    }
+    
+    if (from === currentUserId) {
+      console.log(`📨 Ignoring our own signal`);
+      return; // Ignorer nos propres signaux
+    }
+    
+    console.log(`📨 Processing RTC signal from ${from}:`, signal.type);
     
     let peer = peersRef.current[from];
     if (!peer) {
@@ -205,26 +217,50 @@ export function useRobustVideoConference({
     if (peer) {
       try {
         if (signal.type === 'offer') {
+          console.log(`📥 Processing offer from ${from}`);
           peer.setRemoteDescription(new RTCSessionDescription(signal))
-            .then(() => peer.createAnswer())
-            .then(answer => peer.setLocalDescription(answer))
             .then(() => {
+              console.log(`✅ Remote description set for ${from}`);
+              return peer.createAnswer();
+            })
+            .then(answer => {
+              console.log(`📤 Created answer for ${from}`);
+              return peer.setLocalDescription(answer);
+            })
+            .then(() => {
+              console.log(`📤 Sending answer to ${from}`);
               sendRTCSignal(from, {
                 type: 'answer',
                 sdp: peer.localDescription
               });
             })
-            .catch(err => console.error('Error handling offer:', err));
+            .catch(err => {
+              console.error(`❌ Error handling offer from ${from}:`, err);
+            });
         } else if (signal.type === 'answer') {
+          console.log(`📥 Processing answer from ${from}`);
           peer.setRemoteDescription(new RTCSessionDescription(signal))
-            .catch(err => console.error('Error handling answer:', err));
+            .then(() => {
+              console.log(`✅ Answer processed for ${from}`);
+            })
+            .catch(err => {
+              console.error(`❌ Error handling answer from ${from}:`, err);
+            });
         } else if (signal.type === 'ice-candidate') {
+          console.log(`🧊 Processing ICE candidate from ${from}`);
           peer.addIceCandidate(new RTCIceCandidate(signal.candidate))
-            .catch(err => console.error('Error adding ICE candidate:', err));
+            .then(() => {
+              console.log(`✅ ICE candidate added for ${from}`);
+            })
+            .catch(err => {
+              console.error(`❌ Error adding ICE candidate from ${from}:`, err);
+            });
         }
       } catch (err) {
-        console.error('Error processing RTC signal:', err);
+        console.error(`❌ Error processing RTC signal from ${from}:`, err);
       }
+    } else {
+      console.error(`❌ Could not create peer connection for ${from}`);
     }
   }, [currentUserId, createPeerConnection, sendRTCSignal]);
 
@@ -316,6 +352,7 @@ export function useRobustVideoConference({
           if (key !== currentUserId) {
             console.log(`👋 User joined: ${key}`);
             
+            // Ajouter le nouveau participant à la liste
             setParticipants(prev => {
               if (!prev.find(p => p.id === key)) {
                 return [...prev, {
@@ -327,6 +364,26 @@ export function useRobustVideoConference({
               }
               return prev;
             });
+
+            // Créer une connexion peer avec le nouveau participant
+            if (!peersRef.current[key]) {
+              console.log(`🤝 Creating peer connection with new participant: ${key}`);
+              const peer = createPeerConnection(key, true);
+              
+              if (peer) {
+                // Créer une offre pour le nouveau participant
+                peer.createOffer()
+                  .then(offer => peer.setLocalDescription(offer))
+                  .then(() => {
+                    console.log(`📤 Sending offer to new participant: ${key}`);
+                    sendRTCSignal(key, {
+                      type: 'offer',
+                      sdp: peer.localDescription
+                    });
+                  })
+                  .catch(err => console.error('Error creating offer for new participant:', err));
+              }
+            }
           }
         })
         .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
