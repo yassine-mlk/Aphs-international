@@ -170,12 +170,33 @@ export function useLocalVideoConference({
           console.log(`👋 ${message.userName} a rejoint la room`);
           setParticipants(prev => {
             if (!prev.find(p => p.id === message.from)) {
-              return [...prev, {
+              const newParticipant = {
                 id: message.from,
                 name: message.userName,
                 isConnected: false,
                 joinedAt: new Date()
-              }];
+              };
+              
+              // Créer une connexion peer avec le nouveau participant
+              setTimeout(() => {
+                console.log(`🔗 Création connexion peer avec ${message.from}`);
+                const peer = createPeerConnection(message.from, true);
+                if (peer) {
+                  // Créer une offre
+                  peer.createOffer()
+                    .then(offer => peer.setLocalDescription(offer))
+                    .then(() => {
+                      sendLocalStorageMessage({
+                        type: 'offer',
+                        to: message.from,
+                        sdp: peer.localDescription
+                      });
+                    })
+                    .catch(err => console.error('❌ Erreur création offre:', err));
+                }
+              }, 1000);
+              
+              return [...prev, newParticipant];
             }
             return prev;
           });
@@ -299,24 +320,24 @@ export function useLocalVideoConference({
       setIsConnected(true);
       setConnectionStatus('connected');
 
-      // Créer des participants simulés pour les tests
-      setTimeout(() => {
-        const simulatedParticipants = [
-          {
-            id: `sim_${Date.now()}_1`,
-            name: 'Participant Test 1',
-            isConnected: false,
-            joinedAt: new Date()
-          },
-          {
-            id: `sim_${Date.now()}_2`,
-            name: 'Participant Test 2',
-            isConnected: false,
-            joinedAt: new Date()
-          }
-        ];
-        setParticipants(simulatedParticipants);
-      }, 2000);
+      // Créer des participants simulés pour les tests (optionnel)
+      // setTimeout(() => {
+      //   const simulatedParticipants = [
+      //     {
+      //       id: `sim_${Date.now()}_1`,
+      //       name: 'Participant Test 1',
+      //       isConnected: false,
+      //       joinedAt: new Date()
+      //     },
+      //     {
+      //       id: `sim_${Date.now()}_2`,
+      //       name: 'Participant Test 2',
+      //       isConnected: false,
+      //       joinedAt: new Date()
+      //     }
+      //   ];
+      //   setParticipants(simulatedParticipants);
+      // }, 2000);
 
     } catch (error) {
       console.error('❌ Erreur connexion room:', error);
