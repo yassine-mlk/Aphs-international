@@ -63,6 +63,14 @@ export const RobustVideoConference: React.FC<RobustVideoConferenceProps> = ({
   useEffect(() => {
     if (localVideoRef.current && localStream) {
       localVideoRef.current.srcObject = localStream;
+      localVideoRef.current.muted = true;
+      
+      // Forcer la lecture de la vidéo
+      localVideoRef.current.play().then(() => {
+        console.log('✅ Local video playing successfully');
+      }).catch(error => {
+        console.warn('⚠️ Could not auto-play local video:', error);
+      });
     }
   }, [localStream]);
 
@@ -174,9 +182,31 @@ export const RobustVideoConference: React.FC<RobustVideoConferenceProps> = ({
               <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 px-2 py-1 rounded text-white text-sm">
                 {userName} (Vous)
               </div>
-              {!isVideoEnabled && (
+              
+              {/* Indicateur de chargement de la caméra */}
+              {connectionStatus === 'connecting' && !localStream && (
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-2"></div>
+                    <p className="text-gray-400 text-sm">Accès à la caméra...</p>
+                  </div>
+                </div>
+              )}
+              
+              {/* Indicateur vidéo désactivée */}
+              {!isVideoEnabled && localStream && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
                   <VideoOff className="w-12 h-12 text-gray-400" />
+                </div>
+              )}
+              
+              {/* Indicateur d'erreur de caméra */}
+              {connectionStatus === 'error' && !localStream && (
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
+                  <div className="text-center">
+                    <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-2" />
+                    <p className="text-red-400 text-sm">Erreur d'accès caméra</p>
+                  </div>
                 </div>
               )}
             </CardContent>

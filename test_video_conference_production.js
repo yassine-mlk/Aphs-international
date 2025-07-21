@@ -1,183 +1,293 @@
-// Script de test pour la vidéoconférence en production
-// À exécuter dans la console du navigateur (F12)
+// =========================================
+// TEST VIDÉOCONFÉRENCE PRODUCTION
+// Script à exécuter dans la console du navigateur
+// =========================================
 
-console.log('🧪 Test du système de vidéoconférence robuste...');
+console.log('🧪 Démarrage du test vidéoconférence production...');
 
-// Test 1: Vérifier les variables d'environnement
-console.log('📋 Variables d\'environnement:');
-console.log('- VITE_USE_ROBUST_VIDEO_CONFERENCE:', import.meta.env.VITE_USE_ROBUST_VIDEO_CONFERENCE);
-console.log('- VITE_USE_REALTIME:', import.meta.env.VITE_USE_REALTIME);
-console.log('- VITE_SUPABASE_URL:', import.meta.env.VITE_SUPABASE_URL ? '✅ Configuré' : '❌ Manquant');
-console.log('- VITE_SUPABASE_ANON_KEY:', import.meta.env.VITE_SUPABASE_ANON_KEY ? '✅ Configuré' : '❌ Manquant');
+// =========================================
+// 1. VÉRIFIER LES APIs WEBRTC
+// =========================================
 
-// Test 2: Vérifier les APIs WebRTC
-console.log('\n🎥 Test des APIs WebRTC:');
-console.log('- getUserMedia:', navigator.mediaDevices?.getUserMedia ? '✅ Disponible' : '❌ Non disponible');
-console.log('- RTCPeerConnection:', window.RTCPeerConnection ? '✅ Disponible' : '❌ Non disponible');
-console.log('- WebRTC support:', 'getUserMedia' in navigator.mediaDevices && 'RTCPeerConnection' in window ? '✅ Complet' : '❌ Incomplet');
+console.log('🔍 Vérification des APIs WebRTC...');
 
-// Test 3: Vérifier les permissions
-async function testPermissions() {
-  console.log('\n🔐 Test des permissions:');
+const webrtcTests = {
+  // Vérifier les APIs de base
+  getUserMedia: typeof navigator.mediaDevices?.getUserMedia === 'function',
+  RTCPeerConnection: typeof RTCPeerConnection === 'function',
+  RTCSessionDescription: typeof RTCSessionDescription === 'function',
+  RTCIceCandidate: typeof RTCIceCandidate === 'function',
   
-  try {
-    const cameraPermission = await navigator.permissions.query({ name: 'camera' });
-    const microphonePermission = await navigator.permissions.query({ name: 'microphone' });
-    
-    console.log('- Caméra:', cameraPermission.state);
-    console.log('- Microphone:', microphonePermission.state);
-    
-    return cameraPermission.state === 'granted' && microphonePermission.state === 'granted';
-  } catch (error) {
-    console.log('- Permissions API non supportée, test manuel requis');
-    return null;
-  }
+  // Vérifier les APIs de contraintes
+  MediaTrackConstraints: typeof MediaTrackConstraints === 'function',
+  
+  // Vérifier les APIs de stream
+  MediaStream: typeof MediaStream === 'function',
+  MediaStreamTrack: typeof MediaStreamTrack === 'function'
+};
+
+console.table(webrtcTests);
+
+const allWebRTCAvailable = Object.values(webrtcTests).every(Boolean);
+console.log(`✅ WebRTC APIs disponibles: ${allWebRTCAvailable ? 'OUI' : 'NON'}`);
+
+if (!allWebRTCAvailable) {
+  console.error('❌ WebRTC non supporté dans ce navigateur');
 }
 
-// Test 4: Vérifier la connexion Supabase
-async function testSupabaseConnection() {
-  console.log('\n🔌 Test de la connexion Supabase:');
-  
-  try {
-    // Vérifier si Supabase est disponible
-    if (typeof window.supabase === 'undefined') {
-      console.log('❌ Supabase client non disponible');
-      return false;
-    }
-    
-    // Test de connexion basique
-    const { data, error } = await window.supabase.from('profiles').select('id').limit(1);
-    
-    if (error) {
-      console.log('❌ Erreur de connexion Supabase:', error.message);
-      return false;
-    }
-    
-    console.log('✅ Connexion Supabase réussie');
-    return true;
-  } catch (error) {
-    console.log('❌ Erreur lors du test Supabase:', error.message);
-    return false;
-  }
-}
+// =========================================
+// 2. VÉRIFIER LA CONNEXION SUPABASE
+// =========================================
 
-// Test 5: Vérifier les composants React
-function testReactComponents() {
-  console.log('\n⚛️ Test des composants React:');
-  
-  // Vérifier si les composants sont disponibles
-  const components = [
-    'RobustVideoConference',
-    'useRobustVideoConference'
-  ];
-  
-  components.forEach(component => {
-    console.log(`- ${component}: ${window[component] ? '✅ Disponible' : '❌ Non disponible'}`);
-  });
-}
+console.log('🔍 Vérification de la connexion Supabase...');
 
-// Test 6: Simulation d'une connexion vidéo
-async function testVideoConnection() {
-  console.log('\n🎬 Test de connexion vidéo:');
-  
+// Récupérer les variables d'environnement
+const supabaseUrl = window.location.hostname === 'localhost' 
+  ? 'http://localhost:54321' 
+  : 'https://your-project.supabase.co'; // Remplacer par votre URL
+
+const supabaseKey = 'your-anon-key'; // Remplacer par votre clé
+
+console.log('📡 URL Supabase:', supabaseUrl);
+console.log('🔑 Clé Supabase:', supabaseKey ? '✅ Configurée' : '❌ Manquante');
+
+// =========================================
+// 3. TEST D'ACCÈS MÉDIA
+// =========================================
+
+console.log('🎥 Test d\'accès aux médias...');
+
+async function testMediaAccess() {
   try {
-    // Demander l'accès à la caméra/microphone
+    console.log('🎥 Demande d\'accès caméra/microphone...');
+    
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: { width: 1280, height: 720 },
-      audio: { echoCancellation: true, noiseSuppression: true }
+      video: {
+        width: { ideal: 1280, max: 1920 },
+        height: { ideal: 720, max: 1080 },
+        frameRate: { ideal: 30, max: 60 }
+      },
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        sampleRate: 48000
+      }
     });
     
-    console.log('✅ Stream vidéo obtenu');
+    console.log('✅ Accès média réussi!');
+    console.log('📊 Informations du stream:');
+    console.log('- ID du stream:', stream.id);
     console.log('- Tracks vidéo:', stream.getVideoTracks().length);
     console.log('- Tracks audio:', stream.getAudioTracks().length);
     
-    // Arrêter le stream
+    // Afficher les détails des tracks
+    stream.getVideoTracks().forEach((track, index) => {
+      console.log(`📹 Track vidéo ${index + 1}:`, {
+        id: track.id,
+        label: track.label,
+        enabled: track.enabled,
+        readyState: track.readyState,
+        muted: track.muted,
+        settings: track.getSettings()
+      });
+    });
+    
+    stream.getAudioTracks().forEach((track, index) => {
+      console.log(`🎤 Track audio ${index + 1}:`, {
+        id: track.id,
+        label: track.label,
+        enabled: track.enabled,
+        readyState: track.readyState,
+        muted: track.muted
+      });
+    });
+    
+    // Arrêter le stream de test
     stream.getTracks().forEach(track => track.stop());
-    console.log('✅ Stream arrêté proprement');
+    console.log('🛑 Stream de test arrêté');
     
     return true;
   } catch (error) {
-    console.log('❌ Erreur lors de l\'accès vidéo:', error.message);
+    console.error('❌ Erreur d\'accès média:', error);
+    console.log('🔍 Type d\'erreur:', error.name);
+    console.log('📝 Message:', error.message);
+    
+    if (error.name === 'NotAllowedError') {
+      console.log('💡 Solution: Autoriser l\'accès à la caméra/microphone');
+    } else if (error.name === 'NotFoundError') {
+      console.log('💡 Solution: Vérifier que la caméra/microphone sont connectés');
+    } else if (error.name === 'NotReadableError') {
+      console.log('💡 Solution: La caméra/microphone sont utilisés par une autre application');
+    }
+    
     return false;
   }
 }
 
-// Test 7: Vérifier la configuration réseau
-function testNetworkConfig() {
-  console.log('\n🌐 Test de la configuration réseau:');
-  
-  // Vérifier HTTPS (requis pour WebRTC)
-  const isHttps = window.location.protocol === 'https:';
-  console.log('- HTTPS:', isHttps ? '✅ Actif' : '❌ Non actif (requis pour WebRTC)');
-  
-  // Vérifier la connexion réseau
-  const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-  if (connection) {
-    console.log('- Type de connexion:', connection.effectiveType || 'Inconnu');
-    console.log('- Vitesse de connexion:', connection.downlink || 'Inconnue', 'Mbps');
-  } else {
-    console.log('- Informations de connexion non disponibles');
+// =========================================
+// 4. TEST DE CONNEXION PEER-TO-PEER
+// =========================================
+
+console.log('🔗 Test de connexion peer-to-peer...');
+
+async function testPeerConnection() {
+  try {
+    console.log('🔗 Création d\'une connexion peer de test...');
+    
+    const peerConnection = new RTCPeerConnection({
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' }
+      ]
+    });
+    
+    console.log('✅ RTCPeerConnection créée');
+    
+    // Écouter les candidats ICE
+    peerConnection.onicecandidate = (event) => {
+      if (event.candidate) {
+        console.log('🧊 Candidat ICE généré:', event.candidate.candidate);
+      } else {
+        console.log('✅ Tous les candidats ICE ont été générés');
+      }
+    };
+    
+    // Écouter les changements d'état de connexion
+    peerConnection.onconnectionstatechange = () => {
+      console.log('🔗 État de connexion:', peerConnection.connectionState);
+    };
+    
+    // Écouter les changements d'état ICE
+    peerConnection.oniceconnectionstatechange = () => {
+      console.log('🧊 État de connexion ICE:', peerConnection.iceConnectionState);
+    };
+    
+    // Créer une offre de test
+    const offer = await peerConnection.createOffer();
+    console.log('📤 Offre créée:', offer.type);
+    
+    await peerConnection.setLocalDescription(offer);
+    console.log('✅ Description locale définie');
+    
+    // Fermer la connexion de test
+    peerConnection.close();
+    console.log('🛑 Connexion peer de test fermée');
+    
+    return true;
+  } catch (error) {
+    console.error('❌ Erreur de connexion peer:', error);
+    return false;
   }
 }
 
-// Exécuter tous les tests
+// =========================================
+// 5. VÉRIFIER LES PERMISSIONS
+// =========================================
+
+console.log('🔐 Vérification des permissions...');
+
+async function checkPermissions() {
+  try {
+    // Vérifier les permissions pour la caméra
+    const cameraPermission = await navigator.permissions.query({ name: 'camera' });
+    console.log('📹 Permission caméra:', cameraPermission.state);
+    
+    // Vérifier les permissions pour le microphone
+    const microphonePermission = await navigator.permissions.query({ name: 'microphone' });
+    console.log('🎤 Permission microphone:', microphonePermission.state);
+    
+    return {
+      camera: cameraPermission.state,
+      microphone: microphonePermission.state
+    };
+  } catch (error) {
+    console.log('⚠️ Impossible de vérifier les permissions:', error.message);
+    return { camera: 'unknown', microphone: 'unknown' };
+  }
+}
+
+// =========================================
+// 6. EXÉCUTER TOUS LES TESTS
+// =========================================
+
 async function runAllTests() {
-  console.log('🚀 Démarrage des tests de vidéoconférence...\n');
+  console.log('🚀 Démarrage de tous les tests...');
   
   const results = {
-    environment: true, // Basé sur les logs
-    webrtc: 'getUserMedia' in navigator.mediaDevices && 'RTCPeerConnection' in window,
-    permissions: await testPermissions(),
-    supabase: await testSupabaseConnection(),
-    components: true, // Basé sur les logs
-    video: await testVideoConnection(),
-    network: window.location.protocol === 'https:'
+    webrtc: allWebRTCAvailable,
+    media: await testMediaAccess(),
+    peer: await testPeerConnection(),
+    permissions: await checkPermissions()
   };
   
-  testReactComponents();
-  testNetworkConfig();
+  console.log('📊 Résultats des tests:');
+  console.table(results);
   
-  console.log('\n📊 Résultats des tests:');
-  Object.entries(results).forEach(([test, result]) => {
-    const status = result ? '✅' : '❌';
-    console.log(`${status} ${test}: ${result ? 'PASS' : 'FAIL'}`);
-  });
+  const allTestsPassed = results.webrtc && results.media && results.peer;
   
-  const allPassed = Object.values(results).every(result => result === true || result === 'granted');
-  
-  if (allPassed) {
-    console.log('\n🎉 Tous les tests sont passés ! La vidéoconférence devrait fonctionner parfaitement.');
+  if (allTestsPassed) {
+    console.log('🎉 Tous les tests sont passés! La vidéoconférence devrait fonctionner.');
   } else {
-    console.log('\n⚠️ Certains tests ont échoué. Vérifiez la configuration.');
+    console.log('⚠️ Certains tests ont échoué. Vérifiez les erreurs ci-dessus.');
   }
   
   return results;
 }
 
-// Fonction pour tester une room spécifique
-function testSpecificRoom(roomId) {
-  console.log(`\n🏠 Test de la room: ${roomId}`);
-  
-  // Simuler la création d'un composant RobustVideoConference
-  const testComponent = {
-    roomId,
-    userName: 'Test User',
-    onLeave: () => console.log('✅ Test de déconnexion réussi'),
-    onError: (error) => console.log('❌ Erreur simulée:', error)
-  };
-  
-  console.log('✅ Composant de test créé:', testComponent);
-  return testComponent;
-}
+// =========================================
+// 7. FONCTIONS UTILITAIRES
+// =========================================
 
-// Exporter les fonctions pour utilisation manuelle
-window.videoConferenceTests = {
-  runAllTests,
-  testSpecificRoom,
-  testPermissions,
-  testSupabaseConnection,
-  testVideoConnection
+// Fonction pour tester la vidéoconférence dans une room spécifique
+window.testVideoConference = async (roomId = 'test-room-' + Date.now()) => {
+  console.log(`🎥 Test de vidéoconférence dans la room: ${roomId}`);
+  
+  // Vérifier que l'application est chargée
+  if (typeof window.useRobustVideoConference === 'undefined') {
+    console.error('❌ Hook useRobustVideoConference non trouvé');
+    return;
+  }
+  
+  console.log('✅ Hook vidéoconférence disponible');
 };
 
-// Exécuter automatiquement les tests
-runAllTests(); 
+// Fonction pour diagnostiquer les problèmes
+window.diagnoseVideoIssues = () => {
+  console.log('🔍 Diagnostic des problèmes vidéo...');
+  
+  // Vérifier les erreurs dans la console
+  console.log('📝 Vérifiez les erreurs dans la console ci-dessus');
+  
+  // Vérifier les variables d'environnement
+  console.log('🔧 Variables d\'environnement:');
+  console.log('- VITE_USE_ROBUST_VIDEO_CONFERENCE:', import.meta.env?.VITE_USE_ROBUST_VIDEO_CONFERENCE);
+  console.log('- VITE_USE_REALTIME:', import.meta.env?.VITE_USE_REALTIME);
+  console.log('- VITE_SUPABASE_URL:', import.meta.env?.VITE_SUPABASE_URL);
+  
+  // Vérifier la connexion réseau
+  console.log('🌐 Test de connexion réseau...');
+  fetch('https://httpbin.org/get')
+    .then(response => {
+      console.log('✅ Connexion internet: OK');
+    })
+    .catch(error => {
+      console.error('❌ Problème de connexion internet:', error);
+    });
+};
+
+// =========================================
+// 8. EXÉCUTION AUTOMATIQUE
+// =========================================
+
+// Exécuter les tests automatiquement
+runAllTests().then(results => {
+  console.log('✅ Tests terminés. Utilisez:');
+  console.log('- testVideoConference("room-id") pour tester une room spécifique');
+  console.log('- diagnoseVideoIssues() pour diagnostiquer les problèmes');
+});
+
+console.log('🧪 Script de test chargé. Utilisez les fonctions globales pour des tests supplémentaires.'); 
