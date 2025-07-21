@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { config } from '@/config/environment';
 import { useSupabase } from '@/hooks/useSupabase';
 
 interface Participant {
@@ -286,6 +287,10 @@ export function useRobustVideoConference({
 
     try {
       console.log(`🚪 Connecting to room: ${roomId}`);
+      console.log('🔧 Configuration:');
+      console.log('- useRealtime:', config.useRealtime);
+      console.log('- useRobustVideoConference:', config.useRobustVideoConference);
+      console.log('- supabaseUrl:', config.supabaseUrl);
       setConnectionStatus('connecting');
 
       // Initialiser le stream local
@@ -599,6 +604,33 @@ export function useRobustVideoConference({
       disconnect();
     };
   }, [connectToRoom, disconnect]);
+
+  // Forcer la reconnexion au canal
+  const forceReconnect = useCallback(async () => {
+    console.log('🔄 Forçage de la reconnexion...');
+    
+    if (channelRef.current) {
+      console.log('🛑 Fermeture du canal existant...');
+      await channelRef.current.unsubscribe();
+      channelRef.current = null;
+    }
+    
+    setConnectionStatus('connecting');
+    setIsConnected(false);
+    
+    // Attendre un peu puis se reconnecter
+    setTimeout(() => {
+      console.log('🔄 Reconnexion à la room:', roomId);
+      connectToRoom();
+    }, 1000);
+  }, [roomId, connectToRoom]);
+
+  // Exposer la fonction de reconnexion
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).forceVideoReconnect = forceReconnect;
+    }
+  }, [forceReconnect]);
 
   return {
     localStream,
