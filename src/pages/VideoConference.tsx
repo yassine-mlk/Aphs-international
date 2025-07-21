@@ -33,7 +33,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { useSupabase } from '@/hooks/useSupabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useVideoMeetings } from '@/hooks/useVideoMeetings';
-import { RobustVideoConference } from '@/components/RobustVideoConference';
+import { SimpleVideoConference } from '@/components/SimpleVideoConference';
 import { useLanguage } from '../contexts/LanguageContext';
 import { translations } from '../lib/translations';
 import { MeetingRequestFormImproved } from '@/components/MeetingRequestFormImproved';
@@ -394,10 +394,9 @@ const VideoConference: React.FC = () => {
     if (!activeMeetingRoom) return null;
     
     return (
-      <RobustVideoConference 
+      <SimpleVideoConference 
         roomId={activeMeetingRoom.roomId}
         userName={`${user?.user_metadata?.first_name || ''} ${user?.user_metadata?.last_name || ''}`.trim() || user?.email || 'Utilisateur'}
-        onLeave={() => setActiveMeetingRoom(null)}
         onError={(error) => {
           toast({
             title: "Erreur de vidéoconférence",
