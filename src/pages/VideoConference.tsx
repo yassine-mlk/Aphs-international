@@ -33,7 +33,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { useSupabase } from '@/hooks/useSupabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useVideoMeetings } from '@/hooks/useVideoMeetings';
-import { EnhancedVideoConference } from '@/components/EnhancedVideoConference';
+import { RobustVideoConference } from '@/components/RobustVideoConference';
 import { useLanguage } from '../contexts/LanguageContext';
 import { translations } from '../lib/translations';
 import { MeetingRequestFormImproved } from '@/components/MeetingRequestFormImproved';
@@ -394,13 +394,20 @@ const VideoConference: React.FC = () => {
     if (!activeMeetingRoom) return null;
     
     return (
-      <EnhancedVideoConference 
+      <RobustVideoConference 
         roomId={activeMeetingRoom.roomId}
         userName={`${user?.user_metadata?.first_name || ''} ${user?.user_metadata?.last_name || ''}`.trim() || user?.email || 'Utilisateur'}
         onLeave={() => setActiveMeetingRoom(null)}
+        onError={(error) => {
+          toast({
+            title: "Erreur de vidéoconférence",
+            description: error,
+            variant: "destructive"
+          });
+        }}
       />
     );
-  }, [activeMeetingRoom, user]);
+  }, [activeMeetingRoom, user, toast]);
   
   // Charger les réunions au montage
   useEffect(() => {
