@@ -52,6 +52,7 @@ export function useLocalVideoConference({
   const currentUserId = useRef(`user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
   const screenStreamRef = useRef<MediaStream | null>(null);
   const storageIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isConnectingRef = useRef(false);
 
   // Initialiser le stream local
   const initializeLocalStream = useCallback(async (): Promise<MediaStream | null> => {
@@ -272,7 +273,13 @@ export function useLocalVideoConference({
       return;
     }
 
+    if (isConnectingRef.current) {
+      console.log('⏳ Connexion déjà en cours...');
+      return;
+    }
+
     try {
+      isConnectingRef.current = true;
       console.log(`🚀 Connexion à la room: ${roomId}`);
       setConnectionStatus('connecting');
 
@@ -315,6 +322,8 @@ export function useLocalVideoConference({
       console.error('❌ Erreur connexion room:', error);
       setError('Erreur de connexion à la room');
       setConnectionStatus('error');
+    } finally {
+      isConnectingRef.current = false;
     }
   }, [user, roomId, userName, initializeLocalStream, startLocalStorageListener, sendLocalStorageMessage]);
 
@@ -410,9 +419,20 @@ export function useLocalVideoConference({
 
   // Connexion automatique
   useEffect(() => {
-    connectToRoom();
-    return () => disconnect();
-  }, [connectToRoom, disconnect]);
+    let mounted = true;
+    
+    const initialize = async () => {
+      if (!mounted) return;
+      await connectToRoom();
+    };
+    
+    initialize();
+    
+    return () => {
+      mounted = false;
+      disconnect();
+    };
+  }, []); // Dépendances vides pour éviter les cycles
 
   return {
     localStream,
