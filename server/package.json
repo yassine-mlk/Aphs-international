@@ -1,30 +1,19 @@
 {
-  "name": "aphs-webrtc-signaling-server",
+  "name": "video-conference-server",
   "version": "1.0.0",
-  "description": "Serveur de signalisation Socket.IO pour WebRTC",
-  "main": "index.js",
+  "description": "Serveur WebSocket pour vidéoconférence",
+  "main": "websocket-server.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node websocket-server.js",
+    "dev": "nodemon websocket-server.js"
   },
-  "keywords": [
-    "socket.io",
-    "webrtc",
-    "signaling",
-    "video-conference"
-  ],
-  "author": "APHS",
-  "license": "MIT",
   "dependencies": {
-    "express": "^4.18.2",
-    "socket.io": "^4.7.4",
-    "cors": "^2.8.5"
+    "ws": "^8.14.2"
   },
   "devDependencies": {
-    "nodemon": "^3.0.2"
+    "nodemon": "^3.0.1"
   },
-  "engines": {
-    "node": ">=16.0.0"
-  }
+  "keywords": ["websocket", "video", "conference", "webrtc"],
+  "author": "APHS",
+  "license": "MIT"
 } 
