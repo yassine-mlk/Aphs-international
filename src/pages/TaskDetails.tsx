@@ -456,10 +456,13 @@ const TaskDetails: React.FC = () => {
       const fileExt = selectedFile.name.split('.').pop()?.toLowerCase();
       const fileName = `task_${task.id}_${timestamp}.${fileExt}`;
       
-      // Déterminer le Content-Type approprié - Utiliser les vrais types MIME
+      // Déterminer le Content-Type approprié
       let contentType = selectedFile.type;
-      if (!contentType || contentType === 'application/octet-stream') {
-        // Fallback pour les types non reconnus - Utiliser les vrais types MIME
+      if (fileExt === 'dwg') {
+        // Utiliser un type MIME générique pour éviter les erreurs Supabase
+        contentType = 'application/octet-stream'; // Type générique accepté par Supabase
+      } else if (!contentType || contentType === 'application/octet-stream') {
+        // Fallback pour les types non reconnus
         const mimeTypes: { [key: string]: string } = {
           'pdf': 'application/pdf',
           'doc': 'application/msword',
@@ -473,24 +476,10 @@ const TaskDetails: React.FC = () => {
           'jpeg': 'image/jpeg',
           'png': 'image/png',
           'zip': 'application/zip',
-          'dwg': 'application/acad', // Vrai type MIME pour AutoCAD
-          'dxf': 'application/dxf', // Type MIME pour DXF
-          'rvt': 'application/revit', // Type MIME pour Revit
-          'skp': 'application/sketchup' // Type MIME pour SketchUp
+          'dwg': 'application/octet-stream' // Type générique pour AutoCAD
         };
         contentType = mimeTypes[fileExt] || 'application/octet-stream';
       }
-      
-      // Pour les fichiers AutoCAD, utiliser le type MIME correct
-      if (fileExt === 'dwg') {
-        contentType = 'application/acad';
-      }
-      
-      // Créer un nouveau fichier avec le bon type MIME pour forcer l'override
-      const fileWithCorrectType = new File([selectedFile], selectedFile.name, {
-        type: contentType,
-        lastModified: selectedFile.lastModified
-      });
       
       console.log(`Uploading file: ${selectedFile.name} (${Math.round(selectedFile.size / 1024)}KB) with type: ${contentType}`);
       
@@ -512,21 +501,13 @@ const TaskDetails: React.FC = () => {
       if (selectedFile.size <= 5 * 1024 * 1024) { // 5MB
         try {
           console.log('Tentative d\'upload direct...');
-          // Essayer d'abord sans Content-Type pour éviter les erreurs MIME
-          let uploadData, uploadError;
-          
-          try {
-            const result = await supabase.storage
-              .from('task_submissions')
-              .upload(fileName, fileWithCorrectType, {
-                cacheControl: '3600',
-                upsert: false
-              });
-            uploadData = result.data;
-            uploadError = result.error;
-          } catch (error) {
-            uploadError = error;
-          }
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('task_submissions')
+            .upload(fileName, selectedFile, {
+              contentType: contentType,
+              cacheControl: '3600',
+              upsert: false
+            });
           
           if (uploadError) {
             console.log('Upload direct échoué, tentative avec URL signée...', uploadError);
@@ -548,39 +529,40 @@ const TaskDetails: React.FC = () => {
       // Si l'upload direct échoue ou pour les gros fichiers, utiliser l'URL signée
       if (!uploadSuccess) {
         console.log('Utilisation de l\'URL signée...');
+      
+      // Try to create a signed URL approach
+      const { data: signedURLData, error: signedURLError } = await supabase.storage
+        .from('task_submissions')
+        .createSignedUploadUrl(fileName);
         
-        // Try to create a signed URL approach
-        const { data: signedURLData, error: signedURLError } = await supabase.storage
-          .from('task_submissions')
-          .createSignedUploadUrl(fileName);
-          
-        if (signedURLError) {
+      if (signedURLError) {
           throw new Error(`Erreur lors de la création de l'URL signée: ${signedURLError.message}`);
-        }
-        
-        // Use the signed URL to upload the file
-        const { signedUrl, path } = signedURLData;
-        
-        // Upload file with the signed URL - Utiliser le fichier avec le bon type MIME
-        const uploadResponse = await fetch(signedUrl, {
-          method: 'PUT',
-          headers: {
+      }
+      
+      // Use the signed URL to upload the file
+      const { signedUrl, path } = signedURLData;
+      
+      // Upload file with the signed URL
+      const uploadResponse = await fetch(signedUrl, {
+        method: 'PUT',
+        headers: {
             'Content-Type': contentType,
-          },
-          body: fileWithCorrectType,
-        });
-        
-        if (!uploadResponse.ok) {
+            'Cache-Control': '3600'
+        },
+        body: selectedFile,
+      });
+      
+      if (!uploadResponse.ok) {
           const errorText = await uploadResponse.text();
           console.error('Upload response error:', uploadResponse.status, errorText);
           throw new Error(`Upload failed with status: ${uploadResponse.status} - ${errorText}`);
-        }
-        
-        // Get the public URL for the uploaded file
-        const { data: urlData } = supabase.storage
-          .from('task_submissions')
-          .getPublicUrl(path);
-        
+      }
+      
+      // Get the public URL for the uploaded file
+      const { data: urlData } = supabase.storage
+        .from('task_submissions')
+        .getPublicUrl(path);
+      
         fileUrl = urlData.publicUrl;
       }
       
@@ -637,7 +619,7 @@ const TaskDetails: React.FC = () => {
         await notifyFileUploadedToProject(
           task.project_id,
           selectedFile.name,
-          uploaderName,
+            uploaderName,
           task.task_name,
           project?.name
         );
@@ -647,9 +629,9 @@ const TaskDetails: React.FC = () => {
           task.project_id,
           task.task_name,
           'submitted',
-          uploaderName,
-          project?.name
-        );
+            uploaderName,
+            project?.name
+          );
         
         console.log(`Notifications envoyées: Admin + ${task.validators.length} validateur(s)`);
       } catch (notificationError) {

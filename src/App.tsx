@@ -27,6 +27,7 @@ import TestUpload from "./test-upload";
 import IntervenantProjects from "./pages/IntervenantProjects";
 import IntervenantProjectDetails from "./pages/IntervenantProjectDetails";
 import IntervenantProjectDetailsLangSwitch from "./pages/IntervenantProjectDetailsLangSwitch";
+import AdminContactManagement from "./pages/AdminContactManagement";
 import DashboardLayout from "./components/DashboardLayout";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -262,6 +263,11 @@ const App = () => {
                 <Route path="intervenants" element={
                   <AdminRoute>
                     <Intervenants />
+                  </AdminRoute>
+                } />
+                <Route path="gestion-contacts" element={
+                  <AdminRoute>
+                    <AdminContactManagement />
                   </AdminRoute>
                 } />
                 <Route path="entreprises" element={

@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
 
 interface Participant {
   id: string;
@@ -29,7 +28,7 @@ interface UseLocalVideoConferenceReturn {
   toggleScreenShare: () => void;
   disconnect: () => void;
   sendMessage: (message: string) => void;
-  messages: Array<{ id: string; from: string; message: string; timestamp: Date }>;
+  messages: Array<{ id: string; from: string; fromName: string; message: string; timestamp: Date }>;
 }
 
 export function useLocalVideoConference({
@@ -37,7 +36,6 @@ export function useLocalVideoConference({
   userName,
   onError
 }: UseLocalVideoConferenceProps): UseLocalVideoConferenceReturn {
-  const { user } = useAuth();
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [isConnected, setIsConnected] = useState(false);
@@ -46,13 +44,13 @@ export function useLocalVideoConference({
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'error' | 'disconnected'>('disconnected');
   const [error, setError] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Array<{ id: string; from: string; message: string; timestamp: Date }>>([]);
+  const [messages, setMessages] = useState<Array<{ id: string; from: string; fromName: string; message: string; timestamp: Date }>>([]);
 
-  const peersRef = useRef<{ [key: string]: RTCPeerConnection }>({});
-  const currentUserId = useRef(`user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+  const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
+  const currentUserId = useRef<string>(`user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
   const screenStreamRef = useRef<MediaStream | null>(null);
-  const storageIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const isConnectingRef = useRef(false);
+  const storageKey = useRef<string>(`video_conference_${roomId}`);
+  const isConnectingRef = useRef<boolean>(false);
 
   // Initialiser le stream local
   const initializeLocalStream = useCallback(async (): Promise<MediaStream | null> => {
@@ -72,12 +70,20 @@ export function useLocalVideoConference({
   }, [onError]);
 
   // Créer une connexion peer
-  const createPeerConnection = useCallback((participantId: string, isInitiator: boolean): RTCPeerConnection | null => {
+  const createPeerConnection = useCallback((participantId: string): RTCPeerConnection | null => {
     try {
+      // Fermer la connexion existante si elle existe
+      const existingPeer = peerConnectionsRef.current.get(participantId);
+      if (existingPeer) {
+        existingPeer.close();
+        peerConnectionsRef.current.delete(participantId);
+      }
+
       const peer = new RTCPeerConnection({
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' }
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun2.l.google.com:19302' }
         ]
       });
 
@@ -91,16 +97,18 @@ export function useLocalVideoConference({
       // Gérer les candidats ICE
       peer.onicecandidate = (event) => {
         if (event.candidate) {
-          console.log(`📡 ICE candidate for ${participantId}:`, event.candidate.candidate);
+          console.log(`📡 ICE candidate pour ${participantId}:`, event.candidate.candidate);
           // Stocker le candidat ICE dans localStorage
-          const iceData = {
+          const message = {
             type: 'ice-candidate',
-            from: currentUserId.current,
             to: participantId,
+            from: currentUserId.current,
+            fromName: userName,
             candidate: event.candidate,
+            roomId,
             timestamp: new Date().toISOString()
           };
-          localStorage.setItem(`ice_${roomId}_${Date.now()}`, JSON.stringify(iceData));
+          localStorage.setItem(`${storageKey.current}_${Date.now()}`, JSON.stringify(message));
         }
       };
 
@@ -126,13 +134,18 @@ export function useLocalVideoConference({
         }
       };
 
-      peersRef.current[participantId] = peer;
+      // Gérer les changements d'état de signalisation
+      peer.onsignalingstatechange = () => {
+        console.log(`📡 État signalisation ${participantId}:`, peer.signalingState);
+      };
+
+      peerConnectionsRef.current.set(participantId, peer);
       return peer;
     } catch (err) {
       console.error(`❌ Erreur création peer pour ${participantId}:`, err);
       return null;
     }
-  }, [localStream, roomId]);
+  }, [localStream, userName, storageKey]);
 
   // Envoyer un message via localStorage
   const sendLocalStorageMessage = useCallback((message: any) => {
@@ -143,19 +156,11 @@ export function useLocalVideoConference({
       timestamp: new Date().toISOString()
     };
     console.log('📤 Envoi localStorage:', fullMessage);
-    
-    // Stocker le message avec un timestamp unique
-    const key = `msg_${roomId}_${Date.now()}_${Math.random()}`;
-    localStorage.setItem(key, JSON.stringify(fullMessage));
-    
-    // Nettoyer les anciens messages après 5 secondes
-    setTimeout(() => {
-      localStorage.removeItem(key);
-    }, 5000);
-  }, [roomId]);
+    localStorage.setItem(`${storageKey.current}_${Date.now()}`, JSON.stringify(fullMessage));
+  }, [storageKey]);
 
-  // Traiter les messages localStorage reçus
-  const handleLocalStorageMessage = useCallback((data: any) => {
+  // Traiter les messages localStorage
+  const handleLocalStorageMessage = useCallback((data: string) => {
     try {
       const message = JSON.parse(data);
       console.log('📨 Message localStorage reçu:', message);
@@ -167,35 +172,35 @@ export function useLocalVideoConference({
 
       switch (message.type) {
         case 'join':
-          console.log(`👋 ${message.userName} a rejoint la room`);
+          console.log(`👋 ${message.fromName} a rejoint la room`);
           setParticipants(prev => {
             if (!prev.find(p => p.id === message.from)) {
               const newParticipant = {
                 id: message.from,
-                name: message.userName,
+                name: message.fromName,
                 isConnected: false,
                 joinedAt: new Date()
               };
-              
+
               // Créer une connexion peer avec le nouveau participant
               setTimeout(() => {
-                console.log(`🔗 Création connexion peer avec ${message.from}`);
-                const peer = createPeerConnection(message.from, true);
+                console.log(`🔗 Création connexion peer avec ${message.fromName}`);
+                const peer = createPeerConnection(message.from);
                 if (peer) {
-                  // Créer une offre
                   peer.createOffer()
                     .then(offer => peer.setLocalDescription(offer))
                     .then(() => {
                       sendLocalStorageMessage({
                         type: 'offer',
                         to: message.from,
-                        sdp: peer.localDescription
+                        sdp: peer.localDescription,
+                        fromName: userName
                       });
                     })
                     .catch(err => console.error('❌ Erreur création offre:', err));
                 }
               }, 1000);
-              
+
               return [...prev, newParticipant];
             }
             return prev;
@@ -203,175 +208,239 @@ export function useLocalVideoConference({
           break;
 
         case 'leave':
-          console.log(`👋 ${message.userName} a quitté la room`);
+          console.log(`👋 ${message.fromName} a quitté la room`);
           setParticipants(prev => prev.filter(p => p.id !== message.from));
-          if (peersRef.current[message.from]) {
-            peersRef.current[message.from].close();
-            delete peersRef.current[message.from];
+          const peerToClose = peerConnectionsRef.current.get(message.from);
+          if (peerToClose) {
+            peerToClose.close();
+            peerConnectionsRef.current.delete(message.from);
           }
           break;
 
         case 'offer':
-          console.log(`📥 Offre reçue de ${message.from}`);
-          let peer = peersRef.current[message.from];
-          if (!peer) {
-            peer = createPeerConnection(message.from, false);
-          }
-          if (peer) {
-            peer.setRemoteDescription(new RTCSessionDescription(message.sdp))
-              .then(() => peer.createAnswer())
-              .then(answer => peer.setLocalDescription(answer))
-              .then(() => {
-                sendLocalStorageMessage({
-                  type: 'answer',
-                  to: message.from,
-                  sdp: peer.localDescription
+          console.log(`📥 Offre reçue de ${message.fromName}`);
+          const offerPeer = createPeerConnection(message.from);
+          if (offerPeer) {
+            if (offerPeer.signalingState === 'stable' || offerPeer.signalingState === 'have-local-offer') {
+              offerPeer.setRemoteDescription(new RTCSessionDescription(message.sdp))
+                .then(() => {
+                  console.log('✅ Description distante définie pour offre');
+                  return offerPeer.createAnswer();
+                })
+                .then(answer => offerPeer.setLocalDescription(answer))
+                .then(() => {
+                  console.log('✅ Réponse créée et définie');
+                  sendLocalStorageMessage({
+                    type: 'answer',
+                    to: message.from,
+                    sdp: offerPeer.localDescription,
+                    fromName: userName
+                  });
+                })
+                .catch(err => {
+                  console.error('❌ Erreur traitement offre:', err);
+                  if (err.message.includes('wrong state')) {
+                    console.log('🔄 Redémarrage connexion peer...');
+                    offerPeer.close();
+                    peerConnectionsRef.current.delete(message.from);
+                    setTimeout(() => {
+                      const newPeer = createPeerConnection(message.from);
+                      if (newPeer) {
+                        newPeer.setRemoteDescription(new RTCSessionDescription(message.sdp))
+                          .then(() => newPeer.createAnswer())
+                          .then(answer => newPeer.setLocalDescription(answer))
+                          .then(() => {
+                            sendLocalStorageMessage({
+                              type: 'answer',
+                              to: message.from,
+                              sdp: newPeer.localDescription,
+                              fromName: userName
+                            });
+                          })
+                          .catch(err2 => console.error('❌ Erreur redémarrage connexion:', err2));
+                      }
+                    }, 1000);
+                  }
                 });
-              })
-              .catch(err => console.error('❌ Erreur traitement offre:', err));
+            } else {
+              console.log(`⚠️ État de signalisation incorrect: ${offerPeer.signalingState}`);
+            }
           }
           break;
 
         case 'answer':
-          console.log(`📥 Réponse reçue de ${message.from}`);
-          const answerPeer = peersRef.current[message.from];
+          console.log(`📥 Réponse reçue de ${message.fromName}`);
+          const answerPeer = peerConnectionsRef.current.get(message.from);
           if (answerPeer) {
-            answerPeer.setRemoteDescription(new RTCSessionDescription(message.sdp))
-              .catch(err => console.error('❌ Erreur traitement réponse:', err));
+            if (answerPeer.signalingState === 'have-local-offer') {
+              answerPeer.setRemoteDescription(new RTCSessionDescription(message.sdp))
+                .then(() => {
+                  console.log('✅ Description distante définie pour réponse');
+                })
+                .catch(err => {
+                  console.error('❌ Erreur traitement réponse:', err);
+                  if (err.message.includes('wrong state')) {
+                    console.log(`⚠️ État de signalisation: ${answerPeer.signalingState}`);
+                  }
+                });
+            } else {
+              console.log(`⚠️ État de signalisation incorrect pour réponse: ${answerPeer.signalingState}`);
+            }
+          } else {
+            console.error('❌ Connexion peer non trouvée pour réponse');
           }
           break;
 
         case 'ice-candidate':
-          console.log(`📥 Candidat ICE reçu de ${message.from}`);
-          const icePeer = peersRef.current[message.from];
+          console.log(`📥 ICE candidate reçu de ${message.fromName}`);
+          const icePeer = peerConnectionsRef.current.get(message.from);
           if (icePeer && message.candidate) {
             icePeer.addIceCandidate(new RTCIceCandidate(message.candidate))
-              .catch(err => console.error('❌ Erreur ajout candidat ICE:', err));
+              .then(() => console.log('✅ ICE candidate ajouté'))
+              .catch(err => console.error('❌ Erreur ajout ICE candidate:', err));
           }
           break;
 
         case 'chat':
           setMessages(prev => [...prev, {
-            id: `${message.from}-${message.timestamp}`,
+            id: Date.now().toString(),
             from: message.from,
-            message: message.text,
-            timestamp: new Date(message.timestamp)
+            fromName: message.fromName,
+            message: message.message,
+            timestamp: new Date()
           }]);
           break;
 
         default:
-          console.warn('⚠️ Type de message inconnu:', message.type);
+          console.log('❓ Type de message inconnu:', message.type);
       }
-    } catch (err) {
-      console.error('❌ Erreur parsing message localStorage:', err);
+    } catch (error) {
+      console.error('❌ Erreur parsing message localStorage:', error);
     }
-  }, [createPeerConnection, sendLocalStorageMessage]);
-
-  // Surveiller les changements localStorage
-  const startLocalStorageListener = useCallback(() => {
-    const originalSetItem = localStorage.setItem;
-    localStorage.setItem = function(key, value) {
-      originalSetItem.apply(this, [key, value]);
-      
-      // Vérifier si c'est un message pour notre room
-      if (key.includes(`msg_${roomId}_`) || key.includes(`ice_${roomId}_`)) {
-        try {
-          const message = JSON.parse(value);
-          if (message.roomId === roomId) {
-            handleLocalStorageMessage(value);
-          }
-        } catch (err) {
-          // Ignorer les erreurs de parsing
-        }
-      }
-    };
-  }, [roomId, handleLocalStorageMessage]);
+  }, [userName, sendLocalStorageMessage, createPeerConnection]);
 
   // Se connecter à la room
   const connectToRoom = useCallback(async () => {
-    if (!user) {
-      console.error('❌ Utilisateur non connecté');
-      return;
-    }
-
-    if (isConnectingRef.current) {
-      console.log('⏳ Connexion déjà en cours...');
-      return;
-    }
+    if (isConnectingRef.current) return;
+    isConnectingRef.current = true;
 
     try {
-      isConnectingRef.current = true;
-      console.log(`🚀 Connexion à la room: ${roomId}`);
       setConnectionStatus('connecting');
+      setError(null);
 
-      // Initialiser le stream local
-      const stream = await initializeLocalStream();
-      if (!stream) return;
+      console.log(`🚀 Connexion à la room: ${roomId}`);
 
-      // Démarrer l'écoute localStorage
-      startLocalStorageListener();
-
-      // Envoyer le message de join
+      // Envoyer un message de join
       sendLocalStorageMessage({
         type: 'join',
-        userName
+        fromName: userName
       });
 
       setIsConnected(true);
       setConnectionStatus('connected');
+      console.log('✅ Connecté à la room:', roomId);
 
-      // Créer des participants simulés pour les tests (optionnel)
-      // setTimeout(() => {
-      //   const simulatedParticipants = [
-      //     {
-      //       id: `sim_${Date.now()}_1`,
-      //       name: 'Participant Test 1',
-      //       isConnected: false,
-      //       joinedAt: new Date()
-      //     },
-      //     {
-      //       id: `sim_${Date.now()}_2`,
-      //       name: 'Participant Test 2',
-      //       isConnected: false,
-      //       joinedAt: new Date()
-      //     }
-      //   ];
-      //   setParticipants(simulatedParticipants);
-      // }, 2000);
+      // Simuler des participants pour les tests
+      setTimeout(() => {
+        setParticipants([
+          {
+            id: 'test-user-1',
+            name: 'Test User 1',
+            isConnected: false,
+            joinedAt: new Date()
+          },
+          {
+            id: 'test-user-2',
+            name: 'Test User 2',
+            isConnected: false,
+            joinedAt: new Date()
+          }
+        ]);
+      }, 2000);
 
-    } catch (error) {
-      console.error('❌ Erreur connexion room:', error);
+    } catch (err) {
+      console.error('❌ Erreur connexion room:', err);
       setError('Erreur de connexion à la room');
       setConnectionStatus('error');
+      onError?.('Erreur de connexion à la room');
     } finally {
       isConnectingRef.current = false;
     }
-  }, [user, roomId, userName, initializeLocalStream, startLocalStorageListener, sendLocalStorageMessage]);
+  }, [roomId, userName, sendLocalStorageMessage, onError]);
+
+  // Écouter les messages localStorage
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key && e.key.startsWith(storageKey.current) && e.newValue) {
+        handleLocalStorageMessage(e.newValue);
+      }
+    };
+
+    // Écouter les changements localStorage
+    window.addEventListener('storage', handleStorageChange);
+
+    // Vérifier les messages existants
+    const checkExistingMessages = () => {
+      const keys = Object.keys(localStorage);
+      const roomKeys = keys.filter(key => key.startsWith(storageKey.current));
+      
+      roomKeys.forEach(key => {
+        const value = localStorage.getItem(key);
+        if (value) {
+          try {
+            const message = JSON.parse(value);
+            if (message.from !== currentUserId.current) {
+              handleLocalStorageMessage(value);
+            }
+          } catch (error) {
+            console.error('❌ Erreur parsing message existant:', error);
+          }
+        }
+      });
+    };
+
+    // Vérifier les messages toutes les 2 secondes
+    const interval = setInterval(checkExistingMessages, 2000);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
+  }, [handleLocalStorageMessage, storageKey]);
 
   // Se déconnecter
   const disconnect = useCallback(() => {
     console.log('🛑 Déconnexion de la room');
     
-    // Fermer les connexions peer
-    Object.values(peersRef.current).forEach(peer => peer.close());
-    peersRef.current = {};
+    // Fermer toutes les connexions peer
+    peerConnectionsRef.current.forEach(peer => {
+      peer.close();
+    });
+    peerConnectionsRef.current.clear();
 
-    // Envoyer message de leave
-    sendLocalStorageMessage({ type: 'leave', userName });
+    // Envoyer un message de leave
+    sendLocalStorageMessage({
+      type: 'leave',
+      fromName: userName
+    });
 
-    // Arrêter le stream local
-    if (localStream) {
-      localStream.getTracks().forEach(track => track.stop());
-      setLocalStream(null);
-    }
-
-    // Réinitialiser l'état
-    setIsConnected(false);
     setParticipants([]);
+    setIsConnected(false);
     setConnectionStatus('disconnected');
-  }, [localStream, sendLocalStorageMessage, userName]);
+  }, [sendLocalStorageMessage, userName]);
 
-  // Contrôles audio/vidéo
+  // Envoyer un message chat
+  const sendMessage = useCallback((message: string) => {
+    if (isConnected) {
+      sendLocalStorageMessage({
+        type: 'chat',
+        fromName: userName,
+        message
+      });
+    }
+  }, [userName, isConnected, sendLocalStorageMessage]);
+
+  // Toggle audio
   const toggleAudio = useCallback(() => {
     if (localStream) {
       const audioTrack = localStream.getAudioTracks()[0];
@@ -382,6 +451,7 @@ export function useLocalVideoConference({
     }
   }, [localStream]);
 
+  // Toggle video
   const toggleVideo = useCallback(() => {
     if (localStream) {
       const videoTrack = localStream.getVideoTracks()[0];
@@ -392,6 +462,7 @@ export function useLocalVideoConference({
     }
   }, [localStream]);
 
+  // Toggle screen share
   const toggleScreenShare = useCallback(async () => {
     try {
       if (!isScreenSharing) {
@@ -399,61 +470,65 @@ export function useLocalVideoConference({
           video: true,
           audio: true
         });
-        
-        // Remplacer la piste vidéo
-        const videoTrack = screenStream.getVideoTracks()[0];
-        const sender = Object.values(peersRef.current)[0]?.getSenders().find(s => s.track?.kind === 'video');
-        if (sender) {
-          sender.replaceTrack(videoTrack);
-        }
-        
         screenStreamRef.current = screenStream;
+
+        // Remplacer la vidéo par l'écran
+        const videoTrack = screenStream.getVideoTracks()[0];
+        peerConnectionsRef.current.forEach(peer => {
+          const senders = peer.getSenders();
+          const videoSender = senders.find(s => s.track?.kind === 'video');
+          if (videoSender) {
+            videoSender.replaceTrack(videoTrack);
+          }
+        });
+
         setIsScreenSharing(true);
       } else {
-        // Restaurer la caméra
+        // Restaurer la vidéo de la caméra
         if (localStream) {
           const videoTrack = localStream.getVideoTracks()[0];
-          const sender = Object.values(peersRef.current)[0]?.getSenders().find(s => s.track?.kind === 'video');
-          if (sender) {
-            sender.replaceTrack(videoTrack);
-          }
+          peerConnectionsRef.current.forEach(peer => {
+            const senders = peer.getSenders();
+            const videoSender = senders.find(s => s.track?.kind === 'video');
+            if (videoSender) {
+              videoSender.replaceTrack(videoTrack);
+            }
+          });
         }
-        
+
         if (screenStreamRef.current) {
           screenStreamRef.current.getTracks().forEach(track => track.stop());
           screenStreamRef.current = null;
         }
+
         setIsScreenSharing(false);
       }
     } catch (err) {
-      console.error('❌ Erreur partage d\'écran:', err);
+      console.error('❌ Erreur screen share:', err);
     }
   }, [isScreenSharing, localStream]);
 
-  // Envoyer un message de chat
-  const sendMessage = useCallback((message: string) => {
-    sendLocalStorageMessage({
-      type: 'chat',
-      text: message
-    });
-  }, [sendLocalStorageMessage]);
-
-  // Connexion automatique
+  // Initialiser
   useEffect(() => {
-    let mounted = true;
-    
     const initialize = async () => {
-      if (!mounted) return;
-      await connectToRoom();
+      const stream = await initializeLocalStream();
+      if (stream) {
+        await connectToRoom();
+      }
     };
-    
+
     initialize();
-    
+
     return () => {
-      mounted = false;
       disconnect();
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+      }
+      if (screenStreamRef.current) {
+        screenStreamRef.current.getTracks().forEach(track => track.stop());
+      }
     };
-  }, []); // Dépendances vides pour éviter les cycles
+  }, [initializeLocalStream, connectToRoom, disconnect]);
 
   return {
     localStream,

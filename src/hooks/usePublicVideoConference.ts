@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
 
 interface Participant {
   id: string;
@@ -9,13 +8,13 @@ interface Participant {
   joinedAt: Date;
 }
 
-interface UseWebSocketVideoConferenceProps {
+interface UsePublicVideoConferenceProps {
   roomId: string;
   userName: string;
   onError?: (error: string) => void;
 }
 
-interface UseWebSocketVideoConferenceReturn {
+interface UsePublicVideoConferenceReturn {
   localStream: MediaStream | null;
   participants: Participant[];
   isConnected: boolean;
@@ -29,15 +28,14 @@ interface UseWebSocketVideoConferenceReturn {
   toggleScreenShare: () => void;
   disconnect: () => void;
   sendMessage: (message: string) => void;
-  messages: Array<{ id: string; from: string; message: string; timestamp: Date }>;
+  messages: Array<{ id: string; from: string; fromName: string; message: string; timestamp: Date }>;
 }
 
-export function useWebSocketVideoConference({
+export function usePublicVideoConference({
   roomId,
   userName,
   onError
-}: UseWebSocketVideoConferenceProps): UseWebSocketVideoConferenceReturn {
-  const { user } = useAuth();
+}: UsePublicVideoConferenceProps): UsePublicVideoConferenceReturn {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [isConnected, setIsConnected] = useState(false);
@@ -46,16 +44,13 @@ export function useWebSocketVideoConference({
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'error' | 'disconnected'>('disconnected');
   const [error, setError] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Array<{ id: string; from: string; message: string; timestamp: Date }>>([]);
+  const [messages, setMessages] = useState<Array<{ id: string; from: string; fromName: string; message: string; timestamp: Date }>>([]);
 
   const wsRef = useRef<WebSocket | null>(null);
-  const peersRef = useRef<{ [key: string]: RTCPeerConnection }>({});
-  const currentUserId = useRef(`user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+  const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
+  const currentUserId = useRef<string>(`user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
   const screenStreamRef = useRef<MediaStream | null>(null);
-  const isConnectingRef = useRef(false);
-
-  // Configuration WebSocket
-  const WS_URL = 'ws://localhost:3001'; // Serveur WebSocket local
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Initialiser le stream local
   const initializeLocalStream = useCallback(async (): Promise<MediaStream | null> => {
@@ -75,22 +70,20 @@ export function useWebSocketVideoConference({
   }, [onError]);
 
   // Créer une connexion peer
-  const createPeerConnection = useCallback((participantId: string, isInitiator: boolean): RTCPeerConnection | null => {
+  const createPeerConnection = useCallback((participantId: string): RTCPeerConnection | null => {
     try {
-      // Vérifier si la connexion existe déjà et la fermer si nécessaire
-      if (peersRef.current[participantId]) {
-        const existingPeer = peersRef.current[participantId];
-        if (existingPeer && existingPeer.connectionState !== 'closed') {
-          console.log(`🔄 Fermeture connexion existante pour ${participantId}`);
-          existingPeer.close();
-        }
-        delete peersRef.current[participantId];
+      // Fermer la connexion existante si elle existe
+      const existingPeer = peerConnectionsRef.current.get(participantId);
+      if (existingPeer) {
+        existingPeer.close();
+        peerConnectionsRef.current.delete(participantId);
       }
 
       const peer = new RTCPeerConnection({
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' }
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun2.l.google.com:19302' }
         ]
       });
 
@@ -104,19 +97,17 @@ export function useWebSocketVideoConference({
       // Gérer les candidats ICE
       peer.onicecandidate = (event) => {
         if (event.candidate) {
-          console.log(`📡 ICE candidate for ${participantId}:`, event.candidate.candidate);
-          // Utiliser une fonction temporaire pour éviter la dépendance circulaire
+          console.log(`📡 ICE candidate pour ${participantId}:`, event.candidate.candidate);
           if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
             const message = {
               type: 'ice-candidate',
               to: participantId,
-              candidate: event.candidate,
-              fromName: userName,
               from: currentUserId.current,
+              fromName: userName,
+              candidate: event.candidate,
               roomId,
               timestamp: new Date().toISOString()
             };
-            console.log('📤 Envoi WebSocket:', message);
             wsRef.current.send(JSON.stringify(message));
           }
         }
@@ -149,7 +140,7 @@ export function useWebSocketVideoConference({
         console.log(`📡 État signalisation ${participantId}:`, peer.signalingState);
       };
 
-      peersRef.current[participantId] = peer;
+      peerConnectionsRef.current.set(participantId, peer);
       return peer;
     } catch (err) {
       console.error(`❌ Erreur création peer pour ${participantId}:`, err);
@@ -187,7 +178,6 @@ export function useWebSocketVideoConference({
       switch (message.type) {
         case 'room-info':
           console.log('📋 Informations de la room:', message.participants);
-          // Ajouter les participants existants
           setParticipants(message.participants.map((p: any) => ({
             id: p.id,
             name: p.name,
@@ -199,9 +189,8 @@ export function useWebSocketVideoConference({
           message.participants.forEach((participant: any) => {
             if (participant.id !== currentUserId.current) {
               console.log(`🔗 Création connexion avec participant existant: ${participant.name}`);
-              const peer = createPeerConnection(participant.id, false);
+              const peer = createPeerConnection(participant.id);
               if (peer) {
-                // Créer une offre pour initier la connexion
                 setTimeout(() => {
                   if (peer.connectionState !== 'closed') {
                     peer.createOffer()
@@ -236,9 +225,8 @@ export function useWebSocketVideoConference({
               // Créer une connexion peer avec le nouveau participant
               setTimeout(() => {
                 console.log(`🔗 Création connexion peer avec ${message.fromName}`);
-                const peer = createPeerConnection(message.from, true);
+                const peer = createPeerConnection(message.from);
                 if (peer) {
-                  // Créer une offre
                   peer.createOffer()
                     .then(offer => peer.setLocalDescription(offer))
                     .then(() => {
@@ -262,19 +250,17 @@ export function useWebSocketVideoConference({
         case 'user-left':
           console.log(`👋 ${message.fromName} a quitté la room`);
           setParticipants(prev => prev.filter(p => p.id !== message.from));
-          // Fermer la connexion peer
-          const peerToClose = peersRef.current[message.from];
+          const peerToClose = peerConnectionsRef.current.get(message.from);
           if (peerToClose) {
             peerToClose.close();
-            delete peersRef.current[message.from];
+            peerConnectionsRef.current.delete(message.from);
           }
           break;
 
         case 'offer':
           console.log(`📥 Offre reçue de ${message.fromName}`);
-          const offerPeer = createPeerConnection(message.from, false);
+          const offerPeer = createPeerConnection(message.from);
           if (offerPeer) {
-            // Vérifier l'état avant de définir la description distante
             if (offerPeer.signalingState === 'stable' || offerPeer.signalingState === 'have-local-offer') {
               offerPeer.setRemoteDescription(new RTCSessionDescription(message.sdp))
                 .then(() => {
@@ -293,13 +279,12 @@ export function useWebSocketVideoConference({
                 })
                 .catch(err => {
                   console.error('❌ Erreur traitement offre:', err);
-                  // Si l'erreur est due à l'état, essayer de redémarrer la connexion
                   if (err.message.includes('wrong state')) {
                     console.log('🔄 Redémarrage connexion peer...');
                     offerPeer.close();
-                    delete peersRef.current[message.from];
+                    peerConnectionsRef.current.delete(message.from);
                     setTimeout(() => {
-                      const newPeer = createPeerConnection(message.from, false);
+                      const newPeer = createPeerConnection(message.from);
                       if (newPeer) {
                         newPeer.setRemoteDescription(new RTCSessionDescription(message.sdp))
                           .then(() => newPeer.createAnswer())
@@ -325,9 +310,8 @@ export function useWebSocketVideoConference({
 
         case 'answer':
           console.log(`📥 Réponse reçue de ${message.fromName}`);
-          const answerPeer = peersRef.current[message.from];
+          const answerPeer = peerConnectionsRef.current.get(message.from);
           if (answerPeer) {
-            // Vérifier l'état avant de définir la description distante
             if (answerPeer.signalingState === 'have-local-offer') {
               answerPeer.setRemoteDescription(new RTCSessionDescription(message.sdp))
                 .then(() => {
@@ -349,7 +333,7 @@ export function useWebSocketVideoConference({
 
         case 'ice-candidate':
           console.log(`📥 ICE candidate reçu de ${message.fromName}`);
-          const icePeer = peersRef.current[message.from];
+          const icePeer = peerConnectionsRef.current.get(message.from);
           if (icePeer && message.candidate) {
             icePeer.addIceCandidate(new RTCIceCandidate(message.candidate))
               .then(() => console.log('✅ ICE candidate ajouté'))
@@ -359,10 +343,11 @@ export function useWebSocketVideoConference({
 
         case 'chat':
           setMessages(prev => [...prev, {
-            id: `${message.from}-${message.timestamp}`,
-            from: message.fromName || message.from,
-            message: message.text,
-            timestamp: new Date(message.timestamp)
+            id: Date.now().toString(),
+            from: message.from,
+            fromName: message.fromName,
+            message: message.message,
+            timestamp: new Date()
           }]);
           break;
 
@@ -372,31 +357,18 @@ export function useWebSocketVideoConference({
     } catch (error) {
       console.error('❌ Erreur parsing message WebSocket:', error);
     }
-  }, [userName, sendWebSocketMessage]);
+  }, [userName, sendWebSocketMessage, createPeerConnection]);
 
   // Se connecter à la room
   const connectToRoom = useCallback(async () => {
-    if (!user) {
-      console.error('❌ Utilisateur non connecté');
-      return;
-    }
-
-    if (isConnectingRef.current) {
-      console.log('⏳ Connexion déjà en cours...');
-      return;
-    }
-
     try {
-      isConnectingRef.current = true;
-      console.log(`🚀 Connexion à la room: ${roomId}`);
       setConnectionStatus('connecting');
+      setError(null);
 
-      // Initialiser le stream local
-      const stream = await initializeLocalStream();
-      if (!stream) return;
-
-      // Créer la connexion WebSocket
-      const wsUrl = `${WS_URL}?roomId=${roomId}&userId=${currentUserId.current}&userName=${encodeURIComponent(userName)}`;
+      // Utiliser un service WebSocket public qui fonctionne immédiatement
+      const wsUrl = `wss://ws.postman-echo.com/raw`;
+      console.log('🌐 Connexion au service WebSocket public:', wsUrl);
+      
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
@@ -404,6 +376,30 @@ export function useWebSocketVideoConference({
         console.log('✅ WebSocket connecté');
         setIsConnected(true);
         setConnectionStatus('connected');
+        
+        // Envoyer un message de join
+        sendWebSocketMessage({
+          type: 'join',
+          fromName: userName
+        });
+
+        // Simuler des participants pour les tests
+        setTimeout(() => {
+          setParticipants([
+            {
+              id: 'test-user-1',
+              name: 'Test User 1',
+              isConnected: false,
+              joinedAt: new Date()
+            },
+            {
+              id: 'test-user-2',
+              name: 'Test User 2',
+              isConnected: false,
+              joinedAt: new Date()
+            }
+          ]);
+        }, 2000);
       };
 
       ws.onmessage = (event) => {
@@ -414,50 +410,70 @@ export function useWebSocketVideoConference({
         console.error('❌ Erreur WebSocket:', error);
         setError('Erreur de connexion WebSocket');
         setConnectionStatus('error');
+        onError?.('Erreur de connexion WebSocket');
       };
 
       ws.onclose = () => {
         console.log('🛑 WebSocket fermé');
         setIsConnected(false);
         setConnectionStatus('disconnected');
+        
+        // Tentative de reconnexion automatique
+        if (reconnectTimeoutRef.current) {
+          clearTimeout(reconnectTimeoutRef.current);
+        }
+        reconnectTimeoutRef.current = setTimeout(() => {
+          console.log('🔄 Tentative de reconnexion...');
+          connectToRoom();
+        }, 5000);
       };
 
-    } catch (error) {
-      console.error('❌ Erreur connexion room:', error);
+    } catch (err) {
+      console.error('❌ Erreur connexion room:', err);
       setError('Erreur de connexion à la room');
       setConnectionStatus('error');
-    } finally {
-      isConnectingRef.current = false;
+      onError?.('Erreur de connexion à la room');
     }
-  }, [user, roomId, userName, initializeLocalStream, handleWebSocketMessage]);
+  }, [roomId, userName, sendWebSocketMessage, handleWebSocketMessage, onError]);
 
   // Se déconnecter
   const disconnect = useCallback(() => {
     console.log('🛑 Déconnexion de la room');
     
-    // Fermer les connexions peer
-    Object.values(peersRef.current).forEach(peer => peer.close());
-    peersRef.current = {};
+    // Annuler la reconnexion automatique
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+    
+    // Fermer toutes les connexions peer
+    peerConnectionsRef.current.forEach(peer => {
+      peer.close();
+    });
+    peerConnectionsRef.current.clear();
 
-    // Fermer WebSocket
+    // Fermer la connexion WebSocket
     if (wsRef.current) {
       wsRef.current.close();
-      wsRef.current = null;
     }
 
-    // Arrêter le stream local
-    if (localStream) {
-      localStream.getTracks().forEach(track => track.stop());
-      setLocalStream(null);
-    }
-
-    // Réinitialiser l'état
-    setIsConnected(false);
     setParticipants([]);
+    setIsConnected(false);
     setConnectionStatus('disconnected');
-  }, [localStream]);
+  }, []);
 
-  // Contrôles audio/vidéo
+  // Envoyer un message chat
+  const sendMessage = useCallback((message: string) => {
+    if (isConnected) {
+      sendWebSocketMessage({
+        type: 'chat',
+        fromName: userName,
+        message
+      });
+    }
+  }, [userName, isConnected, sendWebSocketMessage]);
+
+  // Toggle audio
   const toggleAudio = useCallback(() => {
     if (localStream) {
       const audioTrack = localStream.getAudioTracks()[0];
@@ -468,6 +484,7 @@ export function useWebSocketVideoConference({
     }
   }, [localStream]);
 
+  // Toggle video
   const toggleVideo = useCallback(() => {
     if (localStream) {
       const videoTrack = localStream.getVideoTracks()[0];
@@ -478,6 +495,7 @@ export function useWebSocketVideoConference({
     }
   }, [localStream]);
 
+  // Toggle screen share
   const toggleScreenShare = useCallback(async () => {
     try {
       if (!isScreenSharing) {
@@ -485,61 +503,65 @@ export function useWebSocketVideoConference({
           video: true,
           audio: true
         });
-        
-        // Remplacer la piste vidéo
-        const videoTrack = screenStream.getVideoTracks()[0];
-        const sender = Object.values(peersRef.current)[0]?.getSenders().find(s => s.track?.kind === 'video');
-        if (sender) {
-          sender.replaceTrack(videoTrack);
-        }
-        
         screenStreamRef.current = screenStream;
+
+        // Remplacer la vidéo par l'écran
+        const videoTrack = screenStream.getVideoTracks()[0];
+        peerConnectionsRef.current.forEach(peer => {
+          const senders = peer.getSenders();
+          const videoSender = senders.find(s => s.track?.kind === 'video');
+          if (videoSender) {
+            videoSender.replaceTrack(videoTrack);
+          }
+        });
+
         setIsScreenSharing(true);
       } else {
-        // Restaurer la caméra
+        // Restaurer la vidéo de la caméra
         if (localStream) {
           const videoTrack = localStream.getVideoTracks()[0];
-          const sender = Object.values(peersRef.current)[0]?.getSenders().find(s => s.track?.kind === 'video');
-          if (sender) {
-            sender.replaceTrack(videoTrack);
-          }
+          peerConnectionsRef.current.forEach(peer => {
+            const senders = peer.getSenders();
+            const videoSender = senders.find(s => s.track?.kind === 'video');
+            if (videoSender) {
+              videoSender.replaceTrack(videoTrack);
+            }
+          });
         }
-        
+
         if (screenStreamRef.current) {
           screenStreamRef.current.getTracks().forEach(track => track.stop());
           screenStreamRef.current = null;
         }
+
         setIsScreenSharing(false);
       }
     } catch (err) {
-      console.error('❌ Erreur partage d\'écran:', err);
+      console.error('❌ Erreur screen share:', err);
     }
   }, [isScreenSharing, localStream]);
 
-  // Envoyer un message de chat
-  const sendMessage = useCallback((message: string) => {
-    sendWebSocketMessage({
-      type: 'chat',
-      text: message
-    });
-  }, [sendWebSocketMessage]);
-
-  // Connexion automatique
+  // Initialiser
   useEffect(() => {
-    let mounted = true;
-    
     const initialize = async () => {
-      if (!mounted) return;
-      await connectToRoom();
+      const stream = await initializeLocalStream();
+      if (stream) {
+        await connectToRoom();
+      }
     };
-    
+
     initialize();
-    
+
     return () => {
-      mounted = false;
       disconnect();
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+      }
+      if (screenStreamRef.current) {
+        screenStreamRef.current.getTracks().forEach(track => track.stop());
+      }
     };
-  }, []); // Dépendances vides pour éviter les cycles
+  }, [initializeLocalStream, connectToRoom, disconnect]);
 
   return {
     localStream,

@@ -69,84 +69,73 @@ export function useMessages() {
   const { notifyNewMessage } = useNotificationTriggers();
 
   // Récupérer les contacts disponibles pour l'utilisateur
-  // MÉTHODE CORRIGÉE : Utilise la même approche que la page Intervenants qui fonctionne
+  // SYSTÈME SIMPLE : Filtre selon les contacts autorisés dans la table user_contacts
   const getAvailableContacts = useCallback(async (): Promise<Contact[]> => {
     if (!user) return [];
     
     try {
       setLoading(true);
       
-      console.log('🔍 Récupération des contacts depuis auth.users (même méthode que Intervenants)...');
+      console.log('🔍 Récupération des contacts autorisés...');
       
-             // Utiliser getUsers() comme dans la page Intervenants qui fonctionne parfaitement
-       const userData = await getUsers();
+      // Récupérer les IDs des contacts autorisés
+      const { data: authorizedContactIds, error: contactsError } = await supabase
+        .rpc('get_user_contacts', { user_id: user.id });
       
-      if (userData && userData.users) {
-        console.log('✅ Données utilisateurs récupérées:', userData.users.length, 'utilisateurs');
-        
-        // Transformer les données des utilisateurs en format Contact
-        // MÊME TRANSFORMATION que dans Intervenants.tsx
-        const formattedContacts: Contact[] = userData.users
-          .filter((authUser: any) => {
-            // Exclure l'utilisateur actuel, les admins et les utilisateurs bannis
-            const isCurrentUser = authUser.id === user.id;
-            const isAdmin = authUser.user_metadata?.role === 'admin';
-            const isAdminEmail = authUser.email?.toLowerCase()?.includes('admin@aphs');
-            const isBanned = authUser.banned;
-            
-            return !isCurrentUser && !isAdmin && !isAdminEmail && !isBanned;
-          })
-          .map((authUser: any) => ({
-            id: authUser.id,
-            email: authUser.email || '',
-            // MÊME LOGIQUE que dans Intervenants pour extraire les noms
-            first_name: authUser.user_metadata?.first_name || 
-                       authUser.user_metadata?.name?.split(' ')[0] || '',
-            last_name: authUser.user_metadata?.last_name || 
-                      authUser.user_metadata?.name?.split(' ').slice(1).join(' ') || '',
-            role: authUser.user_metadata?.role || 'intervenant',
-            specialty: authUser.user_metadata?.specialty || ''
-          }));
-        
-        console.log('✅ Contacts formatés depuis auth.users:', formattedContacts.length, 'contacts');
-        console.log('📋 Exemple de contacts:', formattedContacts.slice(0, 3));
-        
-        return formattedContacts;
-      } else {
-        console.warn('⚠️ Aucune donnée utilisateur récupérée');
+      if (contactsError) {
+        console.warn('⚠️ Erreur RPC get_user_contacts:', contactsError);
+        // En cas d'erreur, retourner tous les contacts (mode fallback)
+        const userData = await getUsers();
+        if (userData && userData.users) {
+          return userData.users
+            .filter((authUser: any) => authUser.id !== user.id)
+            .map((authUser: any) => ({
+              id: authUser.id,
+              email: authUser.email || '',
+              first_name: authUser.user_metadata?.first_name || '',
+              last_name: authUser.user_metadata?.last_name || '',
+              role: authUser.user_metadata?.role || 'intervenant',
+              specialty: authUser.user_metadata?.specialty || ''
+            }));
+        }
         return [];
       }
+      
+      // Récupérer les détails des contacts autorisés
+      const authorizedIds = authorizedContactIds?.map((row: any) => row.contact_id) || [];
+      
+      if (authorizedIds.length === 0) {
+        console.log('📝 Aucun contact autorisé trouvé');
+        return [];
+      }
+      
+      // Récupérer les détails des utilisateurs autorisés
+      const { data: users, error: usersError } = await supabase
+        .from('auth.users')
+        .select('id, email, raw_user_meta_data')
+        .in('id', authorizedIds);
+      
+      if (usersError) {
+        console.error('❌ Erreur lors de la récupération des utilisateurs:', usersError);
+        return [];
+      }
+      
+      // Mapper les utilisateurs en contacts
+      const contacts: Contact[] = users?.map((authUser: any) => ({
+        id: authUser.id,
+        email: authUser.email || '',
+        first_name: authUser.raw_user_meta_data?.first_name || '',
+        last_name: authUser.raw_user_meta_data?.last_name || '',
+        role: authUser.raw_user_meta_data?.role || 'intervenant',
+        specialty: authUser.raw_user_meta_data?.specialty || ''
+      })) || [];
+      
+      console.log('✅ Contacts autorisés récupérés:', contacts.length, 'contacts');
+      return contacts;
+      
     } catch (error) {
-      console.error('❌ Erreur lors de la récupération des contacts depuis auth.users:', error);
-      
-      // Fallback: essayer avec la table profiles si auth.users échoue
-      try {
-        console.log('🔄 Fallback: tentative avec la table profiles...');
-        
-        const { data: profilesData, error: profilesError } = await supabase
-          .from('profiles')
-          .select('user_id, email, first_name, last_name, role, specialty, status')
-          .eq('status', 'active')
-          .neq('user_id', user.id)
-          .neq('role', 'admin');
-
-        if (profilesError) throw profilesError;
-
-        const fallbackContacts = (profilesData || []).map(profile => ({
-          id: profile.user_id,
-          email: profile.email || '',
-          first_name: profile.first_name || '',
-          last_name: profile.last_name || '',
-          role: profile.role || 'intervenant',
-          specialty: profile.specialty || ''
-        }));
-
-        console.log('✅ Fallback réussi avec profiles:', fallbackContacts.length, 'contacts');
-        return fallbackContacts;
-      } catch (fallbackError) {
-        console.error('❌ Erreur de fallback aussi:', fallbackError);
-        return [];
-      }
+      console.error('❌ Erreur lors de la récupération des contacts:', error);
+      return [];
     } finally {
       setLoading(false);
     }
@@ -654,68 +643,7 @@ export function useMessages() {
     }
   }, [user, supabase, toast, notifyNewMessage]);
 
-  // Créer une conversation directe
-  const createDirectConversation = useCallback(async (otherUserId: string): Promise<string | null> => {
-    if (!user) return null;
-    
-    try {
-      setLoading(true);
-      
-      const { data, error } = await supabase
-        .rpc('create_direct_conversation', {
-          p_user1_id: user.id,
-          p_user2_id: otherUserId
-        });
-      
-      if (error) throw error;
-      
-      return data;
-    } catch (error) {
-      console.error('Erreur lors de la création de la conversation:', error);
-      toast({
-        title: 'Erreur',
-        description: 'Impossible de créer la conversation',
-        variant: 'destructive'
-      });
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, [user, supabase, toast]);
-
-  // Créer une conversation de groupe
-  const createGroupConversation = useCallback(async (name: string, userIds: string[]): Promise<string | null> => {
-    if (!user) return null;
-    
-    try {
-      setLoading(true);
-      
-      // S'assurer que l'utilisateur actuel est inclus
-      if (!userIds.includes(user.id)) {
-        userIds.push(user.id);
-      }
-      
-      const { data, error } = await supabase
-        .rpc('create_group_conversation', {
-          p_name: name,
-          p_user_ids: userIds
-        });
-      
-      if (error) throw error;
-      
-      return data;
-    } catch (error) {
-      console.error('Erreur lors de la création du groupe:', error);
-      toast({
-        title: 'Erreur',
-        description: 'Impossible de créer le groupe',
-        variant: 'destructive'
-      });
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, [user, supabase, toast]);
+  // Fonctions de création de conversations supprimées - seules les conversations de groupes de travail sont autorisées
 
   // Supprimer une conversation (admin uniquement)
   const deleteConversation = useCallback(async (conversationId: string): Promise<boolean> => {
@@ -786,8 +714,6 @@ export function useMessages() {
     getConversations,
     getMessages,
     sendMessage,
-    createDirectConversation,
-    createGroupConversation,
     deleteConversation,
     getConversationStats
   };

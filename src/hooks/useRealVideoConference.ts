@@ -8,13 +8,13 @@ interface Participant {
   joinedAt: Date;
 }
 
-interface UseSimpleVideoConferenceProps {
+interface UseRealVideoConferenceProps {
   roomId: string;
   userName: string;
   onError?: (error: string) => void;
 }
 
-interface UseSimpleVideoConferenceReturn {
+interface UseRealVideoConferenceReturn {
   localStream: MediaStream | null;
   participants: Participant[];
   isConnected: boolean;
@@ -31,11 +31,11 @@ interface UseSimpleVideoConferenceReturn {
   messages: Array<{ id: string; from: string; fromName: string; message: string; timestamp: Date }>;
 }
 
-export function useSimpleVideoConference({
+export function useRealVideoConference({
   roomId,
   userName,
   onError
-}: UseSimpleVideoConferenceProps): UseSimpleVideoConferenceReturn {
+}: UseRealVideoConferenceProps): UseRealVideoConferenceReturn {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [isConnected, setIsConnected] = useState(false);
@@ -46,17 +46,28 @@ export function useSimpleVideoConference({
   const [error, setError] = useState<string | null>(null);
   const [messages, setMessages] = useState<Array<{ id: string; from: string; fromName: string; message: string; timestamp: Date }>>([]);
 
-  const wsRef = useRef<WebSocket | null>(null);
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const currentUserId = useRef<string>(`user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
   const screenStreamRef = useRef<MediaStream | null>(null);
+  const storageKey = useRef<string>(`video_conference_${roomId}`);
+  const isConnectingRef = useRef<boolean>(false);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const pendingIceCandidatesRef = useRef<Map<string, RTCIceCandidate[]>>(new Map());
 
   // Initialiser le stream local
   const initializeLocalStream = useCallback(async (): Promise<MediaStream | null> => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 1280, height: 720 },
-        audio: true
+        video: { 
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          frameRate: { ideal: 30 }
+        },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
       });
       setLocalStream(stream);
       return stream;
@@ -83,7 +94,8 @@ export function useSimpleVideoConference({
           { urls: 'stun:stun.l.google.com:19302' },
           { urls: 'stun:stun1.l.google.com:19302' },
           { urls: 'stun:stun2.l.google.com:19302' }
-        ]
+        ],
+        iceCandidatePoolSize: 10
       });
 
       // Ajouter le stream local
@@ -97,29 +109,44 @@ export function useSimpleVideoConference({
       peer.onicecandidate = (event) => {
         if (event.candidate) {
           console.log(`📡 ICE candidate pour ${participantId}:`, event.candidate.candidate);
-          if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-            const message = {
-              type: 'ice-candidate',
-              to: participantId,
-              from: currentUserId.current,
-              fromName: userName,
-              candidate: event.candidate,
-              roomId,
-              timestamp: new Date().toISOString()
-            };
-            wsRef.current.send(JSON.stringify(message));
-          }
+          const message = {
+            type: 'ice-candidate',
+            to: participantId,
+            from: currentUserId.current,
+            fromName: userName,
+            candidate: event.candidate,
+            roomId,
+            timestamp: new Date().toISOString()
+          };
+          localStorage.setItem(`${storageKey.current}_${Date.now()}`, JSON.stringify(message));
         }
       };
 
       // Gérer les streams entrants
       peer.ontrack = (event) => {
         console.log(`📹 Stream reçu de ${participantId}:`, event.streams[0]);
-        setParticipants(prev => prev.map(p => 
-          p.id === participantId 
-            ? { ...p, stream: event.streams[0], isConnected: true }
-            : p
-        ));
+        console.log('Tracks reçues:', event.track.kind, event.track.id);
+        
+        // Mettre à jour le participant avec le stream
+        setParticipants(prev => {
+          const existingParticipant = prev.find(p => p.id === participantId);
+          if (existingParticipant) {
+            return prev.map(p => 
+              p.id === participantId 
+                ? { ...p, stream: event.streams[0], isConnected: true }
+                : p
+            );
+          } else {
+            // Si le participant n'existe pas encore, l'ajouter
+            return [...prev, {
+              id: participantId,
+              name: `Participant ${participantId.slice(-4)}`,
+              stream: event.streams[0],
+              isConnected: true,
+              joinedAt: new Date()
+            }];
+          }
+        });
       };
 
       // Gérer les changements d'état de connexion
@@ -131,6 +158,12 @@ export function useSimpleVideoConference({
               ? { ...p, isConnected: true }
               : p
           ));
+        } else if (peer.connectionState === 'failed' || peer.connectionState === 'disconnected') {
+          setParticipants(prev => prev.map(p => 
+            p.id === participantId 
+              ? { ...p, isConnected: false }
+              : p
+          ));
         }
       };
 
@@ -139,35 +172,36 @@ export function useSimpleVideoConference({
         console.log(`📡 État signalisation ${participantId}:`, peer.signalingState);
       };
 
+      // Gérer les changements d'état ICE
+      peer.oniceconnectionstatechange = () => {
+        console.log(`🧊 État ICE ${participantId}:`, peer.iceConnectionState);
+      };
+
       peerConnectionsRef.current.set(participantId, peer);
       return peer;
     } catch (err) {
       console.error(`❌ Erreur création peer pour ${participantId}:`, err);
       return null;
     }
-  }, [localStream, userName]);
+  }, [localStream, userName, storageKey]);
 
-  // Envoyer un message WebSocket
-  const sendWebSocketMessage = useCallback((message: any) => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      const fullMessage = {
-        ...message,
-        from: currentUserId.current,
-        roomId,
-        timestamp: new Date().toISOString()
-      };
-      console.log('📤 Envoi WebSocket:', fullMessage);
-      wsRef.current.send(JSON.stringify(fullMessage));
-    } else {
-      console.error('❌ WebSocket non connecté');
-    }
-  }, [roomId]);
+  // Envoyer un message via localStorage
+  const sendLocalStorageMessage = useCallback((message: any) => {
+    const fullMessage = {
+      ...message,
+      from: currentUserId.current,
+      roomId,
+      timestamp: new Date().toISOString()
+    };
+    console.log('📤 Envoi localStorage:', fullMessage);
+    localStorage.setItem(`${storageKey.current}_${Date.now()}`, JSON.stringify(fullMessage));
+  }, [storageKey]);
 
-  // Traiter les messages WebSocket reçus
-  const handleWebSocketMessage = useCallback((data: string) => {
+  // Traiter les messages localStorage
+  const handleLocalStorageMessage = useCallback((data: string) => {
     try {
       const message = JSON.parse(data);
-      console.log('📨 Message WebSocket reçu:', message);
+      console.log('📨 Message localStorage reçu:', message);
 
       // Ignorer nos propres messages
       if (message.from === currentUserId.current) {
@@ -175,42 +209,7 @@ export function useSimpleVideoConference({
       }
 
       switch (message.type) {
-        case 'room-info':
-          console.log('📋 Informations de la room:', message.participants);
-          setParticipants(message.participants.map((p: any) => ({
-            id: p.id,
-            name: p.name,
-            isConnected: false,
-            joinedAt: new Date()
-          })));
-
-          // Créer des connexions avec les participants existants
-          message.participants.forEach((participant: any) => {
-            if (participant.id !== currentUserId.current) {
-              console.log(`🔗 Création connexion avec participant existant: ${participant.name}`);
-              const peer = createPeerConnection(participant.id);
-              if (peer) {
-                setTimeout(() => {
-                  if (peer.connectionState !== 'closed') {
-                    peer.createOffer()
-                      .then(offer => peer.setLocalDescription(offer))
-                      .then(() => {
-                        sendWebSocketMessage({
-                          type: 'offer',
-                          to: participant.id,
-                          sdp: peer.localDescription,
-                          fromName: userName
-                        });
-                      })
-                      .catch(err => console.error('❌ Erreur création offre:', err));
-                  }
-                }, 1000);
-              }
-            }
-          });
-          break;
-
-        case 'user-joined':
+        case 'join':
           console.log(`👋 ${message.fromName} a rejoint la room`);
           setParticipants(prev => {
             if (!prev.find(p => p.id === message.from)) {
@@ -221,22 +220,32 @@ export function useSimpleVideoConference({
                 joinedAt: new Date()
               };
 
+              console.log(`➕ Nouveau participant ajouté: ${message.fromName} (${message.from})`);
+
               // Créer une connexion peer avec le nouveau participant
               setTimeout(() => {
                 console.log(`🔗 Création connexion peer avec ${message.fromName}`);
                 const peer = createPeerConnection(message.from);
                 if (peer) {
                   peer.createOffer()
-                    .then(offer => peer.setLocalDescription(offer))
+                    .then(offer => {
+                      console.log('✅ Offre créée:', offer.type);
+                      return peer.setLocalDescription(offer);
+                    })
                     .then(() => {
-                      sendWebSocketMessage({
+                      console.log('✅ Description locale définie');
+                      sendLocalStorageMessage({
                         type: 'offer',
                         to: message.from,
                         sdp: peer.localDescription,
                         fromName: userName
                       });
                     })
-                    .catch(err => console.error('❌ Erreur création offre:', err));
+                    .catch(err => {
+                      console.error('❌ Erreur création offre:', err);
+                      // Retirer le participant en cas d'erreur
+                      setParticipants(prev => prev.filter(p => p.id !== message.from));
+                    });
                 }
               }, 1000);
 
@@ -246,7 +255,7 @@ export function useSimpleVideoConference({
           });
           break;
 
-        case 'user-left':
+        case 'leave':
           console.log(`👋 ${message.fromName} a quitté la room`);
           setParticipants(prev => prev.filter(p => p.id !== message.from));
           const peerToClose = peerConnectionsRef.current.get(message.from);
@@ -260,16 +269,41 @@ export function useSimpleVideoConference({
           console.log(`📥 Offre reçue de ${message.fromName}`);
           const offerPeer = createPeerConnection(message.from);
           if (offerPeer) {
+            console.log(`🔗 Peer créé pour ${message.fromName}, état signalisation: ${offerPeer.signalingState}`);
+            
             if (offerPeer.signalingState === 'stable' || offerPeer.signalingState === 'have-local-offer') {
               offerPeer.setRemoteDescription(new RTCSessionDescription(message.sdp))
                 .then(() => {
                   console.log('✅ Description distante définie pour offre');
+                  
+                  // Ajouter les candidats ICE en attente
+                  const pendingCandidates = pendingIceCandidatesRef.current.get(message.from) || [];
+                  if (pendingCandidates.length > 0) {
+                    console.log(`📦 Ajout de ${pendingCandidates.length} candidats ICE en attente`);
+                    const addCandidatesPromises = pendingCandidates.map(candidate => 
+                      offerPeer.addIceCandidate(candidate).catch(err => {
+                        if (!err.message.includes('Unknown ufrag')) {
+                          console.error('❌ Erreur ajout candidat ICE en attente:', err);
+                        }
+                      })
+                    );
+                    return Promise.all(addCandidatesPromises).then(() => {
+                      // Nettoyer les candidats en attente
+                      pendingIceCandidatesRef.current.delete(message.from);
+                    });
+                  }
+                  return Promise.resolve();
+                })
+                .then(() => {
                   return offerPeer.createAnswer();
                 })
-                .then(answer => offerPeer.setLocalDescription(answer))
+                .then(answer => {
+                  console.log('✅ Réponse créée:', answer.type);
+                  return offerPeer.setLocalDescription(answer);
+                })
                 .then(() => {
-                  console.log('✅ Réponse créée et définie');
-                  sendWebSocketMessage({
+                  console.log('✅ Description locale définie pour réponse');
+                  sendLocalStorageMessage({
                     type: 'answer',
                     to: message.from,
                     sdp: offerPeer.localDescription,
@@ -282,6 +316,7 @@ export function useSimpleVideoConference({
                     console.log('🔄 Redémarrage connexion peer...');
                     offerPeer.close();
                     peerConnectionsRef.current.delete(message.from);
+                    pendingIceCandidatesRef.current.delete(message.from);
                     setTimeout(() => {
                       const newPeer = createPeerConnection(message.from);
                       if (newPeer) {
@@ -289,7 +324,7 @@ export function useSimpleVideoConference({
                           .then(() => newPeer.createAnswer())
                           .then(answer => newPeer.setLocalDescription(answer))
                           .then(() => {
-                            sendWebSocketMessage({
+                            sendLocalStorageMessage({
                               type: 'answer',
                               to: message.from,
                               sdp: newPeer.localDescription,
@@ -315,6 +350,24 @@ export function useSimpleVideoConference({
               answerPeer.setRemoteDescription(new RTCSessionDescription(message.sdp))
                 .then(() => {
                   console.log('✅ Description distante définie pour réponse');
+                  
+                  // Ajouter les candidats ICE en attente
+                  const pendingCandidates = pendingIceCandidatesRef.current.get(message.from) || [];
+                  if (pendingCandidates.length > 0) {
+                    console.log(`📦 Ajout de ${pendingCandidates.length} candidats ICE en attente pour réponse`);
+                    const addCandidatesPromises = pendingCandidates.map(candidate => 
+                      answerPeer.addIceCandidate(candidate).catch(err => {
+                        if (!err.message.includes('Unknown ufrag')) {
+                          console.error('❌ Erreur ajout candidat ICE en attente:', err);
+                        }
+                      })
+                    );
+                    return Promise.all(addCandidatesPromises).then(() => {
+                      // Nettoyer les candidats en attente
+                      pendingIceCandidatesRef.current.delete(message.from);
+                    });
+                  }
+                  return Promise.resolve();
                 })
                 .catch(err => {
                   console.error('❌ Erreur traitement réponse:', err);
@@ -334,9 +387,24 @@ export function useSimpleVideoConference({
           console.log(`📥 ICE candidate reçu de ${message.fromName}`);
           const icePeer = peerConnectionsRef.current.get(message.from);
           if (icePeer && message.candidate) {
-            icePeer.addIceCandidate(new RTCIceCandidate(message.candidate))
-              .then(() => console.log('✅ ICE candidate ajouté'))
-              .catch(err => console.error('❌ Erreur ajout ICE candidate:', err));
+            // Vérifier si la description distante est définie
+            if (icePeer.remoteDescription && icePeer.remoteDescription.type) {
+              icePeer.addIceCandidate(new RTCIceCandidate(message.candidate))
+                .then(() => console.log('✅ ICE candidate ajouté'))
+                .catch(err => {
+                  console.error('❌ Erreur ajout ICE candidate:', err);
+                  // Ignorer les erreurs "Unknown ufrag" qui sont normales
+                  if (!err.message.includes('Unknown ufrag')) {
+                    console.error('❌ Erreur critique ICE candidate:', err);
+                  }
+                });
+            } else {
+              // Stocker le candidat pour plus tard
+              console.log('📦 Stockage ICE candidate en attente de description distante');
+              const pendingCandidates = pendingIceCandidatesRef.current.get(message.from) || [];
+              pendingCandidates.push(new RTCIceCandidate(message.candidate));
+              pendingIceCandidatesRef.current.set(message.from, pendingCandidates);
+            }
           }
           break;
 
@@ -354,67 +422,80 @@ export function useSimpleVideoConference({
           console.log('❓ Type de message inconnu:', message.type);
       }
     } catch (error) {
-      console.error('❌ Erreur parsing message WebSocket:', error);
+      console.error('❌ Erreur parsing message localStorage:', error);
     }
-  }, [userName, sendWebSocketMessage, createPeerConnection]);
+  }, [userName, sendLocalStorageMessage, createPeerConnection]);
 
   // Se connecter à la room
   const connectToRoom = useCallback(async () => {
+    if (isConnectingRef.current) return;
+    isConnectingRef.current = true;
+
     try {
       setConnectionStatus('connecting');
       setError(null);
 
-      // Solution hybride : essayer d'abord le serveur local, puis un service public
-      let wsUrl;
-      
-      // Essayer d'abord le serveur local (si disponible)
-      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        wsUrl = `ws://localhost:3001/?roomId=${roomId}&userId=${currentUserId.current}&userName=${encodeURIComponent(userName)}`;
-        console.log('🔧 Tentative de connexion au serveur local...');
-      } else {
-        // En production, utiliser un service WebSocket public temporaire
-        wsUrl = `wss://echo.websocket.org/?roomId=${roomId}&userId=${currentUserId.current}&userName=${encodeURIComponent(userName)}`;
-        console.log('🌐 Utilisation du service WebSocket public...');
-      }
-      const ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
+      console.log(`🚀 Connexion à la room: ${roomId}`);
 
-      ws.onopen = () => {
-        console.log('✅ WebSocket connecté');
-        setIsConnected(true);
-        setConnectionStatus('connected');
-        
-        // Envoyer un message de join
-        sendWebSocketMessage({
-          type: 'join',
-          fromName: userName
-        });
-      };
+      // Envoyer un message de join
+      sendLocalStorageMessage({
+        type: 'join',
+        fromName: userName
+      });
 
-      ws.onmessage = (event) => {
-        handleWebSocketMessage(event.data);
-      };
-
-      ws.onerror = (error) => {
-        console.error('❌ Erreur WebSocket:', error);
-        setError('Erreur de connexion WebSocket');
-        setConnectionStatus('error');
-        onError?.('Erreur de connexion WebSocket');
-      };
-
-      ws.onclose = () => {
-        console.log('🛑 WebSocket fermé');
-        setIsConnected(false);
-        setConnectionStatus('disconnected');
-      };
+      setIsConnected(true);
+      setConnectionStatus('connected');
+      console.log('✅ Connecté à la room:', roomId);
 
     } catch (err) {
       console.error('❌ Erreur connexion room:', err);
       setError('Erreur de connexion à la room');
       setConnectionStatus('error');
       onError?.('Erreur de connexion à la room');
+    } finally {
+      isConnectingRef.current = false;
     }
-  }, [roomId, userName, sendWebSocketMessage, handleWebSocketMessage, onError]);
+  }, [roomId, userName, sendLocalStorageMessage, onError]);
+
+  // Écouter les messages localStorage
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key && e.key.startsWith(storageKey.current) && e.newValue) {
+        handleLocalStorageMessage(e.newValue);
+      }
+    };
+
+    // Écouter les changements localStorage
+    window.addEventListener('storage', handleStorageChange);
+
+    // Vérifier les messages existants
+    const checkExistingMessages = () => {
+      const keys = Object.keys(localStorage);
+      const roomKeys = keys.filter(key => key.startsWith(storageKey.current));
+      
+      roomKeys.forEach(key => {
+        const value = localStorage.getItem(key);
+        if (value) {
+          try {
+            const message = JSON.parse(value);
+            if (message.from !== currentUserId.current) {
+              handleLocalStorageMessage(value);
+            }
+          } catch (error) {
+            console.error('❌ Erreur parsing message existant:', error);
+          }
+        }
+      });
+    };
+
+    // Vérifier les messages toutes les 2 secondes
+    const interval = setInterval(checkExistingMessages, 2000);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
+  }, [handleLocalStorageMessage, storageKey]);
 
   // Se déconnecter
   const disconnect = useCallback(() => {
@@ -426,26 +507,27 @@ export function useSimpleVideoConference({
     });
     peerConnectionsRef.current.clear();
 
-    // Fermer la connexion WebSocket
-    if (wsRef.current) {
-      wsRef.current.close();
-    }
+    // Envoyer un message de leave
+    sendLocalStorageMessage({
+      type: 'leave',
+      fromName: userName
+    });
 
     setParticipants([]);
     setIsConnected(false);
     setConnectionStatus('disconnected');
-  }, []);
+  }, [sendLocalStorageMessage, userName]);
 
   // Envoyer un message chat
   const sendMessage = useCallback((message: string) => {
     if (isConnected) {
-      sendWebSocketMessage({
+      sendLocalStorageMessage({
         type: 'chat',
         fromName: userName,
         message
       });
     }
-  }, [userName, isConnected, sendWebSocketMessage]);
+  }, [userName, isConnected, sendLocalStorageMessage]);
 
   // Toggle audio
   const toggleAudio = useCallback(() => {
@@ -533,6 +615,9 @@ export function useSimpleVideoConference({
       }
       if (screenStreamRef.current) {
         screenStreamRef.current.getTracks().forEach(track => track.stop());
+      }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
       }
     };
   }, [initializeLocalStream, connectToRoom, disconnect]);

@@ -912,14 +912,24 @@ const IntervenantProjectDetails: React.FC = () => {
                                                             {getStatusIcon(taskAssignment.status)}
                                                             <span className="ml-1">{getStatusLabel(taskAssignment.status)}</span>
                                                           </Badge>
+                                                          <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => handleViewTaskDetails(taskAssignment)}
+                                                            className="h-6 px-2"
+                                                            title="Voir les détails de la tâche"
+                                                          >
+                                                            <Eye className="h-3 w-3" />
+                                                          </Button>
                                                           {taskAssignment.file_url && (
                                                             <Button
                                                               variant="ghost"
                                                               size="sm"
-                                                              onClick={() => handleOpenFile(taskAssignment.file_url, taskAssignment.task_name)}
+                                                              onClick={() => handleDownloadFile(taskAssignment.file_url, taskAssignment.task_name)}
                                                               className="h-6 px-2"
+                                                              title="Télécharger le document"
                                                             >
-                                                              <Eye className="h-3 w-3" />
+                                                              <Download className="h-3 w-3" />
                                                             </Button>
                                                           )}
                                                           {taskAssignment.file_url && (
@@ -1075,14 +1085,24 @@ const IntervenantProjectDetails: React.FC = () => {
                                                             {getStatusIcon(taskAssignment.status)}
                                                             <span className="ml-1">{getStatusLabel(taskAssignment.status)}</span>
                                                           </Badge>
+                                                          <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => handleViewTaskDetails(taskAssignment)}
+                                                            className="h-6 px-2"
+                                                            title="Voir les détails de la tâche"
+                                                          >
+                                                            <Eye className="h-3 w-3" />
+                                                          </Button>
                                                           {taskAssignment.file_url && (
                                                             <Button
                                                               variant="ghost"
                                                               size="sm"
-                                                              onClick={() => handleOpenFile(taskAssignment.file_url, taskAssignment.task_name)}
+                                                              onClick={() => handleDownloadFile(taskAssignment.file_url, taskAssignment.task_name)}
                                                               className="h-6 px-2"
+                                                              title="Télécharger le document"
                                                             >
-                                                              <Eye className="h-3 w-3" />
+                                                              <Download className="h-3 w-3" />
                                                             </Button>
                                                           )}
                                                           {taskAssignment.file_url && (
@@ -1214,6 +1234,47 @@ const IntervenantProjectDetails: React.FC = () => {
                     </p>
                   </div>
                 </div>
+
+                {selectedTaskDetails.validators && selectedTaskDetails.validators.length > 0 && (
+                  <div>
+                    <Label className="text-sm font-medium">Validateurs</Label>
+                    <ul className="text-sm text-gray-700 mt-1">
+                      {selectedTaskDetails.validators.map((validatorId, index) => (
+                        <li key={index} className="flex items-center gap-2">
+                          <User className="h-3 w-3" />
+                          {getIntervenantName(validatorId)}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {selectedTaskDetails.submitted_at && (
+                  <div>
+                    <Label className="text-sm font-medium">Soumis le</Label>
+                    <p className="text-sm text-gray-700">
+                      {new Date(selectedTaskDetails.submitted_at).toLocaleDateString('fr-FR')}
+                    </p>
+                  </div>
+                )}
+
+                {selectedTaskDetails.validated_at && (
+                  <div>
+                    <Label className="text-sm font-medium">Validé le</Label>
+                    <p className="text-sm text-gray-700">
+                      {new Date(selectedTaskDetails.validated_at).toLocaleDateString('fr-FR')}
+                    </p>
+                  </div>
+                )}
+
+                {selectedTaskDetails.validated_by && (
+                  <div>
+                    <Label className="text-sm font-medium">Validé par</Label>
+                    <p className="text-sm text-gray-700">
+                      {getIntervenantName(selectedTaskDetails.validated_by)}
+                    </p>
+                  </div>
+                )}
 
                 {selectedTaskDetails.comment && (
                   <div>
