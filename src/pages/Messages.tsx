@@ -61,13 +61,10 @@ const Messages: React.FC = () => {
     getConversations, 
     getMessages, 
     sendMessage, 
-    createDirectConversation,
-    createGroupConversation,
     deleteConversation,
     loading: messagesLoading 
   } = useMessages();
-  const [activeTab, setActiveTab] = useState("tous");
-  const [searchQuery, setSearchQuery] = useState("");
+  // Variables de recherche et onglets supprimées pour simplifier l'interface
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<User[]>([]);
@@ -77,11 +74,6 @@ const Messages: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isPolling, setIsPolling] = useState(false);
   const [lastPollingTime, setLastPollingTime] = useState<Date | null>(null);
-  const [newConversationDialogOpen, setNewConversationDialogOpen] = useState(false);
-  const [selectedContactId, setSelectedContactId] = useState<string>("");
-  const [newGroupName, setNewGroupName] = useState("");
-  const [selectedGroupContacts, setSelectedGroupContacts] = useState<string[]>([]);
-  const [conversationType, setConversationType] = useState<'direct' | 'group'>('direct');
   const messageEndRef = useRef<HTMLDivElement>(null);
   
   // Add error states to track specific issues
@@ -318,71 +310,6 @@ const Messages: React.FC = () => {
     }
   };
   
-  // Créer une nouvelle conversation
-  const handleCreateConversation = async () => {
-    try {
-      let conversationId: string | null = null;
-      
-      if (conversationType === 'direct') {
-        if (!selectedContactId) {
-          toast({
-            title: "Erreur",
-            description: "Veuillez sélectionner un contact",
-            variant: "destructive"
-          });
-          return;
-        }
-        
-        conversationId = await createDirectConversation(selectedContactId);
-      } else {
-        if (!newGroupName || selectedGroupContacts.length === 0) {
-          toast({
-            title: "Erreur",
-            description: "Veuillez remplir tous les champs",
-            variant: "destructive"
-          });
-          return;
-        }
-        
-        conversationId = await createGroupConversation(newGroupName, selectedGroupContacts);
-      }
-      
-      if (conversationId) {
-        toast({
-          title: "Succès",
-          description: `Conversation ${conversationType === 'direct' ? 'directe' : 'de groupe'} créée avec succès`,
-        });
-        
-        // Fermer le dialogue
-        setNewConversationDialogOpen(false);
-        
-        // Réinitialiser les champs
-        setSelectedContactId("");
-        setNewGroupName("");
-        setSelectedGroupContacts([]);
-        
-        // Actualiser les conversations et sélectionner la nouvelle
-        await loadConversations();
-        
-        // Trouver et activer la nouvelle conversation
-        const newConversations = await getConversations();
-        const newConversation = newConversations.find(c => c.id === conversationId);
-        
-        if (newConversation) {
-          setActiveConversation(newConversation);
-          await loadMessages(newConversation.id);
-        }
-      }
-    } catch (error) {
-      console.error('Erreur lors de la création de la conversation:', error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de créer la conversation",
-        variant: "destructive"
-      });
-    }
-  };
-  
   // Formatage du nom d'utilisateur
   const formatUserName = (user: User) => {
     if (!user || !user.id) {
@@ -474,45 +401,8 @@ const Messages: React.FC = () => {
     );
   };
   
-  // Gérer le changement de type de conversation
-  const handleConversationTypeChange = (type: 'direct' | 'group') => {
-    setConversationType(type);
-    setSelectedContactId("");
-    setSelectedGroupContacts([]);
-    setNewGroupName("");
-  };
-  
-  // Gérer la sélection/déselection d'un contact pour un groupe
-  const toggleGroupContact = (contactId: string) => {
-    if (selectedGroupContacts.includes(contactId)) {
-      setSelectedGroupContacts(prev => prev.filter(id => id !== contactId));
-    } else {
-      setSelectedGroupContacts(prev => [...prev, contactId]);
-    }
-  };
-  
-  // Filtrer les conversations selon le type et la recherche
-  const filteredConversations = conversations.filter(conv => {
-    const matchesTab = activeTab === "tous" || 
-                     (activeTab === "directs" && conv.type === 'direct') ||
-                     (activeTab === "groupes" && conv.type === 'group');
-    
-    // Améliorer la recherche pour inclure first_name, last_name et email
-    const matchesSearch = conv.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                         conv.participants.some(p => {
-                           const fullName = formatUserName(p).toLowerCase();
-                           const firstName = p.first_name?.toLowerCase() || '';
-                           const lastName = p.last_name?.toLowerCase() || '';
-                           const email = p.email?.toLowerCase() || '';
-                           
-                           return fullName.includes(searchQuery.toLowerCase()) ||
-                                  firstName.includes(searchQuery.toLowerCase()) ||
-                                  lastName.includes(searchQuery.toLowerCase()) ||
-                                  email.includes(searchQuery.toLowerCase());
-                         });
-    
-    return matchesTab && matchesSearch;
-  });
+  // Toutes les conversations sont affichées (pas de filtrage)
+  const filteredConversations = conversations;
 
   // Fonction pour ouvrir la modal de suppression
   const handleDeleteConversation = (conversation: Conversation) => {
@@ -592,7 +482,7 @@ const Messages: React.FC = () => {
   };
 
   return (
-    <div className="h-[calc(100vh-160px)] flex flex-col">
+    <div className="h-[calc(100vh-160px)] w-full max-w-full flex flex-col overflow-hidden">
       <div className="mb-4 flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">{t.title}</h1>
@@ -620,36 +510,11 @@ const Messages: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex h-full overflow-hidden border rounded-lg shadow-md">
+      <div className="flex h-full w-full max-w-full overflow-hidden border rounded-lg shadow-md">
         {/* Partie gauche: Liste des conversations */}
-        <div className="w-1/3 border-r flex flex-col bg-white">
-          <div className="p-4 border-b">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-              <Input
-                placeholder={t.search}
-                className="pl-8"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-          </div>
+        <div className="w-1/3 border-r flex flex-col bg-white min-w-0 overflow-hidden">
           
-          <Tabs defaultValue="tous" className="w-full" onValueChange={setActiveTab}>
-            <TabsList className="w-full justify-start bg-gray-100 p-0 h-auto">
-              <TabsTrigger value="tous" className="flex-1 py-2 data-[state=active]:bg-white">
-                {t.tabs.all}
-              </TabsTrigger>
-              <TabsTrigger value="directs" className="flex-1 py-2 data-[state=active]:bg-white">
-                {t.tabs.direct}
-              </TabsTrigger>
-              <TabsTrigger value="groupes" className="flex-1 py-2 data-[state=active]:bg-white">
-                {t.tabs.groups}
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-          
-          <ScrollArea className="flex-1">
+          <ScrollArea className="flex-1 w-full overflow-hidden">
             {loading || messagesLoading ? (
               <div className="flex justify-center items-center h-full">
                 <div className="w-10 h-10 border-4 border-t-teal-500 border-r-transparent border-b-teal-500 border-l-transparent rounded-full animate-spin"></div>
@@ -660,21 +525,7 @@ const Messages: React.FC = () => {
               <div className="flex flex-col justify-center items-center h-full p-4 text-center">
                 <MessageSquare className="h-12 w-12 text-gray-400 mb-2" />
                 <p className="text-gray-500">Aucune conversation trouvée</p>
-                {searchQuery && (
-                  <p className="text-sm text-gray-400 mt-1">
-                    Essayez avec une autre recherche
-                  </p>
-                )}
-                {!searchQuery && (
-                  <Button 
-                    variant="outline" 
-                    className="mt-4" 
-                    onClick={() => setNewConversationDialogOpen(true)}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Nouvelle conversation
-                  </Button>
-                )}
+                {/* Suppression du bouton "Nouvelle conversation" - seules les conversations de groupes de travail sont autorisées */}
               </div>
             ) : (
               filteredConversations.map(conv => (
@@ -706,7 +557,7 @@ const Messages: React.FC = () => {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-baseline">
-                        <h3 className="font-medium truncate">
+                        <h3 className="font-medium truncate flex-1 min-w-0 max-w-full">
                           {conv.type === 'direct' && conv.participants.length > 0
                             ? formatUserName(conv.participants[0])
                             : conv.name
@@ -740,11 +591,11 @@ const Messages: React.FC = () => {
                         </div>
                       )}
                       
-                      <div className="flex justify-between items-center mt-1">
-                        <p className="text-sm text-gray-600 truncate">
+                      <div className="flex justify-between items-start mt-1">
+                        <p className="text-sm text-gray-600 truncate flex-1 min-w-0 max-w-full">
                           {conv.lastMessage ? (
                             conv.type === 'group' && conv.lastMessage.senderId !== user?.id ? (
-                              <span>
+                              <span className="truncate block max-w-full">
                                 <span className="font-medium">
                                   {conv.lastMessage.content.includes("[Message d'un utilisateur supprimé]") 
                                     ? "Utilisateur supprimé" 
@@ -756,7 +607,7 @@ const Messages: React.FC = () => {
                                 {' '}{conv.lastMessage.content}
                               </span>
                             ) : (
-                              conv.lastMessage.content
+                              <span className="truncate block max-w-full">{conv.lastMessage.content}</span>
                             )
                           ) : (
                             <span className="italic text-gray-400">Pas de messages</span>
@@ -775,19 +626,10 @@ const Messages: React.FC = () => {
               ))
             )}
           </ScrollArea>
-          
-          <div className="p-3 border-t bg-gray-50">
-            <Button 
-              className="w-full bg-aphs-teal hover:bg-aphs-navy"
-              onClick={() => setNewConversationDialogOpen(true)}
-            >
-              <Edit className="mr-2 h-4 w-4" /> Nouveau message
-            </Button>
-          </div>
         </div>
         
         {/* Partie droite: Conversation active */}
-        <div className="w-2/3 flex flex-col bg-gray-50">
+        <div className="w-2/3 flex flex-col bg-gray-50 min-w-0 overflow-hidden">
           {activeConversation ? (
             <>
               {/* En-tête de la conversation */}
@@ -822,12 +664,10 @@ const Messages: React.FC = () => {
                     </p>
                   </div>
                 </div>
-                
-
               </div>
               
               {/* Corps de la conversation (messages) */}
-              <ScrollArea className="flex-1 p-4">
+              <ScrollArea className="flex-1 p-4 w-full overflow-hidden">
                 {messages.length === 0 ? (
                   <div className="flex flex-col justify-center items-center h-full p-4 text-center">
                     <MessageSquare className="h-12 w-12 text-gray-400 mb-2" />
@@ -845,7 +685,7 @@ const Messages: React.FC = () => {
                     return (
                       <div 
                         key={msg.id} 
-                        className={`mb-4 flex ${isMe ? 'justify-end' : 'justify-start'}`}
+                        className={`mb-4 flex w-full ${isMe ? 'justify-end' : 'justify-start'}`}
                       >
                         {!isMe && showSender && activeConversation.participants.length > 0 && (
                           <Avatar className="h-8 w-8 mr-2 mt-1">
@@ -863,7 +703,7 @@ const Messages: React.FC = () => {
                           </Avatar>
                         )}
                         
-                        <div className={`max-w-[70%] ${!isMe && !showSender ? 'ml-10' : ''}`}>
+                        <div className={`max-w-[70%] min-w-0 flex-shrink-0 ${!isMe && !showSender ? 'ml-10' : ''}`}>
                           {!isMe && showSender && (
                             <div className="mb-1 text-xs text-gray-500">
                               {isDeletedUserMessage ? "Utilisateur supprimé" : (
@@ -878,9 +718,9 @@ const Messages: React.FC = () => {
                             </div>
                           )}
                           
-                          <div className="flex items-end">
+                          <div className="flex items-end max-w-full">
                             <div
-                              className={`px-4 py-2 rounded-2xl ${
+                              className={`px-4 py-2 rounded-2xl max-w-full ${
                                 isMe 
                                   ? 'bg-aphs-teal text-white rounded-tr-none' 
                                   : isDeletedUserMessage
@@ -888,10 +728,10 @@ const Messages: React.FC = () => {
                                     : 'bg-white text-gray-800 rounded-tl-none shadow-sm'
                               }`}
                             >
-                              <p>{msg.content}</p>
+                              <p className="whitespace-pre-wrap break-words max-w-full overflow-hidden">{msg.content}</p>
                             </div>
                             
-                            <div className="text-xs text-gray-500 mx-2">
+                            <div className="text-xs text-gray-500 mx-2 flex-shrink-0">
                               {formatTimestamp(msg.timestamp)}
                             </div>
                           </div>
@@ -937,147 +777,13 @@ const Messages: React.FC = () => {
               <MessageSquare className="h-16 w-16 text-gray-300 mb-4" />
               <h3 className="text-xl font-medium text-gray-600 mb-2">Aucune conversation sélectionnée</h3>
               <p className="text-gray-500 max-w-md">
-                Sélectionnez une conversation existante ou commencez une nouvelle discussion
+                Sélectionnez une conversation existante
               </p>
-              <Button 
-                className="mt-4" 
-                variant="outline"
-                onClick={() => setNewConversationDialogOpen(true)}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Nouvelle conversation
-              </Button>
+              {/* Suppression du bouton "Nouvelle conversation" - seules les conversations de groupes de travail sont autorisées */}
             </div>
           )}
         </div>
       </div>
-      
-      {/* Dialogue pour créer une nouvelle conversation */}
-      <Dialog open={newConversationDialogOpen} onOpenChange={setNewConversationDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Nouvelle conversation</DialogTitle>
-            <DialogDescription>
-              Créez une nouvelle conversation directe ou un groupe
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="grid gap-4 py-4">
-            <div className="flex gap-4 mb-2">
-              <Button 
-                variant={conversationType === 'direct' ? 'default' : 'outline'} 
-                type="button" 
-                className="flex-1"
-                onClick={() => handleConversationTypeChange('direct')}
-              >
-                <MessageSquare className="h-4 w-4 mr-2" />
-                Direct
-              </Button>
-              <Button 
-                variant={conversationType === 'group' ? 'default' : 'outline'} 
-                type="button" 
-                className="flex-1"
-                onClick={() => handleConversationTypeChange('group')}
-              >
-                <Users className="h-4 w-4 mr-2" />
-                Groupe
-              </Button>
-            </div>
-            
-            {conversationType === 'direct' ? (
-              <div className="grid gap-2">
-                <label htmlFor="contact" className="text-sm font-medium">
-                  Sélectionnez un contact
-                </label>
-                <Select value={selectedContactId} onValueChange={setSelectedContactId}>
-                  <SelectTrigger id="contact">
-                    <SelectValue placeholder="Sélectionnez un contact" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {contacts.map(contact => (
-                      <SelectItem key={contact.id} value={contact.id}>
-                        {formatContactName(contact)}
-                        {contact.role === 'admin' && ' (Admin)'}
-                        {contact.specialty && (
-                          <span className="text-xs text-gray-500 ml-1">
-                            • {contact.specialty}
-                          </span>
-                        )}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            ) : (
-              <div className="grid gap-2">
-                <label htmlFor="group-name" className="text-sm font-medium">
-                  Nom du groupe
-                </label>
-                <Input
-                  id="group-name"
-                  placeholder="Entrez un nom pour le groupe"
-                  value={newGroupName}
-                  onChange={(e) => setNewGroupName(e.target.value)}
-                />
-                
-                <label className="text-sm font-medium mt-2">
-                  Sélectionnez les membres
-                </label>
-                <div className="h-40 overflow-y-auto border rounded-md p-2">
-                  {contacts.map(contact => (
-                    <div 
-                      key={contact.id} 
-                      className="flex items-center py-1 px-2 hover:bg-gray-100 rounded cursor-pointer"
-                      onClick={() => toggleGroupContact(contact.id)}
-                    >
-                      <input 
-                        type="checkbox" 
-                        checked={selectedGroupContacts.includes(contact.id)}
-                        onChange={() => {}}
-                        className="mr-2"
-                      />
-                      <span>
-                        {formatContactName(contact)}
-                        {contact.role === 'admin' && ' (Admin)'}
-                        {contact.specialty && (
-                          <span className="text-xs text-gray-500 ml-1">
-                            • {contact.specialty}
-                          </span>
-                        )}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                <div className="text-xs text-gray-500">
-                  {selectedGroupContacts.length} contacts sélectionnés
-                </div>
-              </div>
-            )}
-          </div>
-          
-          <DialogFooter className="sm:justify-start">
-            <Button 
-              type="button" 
-              variant="default" 
-              onClick={handleCreateConversation}
-              disabled={
-                conversationType === 'direct' ? !selectedContactId : 
-                !newGroupName || selectedGroupContacts.length === 0
-              }
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Créer la conversation
-            </Button>
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={() => setNewConversationDialogOpen(false)}
-            >
-              Annuler
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
       
       {/* Dialogue de confirmation pour supprimer une conversation */}
       <Dialog open={deleteConversationDialogOpen} onOpenChange={setDeleteConversationDialogOpen}>

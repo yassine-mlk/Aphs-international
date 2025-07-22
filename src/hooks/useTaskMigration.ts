@@ -99,7 +99,7 @@ export const useTaskMigration = (): UseTaskMigrationReturn => {
       if (projectIds.length > 0) {
         const projects = await fetchData<{ id: string; name: string }>('projects', {
           columns: 'id,name',
-          filters: projectIds.map(id => ({ column: 'id', operator: 'eq', value: id }))
+          filters: [{ column: 'id', operator: 'in', value: projectIds }]
         });
         
         projectsMap = projects.reduce((acc, project) => {
@@ -167,7 +167,7 @@ export const useTaskMigration = (): UseTaskMigrationReturn => {
       if (projectIds.length > 0) {
         const projects = await fetchData<{ id: string; name: string }>('projects', {
           columns: 'id,name',
-          filters: projectIds.map(id => ({ column: 'id', operator: 'eq', value: id }))
+          filters: [{ column: 'id', operator: 'in', value: projectIds }]
         });
         
         projectsMap = projects.reduce((acc, project) => {

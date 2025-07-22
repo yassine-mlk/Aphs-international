@@ -307,6 +307,22 @@ const DashboardLayout: React.FC = () => {
                 </SidebarMenuItem>
               )}
               
+              {/* Gestion des Contacts - Admin Only */}
+              {isAdmin && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip="Gestion des Contacts"
+                    isActive={isLinkActive("/dashboard/gestion-contacts")}
+                  >
+                    <Link to="/dashboard/gestion-contacts">
+                      <Users />
+                      <span>Gestion des Contacts</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+              
               {/* Projets Menu Item - Intervenant and Maitre d'ouvrage access */}
               {(!isAdmin && (user?.role === 'intervenant' || user?.role === 'maitre_ouvrage')) && (
                 <SidebarMenuItem>

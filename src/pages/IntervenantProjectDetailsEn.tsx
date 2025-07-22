@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { useSupabase } from "../hooks/useSupabase";
 import { useAuth } from "../contexts/AuthContext";
+import { useProjectStructure } from "../hooks/useProjectStructure";
 import { projectStructure, realizationStructure } from "../data/project-structure";
 import { projectStructureTranslations } from "../data/project-structure-translations";
 import {
@@ -117,6 +118,22 @@ const IntervenantProjectDetailsEn: React.FC = () => {
   const [isInfoSheetDialogOpen, setIsInfoSheetDialogOpen] = useState(false);
   const [selectedInfoSheet, setSelectedInfoSheet] = useState<TaskInfoSheet | null>(null);
   const [loadingInfoSheet, setLoadingInfoSheet] = useState(false);
+
+  // States for task info sheets
+  const [taskInfoSheets, setTaskInfoSheets] = useState<{[key: string]: TaskInfoSheet}>({});
+  const [loadingInfoSheets, setLoadingInfoSheets] = useState<{[key: string]: boolean}>({});
+  const [expandedInfoSheets, setExpandedInfoSheets] = useState<{[key: string]: boolean}>({});
+  
+  // States for progressive structure navigation
+  const [expandedSections, setExpandedSections] = useState<{[key: string]: boolean}>({});
+  const [expandedSubsections, setExpandedSubsections] = useState<{[key: string]: boolean}>({});
+
+  // Hook for custom project structure
+  const {
+    customProjectStructure,
+    customRealizationStructure,
+    loading: structureLoading
+  } = useProjectStructure(id || '');
 
   // Get translations
   const translations = projectStructureTranslations.en;
@@ -305,6 +322,85 @@ const IntervenantProjectDetailsEn: React.FC = () => {
     setIsTaskDetailsDialogOpen(true);
   };
 
+  // Functions for progressive navigation
+  const toggleSection = (phase: string, sectionId: string) => {
+    const key = `${phase}-${sectionId}`;
+    setExpandedSections(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
+  const toggleSubsection = (phase: string, sectionId: string, subsectionId: string) => {
+    const key = `${phase}-${sectionId}-${subsectionId}`;
+    setExpandedSubsections(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
+  // Find task assignment
+  const getTaskAssignment = (phase: string, sectionId: string, subsectionId: string, taskName: string) => {
+    return taskAssignments.find(
+      assignment => 
+        assignment.phase_id === phase &&
+        assignment.section_id === sectionId &&
+        assignment.subsection_id === subsectionId &&
+        assignment.task_name === taskName
+    );
+  };
+
+  const toggleInfoSheet = async (phase: string, section: string, subsection: string, taskName: string) => {
+    const key = `${phase}-${section}-${subsection}-${taskName}`;
+    
+    // If already expanded, close it
+    if (expandedInfoSheets[key]) {
+      setExpandedInfoSheets(prev => ({ ...prev, [key]: false }));
+      return;
+    }
+
+    // If not yet loaded, load the sheet
+    if (!taskInfoSheets[key]) {
+      setLoadingInfoSheets(prev => ({ ...prev, [key]: true }));
+      try {
+        // Try to get the sheet in English first
+        const infoSheetData = await fetchData<TaskInfoSheet>('task_info_sheets', {
+          columns: '*',
+          filters: [
+            { column: 'phase_id', operator: 'eq', value: phase },
+            { column: 'section_id', operator: 'eq', value: section },
+            { column: 'subsection_id', operator: 'eq', value: subsection },
+            { column: 'task_name', operator: 'eq', value: taskName },
+            { column: 'language', operator: 'eq', value: 'en' }
+          ]
+        });
+
+        if (infoSheetData && infoSheetData.length > 0) {
+          setTaskInfoSheets(prev => ({ ...prev, [key]: infoSheetData[0] }));
+          setExpandedInfoSheets(prev => ({ ...prev, [key]: true }));
+        } else {
+          toast({
+            title: "Information",
+            description: "No information sheet available for this task",
+            variant: "default",
+          });
+        }
+      } catch (error) {
+        console.error('Error loading information sheet:', error);
+        toast({
+          title: "Error",
+          description: "Unable to load information sheet",
+          variant: "destructive",
+        });
+      } finally {
+        setLoadingInfoSheets(prev => ({ ...prev, [key]: false }));
+      }
+    } else {
+      // If already loaded, just open it
+      setExpandedInfoSheets(prev => ({ ...prev, [key]: true }));
+    }
+  };
+
   const handleViewInfoSheet = async (phase: string, section: string, subsection: string, taskName: string) => {
     setLoadingInfoSheet(true);
     try {
@@ -337,6 +433,29 @@ const IntervenantProjectDetailsEn: React.FC = () => {
       });
     } finally {
       setLoadingInfoSheet(false);
+    }
+  };
+
+  // Function to download a file
+  const handleDownloadFile = async (fileUrl: string, fileName: string) => {
+    try {
+      const response = await fetch(fileUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName || 'file';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      toast({
+        title: "Error",
+        description: "Unable to download file",
+        variant: "destructive",
+      });
     }
   };
 
@@ -445,7 +564,7 @@ const IntervenantProjectDetailsEn: React.FC = () => {
         </TabsContent>
 
         {/* Project Structure Tab */}
-        <TabsContent value="structure" className="space-y-4">
+        <TabsContent value="structure" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -459,79 +578,325 @@ const IntervenantProjectDetailsEn: React.FC = () => {
                 <AccordionItem value="conception">
                   <AccordionTrigger>{translations.conception}</AccordionTrigger>
                   <AccordionContent>
-                    {projectStructure.map((section) => {
-                      const sectionTranslation = translations.sections[section.id as keyof typeof translations.sections];
-                      return (
-                        <div key={section.id} className="mb-4">
-                          <h4 className="font-medium mb-2">Section {section.id}: {sectionTranslation?.title || section.title}</h4>
-                          {section.items.map((subsection) => {
-                            const subsectionTranslation = sectionTranslation?.items?.[subsection.id as keyof typeof sectionTranslation.items];
-                            return (
-                              <div key={subsection.id} className="ml-4 mb-2">
-                                <h5 className="text-sm font-medium mb-1">Subsection {subsection.id}: {subsectionTranslation?.title || subsection.title}</h5>
-                                <ul className="ml-4 space-y-1">
-                                  {subsection.tasks.map((task, index) => {
-                                    const translatedTask = subsectionTranslation?.tasks?.[index] || task;
-                                    return (
-                                      <li key={index} className="text-sm text-gray-600 flex items-center justify-between">
-                                        <span>{translatedTask}</span>
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={() => handleViewInfoSheet('conception', section.id, subsection.id, task)}
-                                        >
-                                          <FileText className="h-4 w-4" />
-                                        </Button>
-                                      </li>
-                                    );
-                                  })}
-                                </ul>
+                    <div className="space-y-4">
+                      {customProjectStructure.map((section) => {
+                        const sectionKey = section.id as keyof typeof translations.sections;
+                        const sectionTranslation = translations.sections[sectionKey];
+                        const sectionExpansionKey = `conception-${section.id}`;
+                        const isSectionExpanded = expandedSections[sectionExpansionKey];
+                        
+                        return (
+                          <div key={section.id} className="border border-gray-200 rounded-lg">
+                            {/* Section header with expansion button */}
+                            <button
+                              onClick={() => toggleSection('conception', section.id)}
+                              className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors"
+                            >
+                              <h4 className="font-semibold text-gray-800">
+                                Section {section.id}: {sectionTranslation?.title || section.title}
+                              </h4>
+                              <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                                {section.items.length} steps
+                              </Badge>
+                            </button>
+                            
+                            {/* Section content (steps) */}
+                            {isSectionExpanded && (
+                              <div className="border-t border-gray-200 p-4 space-y-3">
+                                {section.items.map((subsection) => {
+                                  const subsectionKey = subsection.id as keyof typeof sectionTranslation.items;
+                                  const subsectionTranslation = sectionTranslation?.items?.[subsectionKey];
+                                  const subsectionExpansionKey = `conception-${section.id}-${subsection.id}`;
+                                  const isSubsectionExpanded = expandedSubsections[subsectionExpansionKey];
+                                  
+                                  return (
+                                    <div key={subsection.id} className="border border-gray-100 rounded-md ml-4">
+                                      {/* Subsection header with expansion button */}
+                                      <button
+                                        onClick={() => toggleSubsection('conception', section.id, subsection.id)}
+                                        className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-25 transition-colors"
+                                      >
+                                        <h5 className="font-medium text-gray-700">
+                                          Step {subsection.id}: {subsectionTranslation?.title || subsection.title}
+                                        </h5>
+                                        <Badge variant="outline" className="bg-green-50 text-green-700">
+                                          {subsection.tasks.length} tasks
+                                        </Badge>
+                                      </button>
+                                      
+                                      {/* Subsection content (tasks) */}
+                                      {isSubsectionExpanded && (
+                                        <div className="border-t border-gray-100 p-3 space-y-2">
+                                          {subsection.tasks.map((task, index) => {
+                                            const translatedTask = subsectionTranslation?.tasks?.[index] || task;
+                                            const taskAssignment = getTaskAssignment('conception', section.id, subsection.id, task);
+                                            const key = `conception-${section.id}-${subsection.id}-${task}`;
+                                            const isExpanded = expandedInfoSheets[key];
+                                            const isLoading = loadingInfoSheets[key];
+                                            const infoSheet = taskInfoSheets[key];
+                                            
+                                            return (
+                                              <div key={index} className="border border-gray-50 rounded">
+                                                <div className="p-3 bg-gray-25">
+                                                  <div className="flex items-start justify-between mb-2">
+                                                    <span className="text-sm font-medium text-gray-800 flex-1">
+                                                      {translatedTask}
+                                                    </span>
+                                                    <div className="flex items-center gap-2 ml-3">
+                                                      {taskAssignment && (
+                                                        <>
+                                                          <Badge className={getStatusColor(taskAssignment.status)}>
+                                                            {getStatusIcon(taskAssignment.status)}
+                                                            <span className="ml-1">{getStatusLabel(taskAssignment.status)}</span>
+                                                          </Badge>
+                                                          <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => handleViewTaskDetails(taskAssignment)}
+                                                            className="h-6 px-2"
+                                                            title="View task details"
+                                                          >
+                                                            <Eye className="h-3 w-3" />
+                                                          </Button>
+                                                          {taskAssignment.file_url && (
+                                                            <Button
+                                                              variant="ghost"
+                                                              size="sm"
+                                                              onClick={() => handleDownloadFile(taskAssignment.file_url, taskAssignment.task_name)}
+                                                              className="h-6 px-2"
+                                                              title="Download document"
+                                                            >
+                                                              <Download className="h-3 w-3" />
+                                                            </Button>
+                                                          )}
+                                                        </>
+                                                      )}
+                                                      <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => toggleInfoSheet('conception', section.id, subsection.id, task)}
+                                                        disabled={isLoading}
+                                                        className="h-6 px-2"
+                                                      >
+                                                        {isLoading ? (
+                                                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-aphs-teal"></div>
+                                                        ) : (
+                                                          <FileText className="h-3 w-3" />
+                                                        )}
+                                                      </Button>
+                                                    </div>
+                                                  </div>
+                                                  
+                                                  {/* Assignment information */}
+                                                  {taskAssignment && (
+                                                    <div className="text-xs text-gray-600 flex items-center gap-2">
+                                                      <User className="h-3 w-3" />
+                                                      <span>Assigned to: {getIntervenantName(taskAssignment.assigned_to)}</span>
+                                                      {taskAssignment.deadline && (
+                                                        <>
+                                                          <Calendar className="h-3 w-3 ml-2" />
+                                                          <span>Deadline: {new Date(taskAssignment.deadline).toLocaleDateString('en-US')}</span>
+                                                        </>
+                                                      )}
+                                                    </div>
+                                                  )}
+                                                </div>
+                                                
+                                                {/* Information sheet */}
+                                                {isExpanded && infoSheet && (
+                                                  <div className="p-3 bg-gradient-to-r from-aphs-teal/5 to-aphs-navy/5 border-t border-l-4 border-l-aphs-teal">
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                      <Badge variant="outline" className="bg-aphs-teal bg-opacity-10 text-aphs-teal border-aphs-teal text-xs">
+                                                        Reference document
+                                                      </Badge>
+                                                      <Badge variant="outline" className="bg-blue-500 bg-opacity-10 text-blue-600 border-blue-500 text-xs">
+                                                        Detailed instructions
+                                                      </Badge>
+                                                    </div>
+                                                    <div className="prose prose-sm max-w-none">
+                                                      <div className="whitespace-pre-line text-xs text-gray-700 leading-relaxed">
+                                                        {infoSheet.info_sheet}
+                                                      </div>
+                                                    </div>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
                               </div>
-                            );
-                          })}
-                        </div>
-                      );
-                    })}
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </AccordionContent>
                 </AccordionItem>
 
                 {/* Realization Phase */}
-                <AccordionItem value="realization">
+                <AccordionItem value="realisation">
                   <AccordionTrigger>{translations.realization}</AccordionTrigger>
                   <AccordionContent>
-                    {realizationStructure.map((section) => {
-                      const sectionTranslation = translations.sections[section.id as keyof typeof translations.sections];
-                      return (
-                        <div key={section.id} className="mb-4">
-                          <h4 className="font-medium mb-2">Section {section.id}: {sectionTranslation?.title || section.title}</h4>
-                          {section.items.map((subsection) => {
-                            const subsectionTranslation = sectionTranslation?.items?.[subsection.id as keyof typeof sectionTranslation.items];
-                            return (
-                              <div key={subsection.id} className="ml-4 mb-2">
-                                <h5 className="text-sm font-medium mb-1">Subsection {subsection.id}: {subsectionTranslation?.title || subsection.title}</h5>
-                                <ul className="ml-4 space-y-1">
-                                  {subsection.tasks.map((task, index) => {
-                                    const translatedTask = subsectionTranslation?.tasks?.[index] || task;
-                                    return (
-                                      <li key={index} className="text-sm text-gray-600 flex items-center justify-between">
-                                        <span>{translatedTask}</span>
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={() => handleViewInfoSheet('realisation', section.id, subsection.id, task)}
-                                        >
-                                          <FileText className="h-4 w-4" />
-                                        </Button>
-                                      </li>
-                                    );
-                                  })}
-                                </ul>
+                    <div className="space-y-4">
+                      {customRealizationStructure.map((section) => {
+                        const sectionKey = section.id as keyof typeof translations.sections;
+                        const sectionTranslation = translations.sections[sectionKey];
+                        const sectionExpansionKey = `realisation-${section.id}`;
+                        const isSectionExpanded = expandedSections[sectionExpansionKey];
+                        
+                        return (
+                          <div key={section.id} className="border border-gray-200 rounded-lg">
+                            {/* Section header with expansion button */}
+                            <button
+                              onClick={() => toggleSection('realisation', section.id)}
+                              className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors"
+                            >
+                              <h4 className="font-semibold text-gray-800">
+                                Section {section.id}: {sectionTranslation?.title || section.title}
+                              </h4>
+                              <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                                {section.items.length} steps
+                              </Badge>
+                            </button>
+                            
+                            {/* Section content (steps) */}
+                            {isSectionExpanded && (
+                              <div className="border-t border-gray-200 p-4 space-y-3">
+                                {section.items.map((subsection) => {
+                                  const subsectionKey = subsection.id as keyof typeof sectionTranslation.items;
+                                  const subsectionTranslation = sectionTranslation?.items?.[subsectionKey];
+                                  const subsectionExpansionKey = `realisation-${section.id}-${subsection.id}`;
+                                  const isSubsectionExpanded = expandedSubsections[subsectionExpansionKey];
+                                  
+                                  return (
+                                    <div key={subsection.id} className="border border-gray-100 rounded-md ml-4">
+                                      {/* Subsection header with expansion button */}
+                                      <button
+                                        onClick={() => toggleSubsection('realisation', section.id, subsection.id)}
+                                        className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-25 transition-colors"
+                                      >
+                                        <h5 className="font-medium text-gray-700">
+                                          Step {subsection.id}: {subsectionTranslation?.title || subsection.title}
+                                        </h5>
+                                        <Badge variant="outline" className="bg-green-50 text-green-700">
+                                          {subsection.tasks.length} tasks
+                                        </Badge>
+                                      </button>
+                                      
+                                      {/* Subsection content (tasks) */}
+                                      {isSubsectionExpanded && (
+                                        <div className="border-t border-gray-100 p-3 space-y-2">
+                                          {subsection.tasks.map((task, index) => {
+                                            const translatedTask = subsectionTranslation?.tasks?.[index] || task;
+                                            const taskAssignment = getTaskAssignment('realisation', section.id, subsection.id, task);
+                                            const key = `realisation-${section.id}-${subsection.id}-${task}`;
+                                            const isExpanded = expandedInfoSheets[key];
+                                            const isLoading = loadingInfoSheets[key];
+                                            const infoSheet = taskInfoSheets[key];
+                                            
+                                            return (
+                                              <div key={index} className="border border-gray-50 rounded">
+                                                <div className="p-3 bg-gray-25">
+                                                  <div className="flex items-start justify-between mb-2">
+                                                    <span className="text-sm font-medium text-gray-800 flex-1">
+                                                      {translatedTask}
+                                                    </span>
+                                                    <div className="flex items-center gap-2 ml-3">
+                                                      {taskAssignment && (
+                                                        <>
+                                                          <Badge className={getStatusColor(taskAssignment.status)}>
+                                                            {getStatusIcon(taskAssignment.status)}
+                                                            <span className="ml-1">{getStatusLabel(taskAssignment.status)}</span>
+                                                          </Badge>
+                                                          <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => handleViewTaskDetails(taskAssignment)}
+                                                            className="h-6 px-2"
+                                                            title="View task details"
+                                                          >
+                                                            <Eye className="h-3 w-3" />
+                                                          </Button>
+                                                          {taskAssignment.file_url && (
+                                                            <Button
+                                                              variant="ghost"
+                                                              size="sm"
+                                                              onClick={() => handleDownloadFile(taskAssignment.file_url, taskAssignment.task_name)}
+                                                              className="h-6 px-2"
+                                                              title="Download document"
+                                                            >
+                                                              <Download className="h-3 w-3" />
+                                                            </Button>
+                                                          )}
+                                                        </>
+                                                      )}
+                                                      <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => toggleInfoSheet('realisation', section.id, subsection.id, task)}
+                                                        disabled={isLoading}
+                                                        className="h-6 px-2"
+                                                      >
+                                                        {isLoading ? (
+                                                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-aphs-teal"></div>
+                                                        ) : (
+                                                          <FileText className="h-3 w-3" />
+                                                        )}
+                                                      </Button>
+                                                    </div>
+                                                  </div>
+                                                  
+                                                  {/* Assignment information */}
+                                                  {taskAssignment && (
+                                                    <div className="text-xs text-gray-600 flex items-center gap-2">
+                                                      <User className="h-3 w-3" />
+                                                      <span>Assigned to: {getIntervenantName(taskAssignment.assigned_to)}</span>
+                                                      {taskAssignment.deadline && (
+                                                        <>
+                                                          <Calendar className="h-3 w-3 ml-2" />
+                                                          <span>Deadline: {new Date(taskAssignment.deadline).toLocaleDateString('en-US')}</span>
+                                                        </>
+                                                      )}
+                                                    </div>
+                                                  )}
+                                                </div>
+                                                
+                                                {/* Information sheet */}
+                                                {isExpanded && infoSheet && (
+                                                  <div className="p-3 bg-gradient-to-r from-aphs-teal/5 to-aphs-navy/5 border-t border-l-4 border-l-aphs-teal">
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                      <Badge variant="outline" className="bg-aphs-teal bg-opacity-10 text-aphs-teal border-aphs-teal text-xs">
+                                                        Reference document
+                                                      </Badge>
+                                                      <Badge variant="outline" className="bg-blue-500 bg-opacity-10 text-blue-600 border-blue-500 text-xs">
+                                                        Detailed instructions
+                                                      </Badge>
+                                                    </div>
+                                                    <div className="prose prose-sm max-w-none">
+                                                      <div className="whitespace-pre-line text-xs text-gray-700 leading-relaxed">
+                                                        {infoSheet.info_sheet}
+                                                      </div>
+                                                    </div>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
                               </div>
-                            );
-                          })}
-                        </div>
-                      );
-                    })}
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </AccordionContent>
                 </AccordionItem>
               </Accordion>
@@ -632,18 +997,74 @@ const IntervenantProjectDetailsEn: React.FC = () => {
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
+                  <Label className="text-sm font-medium">Assigned to</Label>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {getIntervenantName(selectedTaskDetails.assigned_to)}
+                  </p>
+                </div>
+                <div>
                   <Label className="text-sm font-medium">Deadline</Label>
                   <p className="text-sm text-gray-600 mt-1">
                     {new Date(selectedTaskDetails.deadline).toLocaleDateString('en-US')}
                   </p>
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="text-sm font-medium">Validation Deadline</Label>
                   <p className="text-sm text-gray-600 mt-1">
                     {new Date(selectedTaskDetails.validation_deadline).toLocaleDateString('en-US')}
                   </p>
                 </div>
+                <div>
+                  <Label className="text-sm font-medium">File Format</Label>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {selectedTaskDetails.file_extension.toUpperCase()}
+                  </p>
+                </div>
               </div>
+
+              {selectedTaskDetails.validators && selectedTaskDetails.validators.length > 0 && (
+                <div>
+                  <Label className="text-sm font-medium">Validators</Label>
+                  <ul className="text-sm text-gray-600 mt-1">
+                    {selectedTaskDetails.validators.map((validatorId, index) => (
+                      <li key={index} className="flex items-center gap-2">
+                        <User className="h-3 w-3" />
+                        {getIntervenantName(validatorId)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {selectedTaskDetails.submitted_at && (
+                <div>
+                  <Label className="text-sm font-medium">Submitted on</Label>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {new Date(selectedTaskDetails.submitted_at).toLocaleDateString('en-US')}
+                  </p>
+                </div>
+              )}
+
+              {selectedTaskDetails.validated_at && (
+                <div>
+                  <Label className="text-sm font-medium">Validated on</Label>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {new Date(selectedTaskDetails.validated_at).toLocaleDateString('en-US')}
+                  </p>
+                </div>
+              )}
+
+              {selectedTaskDetails.validated_by && (
+                <div>
+                  <Label className="text-sm font-medium">Validated by</Label>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {getIntervenantName(selectedTaskDetails.validated_by)}
+                  </p>
+                </div>
+              )}
               
               {selectedTaskDetails.comment && (
                 <div>

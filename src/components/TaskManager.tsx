@@ -208,7 +208,7 @@ const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, curre
           await notifyFileUploadedToProject(
             projectId,
             selectedFile.name,
-            uploaderName,
+              uploaderName,
             task.title,
             projectName
           );
@@ -218,9 +218,9 @@ const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, curre
             projectId,
             task.title,
             'submitted',
-            uploaderName,
-            projectName
-          );
+              uploaderName,
+              projectName
+            );
           
           console.log(`TaskManager: Notifications envoyées pour tous les membres du projet`);
         } catch (notificationError) {
