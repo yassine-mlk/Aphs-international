@@ -93,19 +93,25 @@ export const useTaskMigration = (): UseTaskMigrationReturn => {
       });
 
       // Récupérer les informations des projets
-      const projectIds = Array.from(new Set(taskAssignments.map(task => task.project_id)));
+      const projectIds = Array.from(new Set(taskAssignments.map(task => task.project_id).filter(Boolean)));
       let projectsMap: Record<string, { id: string; name: string }> = {};
       
       if (projectIds.length > 0) {
-        const projects = await fetchData<{ id: string; name: string }>('projects', {
-          columns: 'id,name',
-          filters: [{ column: 'id', operator: 'in', value: projectIds }]
-        });
-        
-        projectsMap = projects.reduce((acc, project) => {
-          acc[project.id] = project;
-          return acc;
-        }, {} as Record<string, { id: string; name: string }>);
+        try {
+          const projects = await fetchData<{ id: string; name: string }>('projects', {
+            columns: 'id,name',
+            filters: [{ column: 'id', operator: 'in', value: projectIds }]
+          });
+          
+          if (projects && projects.length > 0) {
+            projectsMap = projects.reduce((acc, project) => {
+              acc[project.id] = project;
+              return acc;
+            }, {} as Record<string, { id: string; name: string }>);
+          }
+        } catch (error) {
+          console.error('Erreur lors de la récupération des projets:', error);
+        }
       }
 
       // Ajouter les informations du projet aux tâches et convertir au format legacy
@@ -161,19 +167,25 @@ export const useTaskMigration = (): UseTaskMigrationReturn => {
       });
 
       // Récupérer les informations des projets
-      const projectIds = Array.from(new Set(userTasks.map(task => task.project_id)));
+      const projectIds = Array.from(new Set(userTasks.map(task => task.project_id).filter(Boolean)));
       let projectsMap: Record<string, { id: string; name: string }> = {};
       
       if (projectIds.length > 0) {
-        const projects = await fetchData<{ id: string; name: string }>('projects', {
-          columns: 'id,name',
-          filters: [{ column: 'id', operator: 'in', value: projectIds }]
-        });
-        
-        projectsMap = projects.reduce((acc, project) => {
-          acc[project.id] = project;
-          return acc;
-        }, {} as Record<string, { id: string; name: string }>);
+        try {
+          const projects = await fetchData<{ id: string; name: string }>('projects', {
+            columns: 'id,name',
+            filters: [{ column: 'id', operator: 'in', value: projectIds }]
+          });
+          
+          if (projects && projects.length > 0) {
+            projectsMap = projects.reduce((acc, project) => {
+              acc[project.id] = project;
+              return acc;
+            }, {} as Record<string, { id: string; name: string }>);
+          }
+        } catch (error) {
+          console.error('Erreur lors de la récupération des projets:', error);
+        }
       }
 
       // Ajouter les informations du projet aux tâches et convertir au format legacy

@@ -25,39 +25,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       setLoading(true);
       try {
-        // Check localStorage for stored user as fallback
-        const storedUser = localStorage.getItem('user');
-        
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
           setSession(session);
           setUser(session.user);
           console.log('Session existante trouvée pour:', session.user.email);
-        } else if (storedUser) {
-          // Si pas de session Supabase mais localStorage disponible
-          // Créer un user mock à partir du localStorage pour l'UI
-          try {
-            const parsedUser = JSON.parse(storedUser);
-            console.log('No active session but found stored user in localStorage:', parsedUser);
-            
-            // Créer un user mock compatible avec l'API de Supabase
-            const mockUser = {
-              id: parsedUser.id || 'local-id',
-              email: parsedUser.email,
-              user_metadata: {
-                role: parsedUser.role
-              },
-              app_metadata: {}, // Requis par le type User
-              aud: 'authenticated',
-              created_at: new Date().toISOString()
-            } as unknown as User; // Cast sécurisé avec unknown d'abord
-            
-            setUser(mockUser);
-          } catch (error) {
-            console.error('Error parsing stored user:', error);
-          }
         } else {
           console.log('Aucune session existante trouvée');
+          // Ne pas utiliser le localStorage comme fallback pour éviter les reconnexions automatiques
         }
       } catch (error) {
         console.error('Erreur lors de la récupération de la session:', error);
@@ -119,6 +94,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setLoading(true);
       
+      // Marquer comme déconnecté pour éviter la réinitialisation automatique
+      setInitialized(true);
+      
       // Réinitialiser immédiatement les états pour l'interface
       setUser(null);
       setSession(null);
@@ -147,7 +125,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       // Définir comme non chargé pour éviter les écrans de chargement bloqués
       setLoading(false);
-      setInitialized(false); // Permettre une réinitialisation au prochain rendu
     }
   };
 

@@ -148,16 +148,20 @@ const Tasks: React.FC = () => {
         // Récupérer la liste des projets pour le filtre
         const projectIds = Array.from(new Set(
           userTasks.map(task => task.project_id)
-        )).filter(id => id);
+        )).filter(Boolean);
         
         if (projectIds.length > 0) {
-          const projectsData = await fetchData<Project>('projects', {
-            columns: 'id,name',
-            filters: projectIds.map(id => ({ column: 'id', operator: 'eq', value: id }))
-          });
-          
-          if (projectsData) {
-            setProjects(projectsData);
+          try {
+            const projectsData = await fetchData<Project>('projects', {
+              columns: 'id,name',
+              filters: [{ column: 'id', operator: 'in', value: projectIds }]
+            });
+            
+            if (projectsData && projectsData.length > 0) {
+              setProjects(projectsData);
+            }
+          } catch (error) {
+            console.error('Erreur lors de la récupération des projets:', error);
           }
         }
         
