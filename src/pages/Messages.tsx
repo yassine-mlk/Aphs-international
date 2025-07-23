@@ -6,8 +6,6 @@ import { Badge } from '@/components/ui/badge';
 import { 
   Search, 
   Send, 
-  Paperclip, 
-  Smile, 
   MoreVertical, 
   Phone, 
   Video as VideoIcon,
@@ -512,7 +510,7 @@ const Messages: React.FC = () => {
 
       <div className="flex h-full w-full max-w-full overflow-hidden border rounded-lg shadow-md">
         {/* Partie gauche: Liste des conversations */}
-        <div className="w-1/3 border-r flex flex-col bg-white min-w-0 overflow-hidden">
+        <div className="w-1/3 border-r flex flex-col bg-white min-w-0 max-w-xs overflow-hidden">
           
           <ScrollArea className="flex-1 w-full overflow-hidden">
             {loading || messagesLoading ? (
@@ -629,7 +627,7 @@ const Messages: React.FC = () => {
         </div>
         
         {/* Partie droite: Conversation active */}
-        <div className="w-2/3 flex flex-col bg-gray-50 min-w-0 overflow-hidden">
+        <div className="w-2/3 flex flex-col bg-gray-50 min-w-0 flex-1 overflow-hidden">
           {activeConversation ? (
             <>
               {/* En-tête de la conversation */}
@@ -703,7 +701,7 @@ const Messages: React.FC = () => {
                           </Avatar>
                         )}
                         
-                        <div className={`max-w-[70%] min-w-0 flex-shrink-0 ${!isMe && !showSender ? 'ml-10' : ''}`}>
+                        <div className={`max-w-[70%] min-w-0 flex-shrink-0 max-w-full ${!isMe && !showSender ? 'ml-10' : ''}`}>
                           {!isMe && showSender && (
                             <div className="mb-1 text-xs text-gray-500">
                               {isDeletedUserMessage ? "Utilisateur supprimé" : (
@@ -720,7 +718,7 @@ const Messages: React.FC = () => {
                           
                           <div className="flex items-end max-w-full">
                             <div
-                              className={`px-4 py-2 rounded-2xl max-w-full ${
+                              className={`px-4 py-2 rounded-2xl max-w-full overflow-hidden ${
                                 isMe 
                                   ? 'bg-aphs-teal text-white rounded-tr-none' 
                                   : isDeletedUserMessage
@@ -728,7 +726,7 @@ const Messages: React.FC = () => {
                                     : 'bg-white text-gray-800 rounded-tl-none shadow-sm'
                               }`}
                             >
-                              <p className="whitespace-pre-wrap break-words max-w-full overflow-hidden">{msg.content}</p>
+                              <p className="whitespace-pre-wrap break-words max-w-full overflow-hidden text-sm">{msg.content}</p>
                             </div>
                             
                             <div className="text-xs text-gray-500 mx-2 flex-shrink-0">
@@ -753,18 +751,12 @@ const Messages: React.FC = () => {
               
               {/* Pied de page (input) */}
               <form onSubmit={handleSendMessage} className="p-4 border-t bg-white flex items-center gap-2">
-                <Button type="button" variant="ghost" size="icon" className="text-gray-500">
-                  <Paperclip className="h-5 w-5" />
-                </Button>
                 <Input
                   placeholder="Écrivez votre message..."
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                   className="flex-1"
                 />
-                <Button type="button" variant="ghost" size="icon" className="text-gray-500">
-                  <Smile className="h-5 w-5" />
-                </Button>
                 <Button type="submit" disabled={newMessage.trim() === "" || messagesLoading}>
                   <Send className="h-4 w-4 mr-2" />
                   Envoyer

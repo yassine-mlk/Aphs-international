@@ -9,7 +9,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -31,8 +30,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowUpDown, Users, Plus, X } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { ArrowUpDown, Users } from "lucide-react";
 
 // Type pour un intervenant
 interface Intervenant {
@@ -69,15 +67,7 @@ interface SupabaseUser {
   [key: string]: any;
 }
 
-// Type pour les contacts retournés par la fonction RPC
-interface Contact {
-  contact_id: string;
-  contact_email: string;
-  contact_first_name: string | null;
-  contact_last_name: string | null;
-  contact_role: string | null;
-  contact_specialty: string | null;
-}
+
 
 // Type pour les options de tri
 type SortField = 'name' | 'date' | 'specialty';
@@ -94,12 +84,7 @@ const Intervenants: React.FC = () => {
   const [selectedIntervenant, setSelectedIntervenant] = useState<Intervenant | null>(null);
   const [loading, setLoading] = useState(true);
   
-  // États pour la gestion des contacts
-  const [contactsDialogOpen, setContactsDialogOpen] = useState(false);
-  const [availableContacts, setAvailableContacts] = useState<Intervenant[]>([]);
-  const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
-  const [contactsLoading, setContactsLoading] = useState(false);
-  const [contactsCounts, setContactsCounts] = useState<Record<string, number>>({});
+
   
   // Options de tri et filtrage
   const [sortField, setSortField] = useState<SortField>('name');
@@ -147,8 +132,7 @@ const Intervenants: React.FC = () => {
         
         setIntervenants(formattedUsers);
         
-        // Charger les comptes de contacts après avoir chargé les intervenants
-        await loadContactsCounts();
+
       }
     } catch (error) {
       console.error('Erreur lors de la récupération des utilisateurs:', error);
@@ -240,138 +224,7 @@ const Intervenants: React.FC = () => {
   };
 
   // Fonctions pour la gestion des contacts
-  const openContactsDialog = async (intervenant: Intervenant) => {
-    setSelectedIntervenant(intervenant);
-    setContactsDialogOpen(true);
-    await loadContactsForIntervenant(intervenant.id);
-  };
 
-  const loadContactsForIntervenant = async (intervenantId: string) => {
-    setContactsLoading(true);
-    try {
-      // Charger tous les intervenants disponibles (sauf l'intervenant actuel)
-      const allIntervenants = intervenants.filter(i => i.id !== intervenantId);
-      setAvailableContacts(allIntervenants);
-
-      // Charger les contacts autorisés (IDs seulement)
-      try {
-        const { data: contactIds, error } = await supabase
-          .rpc('get_user_contacts', { user_id: intervenantId });
-
-        if (error) {
-          console.warn('⚠️ Erreur RPC:', error);
-          setSelectedContacts([]);
-        } else {
-          const ids = contactIds?.map((row: any) => row.contact_id) || [];
-          setSelectedContacts(ids);
-          console.log('✅ Contacts chargés:', ids);
-        }
-      } catch (rpcError) {
-        console.warn('⚠️ Fonction RPC non disponible');
-        setSelectedContacts([]);
-      }
-    } catch (error) {
-      console.error('Erreur:', error);
-      setSelectedContacts([]);
-    } finally {
-      setContactsLoading(false);
-    }
-  };
-
-  const toggleContact = (contactId: string) => {
-    setSelectedContacts(prev => 
-      prev.includes(contactId) 
-        ? prev.filter(id => id !== contactId)
-        : [...prev, contactId]
-    );
-  };
-
-  const saveContacts = async () => {
-    if (!selectedIntervenant) return;
-
-    setContactsLoading(true);
-    try {
-      // Récupérer les contacts actuels
-      const { data: currentContacts } = await supabase
-        .rpc('get_user_contacts', { user_id: selectedIntervenant.id });
-      
-      const currentIds = currentContacts?.map((row: any) => row.contact_id) || [];
-      
-      // Supprimer les contacts non sélectionnés
-      for (const contactId of currentIds) {
-        if (!selectedContacts.includes(contactId)) {
-          await supabase.rpc('remove_contact', {
-            user_id: selectedIntervenant.id,
-            contact_id: contactId
-          });
-        }
-      }
-      
-      // Ajouter les nouveaux contacts
-      for (const contactId of selectedContacts) {
-        if (!currentIds.includes(contactId)) {
-          await supabase.rpc('add_contact', {
-            user_id: selectedIntervenant.id,
-            contact_id: contactId
-          });
-        }
-      }
-      
-      await loadContactsCounts();
-      
-      toast({
-        title: "Succès",
-        description: `Contacts mis à jour pour ${selectedIntervenant.first_name || selectedIntervenant.name}`,
-      });
-      
-      setContactsDialogOpen(false);
-    } catch (error) {
-      console.error('Erreur:', error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de sauvegarder les contacts.",
-      });
-    } finally {
-      setContactsLoading(false);
-    }
-  };
-
-  const getContactsCount = (intervenantId: string) => {
-    return contactsCounts[intervenantId] || 0;
-  };
-
-  const loadContactsCounts = async () => {
-    try {
-      const counts: Record<string, number> = {};
-      
-      for (const intervenant of intervenants) {
-        try {
-          const { data: contactIds, error } = await supabase
-            .rpc('get_user_contacts', { user_id: intervenant.id });
-          
-          if (!error) {
-            counts[intervenant.id] = contactIds?.length || 0;
-          } else {
-            console.warn(`⚠️ Erreur pour ${intervenant.email}:`, error);
-            counts[intervenant.id] = 0;
-          }
-        } catch (rpcError) {
-          console.warn(`⚠️ Fonction RPC non disponible pour ${intervenant.email}`);
-          counts[intervenant.id] = 0;
-        }
-      }
-      
-      setContactsCounts(counts);
-      console.log('📊 Comptes de contacts chargés:', counts);
-    } catch (error) {
-      console.error('Erreur lors du chargement des comptes:', error);
-      const counts: Record<string, number> = {};
-      intervenants.forEach(intervenant => {
-        counts[intervenant.id] = 0;
-      });
-      setContactsCounts(counts);
-    }
-  };
 
   // Fusion du filtrage et du tri en une seule opération
   const filteredAndSortedIntervenants = useMemo(() => {
@@ -543,7 +396,7 @@ const Intervenants: React.FC = () => {
                 <th className="px-4 py-3 font-medium text-gray-900">Email</th>
                 <th className="px-4 py-3 font-medium text-gray-900">Entreprise</th>
                 <th className="px-4 py-3 font-medium text-gray-900">Spécialité</th>
-                <th className="px-4 py-3 font-medium text-gray-900">Contacts</th>
+
                 <th className="px-4 py-3 font-medium text-gray-900">Date d'ajout</th>
                 <th className="px-4 py-3 font-medium text-gray-900">Statut</th>
                 <th className="px-4 py-3 font-medium text-gray-900">Actions</th>
@@ -552,7 +405,7 @@ const Intervenants: React.FC = () => {
             <tbody className="divide-y divide-gray-200">
               {filteredAndSortedIntervenants.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-4 text-gray-500">
+                  <td colSpan={7} className="text-center py-4 text-gray-500">
                     Aucun intervenant trouvé
                   </td>
                 </tr>
@@ -563,15 +416,7 @@ const Intervenants: React.FC = () => {
                     <td className="px-4 py-3 text-gray-500">{intervenant.email}</td>
                     <td className="px-4 py-3 text-gray-500">{intervenant.company || 'Indépendant'}</td>
                     <td className="px-4 py-3 text-gray-500">{intervenant.specialty || 'Non spécifié'}</td>
-                    <td className="px-4 py-3">
-                      <button
-                        onClick={() => openContactsDialog(intervenant)}
-                        className="flex items-center gap-1 text-xs px-2 py-1 rounded font-medium bg-teal-100 text-teal-800 hover:bg-teal-200"
-                      >
-                        <Users className="h-3 w-3" />
-                        {getContactsCount(intervenant.id)} contacts
-                      </button>
-                    </td>
+
                     <td className="px-4 py-3 text-gray-500">{intervenant.joinDate}</td>
                     <td className="px-4 py-3">
                       <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
@@ -663,121 +508,7 @@ const Intervenants: React.FC = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Dialogue de gestion des contacts */}
-      <Dialog open={contactsDialogOpen} onOpenChange={setContactsDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              Gestion des contacts autorisés
-            </DialogTitle>
-            <DialogDescription>
-              Sélectionnez les intervenants avec lesquels {selectedIntervenant ? getDisplayName(selectedIntervenant) : 'cet intervenant'} peut communiquer.
-            </DialogDescription>
-            {contactsCounts[selectedIntervenant?.id || ''] === 0 && (
-              <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-sm text-blue-700">
-                💡 <strong>Mode temporaire :</strong> Les fonctions de contact ne sont pas encore configurées. 
-                Les contacts seront sauvegardés une fois les fonctions déployées.
-              </div>
-            )}
-          </DialogHeader>
-          
-          {contactsLoading ? (
-            <div className="flex justify-center py-8">
-              <div className="w-8 h-8 border-4 border-t-teal-500 border-r-transparent border-b-teal-500 border-l-transparent rounded-full animate-spin"></div>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="font-medium">
-                  Contacts sélectionnés: {selectedContacts.length}
-                </h3>
-                {selectedContacts.length > 0 && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSelectedContacts([])}
-                    className="text-xs"
-                  >
-                    <X className="h-3 w-3 mr-1" />
-                    Tout désélectionner
-                  </Button>
-                )}
-              </div>
-              
-              <div className="max-h-60 overflow-y-auto border rounded-lg p-2">
-                {availableContacts.length === 0 ? (
-                  <p className="text-center text-gray-500 py-4">
-                    Aucun autre intervenant disponible
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {availableContacts.map((contact) => (
-                      <div
-                        key={contact.id}
-                        className={`flex items-center justify-between p-2 rounded cursor-pointer transition-colors ${
-                          selectedContacts.includes(contact.id)
-                            ? 'bg-teal-50 border border-teal-200'
-                            : 'bg-gray-50 hover:bg-gray-100'
-                        }`}
-                        onClick={() => toggleContact(contact.id)}
-                      >
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="checkbox"
-                            checked={selectedContacts.includes(contact.id)}
-                            onChange={() => {}}
-                            className="rounded"
-                          />
-                          <div>
-                            <p className="font-medium text-sm">
-                              {getDisplayName(contact)}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              {contact.email} • {contact.specialty || 'Spécialité non spécifiée'}
-                            </p>
-                          </div>
-                        </div>
-                        {selectedContacts.includes(contact.id) && (
-                          <Badge variant="secondary" className="text-xs">
-                            Sélectionné
-                          </Badge>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-          
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setContactsDialogOpen(false)}
-            >
-              Annuler
-            </Button>
-            <Button
-              onClick={saveContacts}
-              disabled={contactsLoading}
-              className="bg-teal-600 hover:bg-teal-700"
-            >
-              {contactsLoading ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                  Sauvegarde...
-                </>
-              ) : (
-                <>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Sauvegarder les contacts
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+
     </div>
   );
 };
