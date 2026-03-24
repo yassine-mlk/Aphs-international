@@ -180,19 +180,21 @@ export function useRobustVideoConference({
     if (channelRef.current) {
       console.log(`📡 Broadcasting RTC signal to ${to}:`, signal.type);
       
-      const message = {
-        type: 'webrtc-signal',
-        payload: {
-          signal,
-          from: currentUserId,
-          to: 'broadcast', // Envoyer en broadcast pour que tous les participants reçoivent
-          timestamp: new Date().toISOString()
-        }
+      const timestamp = new Date().toISOString();
+      const payload = {
+        signal,
+        from: currentUserId,
+        to,
+        timestamp
       };
-      
-      console.log('📤 Sending message:', message);
-      
-      channelRef.current.send(message)
+
+      console.log('📤 Sending broadcast webrtc-signal:', payload);
+
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'webrtc-signal',
+        payload
+      })
         .then(() => {
           console.log(`✅ Signal ${signal.type} sent successfully to ${to}`);
         })
@@ -439,8 +441,15 @@ export function useRobustVideoConference({
         });
 
       // Se connecter au canal
-      await channel.subscribe();
-      console.log('✅ Canal Supabase souscrit');
+      await new Promise<void>((resolve, reject) => {
+        channel.subscribe((status) => {
+          console.log(`📡 Supabase Realtime status: ${status}`);
+          if (status === 'SUBSCRIBED') resolve();
+          if (status === 'CHANNEL_ERROR') reject(new Error('CHANNEL_ERROR'));
+          if (status === 'TIMED_OUT') reject(new Error('TIMED_OUT'));
+        });
+      });
+      console.log('✅ Canal Supabase souscrit (SUBSCRIBED)');
       
       // Se présenter dans la room
       await channel.track({
@@ -575,9 +584,11 @@ export function useRobustVideoConference({
     if (channelRef.current && message.trim()) {
       const timestamp = new Date().toISOString();
       channelRef.current.send({
-        type: 'chat-message',
+        type: 'broadcast',
+        event: 'chat-message',
         payload: {
           from: currentUserId,
+          userName,
           message: message.trim(),
           timestamp
         }
