@@ -345,7 +345,7 @@ export function useRobustVideoConference({
       // Créer le canal Supabase Realtime
       const channel = supabase.channel(`video_room_${roomId}`, {
         config: {
-          broadcast: { self: false, ack: false },
+          broadcast: { self: true, ack: true },
           presence: { key: currentUserId }
         }
       });
@@ -370,6 +370,7 @@ export function useRobustVideoConference({
       });
 
       channel.on('broadcast', { event: 'peer-hello' }, ({ payload }) => {
+        console.log('👋 peer-hello raw payload:', payload);
         const { from, name } = payload || {};
         if (!from || from === currentUserId) return;
         console.log(`👋 peer-hello reçu de ${from}`);
@@ -385,10 +386,13 @@ export function useRobustVideoConference({
             name: userName,
             timestamp: new Date().toISOString()
           }
+        }).then(() => {
+          console.log(`✅ peer-welcome envoyé à ${from}`);
         }).catch((err: any) => console.error('❌ Failed to send peer-welcome:', err));
       });
 
       channel.on('broadcast', { event: 'peer-welcome' }, ({ payload }) => {
+        console.log('🤝 peer-welcome raw payload:', payload);
         const { to, from, name } = payload || {};
         if (!to || to !== currentUserId) return;
         if (!from || from === currentUserId) return;
@@ -511,6 +515,8 @@ export function useRobustVideoConference({
           name: userName,
           timestamp: new Date().toISOString()
         }
+      }).then(() => {
+        console.log('✅ peer-hello envoyé');
       }).catch((err: any) => console.error('❌ Failed to send peer-hello:', err));
 
       setIsConnected(true);
