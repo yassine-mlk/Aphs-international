@@ -1,5 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { useWebSocketVideoConference } from '@/hooks/useWebSocketVideoConference';
+import { useRobustVideoConference } from '@/hooks/useRobustVideoConference';
+import { config } from '@/config/environment';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -26,6 +28,10 @@ interface SimpleVideoConferenceProps {
 }
 
 export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideoConferenceProps) {
+  const conference = config.useRobustVideoConference
+    ? useRobustVideoConference({ roomId, userName, onError })
+    : useWebSocketVideoConference({ roomId, userName, onError });
+
   const {
     localStream,
     participants,
@@ -41,7 +47,15 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
     disconnect,
     sendMessage,
     messages
-  } = useWebSocketVideoConference({ roomId, userName, onError });
+  } = conference;
+
+  const chatMessages = messages as Array<{
+    id: string;
+    from: string;
+    fromName?: string;
+    message: string;
+    timestamp: Date;
+  }>;
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const messageInputRef = useRef<HTMLInputElement>(null);
@@ -162,11 +176,11 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
           
           <ScrollArea className="flex-1 p-4">
             <div className="space-y-3">
-              {messages.map((message) => (
+              {chatMessages.map((message) => (
                 <div key={message.id} className="flex flex-col">
                   <div className="flex items-center space-x-2">
                     <span className="text-sm font-medium text-blue-400">
-                      {message.fromName}
+                      {message.fromName ?? message.from}
                     </span>
                     <span className="text-xs text-gray-400">
                       {message.timestamp.toLocaleTimeString()}
