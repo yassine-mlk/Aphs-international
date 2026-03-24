@@ -11,6 +11,19 @@ const wss = new WebSocket.Server({ server });
 // Stocker les connexions par room
 const rooms = new Map();
 
+const safeJsonParse = (message) => {
+  try {
+    return JSON.parse(message);
+  } catch {
+    return null;
+  }
+};
+
+const sendJson = (ws, payload) => {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  ws.send(JSON.stringify(payload));
+};
+
 // Gérer les connexions WebSocket
 wss.on('connection', (ws, req) => {
   const { query } = url.parse(req.url, true);
@@ -19,6 +32,12 @@ wss.on('connection', (ws, req) => {
   const userName = query.userName;
 
   console.log(`🔗 Nouvelle connexion: ${userName} (${userId}) dans la room ${roomId}`);
+
+  if (!roomId || !userId) {
+    console.log('❌ Connexion refusée (roomId/userId manquant)');
+    ws.close(1008, 'roomId/userId required');
+    return;
+  }
 
   // Ajouter à la room
   if (!rooms.has(roomId)) {
@@ -32,43 +51,55 @@ wss.on('connection', (ws, req) => {
     .filter(([id]) => id !== userId)
     .map(([id, data]) => ({ id, name: data.userName }));
 
-  ws.send(JSON.stringify({
+  sendJson(ws, {
     type: 'room-info',
     participants,
     roomId
-  }));
+  });
 
   // Annoncer le nouveau participant aux autres
   room.forEach((participant, id) => {
     if (id !== userId) {
-      participant.ws.send(JSON.stringify({
+      sendJson(participant.ws, {
         type: 'user-joined',
+        from: userId,
+        fromName: userName,
         userId,
         userName,
         roomId
-      }));
+      });
     }
   });
 
   // Gérer les messages
   ws.on('message', (message) => {
-    try {
-      const data = JSON.parse(message);
-      console.log(`📨 Message de ${userName}:`, data.type);
-
-      // Diffuser le message aux autres participants de la room
-      room.forEach((participant, id) => {
-        if (id !== userId && participant.ws.readyState === WebSocket.OPEN) {
-          participant.ws.send(JSON.stringify({
-            ...data,
-            from: userId,
-            fromName: userName
-          }));
-        }
-      });
-    } catch (error) {
-      console.error('❌ Erreur parsing message:', error);
+    const data = safeJsonParse(message);
+    if (!data) {
+      console.error('❌ Erreur parsing message: JSON invalide');
+      return;
     }
+
+    console.log(`📨 Message de ${userName}:`, data.type);
+
+    const enriched = {
+      ...data,
+      roomId,
+      from: userId,
+      fromName: userName
+    };
+
+    if (data.to && room.has(data.to)) {
+      const target = room.get(data.to);
+      sendJson(target.ws, enriched);
+      return;
+    }
+
+    // Diffuser le message aux autres participants de la room
+    room.forEach((participant, id) => {
+      if (id !== userId) {
+        sendJson(participant.ws, enriched);
+      }
+    });
   });
 
   // Gérer la déconnexion
@@ -82,14 +113,14 @@ wss.on('connection', (ws, req) => {
 
     // Annoncer le départ aux autres
     room.forEach((participant, id) => {
-      if (participant.ws.readyState === WebSocket.OPEN) {
-        participant.ws.send(JSON.stringify({
-          type: 'user-left',
-          userId,
-          userName,
-          roomId
-        }));
-      }
+      sendJson(participant.ws, {
+        type: 'user-left',
+        from: userId,
+        fromName: userName,
+        userId,
+        userName,
+        roomId
+      });
     });
 
     // Nettoyer la room si vide
