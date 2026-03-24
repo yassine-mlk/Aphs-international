@@ -29,7 +29,7 @@ interface UseWebSocketVideoConferenceReturn {
   toggleScreenShare: () => void;
   disconnect: () => void;
   sendMessage: (message: string) => void;
-  messages: Array<{ id: string; from: string; message: string; timestamp: Date }>;
+  messages: Array<{ id: string; from: string; fromName: string; message: string; timestamp: Date }>;
 }
 
 export function useWebSocketVideoConference({
@@ -46,16 +46,29 @@ export function useWebSocketVideoConference({
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'error' | 'disconnected'>('disconnected');
   const [error, setError] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Array<{ id: string; from: string; message: string; timestamp: Date }>>([]);
+  const [messages, setMessages] = useState<Array<{ id: string; from: string; fromName: string; message: string; timestamp: Date }>>([]);
 
   const wsRef = useRef<WebSocket | null>(null);
   const peersRef = useRef<{ [key: string]: RTCPeerConnection }>({});
-  const currentUserId = useRef(`user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+  const currentUserId = useRef<string>(
+    user?.id ?? `user_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
+  );
   const screenStreamRef = useRef<MediaStream | null>(null);
   const isConnectingRef = useRef(false);
 
   // Configuration WebSocket
-  const WS_URL = 'ws://localhost:3001'; // Serveur WebSocket local
+  const WS_URL =
+    import.meta.env.VITE_WEBSOCKET_URL ||
+    import.meta.env.VITE_WS_URL ||
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? 'ws://localhost:3001'
+      : `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`);
+
+  useEffect(() => {
+    if (user?.id && currentUserId.current !== user.id) {
+      currentUserId.current = user.id;
+    }
+  }, [user?.id]);
 
   // Initialiser le stream local
   const initializeLocalStream = useCallback(async (): Promise<MediaStream | null> => {
@@ -184,6 +197,10 @@ export function useWebSocketVideoConference({
         return;
       }
 
+      if (message.to && message.to !== currentUserId.current) {
+        return;
+      }
+
       switch (message.type) {
         case 'room-info':
           console.log('📋 Informations de la room:', message.participants);
@@ -223,20 +240,22 @@ export function useWebSocketVideoConference({
           break;
 
         case 'user-joined':
-          console.log(`👋 ${message.fromName} a rejoint la room`);
+          const joinedUserId = message.from || message.userId;
+          const joinedUserName = message.fromName || message.userName;
+          console.log(`👋 ${joinedUserName} a rejoint la room`);
           setParticipants(prev => {
-            if (!prev.find(p => p.id === message.from)) {
+            if (joinedUserId && !prev.find(p => p.id === joinedUserId)) {
               const newParticipant = {
-                id: message.from,
-                name: message.fromName,
+                id: joinedUserId,
+                name: joinedUserName || 'Participant',
                 isConnected: false,
                 joinedAt: new Date()
               };
 
               // Créer une connexion peer avec le nouveau participant
               setTimeout(() => {
-                console.log(`🔗 Création connexion peer avec ${message.fromName}`);
-                const peer = createPeerConnection(message.from, true);
+                console.log(`🔗 Création connexion peer avec ${joinedUserName}`);
+                const peer = createPeerConnection(joinedUserId, true);
                 if (peer) {
                   // Créer une offre
                   peer.createOffer()
@@ -244,7 +263,7 @@ export function useWebSocketVideoConference({
                     .then(() => {
                       sendWebSocketMessage({
                         type: 'offer',
-                        to: message.from,
+                        to: joinedUserId,
                         sdp: peer.localDescription,
                         fromName: userName
                       });
@@ -260,18 +279,32 @@ export function useWebSocketVideoConference({
           break;
 
         case 'user-left':
-          console.log(`👋 ${message.fromName} a quitté la room`);
-          setParticipants(prev => prev.filter(p => p.id !== message.from));
+          const leftUserId = message.from || message.userId;
+          const leftUserName = message.fromName || message.userName;
+          console.log(`👋 ${leftUserName} a quitté la room`);
+          setParticipants(prev => prev.filter(p => p.id !== leftUserId));
           // Fermer la connexion peer
-          const peerToClose = peersRef.current[message.from];
+          const peerToClose = peersRef.current[leftUserId];
           if (peerToClose) {
             peerToClose.close();
-            delete peersRef.current[message.from];
+            delete peersRef.current[leftUserId];
           }
           break;
 
         case 'offer':
           console.log(`📥 Offre reçue de ${message.fromName}`);
+          setParticipants(prev => {
+            if (prev.some(p => p.id === message.from)) return prev;
+            return [
+              ...prev,
+              {
+                id: message.from,
+                name: message.fromName || 'Participant',
+                isConnected: false,
+                joinedAt: new Date()
+              }
+            ];
+          });
           const offerPeer = createPeerConnection(message.from, false);
           if (offerPeer) {
             // Vérifier l'état avant de définir la description distante
@@ -325,6 +358,18 @@ export function useWebSocketVideoConference({
 
         case 'answer':
           console.log(`📥 Réponse reçue de ${message.fromName}`);
+          setParticipants(prev => {
+            if (prev.some(p => p.id === message.from)) return prev;
+            return [
+              ...prev,
+              {
+                id: message.from,
+                name: message.fromName || 'Participant',
+                isConnected: false,
+                joinedAt: new Date()
+              }
+            ];
+          });
           const answerPeer = peersRef.current[message.from];
           if (answerPeer) {
             // Vérifier l'état avant de définir la description distante
@@ -359,10 +404,11 @@ export function useWebSocketVideoConference({
 
         case 'chat':
           setMessages(prev => [...prev, {
-            id: `${message.from}-${message.timestamp}`,
-            from: message.fromName || message.from,
-            message: message.text,
-            timestamp: new Date(message.timestamp)
+            id: `${message.from}-${message.timestamp || Date.now()}`,
+            from: message.from,
+            fromName: message.fromName || message.from,
+            message: message.text || message.message || '',
+            timestamp: new Date(message.timestamp || Date.now())
           }]);
           break;
 
@@ -518,6 +564,16 @@ export function useWebSocketVideoConference({
 
   // Envoyer un message de chat
   const sendMessage = useCallback((message: string) => {
+    setMessages(prev => [
+      ...prev,
+      {
+        id: `${currentUserId.current}-${Date.now()}`,
+        from: currentUserId.current,
+        fromName: userName,
+        message,
+        timestamp: new Date()
+      }
+    ]);
     sendWebSocketMessage({
       type: 'chat',
       text: message

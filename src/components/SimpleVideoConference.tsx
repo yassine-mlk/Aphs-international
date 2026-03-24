@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { useRealVideoConference } from '@/hooks/useRealVideoConference';
+import { useWebSocketVideoConference } from '@/hooks/useWebSocketVideoConference';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -41,7 +41,7 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
     disconnect,
     sendMessage,
     messages
-  } = useRealVideoConference({ roomId, userName, onError });
+  } = useWebSocketVideoConference({ roomId, userName, onError });
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const messageInputRef = useRef<HTMLInputElement>(null);
