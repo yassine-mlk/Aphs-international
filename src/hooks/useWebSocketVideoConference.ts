@@ -62,7 +62,7 @@ export function useWebSocketVideoConference({
     import.meta.env.VITE_WS_URL ||
     (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
       ? 'ws://localhost:3001'
-      : `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`);
+      : undefined);
 
   useEffect(() => {
     if (user?.id && currentUserId.current !== user.id) {
@@ -436,6 +436,17 @@ export function useWebSocketVideoConference({
       isConnectingRef.current = true;
       console.log(`🚀 Connexion à la room: ${roomId}`);
       setConnectionStatus('connecting');
+      setError(null);
+
+      if (!WS_URL) {
+        const message =
+          'Configuration WebSocket manquante. Définissez VITE_WS_URL (ou VITE_WEBSOCKET_URL) en production, ou lancez le serveur local ws://localhost:3001 en développement.';
+        console.error(`❌ ${message}`);
+        setError(message);
+        setConnectionStatus('error');
+        onError?.(message);
+        return;
+      }
 
       // Initialiser le stream local
       const stream = await initializeLocalStream();
@@ -475,7 +486,7 @@ export function useWebSocketVideoConference({
     } finally {
       isConnectingRef.current = false;
     }
-  }, [user, roomId, userName, initializeLocalStream, handleWebSocketMessage]);
+  }, [user, roomId, userName, initializeLocalStream, handleWebSocketMessage, WS_URL, onError]);
 
   // Se déconnecter
   const disconnect = useCallback(() => {
