@@ -10,6 +10,8 @@ interface Participant {
   isConnected: boolean;
   isAudioEnabled: boolean;
   isVideoEnabled: boolean;
+  isSpeaking?: boolean;
+  networkQuality?: 'good' | 'unstable' | 'bad';
   joinedAt: Date;
 }
 
@@ -63,6 +65,10 @@ export function useRobustVideoConference({
 
   // Générer un ID unique pour cette session
   const currentUserId = useRef(user?.id || `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`).current;
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const localAnalyserRef = useRef<AnalyserNode | null>(null);
+  const localTalkingRef = useRef<boolean>(false);
+  const statsIntervalRef = useRef<any>(null);
 
   // Initialiser le stream local
   const initializeLocalStream = useCallback(async () => {
@@ -223,6 +229,8 @@ export function useRobustVideoConference({
           isConnected: false,
           isAudioEnabled: true,
           isVideoEnabled: true,
+          isSpeaking: false,
+          networkQuality: 'good',
           joinedAt: new Date()
         }
       ];
@@ -444,6 +452,11 @@ export function useRobustVideoConference({
             isVideoEnabled: typeof videoEnabled === 'boolean' ? videoEnabled : p.isVideoEnabled
           };
         }));
+      });
+      channel.on('broadcast', { event: 'talking' }, ({ payload }) => {
+        const { from, talking } = payload || {};
+        if (!from || typeof talking !== 'boolean') return;
+        setParticipants(prev => prev.map(p => p.id === from ? { ...p, isSpeaking: talking } : p));
       });
 
       // Gérer les présences
@@ -716,6 +729,82 @@ export function useRobustVideoConference({
       disconnect();
     };
   }, [connectToRoom, disconnect]);
+
+  useEffect(() => {
+    if (!localStream) return;
+    try {
+      if (!audioContextRef.current) audioContextRef.current = new AudioContext();
+      const ctx = audioContextRef.current;
+      if (!ctx) return;
+      const source = ctx.createMediaStreamSource(localStream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 1024;
+      source.connect(analyser);
+      localAnalyserRef.current = analyser;
+      let raf: number;
+      const buf = new Uint8Array(1024);
+      const loop = () => {
+        if (!localAnalyserRef.current) return;
+        localAnalyserRef.current.getByteTimeDomainData(buf);
+        let sum = 0;
+        for (let i = 0; i < buf.length; i++) {
+          const v = (buf[i] - 128) / 128;
+          sum += v * v;
+        }
+        const rms = Math.sqrt(sum / buf.length);
+        const talking = rms > 0.03;
+        if (talking !== localTalkingRef.current) {
+          localTalkingRef.current = talking;
+          if (channelRef.current) {
+            channelRef.current.send({
+              type: 'broadcast',
+              event: 'talking',
+              payload: { from: currentUserId, talking, timestamp: Date.now() }
+            }).catch(() => undefined);
+          }
+        }
+        raf = requestAnimationFrame(loop);
+      };
+      raf = requestAnimationFrame(loop);
+      return () => cancelAnimationFrame(raf);
+    } catch {
+      return;
+    }
+  }, [localStream, currentUserId]);
+
+  useEffect(() => {
+    if (statsIntervalRef.current) {
+      clearInterval(statsIntervalRef.current);
+      statsIntervalRef.current = null;
+    }
+    statsIntervalRef.current = setInterval(async () => {
+      const entries = Object.entries(peersRef.current);
+      for (const [pid, pc] of entries) {
+        try {
+          const stats = await pc.getStats();
+          let rtt = 0;
+          let fractionLost = 0;
+          stats.forEach(report => {
+            if ((report.type === 'transport' || report.type === 'candidate-pair') && (report.currentRoundTripTime || report.roundTripTime)) {
+              rtt = Number(report.currentRoundTripTime || report.roundTripTime || 0);
+            }
+            if (report.type === 'remote-inbound-rtp' && typeof report.fractionLost === 'number') {
+              fractionLost = report.fractionLost;
+            }
+          });
+          let quality: 'good' | 'unstable' | 'bad' = 'good';
+          if (rtt > 0.6 || fractionLost > 0.05) quality = 'bad';
+          else if (rtt > 0.2 || fractionLost > 0.02) quality = 'unstable';
+          setParticipants(prev => prev.map(p => p.id === pid ? { ...p, networkQuality: quality } : p));
+        } catch {
+        }
+      }
+    }, 2000);
+    return () => {
+      if (statsIntervalRef.current) clearInterval(statsIntervalRef.current);
+      statsIntervalRef.current = null;
+    };
+  }, []);
 
   // Forcer la reconnexion au canal
   const forceReconnect = useCallback(async () => {

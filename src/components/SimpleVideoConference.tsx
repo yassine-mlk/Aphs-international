@@ -80,7 +80,19 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
     return !window.matchMedia('(min-width: 1024px)').matches;
   }, []);
 
-  const videoTiles = useMemo(() => {
+  type Tile = {
+    id: string;
+    name: string;
+    stream?: MediaStream;
+    isConnected: boolean;
+    isAudioEnabled: boolean;
+    isVideoEnabled: boolean;
+    isSpeaking: boolean;
+    networkQuality: 'good' | 'unstable' | 'bad';
+    isLocal: boolean;
+  };
+
+  const videoTiles: Tile[] = useMemo(() => {
     const localTile = {
       id: 'local',
       name: `Vous (${userName})`,
@@ -88,16 +100,20 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
       isConnected: true,
       isAudioEnabled,
       isVideoEnabled,
+      isSpeaking: false,
+      networkQuality: 'good' as 'good' | 'unstable' | 'bad',
       isLocal: true
-    };
+    } as Tile;
 
-    const remoteTiles = participants.map(p => ({
+    const remoteTiles: Tile[] = participants.map(p => ({
       id: p.id,
       name: p.name,
       stream: p.stream,
       isConnected: p.isConnected,
-      isAudioEnabled: p.isAudioEnabled,
-      isVideoEnabled: p.isVideoEnabled,
+      isAudioEnabled: p.isAudioEnabled ?? true,
+      isVideoEnabled: p.isVideoEnabled ?? true,
+      isSpeaking: p.isSpeaking ?? false,
+      networkQuality: p.networkQuality ?? 'good',
       isLocal: false
     }));
 
@@ -239,15 +255,7 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
     }
   };
 
-  const renderTile = (tile: {
-    id: string;
-    name: string;
-    stream?: MediaStream;
-    isConnected: boolean;
-    isAudioEnabled: boolean;
-    isVideoEnabled: boolean;
-    isLocal: boolean;
-  }, options: { size: 'primary' | 'secondary' | 'mosaic' }) => {
+  const renderTile = (tile: Tile, options: { size: 'primary' | 'secondary' | 'mosaic' }) => {
     const isPinned = pinnedId === tile.id;
     const isActive = tile.id === activeSpeakerId && layoutMode === 'speaker' && !pinnedId && !isScreenSharing;
     const minH =
@@ -268,6 +276,12 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
               )}
               {tile.isConnected && (
                 <Badge variant="default" className="text-xs">Connecté</Badge>
+              )}
+              {tile.networkQuality === 'unstable' && (
+                <Badge variant="secondary" className="text-xs">Connexion instable</Badge>
+              )}
+              {tile.networkQuality === 'bad' && (
+                <Badge variant="destructive" className="text-xs">Mauvaise connexion</Badge>
               )}
               {!tile.isLocal && (
                 <Button
@@ -305,6 +319,11 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
               </div>
             )}
 
+            {tile.isSpeaking && (
+              <div className="absolute top-2 left-2 bg-green-600 text-white text-xs px-2 py-1 rounded">
+                Parle
+              </div>
+            )}
             {!tile.isAudioEnabled && (
               <div className="absolute top-2 right-2 bg-black/60 rounded-full p-2">
                 <MicOff className="w-4 h-4 text-white" />
