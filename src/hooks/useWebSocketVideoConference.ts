@@ -6,6 +6,8 @@ interface Participant {
   name: string;
   stream?: MediaStream;
   isConnected: boolean;
+  isAudioEnabled: boolean;
+  isVideoEnabled: boolean;
   joinedAt: Date;
 }
 
@@ -209,6 +211,8 @@ export function useWebSocketVideoConference({
             id: p.id,
             name: p.name,
             isConnected: false,
+            isAudioEnabled: true,
+            isVideoEnabled: true,
             joinedAt: new Date()
           })));
 
@@ -249,6 +253,8 @@ export function useWebSocketVideoConference({
                 id: joinedUserId,
                 name: joinedUserName || 'Participant',
                 isConnected: false,
+                isAudioEnabled: true,
+                isVideoEnabled: true,
                 joinedAt: new Date()
               };
 
@@ -301,6 +307,8 @@ export function useWebSocketVideoConference({
                 id: message.from,
                 name: message.fromName || 'Participant',
                 isConnected: false,
+                isAudioEnabled: true,
+                isVideoEnabled: true,
                 joinedAt: new Date()
               }
             ];
@@ -366,6 +374,8 @@ export function useWebSocketVideoConference({
                 id: message.from,
                 name: message.fromName || 'Participant',
                 isConnected: false,
+                isAudioEnabled: true,
+                isVideoEnabled: true,
                 joinedAt: new Date()
               }
             ];
@@ -399,6 +409,19 @@ export function useWebSocketVideoConference({
             icePeer.addIceCandidate(new RTCIceCandidate(message.candidate))
               .then(() => console.log('✅ ICE candidate ajouté'))
               .catch(err => console.error('❌ Erreur ajout ICE candidate:', err));
+          }
+          break;
+
+        case 'media-state':
+          if (typeof message.audioEnabled === 'boolean' || typeof message.videoEnabled === 'boolean') {
+            setParticipants(prev => prev.map(p => {
+              if (p.id !== message.from) return p;
+              return {
+                ...p,
+                isAudioEnabled: typeof message.audioEnabled === 'boolean' ? message.audioEnabled : p.isAudioEnabled,
+                isVideoEnabled: typeof message.videoEnabled === 'boolean' ? message.videoEnabled : p.isVideoEnabled
+              };
+            }));
           }
           break;
 
@@ -519,21 +542,33 @@ export function useWebSocketVideoConference({
     if (localStream) {
       const audioTrack = localStream.getAudioTracks()[0];
       if (audioTrack) {
-        audioTrack.enabled = !audioTrack.enabled;
-        setIsAudioEnabled(audioTrack.enabled);
+        const nextAudioEnabled = !audioTrack.enabled;
+        audioTrack.enabled = nextAudioEnabled;
+        setIsAudioEnabled(nextAudioEnabled);
+        sendWebSocketMessage({
+          type: 'media-state',
+          audioEnabled: nextAudioEnabled,
+          videoEnabled: isVideoEnabled
+        });
       }
     }
-  }, [localStream]);
+  }, [localStream, sendWebSocketMessage, isVideoEnabled]);
 
   const toggleVideo = useCallback(() => {
     if (localStream) {
       const videoTrack = localStream.getVideoTracks()[0];
       if (videoTrack) {
-        videoTrack.enabled = !videoTrack.enabled;
-        setIsVideoEnabled(videoTrack.enabled);
+        const nextVideoEnabled = !videoTrack.enabled;
+        videoTrack.enabled = nextVideoEnabled;
+        setIsVideoEnabled(nextVideoEnabled);
+        sendWebSocketMessage({
+          type: 'media-state',
+          audioEnabled: isAudioEnabled,
+          videoEnabled: nextVideoEnabled
+        });
       }
     }
-  }, [localStream]);
+  }, [localStream, sendWebSocketMessage, isAudioEnabled]);
 
   const toggleScreenShare = useCallback(async () => {
     try {
