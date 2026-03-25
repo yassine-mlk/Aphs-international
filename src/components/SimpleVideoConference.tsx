@@ -67,6 +67,9 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserMapRef = useRef<Map<string, { analyser: AnalyserNode; source: MediaStreamAudioSourceNode }>>(new Map());
   const rafRef = useRef<number | null>(null);
+  const candidateIdRef = useRef<string | null>(null);
+  const candidateStartRef = useRef<number>(0);
+  const activeSpeakerRef = useRef<string>('local');
 
   const tileCount = participants.length + 1;
   const gridColsClass = useMemo(() => {
@@ -187,8 +190,23 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
         }
       });
 
-      if (bestId && bestScore > 0.03) {
-        setActiveSpeakerId(bestId);
+      const threshold = 0.03;
+      const margin = 0.01;
+      const holdMs = 1500;
+
+      if (bestId && bestScore > threshold) {
+        const prevCandidate = candidateIdRef.current;
+        const now = performance.now();
+        if (prevCandidate !== bestId || bestScore < threshold + margin) {
+          candidateIdRef.current = bestId;
+          candidateStartRef.current = now;
+        } else {
+          const elapsed = now - candidateStartRef.current;
+          if (elapsed >= holdMs && activeSpeakerRef.current !== bestId) {
+            activeSpeakerRef.current = bestId;
+            setActiveSpeakerId(bestId);
+          }
+        }
       }
 
       rafRef.current = requestAnimationFrame(update);
