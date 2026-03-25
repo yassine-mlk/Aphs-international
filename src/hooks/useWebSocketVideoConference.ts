@@ -580,7 +580,7 @@ export function useWebSocketVideoConference({
       {
         id: `${currentUserId.current}-${Date.now()}`,
         from: currentUserId.current,
-        fromName: userName,
+        fromName: 'Moi',
         message,
         timestamp: new Date()
       }

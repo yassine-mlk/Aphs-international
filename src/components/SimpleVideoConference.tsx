@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useMemo, useState } from 'react';
 import { useWebSocketVideoConference } from '@/hooks/useWebSocketVideoConference';
 import { useRobustVideoConference } from '@/hooks/useRobustVideoConference';
 import { config } from '@/config/environment';
@@ -57,6 +57,15 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
     timestamp: Date;
   }>;
 
+  const [isChatOpen, setIsChatOpen] = useState(true);
+
+  const tileCount = participants.length + 1;
+  const gridColsClass = useMemo(() => {
+    if (tileCount <= 1) return 'grid-cols-1';
+    if (tileCount <= 4) return 'grid-cols-1 md:grid-cols-2';
+    return 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3';
+  }, [tileCount]);
+
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const messageInputRef = useRef<HTMLInputElement>(null);
 
@@ -98,23 +107,31 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
           <span className="text-sm text-gray-300">
             {participants.length + 1} participant(s)
           </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsChatOpen(prev => !prev)}
+          >
+            <MessageCircle className="w-4 h-4 mr-2" />
+            {isChatOpen ? 'Masquer le chat' : 'Afficher le chat'}
+          </Button>
         </div>
       </div>
 
       {/* Contenu principal */}
-      <div className="flex-1 flex">
+      <div className="flex-1 flex flex-col lg:flex-row">
         {/* Zone vidéo */}
-        <div className="flex-1 p-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 h-full">
+        <div className="flex-1 p-4 overflow-hidden">
+          <div className={`grid ${gridColsClass} gap-4 h-full auto-rows-fr`}>
             {/* Vidéo locale */}
-            <Card className="bg-gray-800 border-gray-700">
+            <Card className="bg-gray-800 border-gray-700 h-full">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm text-gray-300">
                   Vous ({userName})
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-2">
-                <div className="relative aspect-video bg-gray-900 rounded-lg overflow-hidden">
+              <CardContent className="p-2 h-full">
+                <div className="relative w-full bg-gray-900 rounded-lg overflow-hidden aspect-video min-h-[260px]">
                   <video
                     ref={localVideoRef}
                     autoPlay
@@ -133,7 +150,7 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
 
             {/* Participants */}
             {participants.map((participant) => (
-              <Card key={participant.id} className="bg-gray-800 border-gray-700">
+              <Card key={participant.id} className="bg-gray-800 border-gray-700 h-full">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm text-gray-300 flex items-center justify-between">
                     <span>{participant.name}</span>
@@ -142,8 +159,8 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
                     </Badge>
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="p-2">
-                  <div className="relative aspect-video bg-gray-900 rounded-lg overflow-hidden">
+                <CardContent className="p-2 h-full">
+                  <div className="relative w-full bg-gray-900 rounded-lg overflow-hidden aspect-video min-h-[260px]">
                     {participant.stream ? (
                       <video
                         autoPlay
@@ -166,46 +183,48 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
         </div>
 
         {/* Chat */}
-        <div className="w-80 border-l border-gray-700 flex flex-col">
-          <div className="p-4 border-b border-gray-700">
-            <h3 className="font-semibold flex items-center">
-              <MessageCircle className="w-4 h-4 mr-2" />
-              Chat
-            </h3>
-          </div>
-          
-          <ScrollArea className="flex-1 p-4">
-            <div className="space-y-3">
-              {chatMessages.map((message) => (
-                <div key={message.id} className="flex flex-col">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm font-medium text-blue-400">
-                      {message.fromName ?? message.from}
-                    </span>
-                    <span className="text-xs text-gray-400">
-                      {message.timestamp.toLocaleTimeString()}
-                    </span>
+        {isChatOpen && (
+          <div className="w-full lg:w-72 xl:w-80 border-t lg:border-t-0 lg:border-l border-gray-700 flex flex-col max-h-[40vh] lg:max-h-none">
+            <div className="p-4 border-b border-gray-700">
+              <h3 className="font-semibold flex items-center">
+                <MessageCircle className="w-4 h-4 mr-2" />
+                Chat
+              </h3>
+            </div>
+            
+            <ScrollArea className="flex-1 p-4">
+              <div className="space-y-3">
+                {chatMessages.map((message) => (
+                  <div key={message.id} className="flex flex-col">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm font-medium text-blue-400">
+                        {message.fromName ?? message.from}
+                      </span>
+                      <span className="text-xs text-gray-400">
+                        {message.timestamp.toLocaleTimeString()}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-300 mt-1">{message.message}</p>
                   </div>
-                  <p className="text-sm text-gray-300 mt-1">{message.message}</p>
-                </div>
-              ))}
-            </div>
-          </ScrollArea>
+                ))}
+              </div>
+            </ScrollArea>
 
-          <div className="p-4 border-t border-gray-700">
-            <div className="flex space-x-2">
-              <Input
-                ref={messageInputRef}
-                placeholder="Tapez votre message..."
-                className="flex-1 bg-gray-800 border-gray-600 text-white"
-                onKeyPress={handleKeyPress}
-              />
-              <Button size="sm" onClick={handleSendMessage}>
-                <Send className="w-4 h-4" />
-              </Button>
+            <div className="p-4 border-t border-gray-700">
+              <div className="flex space-x-2">
+                <Input
+                  ref={messageInputRef}
+                  placeholder="Tapez votre message..."
+                  className="flex-1 bg-gray-800 border-gray-600 text-white"
+                  onKeyPress={handleKeyPress}
+                />
+                <Button size="sm" onClick={handleSendMessage}>
+                  <Send className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Contrôles */}
