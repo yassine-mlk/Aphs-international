@@ -111,6 +111,7 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
             variant="outline"
             size="sm"
             onClick={() => setIsChatOpen(prev => !prev)}
+            className="bg-gray-900 text-gray-100 border-gray-600 hover:bg-gray-700 hover:text-white"
           >
             <MessageCircle className="w-4 h-4 mr-2" />
             {isChatOpen ? 'Masquer le chat' : 'Afficher le chat'}
@@ -252,7 +253,7 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
             variant={isScreenSharing ? "default" : "outline"}
             size="lg"
             onClick={toggleScreenShare}
-            className="rounded-full w-12 h-12"
+            className={isScreenSharing ? "rounded-full w-12 h-12" : "rounded-full w-12 h-12 bg-gray-900 text-gray-100 border-gray-600 hover:bg-gray-700 hover:text-white"}
           >
             {isScreenSharing ? <MonitorOff className="w-5 h-5" /> : <Monitor className="w-5 h-5" />}
           </Button>
