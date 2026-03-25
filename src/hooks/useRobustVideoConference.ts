@@ -31,7 +31,7 @@ interface UseRobustVideoConferenceReturn {
   toggleScreenShare: () => void;
   disconnect: () => void;
   sendMessage: (message: string) => void;
-  messages: Array<{ id: string; from: string; message: string; timestamp: Date }>;
+  messages: Array<{ id: string; from: string; fromName?: string; message: string; timestamp: Date }>;
 }
 
 export function useRobustVideoConference({
@@ -57,7 +57,7 @@ export function useRobustVideoConference({
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'error' | 'disconnected'>('connecting');
   const [error, setError] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Array<{ id: string; from: string; message: string; timestamp: Date }>>([]);
+  const [messages, setMessages] = useState<Array<{ id: string; from: string; fromName?: string; message: string; timestamp: Date }>>([]);
 
   // Générer un ID unique pour cette session
   const currentUserId = useRef(user?.id || `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`).current;
@@ -407,7 +407,8 @@ export function useRobustVideoConference({
         if (from !== currentUserId) {
           setMessages(prev => [...prev, {
             id: `${from}-${timestamp}`,
-            from: senderName || from,
+            from,
+            fromName: senderName || from,
             message,
             timestamp: new Date(timestamp)
           }]);
@@ -658,11 +659,12 @@ export function useRobustVideoConference({
       setMessages(prev => [...prev, {
         id: `${currentUserId}-${timestamp}`,
         from: currentUserId,
+        fromName: 'Moi',
         message: message.trim(),
         timestamp: new Date(timestamp)
       }]);
     }
-  }, [currentUserId]);
+  }, [currentUserId, userName]);
 
   // Initialisation
   useEffect(() => {
