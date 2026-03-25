@@ -35,7 +35,7 @@ const VideoStream = React.memo(({ stream, muted }: { stream?: MediaStream; muted
       autoPlay
       playsInline
       muted={muted}
-      className="w-full h-full object-cover"
+      className="w-full h-full object-contain sm:object-cover"
     />
   );
 });
@@ -242,10 +242,10 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
     const isActive = tile.id === activeSpeakerId && layoutMode === 'speaker' && !pinnedId && !isScreenSharing;
     const minH =
       options.size === 'primary'
-        ? 'min-h-[260px] sm:min-h-[420px]'
+        ? 'min-h-[220px] sm:min-h-[420px] max-h-[55vh]'
         : options.size === 'secondary'
-          ? 'min-h-[140px]'
-          : 'min-h-[220px] sm:min-h-[280px]';
+          ? 'min-h-[160px] sm:min-h-[240px] max-h-[40vh]'
+          : 'min-h-[200px] sm:min-h-[280px] max-h-[45vh]';
 
     const ringClass = (isPinned || isActive) ? 'ring-2 ring-green-500' : '';
     return (
@@ -353,9 +353,9 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
                 {renderTile(primaryTile, { size: 'primary' })}
               </div>
               <div className="shrink-0 lg:w-[340px] xl:w-[380px]">
-                <div className="flex lg:flex-col gap-3 overflow-x-auto lg:overflow-x-hidden lg:overflow-y-auto pb-1 lg:pb-0 max-h-[34vh] lg:max-h-[calc(100vh-220px)]">
+                <div className="flex lg:flex-col gap-3 overflow-x-auto lg:overflow-x-hidden lg:overflow-y-auto pb-1 lg:pb-0 max-h-[40vh] lg:max-h-[calc(100vh-220px)] snap-x">
                   {secondaryTiles.map(tile => (
-                    <div key={tile.id} className="min-w-[260px] lg:min-w-0">
+                    <div key={tile.id} className="min-w-[75vw] sm:min-w-[320px] lg:min-w-0 snap-center">
                       {renderTile(tile, { size: 'secondary' })}
                     </div>
                   ))}
@@ -419,7 +419,7 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
       </div>
 
       {/* Contrôles */}
-      <div className="p-4 bg-gray-800 border-t border-gray-700 shrink-0">
+      <div className="p-4 bg-gray-800 border-t border-gray-700 shrink-0 pb-[env(safe-area-inset-bottom)]">
         <div className="flex items-center justify-center space-x-4">
           <Button
             variant={isAudioEnabled ? "default" : "destructive"}
