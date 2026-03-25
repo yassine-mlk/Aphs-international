@@ -21,6 +21,25 @@ import {
   MessageCircle
 } from 'lucide-react';
 
+const VideoStream = React.memo(({ stream, muted }: { stream?: MediaStream; muted: boolean }) => {
+  const ref = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (el && stream && el.srcObject !== stream) {
+      el.srcObject = stream;
+    }
+  }, [stream]);
+  return (
+    <video
+      ref={ref}
+      autoPlay
+      playsInline
+      muted={muted}
+      className="w-full h-full object-cover"
+    />
+  );
+});
+
 interface SimpleVideoConferenceProps {
   roomId: string;
   userName: string;
@@ -283,25 +302,6 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
           ? 'min-h-[140px]'
           : 'min-h-[220px] sm:min-h-[280px]';
 
-    const VideoEl = React.memo(({ stream, muted }: { stream?: MediaStream; muted: boolean }) => {
-      const ref = useRef<HTMLVideoElement>(null);
-      useEffect(() => {
-        const el = ref.current;
-        if (el && stream && el.srcObject !== stream) {
-          el.srcObject = stream;
-        }
-      }, [stream]);
-      return (
-        <video
-          ref={ref}
-          autoPlay
-          playsInline
-          muted={muted}
-          className="w-full h-full object-cover"
-        />
-      );
-    });
-
     return (
       <Card key={tile.id} className={`bg-gray-800 border-gray-700 h-full ${isActive ? 'ring-2 ring-aphs-teal' : ''}`}>
         <CardHeader className="py-2 px-3">
@@ -336,7 +336,7 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
         <CardContent className="p-2 h-full">
           <div className={`relative w-full bg-gray-900 rounded-lg overflow-hidden aspect-video ${minH}`}>
             {tile.stream ? (
-              <VideoEl stream={tile.isLocal ? localStream ?? undefined : tile.stream} muted={tile.isLocal} />
+              <VideoStream stream={tile.isLocal ? localStream ?? undefined : tile.stream} muted={tile.isLocal} />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
                 <Users className="w-12 h-12 text-gray-400" />

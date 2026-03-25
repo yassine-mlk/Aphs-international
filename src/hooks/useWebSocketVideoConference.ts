@@ -63,6 +63,7 @@ export function useWebSocketVideoConference({
   const localAnalyserRef = useRef<AnalyserNode | null>(null);
   const localTalkingRef = useRef<boolean>(false);
   const statsIntervalRef = useRef<any>(null);
+  const lastTalkingSentRef = useRef<number>(0);
 
   const createParticipant = useCallback((id: string, name: string): Participant => ({
     id,
@@ -650,7 +651,11 @@ export function useWebSocketVideoConference({
         const talking = rms > 0.03;
         if (talking !== localTalkingRef.current) {
           localTalkingRef.current = talking;
-          sendWebSocketMessage({ type: 'talking', talking });
+          const now = Date.now();
+          if (now - lastTalkingSentRef.current >= 500) {
+            lastTalkingSentRef.current = now;
+            sendWebSocketMessage({ type: 'talking', talking });
+          }
         }
         raf = requestAnimationFrame(loop);
       };

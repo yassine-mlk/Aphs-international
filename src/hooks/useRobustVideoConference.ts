@@ -69,6 +69,7 @@ export function useRobustVideoConference({
   const localAnalyserRef = useRef<AnalyserNode | null>(null);
   const localTalkingRef = useRef<boolean>(false);
   const statsIntervalRef = useRef<any>(null);
+  const lastTalkingSentRef = useRef<number>(0);
 
   // Initialiser le stream local
   const initializeLocalStream = useCallback(async () => {
@@ -755,11 +756,13 @@ export function useRobustVideoConference({
         const talking = rms > 0.03;
         if (talking !== localTalkingRef.current) {
           localTalkingRef.current = talking;
-          if (channelRef.current) {
+          const now = Date.now();
+          if (channelRef.current && now - lastTalkingSentRef.current >= 500) {
+            lastTalkingSentRef.current = now;
             channelRef.current.send({
               type: 'broadcast',
               event: 'talking',
-              payload: { from: currentUserId, talking, timestamp: Date.now() }
+              payload: { from: currentUserId, talking, timestamp: now }
             }).catch(() => undefined);
           }
         }
