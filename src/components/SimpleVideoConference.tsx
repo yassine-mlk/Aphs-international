@@ -199,6 +199,8 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
   }, [videoTiles, primaryTileId]);
 
   const messageInputRef = useRef<HTMLInputElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const [isChatVisible, setIsChatVisible] = useState(true);
 
   // Envoyer un message
   const handleSendMessage = () => {
@@ -214,6 +216,26 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
       handleSendMessage();
     }
   };
+
+  useEffect(() => {
+    if (!isChatOpen) {
+      setIsChatVisible(false);
+      return;
+    }
+    const el = chatContainerRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        setIsChatVisible(entry.isIntersecting);
+      },
+      { root: null, threshold: 0.1 }
+    );
+    obs.observe(el);
+    return () => {
+      obs.disconnect();
+    };
+  }, [isChatOpen]);
 
   const renderTile = (tile: Tile, options: { size: 'primary' | 'secondary' | 'mosaic' }) => {
     const isPinned = pinnedId === tile.id;
@@ -258,12 +280,15 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
           </CardTitle>
         </CardHeader>
         <CardContent className="p-2 h-full">
-          <div className={`relative w-full bg-gray-900 rounded-lg overflow-hidden aspect-video ${minH}`}>
+          <div className={`relative w-full bg-gray-900 rounded-lg overflow-hidden aspect-video ${minH} transform-gpu transition-opacity motion-reduce:transition-none`}>
             {tile.stream ? (
               <VideoStream stream={tile.isLocal ? localStream ?? undefined : tile.stream} muted={tile.isLocal} />
             ) : (
-              <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
-                <Users className="w-12 h-12 text-gray-400" />
+              <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 animate-pulse">
+                <div className="flex items-center gap-2">
+                  <Users className="w-8 h-8 text-gray-500" />
+                  <span className="text-xs text-gray-400">En attente du flux…</span>
+                </div>
               </div>
             )}
 
@@ -342,7 +367,7 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
 
         {/* Chat */}
         {isChatOpen && (
-          <div className="w-full lg:w-72 xl:w-80 border-t lg:border-t-0 lg:border-l border-gray-700 flex flex-col max-h-[40vh] lg:max-h-none">
+          <div ref={chatContainerRef} className="w-full lg:w-72 xl:w-80 border-t lg:border-t-0 lg:border-l border-gray-700 flex flex-col max-h-[40vh] lg:max-h-none">
             <div className="p-4 border-b border-gray-700">
               <h3 className="font-semibold flex items-center">
                 <MessageCircle className="w-4 h-4 mr-2" />
@@ -351,21 +376,29 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
             </div>
             
             <ScrollArea className="flex-1 p-4">
-              <div className="space-y-3">
-                {chatMessages.map((message) => (
-                  <div key={message.id} className="flex flex-col">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm font-medium text-blue-400">
-                        {message.fromName ?? message.from}
-                      </span>
-                      <span className="text-xs text-gray-400">
-                        {message.timestamp.toLocaleTimeString()}
-                      </span>
+              {isChatVisible ? (
+                <div className="space-y-3">
+                  {chatMessages.map((message) => (
+                    <div key={message.id} className="flex flex-col">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm font-medium text-blue-400">
+                          {message.fromName ?? message.from}
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          {message.timestamp.toLocaleTimeString()}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-300 mt-1">{message.message}</p>
                     </div>
-                    <p className="text-sm text-gray-300 mt-1">{message.message}</p>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="h-3 bg-gray-800 rounded animate-pulse" />
+                  <div className="h-3 bg-gray-800 rounded animate-pulse" />
+                  <div className="h-3 bg-gray-800 rounded animate-pulse" />
+                </div>
+              )}
             </ScrollArea>
 
             <div className="p-4 border-t border-gray-700">
