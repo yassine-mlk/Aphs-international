@@ -64,6 +64,8 @@ export function useWebSocketVideoConference({
   const localTalkingRef = useRef<boolean>(false);
   const statsIntervalRef = useRef<any>(null);
   const lastTalkingSentRef = useRef<number>(0);
+  const talkingCandidateRef = useRef<boolean>(false);
+  const talkingCandidateSinceRef = useRef<number>(0);
 
   const createParticipant = useCallback((id: string, name: string): Participant => ({
     id,
@@ -648,14 +650,20 @@ export function useWebSocketVideoConference({
           sum += v * v;
         }
         const rms = Math.sqrt(sum / buf.length);
-        const talking = rms > 0.03;
-        if (talking !== localTalkingRef.current) {
-          localTalkingRef.current = talking;
-          const now = Date.now();
-          if (now - lastTalkingSentRef.current >= 500) {
-            lastTalkingSentRef.current = now;
-            sendWebSocketMessage({ type: 'talking', talking });
-          }
+        const detected = rms > 0.03;
+        const now = Date.now();
+        if (detected !== talkingCandidateRef.current) {
+          talkingCandidateRef.current = detected;
+          talkingCandidateSinceRef.current = now;
+        }
+
+        const stableFor = now - talkingCandidateSinceRef.current;
+        const required = talkingCandidateRef.current ? 200 : 600;
+
+        if (stableFor >= required && talkingCandidateRef.current !== localTalkingRef.current) {
+          localTalkingRef.current = talkingCandidateRef.current;
+          lastTalkingSentRef.current = now;
+          sendWebSocketMessage({ type: 'talking', talking: localTalkingRef.current });
         }
         raf = requestAnimationFrame(loop);
       };

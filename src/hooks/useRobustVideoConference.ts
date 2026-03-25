@@ -70,6 +70,8 @@ export function useRobustVideoConference({
   const localTalkingRef = useRef<boolean>(false);
   const statsIntervalRef = useRef<any>(null);
   const lastTalkingSentRef = useRef<number>(0);
+  const talkingCandidateRef = useRef<boolean>(false);
+  const talkingCandidateSinceRef = useRef<number>(0);
 
   // Initialiser le stream local
   const initializeLocalStream = useCallback(async () => {
@@ -753,16 +755,24 @@ export function useRobustVideoConference({
           sum += v * v;
         }
         const rms = Math.sqrt(sum / buf.length);
-        const talking = rms > 0.03;
-        if (talking !== localTalkingRef.current) {
-          localTalkingRef.current = talking;
-          const now = Date.now();
-          if (channelRef.current && now - lastTalkingSentRef.current >= 500) {
+        const detected = rms > 0.03;
+        const now = Date.now();
+        if (detected !== talkingCandidateRef.current) {
+          talkingCandidateRef.current = detected;
+          talkingCandidateSinceRef.current = now;
+        }
+
+        const stableFor = now - talkingCandidateSinceRef.current;
+        const required = talkingCandidateRef.current ? 200 : 600;
+
+        if (stableFor >= required && talkingCandidateRef.current !== localTalkingRef.current) {
+          localTalkingRef.current = talkingCandidateRef.current;
+          if (channelRef.current) {
             lastTalkingSentRef.current = now;
             channelRef.current.send({
               type: 'broadcast',
               event: 'talking',
-              payload: { from: currentUserId, talking, timestamp: now }
+              payload: { from: currentUserId, talking: localTalkingRef.current, timestamp: now }
             }).catch(() => undefined);
           }
         }

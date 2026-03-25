@@ -83,12 +83,8 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
 
   const [pinnedId, setPinnedId] = useState<string | null>(null);
   const [activeSpeakerId, setActiveSpeakerId] = useState<string>('local');
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserMapRef = useRef<Map<string, { analyser: AnalyserNode; source: MediaStreamAudioSourceNode }>>(new Map());
-  const rafRef = useRef<number | null>(null);
-  const candidateIdRef = useRef<string | null>(null);
-  const candidateStartRef = useRef<number>(0);
-  const activeSpeakerRef = useRef<string>('local');
+  const speakingSinceRef = useRef<Map<string, number>>(new Map());
+  const lastAutoSpeakerRef = useRef<string>('local');
 
   const tileCount = participants.length + 1;
   const gridColsClass = useMemo(() => {
@@ -143,120 +139,47 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
   }, [participants, userName, localStream, isAudioEnabled, isVideoEnabled]);
 
   useEffect(() => {
-    if (!audioContextRef.current) {
-      try {
-        audioContextRef.current = new AudioContext();
-      } catch {
-        audioContextRef.current = null;
-      }
-    }
+    if (pinnedId) return;
 
-    const ctx = audioContextRef.current;
-    if (!ctx) return;
+    const now = Date.now();
+    const speakingTiles = videoTiles
+      .filter(t => t.id !== 'local' && t.isSpeaking)
+      .map(t => t.id);
 
-    const tilesWithAudio = videoTiles.filter(t => {
-      if (!t.stream) return false;
-      if (t.id === 'local' && !isAudioEnabled) return false;
-      if (t.id !== 'local' && !t.isAudioEnabled) return false;
-      return t.stream.getAudioTracks().length > 0;
-    });
-
-    const desiredIds = new Set(tilesWithAudio.map(t => t.id));
-    analyserMapRef.current.forEach((value, id) => {
-      if (!desiredIds.has(id)) {
-        try {
-          value.source.disconnect();
-          value.analyser.disconnect();
-        } catch {}
-        analyserMapRef.current.delete(id);
-      }
-    });
-
-    tilesWithAudio.forEach(t => {
-      if (analyserMapRef.current.has(t.id)) return;
-      try {
-        const source = ctx.createMediaStreamSource(t.stream as MediaStream);
-        const analyser = ctx.createAnalyser();
-        analyser.fftSize = 1024;
-        source.connect(analyser);
-        analyserMapRef.current.set(t.id, { analyser, source });
-      } catch {}
-    });
-
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
-
-    const buffer = new Uint8Array(1024);
-    const update = () => {
-      if (ctx.state === 'suspended') {
-        rafRef.current = requestAnimationFrame(update);
+    const map = speakingSinceRef.current;
+    videoTiles.forEach(t => {
+      if (t.id === 'local') return;
+      if (!t.isSpeaking) {
+        map.delete(t.id);
         return;
       }
+      if (!map.has(t.id)) map.set(t.id, now);
+    });
 
-      let bestId: string | null = null;
-      let bestScore = 0;
+    if (speakingTiles.length === 0) return;
 
-      analyserMapRef.current.forEach(({ analyser }, id) => {
-        analyser.getByteTimeDomainData(buffer);
-        let sum = 0;
-        for (let i = 0; i < buffer.length; i++) {
-          const v = (buffer[i] - 128) / 128;
-          sum += v * v;
-        }
-        const rms = Math.sqrt(sum / buffer.length);
-        if (rms > bestScore) {
-          bestScore = rms;
-          bestId = id;
-        }
-      });
-
-      const threshold = 0.03;
-      const margin = 0.01;
-      const holdMs = 1500;
-
-      if (bestId && bestScore > threshold) {
-        const prevCandidate = candidateIdRef.current;
-        const now = performance.now();
-        if (prevCandidate !== bestId || bestScore < threshold + margin) {
-          candidateIdRef.current = bestId;
-          candidateStartRef.current = now;
-        } else {
-          const elapsed = now - candidateStartRef.current;
-          if (elapsed >= holdMs && activeSpeakerRef.current !== bestId) {
-            activeSpeakerRef.current = bestId;
-            setActiveSpeakerId(bestId);
-          }
-        }
+    let bestId = speakingTiles[0];
+    let bestTs = map.get(bestId) ?? 0;
+    speakingTiles.forEach(id => {
+      const ts = map.get(id) ?? 0;
+      if (ts > bestTs) {
+        bestTs = ts;
+        bestId = id;
       }
+    });
 
-      rafRef.current = requestAnimationFrame(update);
-    };
-
-    rafRef.current = requestAnimationFrame(update);
-
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-    };
-  }, [videoTiles, isAudioEnabled]);
-
-  useEffect(() => {
-    const onPointerDown = () => {
-      const ctx = audioContextRef.current;
-      if (ctx && ctx.state === 'suspended') {
-        ctx.resume().catch(() => undefined);
-      }
-      window.removeEventListener('pointerdown', onPointerDown);
-    };
-    window.addEventListener('pointerdown', onPointerDown, { once: true });
-    return () => window.removeEventListener('pointerdown', onPointerDown);
-  }, []);
+    if (bestId && lastAutoSpeakerRef.current !== bestId) {
+      lastAutoSpeakerRef.current = bestId;
+      setActiveSpeakerId(bestId);
+    }
+  }, [videoTiles, pinnedId]);
 
   const layoutMode = useMemo(() => {
     if (isScreenSharing) return 'screen-share-focus';
     if (pinnedId) return 'pinned';
-    if (isMobile || tileCount >= 3) return 'speaker';
+    if (tileCount >= 2) return 'speaker';
     return 'mosaic';
-  }, [isScreenSharing, pinnedId, isMobile, tileCount]);
+  }, [isScreenSharing, pinnedId, tileCount]);
 
   const primaryTileId = useMemo(() => {
     if (layoutMode === 'screen-share-focus') return 'local';
@@ -302,8 +225,9 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
           ? 'min-h-[140px]'
           : 'min-h-[220px] sm:min-h-[280px]';
 
+    const ringClass = (isPinned || isActive) ? 'ring-2 ring-green-500' : '';
     return (
-      <Card key={tile.id} className={`bg-gray-800 border-gray-700 h-full ${isActive ? 'ring-2 ring-aphs-teal' : ''}`}>
+      <Card key={tile.id} className={`bg-gray-800 border-gray-700 h-full ${ringClass}`}>
         <CardHeader className="py-2 px-3">
           <CardTitle className="text-sm text-gray-300 flex items-center justify-between gap-2">
             <span className="truncate">{tile.name}</span>
@@ -343,11 +267,6 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
               </div>
             )}
 
-            {tile.isSpeaking && (
-              <div className="absolute top-2 left-2 bg-green-600 text-white text-xs px-2 py-1 rounded">
-                Parle
-              </div>
-            )}
             {!tile.isAudioEnabled && (
               <div className="absolute top-2 right-2 bg-black/60 rounded-full p-2">
                 <MicOff className="w-4 h-4 text-white" />
