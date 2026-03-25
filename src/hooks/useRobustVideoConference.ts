@@ -8,6 +8,8 @@ interface Participant {
   name: string;
   stream?: MediaStream;
   isConnected: boolean;
+  isAudioEnabled: boolean;
+  isVideoEnabled: boolean;
   joinedAt: Date;
 }
 
@@ -219,6 +221,8 @@ export function useRobustVideoConference({
           id,
           name: name || id.slice(0, 8) + '...',
           isConnected: false,
+          isAudioEnabled: true,
+          isVideoEnabled: true,
           joinedAt: new Date()
         }
       ];
@@ -246,6 +250,20 @@ export function useRobustVideoConference({
       })
       .catch(err => console.error('Error creating offer:', err));
   }, [createPeerConnection, currentUserId, sendRTCSignal, shouldInitiateOffer]);
+
+  const sendMediaState = useCallback((state: { audioEnabled: boolean; videoEnabled: boolean }) => {
+    if (!channelRef.current) return;
+    channelRef.current.send({
+      type: 'broadcast',
+      event: 'media-state',
+      payload: {
+        from: currentUserId,
+        audioEnabled: state.audioEnabled,
+        videoEnabled: state.videoEnabled,
+        timestamp: new Date().toISOString()
+      }
+    }).catch((err: any) => console.error('❌ Failed to send media-state:', err));
+  }, [currentUserId]);
 
   // Traiter les signaux WebRTC reçus
   const handleRTCSignal = useCallback((payload: any) => {
@@ -415,6 +433,19 @@ export function useRobustVideoConference({
         }
       });
 
+      channel.on('broadcast', { event: 'media-state' }, ({ payload }) => {
+        const { from, audioEnabled, videoEnabled } = payload || {};
+        if (!from || from === currentUserId) return;
+        setParticipants(prev => prev.map(p => {
+          if (p.id !== from) return p;
+          return {
+            ...p,
+            isAudioEnabled: typeof audioEnabled === 'boolean' ? audioEnabled : p.isAudioEnabled,
+            isVideoEnabled: typeof videoEnabled === 'boolean' ? videoEnabled : p.isVideoEnabled
+          };
+        }));
+      });
+
       // Gérer les présences
       channel
         .on('presence', { event: 'sync' }, () => {
@@ -435,6 +466,8 @@ export function useRobustVideoConference({
                 id,
                 name: (state[id]?.[0] as any)?.name || id.slice(0, 8) + '...',
                 isConnected: false,
+                isAudioEnabled: true,
+                isVideoEnabled: true,
                 joinedAt: new Date()
               };
             });
@@ -463,6 +496,8 @@ export function useRobustVideoConference({
                   id: key,
                   name: (newPresences?.[0] as any)?.name || key.slice(0, 8) + '...',
                   isConnected: false,
+                  isAudioEnabled: true,
+                  isVideoEnabled: true,
                   joinedAt: new Date()
                 };
                 console.log('👥 Adding new participant:', newParticipant);
@@ -566,23 +601,27 @@ export function useRobustVideoConference({
     if (localStreamRef.current) {
       const audioTrack = localStreamRef.current.getAudioTracks()[0];
       if (audioTrack) {
-        audioTrack.enabled = !audioTrack.enabled;
-        setIsAudioEnabled(audioTrack.enabled);
-        console.log('🎤 Audio toggled:', audioTrack.enabled);
+        const nextAudioEnabled = !audioTrack.enabled;
+        audioTrack.enabled = nextAudioEnabled;
+        setIsAudioEnabled(nextAudioEnabled);
+        sendMediaState({ audioEnabled: nextAudioEnabled, videoEnabled: isVideoEnabled });
+        console.log('🎤 Audio toggled:', nextAudioEnabled);
       }
     }
-  }, []);
+  }, [isVideoEnabled, sendMediaState]);
 
   const toggleVideo = useCallback(() => {
     if (localStreamRef.current) {
       const videoTrack = localStreamRef.current.getVideoTracks()[0];
       if (videoTrack) {
-        videoTrack.enabled = !videoTrack.enabled;
-        setIsVideoEnabled(videoTrack.enabled);
-        console.log('📹 Video toggled:', videoTrack.enabled);
+        const nextVideoEnabled = !videoTrack.enabled;
+        videoTrack.enabled = nextVideoEnabled;
+        setIsVideoEnabled(nextVideoEnabled);
+        sendMediaState({ audioEnabled: isAudioEnabled, videoEnabled: nextVideoEnabled });
+        console.log('📹 Video toggled:', nextVideoEnabled);
       }
     }
-  }, []);
+  }, [isAudioEnabled, sendMediaState]);
 
   const toggleScreenShare = useCallback(async () => {
     try {

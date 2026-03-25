@@ -57,7 +57,16 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
     timestamp: Date;
   }>;
 
-  const [isChatOpen, setIsChatOpen] = useState(true);
+  const [isChatOpen, setIsChatOpen] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return window.matchMedia('(min-width: 1024px)').matches;
+  });
+
+  const [pinnedId, setPinnedId] = useState<string | null>(null);
+  const [activeSpeakerId, setActiveSpeakerId] = useState<string>('local');
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserMapRef = useRef<Map<string, { analyser: AnalyserNode; source: MediaStreamAudioSourceNode }>>(new Map());
+  const rafRef = useRef<number | null>(null);
 
   const tileCount = participants.length + 1;
   const gridColsClass = useMemo(() => {
@@ -66,15 +75,154 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
     return 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3';
   }, [tileCount]);
 
-  const localVideoRef = useRef<HTMLVideoElement>(null);
-  const messageInputRef = useRef<HTMLInputElement>(null);
+  const isMobile = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    return !window.matchMedia('(min-width: 1024px)').matches;
+  }, []);
 
-  // Afficher le stream local
+  const videoTiles = useMemo(() => {
+    const localTile = {
+      id: 'local',
+      name: `Vous (${userName})`,
+      stream: localStream ?? undefined,
+      isConnected: true,
+      isAudioEnabled,
+      isVideoEnabled,
+      isLocal: true
+    };
+
+    const remoteTiles = participants.map(p => ({
+      id: p.id,
+      name: p.name,
+      stream: p.stream,
+      isConnected: p.isConnected,
+      isAudioEnabled: p.isAudioEnabled,
+      isVideoEnabled: p.isVideoEnabled,
+      isLocal: false
+    }));
+
+    return [localTile, ...remoteTiles];
+  }, [participants, userName, localStream, isAudioEnabled, isVideoEnabled]);
+
   useEffect(() => {
-    if (localVideoRef.current && localStream) {
-      localVideoRef.current.srcObject = localStream;
+    if (!audioContextRef.current) {
+      try {
+        audioContextRef.current = new AudioContext();
+      } catch {
+        audioContextRef.current = null;
+      }
     }
-  }, [localStream]);
+
+    const ctx = audioContextRef.current;
+    if (!ctx) return;
+
+    const tilesWithAudio = videoTiles.filter(t => {
+      if (!t.stream) return false;
+      if (t.id === 'local' && !isAudioEnabled) return false;
+      if (t.id !== 'local' && !t.isAudioEnabled) return false;
+      return t.stream.getAudioTracks().length > 0;
+    });
+
+    const desiredIds = new Set(tilesWithAudio.map(t => t.id));
+    analyserMapRef.current.forEach((value, id) => {
+      if (!desiredIds.has(id)) {
+        try {
+          value.source.disconnect();
+          value.analyser.disconnect();
+        } catch {}
+        analyserMapRef.current.delete(id);
+      }
+    });
+
+    tilesWithAudio.forEach(t => {
+      if (analyserMapRef.current.has(t.id)) return;
+      try {
+        const source = ctx.createMediaStreamSource(t.stream as MediaStream);
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 1024;
+        source.connect(analyser);
+        analyserMapRef.current.set(t.id, { analyser, source });
+      } catch {}
+    });
+
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+
+    const buffer = new Uint8Array(1024);
+    const update = () => {
+      if (ctx.state === 'suspended') {
+        rafRef.current = requestAnimationFrame(update);
+        return;
+      }
+
+      let bestId: string | null = null;
+      let bestScore = 0;
+
+      analyserMapRef.current.forEach(({ analyser }, id) => {
+        analyser.getByteTimeDomainData(buffer);
+        let sum = 0;
+        for (let i = 0; i < buffer.length; i++) {
+          const v = (buffer[i] - 128) / 128;
+          sum += v * v;
+        }
+        const rms = Math.sqrt(sum / buffer.length);
+        if (rms > bestScore) {
+          bestScore = rms;
+          bestId = id;
+        }
+      });
+
+      if (bestId && bestScore > 0.03) {
+        setActiveSpeakerId(bestId);
+      }
+
+      rafRef.current = requestAnimationFrame(update);
+    };
+
+    rafRef.current = requestAnimationFrame(update);
+
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    };
+  }, [videoTiles, isAudioEnabled]);
+
+  useEffect(() => {
+    const onPointerDown = () => {
+      const ctx = audioContextRef.current;
+      if (ctx && ctx.state === 'suspended') {
+        ctx.resume().catch(() => undefined);
+      }
+      window.removeEventListener('pointerdown', onPointerDown);
+    };
+    window.addEventListener('pointerdown', onPointerDown, { once: true });
+    return () => window.removeEventListener('pointerdown', onPointerDown);
+  }, []);
+
+  const layoutMode = useMemo(() => {
+    if (isScreenSharing) return 'screen-share-focus';
+    if (pinnedId) return 'pinned';
+    if (isMobile || tileCount >= 3) return 'speaker';
+    return 'mosaic';
+  }, [isScreenSharing, pinnedId, isMobile, tileCount]);
+
+  const primaryTileId = useMemo(() => {
+    if (layoutMode === 'screen-share-focus') return 'local';
+    if (layoutMode === 'pinned' && pinnedId) return pinnedId;
+    if (layoutMode === 'speaker') return activeSpeakerId;
+    return null;
+  }, [layoutMode, pinnedId, activeSpeakerId]);
+
+  const primaryTile = useMemo(() => {
+    if (!primaryTileId) return null;
+    return videoTiles.find(t => t.id === primaryTileId) ?? videoTiles[0] ?? null;
+  }, [primaryTileId, videoTiles]);
+
+  const secondaryTiles = useMemo(() => {
+    if (!primaryTileId) return videoTiles;
+    return videoTiles.filter(t => t.id !== primaryTileId);
+  }, [videoTiles, primaryTileId]);
+
+  const messageInputRef = useRef<HTMLInputElement>(null);
 
   // Envoyer un message
   const handleSendMessage = () => {
@@ -91,12 +239,95 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
     }
   };
 
+  const renderTile = (tile: {
+    id: string;
+    name: string;
+    stream?: MediaStream;
+    isConnected: boolean;
+    isAudioEnabled: boolean;
+    isVideoEnabled: boolean;
+    isLocal: boolean;
+  }, options: { size: 'primary' | 'secondary' | 'mosaic' }) => {
+    const isPinned = pinnedId === tile.id;
+    const isActive = tile.id === activeSpeakerId && layoutMode === 'speaker' && !pinnedId && !isScreenSharing;
+    const minH =
+      options.size === 'primary'
+        ? 'min-h-[260px] sm:min-h-[420px]'
+        : options.size === 'secondary'
+          ? 'min-h-[140px]'
+          : 'min-h-[220px] sm:min-h-[280px]';
+
+    return (
+      <Card key={tile.id} className={`bg-gray-800 border-gray-700 h-full ${isActive ? 'ring-2 ring-aphs-teal' : ''}`}>
+        <CardHeader className="py-2 px-3">
+          <CardTitle className="text-sm text-gray-300 flex items-center justify-between gap-2">
+            <span className="truncate">{tile.name}</span>
+            <div className="flex items-center gap-2">
+              {!tile.isConnected && (
+                <Badge variant="secondary" className="text-xs">En attente</Badge>
+              )}
+              {tile.isConnected && (
+                <Badge variant="default" className="text-xs">Connecté</Badge>
+              )}
+              {!tile.isLocal && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPinnedId(prev => (prev === tile.id ? null : tile.id))}
+                  className="h-7 px-2 bg-gray-900 text-gray-100 border-gray-600 hover:bg-gray-700 hover:text-white"
+                >
+                  {isPinned ? 'Désépingler' : 'Épingler'}
+                </Button>
+              )}
+            </div>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-2 h-full">
+          <div className={`relative w-full bg-gray-900 rounded-lg overflow-hidden aspect-video ${minH}`}>
+            {tile.stream ? (
+              <video
+                autoPlay
+                playsInline
+                muted={tile.isLocal}
+                className="w-full h-full object-cover"
+                ref={(el) => {
+                  if (!el) return;
+                  if (tile.isLocal) {
+                    if (localStream) el.srcObject = localStream;
+                    return;
+                  }
+                  el.srcObject = tile.stream as MediaStream;
+                }}
+              />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
+                <Users className="w-12 h-12 text-gray-400" />
+              </div>
+            )}
+
+            {!tile.isAudioEnabled && (
+              <div className="absolute top-2 right-2 bg-black/60 rounded-full p-2">
+                <MicOff className="w-4 h-4 text-white" />
+              </div>
+            )}
+
+            {!tile.isVideoEnabled && (
+              <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
+                <VideoOff className="w-12 h-12 text-gray-400" />
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
   return (
-    <div className="flex flex-col h-full bg-gray-900 text-white">
+    <div className="flex flex-col h-full bg-gray-900 text-white overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 bg-gray-800 border-b border-gray-700">
-        <div className="flex items-center space-x-4">
-          <h2 className="text-xl font-semibold">Vidéoconférence</h2>
+      <div className="flex items-center justify-between px-3 py-2 md:p-4 bg-gray-800 border-b border-gray-700 shrink-0">
+        <div className="flex items-center space-x-3 md:space-x-4 min-w-0">
+          <h2 className="text-base md:text-xl font-semibold truncate">Vidéoconférence</h2>
           <Badge variant={isConnected ? "default" : "secondary"}>
             {connectionStatus === 'connected' ? 'Connecté' : 
              connectionStatus === 'connecting' ? 'Connexion...' : 
@@ -120,67 +351,31 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
       </div>
 
       {/* Contenu principal */}
-      <div className="flex-1 flex flex-col lg:flex-row">
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
         {/* Zone vidéo */}
-        <div className="flex-1 p-4 overflow-hidden">
-          <div className={`grid ${gridColsClass} gap-4 h-full auto-rows-fr`}>
-            {/* Vidéo locale */}
-            <Card className="bg-gray-800 border-gray-700 h-full">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-gray-300">
-                  Vous ({userName})
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-2 h-full">
-                <div className="relative w-full bg-gray-900 rounded-lg overflow-hidden aspect-video min-h-[260px]">
-                  <video
-                    ref={localVideoRef}
-                    autoPlay
-                    muted
-                    playsInline
-                    className="w-full h-full object-cover"
-                  />
-                  {!isVideoEnabled && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
-                      <VideoOff className="w-12 h-12 text-gray-400" />
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+        <div className="flex-1 p-3 md:p-4 min-h-0 overflow-y-auto">
+          {layoutMode === 'mosaic' && (
+            <div className={`grid ${gridColsClass} gap-3 md:gap-4 auto-rows-[minmax(220px,1fr)] sm:auto-rows-[minmax(280px,1fr)]`}>
+              {videoTiles.map(tile => renderTile(tile, { size: 'mosaic' }))}
+            </div>
+          )}
 
-            {/* Participants */}
-            {participants.map((participant) => (
-              <Card key={participant.id} className="bg-gray-800 border-gray-700 h-full">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-gray-300 flex items-center justify-between">
-                    <span>{participant.name}</span>
-                    <Badge variant={participant.isConnected ? "default" : "secondary"} className="text-xs">
-                      {participant.isConnected ? 'Connecté' : 'En attente'}
-                    </Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-2 h-full">
-                  <div className="relative w-full bg-gray-900 rounded-lg overflow-hidden aspect-video min-h-[260px]">
-                    {participant.stream ? (
-                      <video
-                        autoPlay
-                        playsInline
-                        className="w-full h-full object-cover"
-                        ref={(el) => {
-                          if (el) el.srcObject = participant.stream;
-                        }}
-                      />
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
-                        <Users className="w-12 h-12 text-gray-400" />
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          {layoutMode !== 'mosaic' && primaryTile && (
+            <div className="h-full min-h-0 flex flex-col lg:flex-row gap-3 md:gap-4">
+              <div className="flex-1 min-h-0">
+                {renderTile(primaryTile, { size: 'primary' })}
+              </div>
+              <div className="shrink-0 lg:w-[340px] xl:w-[380px]">
+                <div className="flex lg:flex-col gap-3 overflow-x-auto lg:overflow-x-hidden lg:overflow-y-auto pb-1 lg:pb-0 max-h-[34vh] lg:max-h-[calc(100vh-220px)]">
+                  {secondaryTiles.map(tile => (
+                    <div key={tile.id} className="min-w-[260px] lg:min-w-0">
+                      {renderTile(tile, { size: 'secondary' })}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Chat */}
@@ -229,7 +424,7 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
       </div>
 
       {/* Contrôles */}
-      <div className="p-4 bg-gray-800 border-t border-gray-700">
+      <div className="p-4 bg-gray-800 border-t border-gray-700 shrink-0">
         <div className="flex items-center justify-center space-x-4">
           <Button
             variant={isAudioEnabled ? "default" : "destructive"}

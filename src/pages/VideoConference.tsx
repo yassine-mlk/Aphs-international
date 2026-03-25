@@ -420,9 +420,9 @@ const VideoConference: React.FC = () => {
   // Si l'utilisateur est dans une réunion, afficher seulement l'interface de vidéoconférence
   if (activeMeetingRoom) {
     return (
-      <div className="min-h-screen bg-gray-50 space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold tracking-tight">{t.currentMeeting}</h1>
+      <div className="h-screen bg-gray-900 text-white flex flex-col overflow-hidden">
+        <div className="shrink-0 flex justify-between items-center px-4 py-3 md:px-6 md:py-4 border-b border-gray-700">
+          <h1 className="text-lg md:text-2xl font-bold tracking-tight">{t.currentMeeting}</h1>
           <div className="flex gap-2">
             {activeMeetingRoom.isModerator && (
               <Button 
@@ -435,13 +435,15 @@ const VideoConference: React.FC = () => {
             <Button 
               variant="outline" 
               onClick={() => handleLeaveMeeting(activeMeetingRoom.meetingId)}
+              className="bg-gray-900 text-gray-100 border-gray-600 hover:bg-gray-700 hover:text-white"
             >
                               <X className="mr-2 h-4 w-4" /> {t.leave}
             </Button>
           </div>
         </div>
-        
-        {memoizedVideoCall}
+        <div className="flex-1 min-h-0">
+          {memoizedVideoCall}
+        </div>
       </div>
     );
   }
