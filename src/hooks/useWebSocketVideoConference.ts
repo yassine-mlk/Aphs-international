@@ -6,8 +6,10 @@ interface Participant {
   name: string;
   stream?: MediaStream;
   isConnected: boolean;
-  isAudioEnabled: boolean;
-  isVideoEnabled: boolean;
+  isAudioEnabled?: boolean;
+  isVideoEnabled?: boolean;
+  isSpeaking?: boolean;
+  networkQuality?: 'good' | 'unstable' | 'bad';
   joinedAt: Date;
 }
 
@@ -57,6 +59,21 @@ export function useWebSocketVideoConference({
   );
   const screenStreamRef = useRef<MediaStream | null>(null);
   const isConnectingRef = useRef(false);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const localAnalyserRef = useRef<AnalyserNode | null>(null);
+  const localTalkingRef = useRef<boolean>(false);
+  const statsIntervalRef = useRef<any>(null);
+
+  const createParticipant = useCallback((id: string, name: string): Participant => ({
+    id,
+    name,
+    isConnected: false,
+    isAudioEnabled: true,
+    isVideoEnabled: true,
+    isSpeaking: false,
+    networkQuality: 'good',
+    joinedAt: new Date()
+  }), []);
 
   // Configuration WebSocket
   const WS_URL =
@@ -213,6 +230,8 @@ export function useWebSocketVideoConference({
             isConnected: false,
             isAudioEnabled: true,
             isVideoEnabled: true,
+            isSpeaking: false,
+            networkQuality: 'good',
             joinedAt: new Date()
           })));
 
@@ -249,14 +268,7 @@ export function useWebSocketVideoConference({
           console.log(`👋 ${joinedUserName} a rejoint la room`);
           setParticipants(prev => {
             if (joinedUserId && !prev.find(p => p.id === joinedUserId)) {
-              const newParticipant = {
-                id: joinedUserId,
-                name: joinedUserName || 'Participant',
-                isConnected: false,
-                isAudioEnabled: true,
-                isVideoEnabled: true,
-                joinedAt: new Date()
-              };
+              const newParticipant = createParticipant(joinedUserId, joinedUserName || 'Participant');
 
               // Créer une connexion peer avec le nouveau participant
               setTimeout(() => {
@@ -301,17 +313,8 @@ export function useWebSocketVideoConference({
           console.log(`📥 Offre reçue de ${message.fromName}`);
           setParticipants(prev => {
             if (prev.some(p => p.id === message.from)) return prev;
-            return [
-              ...prev,
-              {
-                id: message.from,
-                name: message.fromName || 'Participant',
-                isConnected: false,
-                isAudioEnabled: true,
-                isVideoEnabled: true,
-                joinedAt: new Date()
-              }
-            ];
+            const np = createParticipant(message.from, message.fromName || 'Participant');
+            return [...prev, np];
           });
           const offerPeer = createPeerConnection(message.from, false);
           if (offerPeer) {
@@ -368,17 +371,8 @@ export function useWebSocketVideoConference({
           console.log(`📥 Réponse reçue de ${message.fromName}`);
           setParticipants(prev => {
             if (prev.some(p => p.id === message.from)) return prev;
-            return [
-              ...prev,
-              {
-                id: message.from,
-                name: message.fromName || 'Participant',
-                isConnected: false,
-                isAudioEnabled: true,
-                isVideoEnabled: true,
-                joinedAt: new Date()
-              }
-            ];
+            const np = createParticipant(message.from, message.fromName || 'Participant');
+            return [...prev, np];
           });
           const answerPeer = peersRef.current[message.from];
           if (answerPeer) {
@@ -422,6 +416,11 @@ export function useWebSocketVideoConference({
                 isVideoEnabled: typeof message.videoEnabled === 'boolean' ? message.videoEnabled : p.isVideoEnabled
               };
             }));
+          }
+          break;
+        case 'talking':
+          if (typeof message.talking === 'boolean') {
+            setParticipants(prev => prev.map(p => p.id === message.from ? { ...p, isSpeaking: message.talking } : p));
           }
           break;
 
@@ -626,6 +625,75 @@ export function useWebSocketVideoConference({
     });
   }, [sendWebSocketMessage]);
 
+  useEffect(() => {
+    if (!localStream) return;
+    try {
+      if (!audioContextRef.current) audioContextRef.current = new AudioContext();
+      const ctx = audioContextRef.current;
+      if (!ctx) return;
+      const source = ctx.createMediaStreamSource(localStream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 1024;
+      source.connect(analyser);
+      localAnalyserRef.current = analyser;
+      let raf: number;
+      const buf = new Uint8Array(1024);
+      const loop = () => {
+        if (!localAnalyserRef.current) return;
+        localAnalyserRef.current.getByteTimeDomainData(buf);
+        let sum = 0;
+        for (let i = 0; i < buf.length; i++) {
+          const v = (buf[i] - 128) / 128;
+          sum += v * v;
+        }
+        const rms = Math.sqrt(sum / buf.length);
+        const talking = rms > 0.03;
+        if (talking !== localTalkingRef.current) {
+          localTalkingRef.current = talking;
+          sendWebSocketMessage({ type: 'talking', talking });
+        }
+        raf = requestAnimationFrame(loop);
+      };
+      raf = requestAnimationFrame(loop);
+      return () => cancelAnimationFrame(raf);
+    } catch {
+      return;
+    }
+  }, [localStream, sendWebSocketMessage]);
+
+  useEffect(() => {
+    if (statsIntervalRef.current) {
+      clearInterval(statsIntervalRef.current);
+      statsIntervalRef.current = null;
+    }
+    statsIntervalRef.current = setInterval(async () => {
+      const entries = Object.entries(peersRef.current);
+      for (const [pid, pc] of entries) {
+        try {
+          const stats = await pc.getStats();
+          let rtt = 0;
+          let fractionLost = 0;
+          stats.forEach(report => {
+            if ((report.type === 'transport' || report.type === 'candidate-pair') && (report.currentRoundTripTime || report.roundTripTime)) {
+              rtt = Number(report.currentRoundTripTime || report.roundTripTime || 0);
+            }
+            if (report.type === 'remote-inbound-rtp' && typeof report.fractionLost === 'number') {
+              fractionLost = report.fractionLost;
+            }
+          });
+          let quality: 'good' | 'unstable' | 'bad' = 'good';
+          if (rtt > 0.6 || fractionLost > 0.05) quality = 'bad';
+          else if (rtt > 0.2 || fractionLost > 0.02) quality = 'unstable';
+          setParticipants(prev => prev.map(p => p.id === pid ? { ...p, networkQuality: quality } : p));
+        } catch {
+        }
+      }
+    }, 2000);
+    return () => {
+      if (statsIntervalRef.current) clearInterval(statsIntervalRef.current);
+      statsIntervalRef.current = null;
+    };
+  }, []);
   // Connexion automatique
   useEffect(() => {
     let mounted = true;
