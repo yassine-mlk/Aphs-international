@@ -85,6 +85,7 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
   const [activeSpeakerId, setActiveSpeakerId] = useState<string>('local');
   const speakingSinceRef = useRef<Map<string, number>>(new Map());
   const lastAutoSpeakerRef = useRef<string>('local');
+  const [followSpeaker, setFollowSpeaker] = useState<boolean>(true);
 
   const tileCount = participants.length + 1;
   const gridColsClass = useMemo(() => {
@@ -139,8 +140,6 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
   }, [participants, userName, localStream, isAudioEnabled, isVideoEnabled]);
 
   useEffect(() => {
-    if (pinnedId) return;
-
     const now = Date.now();
     const speakingTiles = videoTiles
       .filter(t => t.id !== 'local' && t.isSpeaking)
@@ -172,7 +171,13 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
       lastAutoSpeakerRef.current = bestId;
       setActiveSpeakerId(bestId);
     }
-  }, [videoTiles, pinnedId]);
+  }, [videoTiles]);
+
+  useEffect(() => {
+    if (followSpeaker) {
+      setPinnedId(activeSpeakerId);
+    }
+  }, [activeSpeakerId, followSpeaker]);
 
   const layoutMode = useMemo(() => {
     if (isScreenSharing) return 'screen-share-focus';
@@ -239,7 +244,7 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
 
   const renderTile = (tile: Tile, options: { size: 'primary' | 'secondary' | 'mosaic' }) => {
     const isPinned = pinnedId === tile.id;
-    const isActive = tile.id === activeSpeakerId && layoutMode === 'speaker' && !pinnedId && !isScreenSharing;
+    const isActive = tile.id === activeSpeakerId;
     const minH =
       options.size === 'primary'
         ? 'min-h-[220px] sm:min-h-[420px] max-h-[55vh]'
@@ -247,7 +252,7 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
           ? 'min-h-[160px] sm:min-h-[240px] max-h-[40vh]'
           : 'min-h-[200px] sm:min-h-[280px] max-h-[45vh]';
 
-    const ringClass = (isPinned || isActive) ? 'ring-2 ring-green-500' : '';
+    const ringClass = isActive ? 'ring-2 ring-green-500' : '';
     return (
       <Card key={tile.id} className={`bg-gray-800 border-gray-700 h-full ${ringClass}`}>
         <CardHeader className="py-2 px-3">
@@ -270,7 +275,17 @@ export function SimpleVideoConference({ roomId, userName, onError }: SimpleVideo
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setPinnedId(prev => (prev === tile.id ? null : tile.id))}
+                  onClick={() => {
+                    setPinnedId(prev => {
+                      if (prev === tile.id) {
+                        setFollowSpeaker(true);
+                        return null;
+                      } else {
+                        setFollowSpeaker(false);
+                        return tile.id;
+                      }
+                    });
+                  }}
                   className="h-7 px-2 bg-gray-900 text-gray-100 border-gray-600 hover:bg-gray-700 hover:text-white"
                 >
                   {isPinned ? 'Désépingler' : 'Épingler'}
