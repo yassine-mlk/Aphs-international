@@ -24,6 +24,8 @@ import {
   Search
 } from 'lucide-react';
 import { useSupabase } from '@/hooks/useSupabase';
+import { useAuth } from '@/contexts/AuthContext';
+import { useNotificationTriggers } from '@/hooks/useNotificationTriggers';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -59,7 +61,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useAuth } from '@/contexts/AuthContext';
 import { Badge } from "@/components/ui/badge";
 
 // Project interface
@@ -90,7 +91,7 @@ interface TaskAssignment {
   section_id: string; // "A", "B", "C", etc.
   subsection_id: string; // "A1", "A2", "B1", etc.
   task_name: string;
-  assigned_to: string; // Stakeholder ID
+  assigned_to: string[]; // Stakeholder IDs
   deadline: string;
   validation_deadline: string;
   validators: string[]; // Validator stakeholder IDs
@@ -1338,8 +1339,9 @@ const ProjectDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { fetchData, deleteData, insertData, updateData } = useSupabase();
+  const { fetchData, deleteData, insertData, updateData, getUsers } = useSupabase();
   const { user } = useAuth();
+  const { notifyTaskAssigned } = useNotificationTriggers();
   
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1359,14 +1361,14 @@ const ProjectDetails: React.FC = () => {
   } | null>(null);
   
   const [assignmentForm, setAssignmentForm] = useState<{
-    assigned_to: string;
+    assigned_to: string[];
     deadline: string;
     validation_deadline: string;
     validators: string[];
     file_extension: string;
     comment: string;
   }>({
-    assigned_to: '',
+    assigned_to: [],
     deadline: '',
     validation_deadline: '',
     validators: [],
@@ -1523,9 +1525,9 @@ const ProjectDetails: React.FC = () => {
       taskName
     });
     
-    // Réinitialiser le formulaire
+    // Reset form
     setAssignmentForm({
-      assigned_to: '',
+      assigned_to: [],
       deadline: '',
       validation_deadline: '',
       validators: [],
@@ -1559,10 +1561,10 @@ const ProjectDetails: React.FC = () => {
   const handleSubmitAssignment = async () => {
     if (!selectedTask || !project) return;
     
-    if (!assignmentForm.assigned_to) {
+    if (!assignmentForm.assigned_to || assignmentForm.assigned_to.length === 0) {
       toast({
         title: "Error",
-        description: "Please select a stakeholder",
+        description: "Please select at least one stakeholder",
         variant: "destructive",
       });
       return;
@@ -1595,10 +1597,10 @@ const ProjectDetails: React.FC = () => {
       return;
     }
     
-    if (assignmentForm.validators.includes(assignmentForm.assigned_to)) {
+    if (assignmentForm.assigned_to.some(id => assignmentForm.validators.includes(id))) {
       toast({
         title: "Error",
-        description: "The assigned stakeholder cannot be a validator",
+        description: "An assigned stakeholder cannot be a validator",
         variant: "destructive",
       });
       return;
@@ -1650,6 +1652,33 @@ const ProjectDetails: React.FC = () => {
             ? "Assignment has been updated successfully" 
             : "Task has been assigned successfully",
         });
+
+        // Send notification to assigned stakeholders (only for new assignments)
+        if (!existingAssignment) {
+          try {
+            const adminProfile = await fetchData<{first_name?: string; last_name?: string; email?: string}>('profiles', {
+              columns: 'first_name, last_name, email',
+              filters: [{ column: 'user_id', operator: 'eq', value: user?.id }]
+            });
+            
+            const profile = adminProfile?.[0];
+            const adminName = profile && (profile.first_name || profile.last_name)
+              ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim()
+              : (profile?.email || user?.email || 'Admin');
+
+            // Notify each assigned stakeholder
+            for (const assignedToId of assignmentForm.assigned_to) {
+              await notifyTaskAssigned(
+                assignedToId,
+                selectedTask.taskName,
+                project.name,
+                adminName
+              );
+            }
+          } catch (notificationError) {
+            console.error('Error sending notification:', notificationError);
+          }
+        }
         
         // Reload assignments
         const updatedAssignments = await fetchData<TaskAssignment>('task_assignments', {
@@ -1683,6 +1712,18 @@ const ProjectDetails: React.FC = () => {
     if (!project) return;
     
     try {
+      try {
+        const { error: assignErr } = await useSupabase().supabase
+          .from('task_assignments')
+          .delete()
+          .eq('project_id', project.id);
+        if (assignErr) {
+          console.warn('Error deleting project task assignments:', assignErr);
+        }
+      } catch (e) {
+        console.warn('Exception deleting project task assignments:', e);
+      }
+
       const success = await deleteData('projects', project.id);
       
       if (success) {
@@ -1714,8 +1755,19 @@ const ProjectDetails: React.FC = () => {
   };
   
   // Formatter le nom de l'intervenant
-  const formatIntervenantName = (id: string) => {
-    const intervenant = intervenants.find(i => i.id === id);
+  const formatIntervenantName = (ids: string | string[]) => {
+    if (Array.isArray(ids)) {
+      if (ids.length === 0) return 'No stakeholder';
+      if (ids.length === 1) {
+        const intervenant = intervenants.find(i => i.id === ids[0]);
+        return intervenant 
+          ? `${intervenant.first_name} ${intervenant.last_name}`
+          : 'Unknown stakeholder';
+      }
+      return `${ids.length} stakeholders`;
+    }
+    
+    const intervenant = intervenants.find(i => i.id === ids);
     return intervenant 
       ? `${intervenant.first_name} ${intervenant.last_name}`
       : 'Unknown stakeholder';
@@ -2265,41 +2317,57 @@ const ProjectDetails: React.FC = () => {
             </div>
             
             <div className="grid grid-cols-1 gap-2">
-              <Label htmlFor="assigned_to">Responsible specialist<span className="text-red-500">*</span></Label>
-              <Select
-                value={assignmentForm.assigned_to}
-                onValueChange={(value) => setAssignmentForm({...assignmentForm, assigned_to: value})}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Sélectionner un intervenant" />
-                </SelectTrigger>
-                <SelectContent className="max-h-60 overflow-y-auto">
-                  <SelectGroup>
-                    <SelectLabel>Specialists</SelectLabel>
-                    {loadingIntervenants ? (
-                      <SelectItem value="loading" disabled>Loading...</SelectItem>
-                    ) : filteredIntervenantsForAssignment.length > 0 ? (
-                      filteredIntervenantsForAssignment.map(intervenant => (
-                        <SelectItem key={intervenant.id} value={intervenant.id}>
-                          <div className="flex flex-col">
-                            <span className="font-medium">
-                              {intervenant.first_name} {intervenant.last_name}
-                            </span>
-                            <span className="text-xs text-gray-500">
-                              {intervenant.email}
-                              {intervenant.specialty && ` • ${intervenant.specialty}`}
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <SelectItem value="no-results" disabled>
-                        No specialist found
-                      </SelectItem>
-                    )}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="assigned_to">Responsible specialists<span className="text-red-500">*</span></Label>
+              <div className="border rounded-md p-2 max-h-48 overflow-y-auto">
+                {loadingIntervenants ? (
+                  <p className="text-sm text-gray-500 p-2">Loading specialists...</p>
+                ) : filteredIntervenantsForAssignment.length > 0 ? (
+                  filteredIntervenantsForAssignment.map(intervenant => (
+                    <div key={intervenant.id} className="flex items-center my-1 p-1 hover:bg-gray-50 rounded transition-colors">
+                      <input
+                        type="checkbox"
+                        id={`assignee-${intervenant.id}`}
+                        className="mr-2 h-4 w-4 text-aphs-teal rounded border-gray-300 focus:ring-aphs-teal"
+                        checked={assignmentForm.assigned_to.includes(intervenant.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setAssignmentForm({
+                              ...assignmentForm, 
+                              assigned_to: [...assignmentForm.assigned_to, intervenant.id],
+                              // Remove from validators if already present
+                              validators: assignmentForm.validators.filter(id => id !== intervenant.id)
+                            });
+                          } else {
+                            setAssignmentForm({
+                              ...assignmentForm, 
+                              assigned_to: assignmentForm.assigned_to.filter(id => id !== intervenant.id)
+                            });
+                          }
+                        }}
+                      />
+                      <label htmlFor={`assignee-${intervenant.id}`} className="text-sm cursor-pointer flex-1 text-gray-700">
+                        <div className="font-medium">
+                          {intervenant.first_name} {intervenant.last_name}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {intervenant.email}
+                          {intervenant.specialty && ` • ${intervenant.specialty}`}
+                        </div>
+                      </label>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-500 p-2">
+                    {assignmentSearchQuery ? 'No specialist found for this search' : 'No specialist available'}
+                  </p>
+                )}
+              </div>
+              <div className="text-xs text-gray-500 mt-1">
+                {assignmentForm.assigned_to.length > 0 ? 
+                  `${assignmentForm.assigned_to.length} specialist(s) selected` : 
+                  'No specialist selected'
+                }
+              </div>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2360,16 +2428,16 @@ const ProjectDetails: React.FC = () => {
                             });
                           }
                         }}
-                        disabled={intervenant.id === assignmentForm.assigned_to}
+                        disabled={assignmentForm.assigned_to.includes(intervenant.id)}
                       />
-                      <label htmlFor={`validator-${intervenant.id}`} className={`text-sm cursor-pointer flex-1 ${intervenant.id === assignmentForm.assigned_to ? 'text-gray-400' : 'text-gray-700'}`}>
+                      <label htmlFor={`validator-${intervenant.id}`} className={`text-sm cursor-pointer flex-1 ${assignmentForm.assigned_to.includes(intervenant.id) ? 'text-gray-400' : 'text-gray-700'}`}>
                         <div className="font-medium">
                           {intervenant.first_name} {intervenant.last_name}
                         </div>
                         <div className="text-xs text-gray-500">
                           {intervenant.email}
                           {intervenant.specialty && ` • ${intervenant.specialty}`}
-                          {intervenant.id === assignmentForm.assigned_to && (
+                          {assignmentForm.assigned_to.includes(intervenant.id) && (
                             <span className="text-gray-400 italic"> (already assigned)</span>
                           )}
                         </div>

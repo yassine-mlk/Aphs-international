@@ -13,7 +13,7 @@ interface TaskAssignment {
   section_id: string;
   subsection_id: string;
   task_name: string;
-  assigned_to: string;
+  assigned_to: string[]; // IDs des intervenants
   deadline: string;
   validation_deadline: string;
   validators: string[];
@@ -80,15 +80,15 @@ export const useTaskMigration = (): UseTaskMigrationReturn => {
     setError(null);
     
     try {
-      let filters = [];
+      let queryFilters = [];
       if (userId) {
-        filters.push({ column: 'assigned_to', operator: 'eq', value: userId });
+        queryFilters.push({ column: 'assigned_to', operator: 'cs', value: `{${userId}}` });
       }
 
       // Récupérer les tâches depuis task_assignments avec les informations du projet
       const taskAssignments = await fetchData<TaskAssignment>('task_assignments', {
         columns: '*',
-        filters: filters.length > 0 ? filters : undefined,
+        filters: queryFilters.length > 0 ? queryFilters : undefined,
         order: { column: 'created_at', ascending: false }
       });
 
@@ -140,9 +140,10 @@ export const useTaskMigration = (): UseTaskMigrationReturn => {
     
     try {
       // Récupérer les tâches assignées à l'utilisateur depuis task_assignments
+      // Utiliser l'opérateur 'cs' (contains) pour les tableaux
       const assignedTasks = await fetchData<TaskAssignment>('task_assignments', {
         columns: '*',
-        filters: [{ column: 'assigned_to', operator: 'eq', value: userId }],
+        filters: [{ column: 'assigned_to', operator: 'cs', value: `{${userId}}` }],
         order: { column: 'created_at', ascending: false }
       });
 

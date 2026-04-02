@@ -241,6 +241,18 @@ const ProjectsAr: React.FC = () => {
     if (!selectedProject) return;
     
     try {
+      try {
+        const { error: assignErr } = await useSupabase().supabase
+          .from('task_assignments')
+          .delete()
+          .eq('project_id', selectedProject.id);
+        if (assignErr) {
+          console.warn('خطأ حذف مهام المشروع:', assignErr);
+        }
+      } catch (e) {
+        console.warn('استثناء حذف مهام المشروع:', e);
+      }
+
       const success = await deleteData('projects', selectedProject.id);
       
       if (success) {

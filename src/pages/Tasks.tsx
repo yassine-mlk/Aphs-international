@@ -115,28 +115,30 @@ const Tasks: React.FC = () => {
         const userTasks = await fetchTasksForUser(user.id);
         
         // Récupérer les profils des utilisateurs assignés
-        const userIds = Array.from(new Set(
-          userTasks.map(task => task.assigned_to)
-        )).filter(id => id);
+        const allAssignedIds = userTasks.flatMap(task => task.assigned_to || []);
+        const userIds = Array.from(new Set(allAssignedIds)).filter(id => id);
         
         if (userIds.length > 0) {
           const profiles = await fetchData<Intervenant>('profiles', {
             columns: 'user_id,email,first_name,last_name,role',
-            filters: userIds.map(id => ({ column: 'user_id', operator: 'eq', value: id }))
+            filters: [{ column: 'user_id', operator: 'in', value: userIds }]
           });
           
           // Mapper les profils aux tâches
           const tasksWithUsers = userTasks.map(task => {
-            const userProfile = profiles.find(profile => profile.id === task.assigned_to);
+            const taskAssignedUsers = profiles.filter(profile => 
+              task.assigned_to && task.assigned_to.includes(profile.id)
+            ).map(profile => ({
+              id: profile.id,
+              email: profile.email,
+              first_name: profile.first_name,
+              last_name: profile.last_name,
+              role: profile.role
+            }));
+            
             return {
               ...task,
-              assigned_user: userProfile ? {
-                id: userProfile.id,
-                email: userProfile.email,
-                first_name: userProfile.first_name,
-                last_name: userProfile.last_name,
-                role: userProfile.role
-              } : undefined
+              assigned_users: taskAssignedUsers
             };
           });
           
@@ -197,10 +199,8 @@ const Tasks: React.FC = () => {
       task.section_id,
       task.subsection_id,
       task.project?.name || '',
-      task.assigned_user ? 
-        (task.assigned_user.first_name && task.assigned_user.last_name ?
-          `${task.assigned_user.first_name} ${task.assigned_user.last_name}` :
-          task.assigned_user.email) :
+      task.assigned_users && task.assigned_users.length > 0 ? 
+        task.assigned_users.map(u => (u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email)).join(', ') :
         ''
     ];
     

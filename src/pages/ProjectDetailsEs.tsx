@@ -90,7 +90,7 @@ interface TaskAssignment {
   section_id: string; // "A", "B", "C", etc.
   subsection_id: string; // "A1", "A2", "B1", etc.
   task_name: string;
-  assigned_to: string; // Stakeholder ID
+  assigned_to: string[]; // Stakeholder IDs
   deadline: string;
   validation_deadline: string;
   validators: string[]; // Validator stakeholder IDs
@@ -1359,14 +1359,14 @@ const ProjectDetails: React.FC = () => {
   } | null>(null);
   
   const [assignmentForm, setAssignmentForm] = useState<{
-    assigned_to: string;
+    assigned_to: string[];
     deadline: string;
     validation_deadline: string;
     validators: string[];
     file_extension: string;
     comment: string;
   }>({
-    assigned_to: '',
+    assigned_to: [],
     deadline: '',
     validation_deadline: '',
     validators: [],
@@ -1683,6 +1683,18 @@ const ProjectDetails: React.FC = () => {
     if (!project) return;
     
     try {
+      try {
+        const { error: assignErr } = await useSupabase().supabase
+          .from('task_assignments')
+          .delete()
+          .eq('project_id', project.id);
+        if (assignErr) {
+          console.warn('Error deleting project task assignments:', assignErr);
+        }
+      } catch (e) {
+        console.warn('Exception deleting project task assignments:', e);
+      }
+
       const success = await deleteData('projects', project.id);
       
       if (success) {
@@ -1714,11 +1726,22 @@ const ProjectDetails: React.FC = () => {
   };
   
   // Formatter le nom de l'intervenant
-  const formatIntervenantName = (id: string) => {
-    const intervenant = intervenants.find(i => i.id === id);
+  const formatIntervenantName = (ids: string | string[]) => {
+    if (Array.isArray(ids)) {
+      if (ids.length === 0) return 'Ningún interventor';
+      if (ids.length === 1) {
+        const intervenant = intervenants.find(i => i.id === ids[0]);
+        return intervenant 
+          ? `${intervenant.first_name} ${intervenant.last_name}`
+          : 'Interventor desconocido';
+      }
+      return `${ids.length} interventores`;
+    }
+    
+    const intervenant = intervenants.find(i => i.id === ids);
     return intervenant 
       ? `${intervenant.first_name} ${intervenant.last_name}`
-      : 'Unknown stakeholder';
+      : 'Interventor desconocido';
   };
   
   // Ouvrir la boîte de dialogue des détails de tâche

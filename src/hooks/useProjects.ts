@@ -4,7 +4,7 @@ import { Project, ProjectFormData, ProjectFilters } from '../types/project';
 import { useToast } from '@/components/ui/use-toast';
 
 export function useProjects() {
-  const { fetchData, insertData, updateData, deleteData } = useSupabase();
+  const { fetchData, insertData, updateData, deleteData, supabase } = useSupabase();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
@@ -196,6 +196,18 @@ export function useProjects() {
   const deleteProject = useCallback(async (id: string): Promise<boolean> => {
     setLoading(true);
     try {
+      try {
+        const { error: assignError } = await supabase
+          .from('task_assignments')
+          .delete()
+          .eq('project_id', id);
+        if (assignError) {
+          console.warn('Erreur suppression des assignations liées au projet:', assignError);
+        }
+      } catch (e) {
+        console.warn('Exception suppression des assignations liées au projet:', e);
+      }
+
       const success = await deleteData('projects', id);
 
       if (success) {
@@ -217,7 +229,7 @@ export function useProjects() {
     } finally {
       setLoading(false);
     }
-  }, [deleteData, toast]);
+  }, [deleteData, toast, supabase]);
 
   // Récupérer les projets d'une entreprise
   const getProjectsByCompany = useCallback(async (companyId: string): Promise<Project[]> => {

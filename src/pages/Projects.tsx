@@ -308,6 +308,18 @@ const Projects: React.FC = () => {
     if (!selectedProject) return;
     
     try {
+      try {
+        const { error: assignErr } = await useSupabase().supabase
+          .from('task_assignments')
+          .delete()
+          .eq('project_id', selectedProject.id);
+        if (assignErr) {
+          console.warn('Erreur suppression assignations du projet:', assignErr);
+        }
+      } catch (e) {
+        console.warn('Exception suppression assignations du projet:', e);
+      }
+
       const success = await deleteData('projects', selectedProject.id);
       
       if (success) {

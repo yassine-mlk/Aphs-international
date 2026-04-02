@@ -160,7 +160,7 @@ const IntervenantProjectDetails: React.FC = () => {
             columns: '*',
             filters: [
               { column: 'project_id', operator: 'eq', value: id },
-              { column: 'assigned_to', operator: 'eq', value: user.id }
+              { column: 'assigned_to', operator: 'cs', value: `{${user.id}}` }
             ]
           });
           
