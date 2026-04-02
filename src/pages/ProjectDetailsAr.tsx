@@ -1723,6 +1723,18 @@ const ProjectDetails: React.FC = (): ReactNode => {
     if (!project) return;
     
     try {
+      try {
+        const { error: assignErr } = await useSupabase().supabase
+          .from('task_assignments')
+          .delete()
+          .eq('project_id', project.id);
+        if (assignErr) {
+          console.warn('خطأ حذف مهام المشروع:', assignErr);
+        }
+      } catch (e) {
+        console.warn('استثناء حذف مهام المشروع:', e);
+      }
+
       const success = await deleteData('projects', project.id);
       
       if (success) {

@@ -131,7 +131,7 @@ const IntervenantDashboard: React.FC = () => {
       // 2. Récupérer toutes les tâches assignées à l'utilisateur
       const tasks = await fetchData('task_assignments', {
         columns: 'id, task_name, status, deadline, project_id',
-        filters: [{ column: 'assigned_to', operator: 'eq', value: user.id }]
+        filters: [{ column: 'assigned_to', operator: 'cs', value: `{${user.id}}` }]
       }) || [];
 
       console.log('Tâches récupérées:', tasks);

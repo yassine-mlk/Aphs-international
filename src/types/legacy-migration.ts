@@ -10,7 +10,7 @@ export interface LegacyTaskAssignment {
   section_id: string; // "A", "B", "C", etc.
   subsection_id: string; // "A1", "A2", "B1", etc.
   task_name: string;
-  assigned_to: string; // ID of the intervenant
+  assigned_to: string[]; // IDs of the intervenants
   deadline: string;
   validation_deadline: string;
   validators: string[]; // IDs of the intervenant validators
@@ -30,13 +30,13 @@ export interface LegacyTaskAssignment {
     id: string;
     name: string;
   };
-  assigned_user?: {
+  assigned_users?: {
     id: string;
     email: string;
     first_name?: string;
     last_name?: string;
     role?: string;
-  };
+  }[];
 }
 
 // Fonction pour convertir LegacyTaskAssignment vers ProjectTask
@@ -76,18 +76,19 @@ export function convertLegacyToProjectTask(legacy: LegacyTaskAssignment): Projec
       image_url: undefined,
       company_id: undefined,
       status: 'active' as const,
+      created_by: '', // À compléter si disponible
       created_at: '',
       updated_at: undefined
     } : undefined,
-    assigned_user: legacy.assigned_user ? {
-      user_id: legacy.assigned_user.id,
-      first_name: legacy.assigned_user.first_name || '',
-      last_name: legacy.assigned_user.last_name || '',
-      email: legacy.assigned_user.email,
-      role: legacy.assigned_user.role || '',
+    assigned_users: legacy.assigned_users ? legacy.assigned_users.map(user => ({
+      user_id: user.id,
+      first_name: user.first_name || '',
+      last_name: user.last_name || '',
+      email: user.email,
+      role: user.role || '',
       created_at: '',
       updated_at: ''
-    } : undefined
+    })) : undefined
   };
 }
 
@@ -123,12 +124,12 @@ export function convertProjectTaskToLegacy(task: ProjectTask): LegacyTaskAssignm
     
     // Join fields
     project: task.project,
-    assigned_user: task.assigned_user ? {
-      id: task.assigned_user.user_id,
-      email: task.assigned_user.email,
-      first_name: task.assigned_user.first_name,
-      last_name: task.assigned_user.last_name,
-      role: task.assigned_user.role
-    } : undefined
+    assigned_users: task.assigned_users ? task.assigned_users.map(user => ({
+      id: user.user_id,
+      email: user.email,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      role: user.role
+    })) : undefined
   };
 } 

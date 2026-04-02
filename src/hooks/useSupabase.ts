@@ -143,14 +143,16 @@ export function useSupabase() {
           if (filter.operator === 'in') {
             // S'assurer que la valeur est un tableau non vide
             if (Array.isArray(filter.value) && filter.value.length > 0) {
-              query = query.in(filter.column, filter.value);
+              // Utiliser .filter avec le format explicite (val1,val2) pour forcer les parenthèses si nécessaire
+              const formattedValue = `(${filter.value.join(',')})`;
+              query = query.filter(filter.column, 'in', formattedValue);
             } else if (typeof filter.value === 'string' && filter.value.startsWith('(') && filter.value.endsWith(')')) {
-              // Gérer le cas où la valeur est formatée comme "(id1,id2,id3)"
-              const cleanValue = filter.value.slice(1, -1); // Enlever les parenthèses
-              const arrayValue = cleanValue.split(',').map(id => id.trim()).filter(Boolean);
-              if (arrayValue.length > 0) {
-                query = query.in(filter.column, arrayValue);
-              }
+              // Gérer le cas où la valeur est déjà formatée comme "(id1,id2,id3)"
+              query = query.filter(filter.column, 'in', filter.value);
+            } else if (typeof filter.value === 'string') {
+              // Gérer le cas où la valeur est une chaîne séparée par des virgules sans parenthèses
+              const formattedValue = `(${filter.value})`;
+              query = query.filter(filter.column, 'in', formattedValue);
             } else {
               console.warn(`Filtre 'in' ignoré: la valeur doit être un tableau non vide ou une chaîne formatée`, filter);
             }

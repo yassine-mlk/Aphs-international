@@ -13,7 +13,7 @@ export interface TaskAssignment {
   section_id: string; // "A", "B", "C", etc.
   subsection_id: string; // "A1", "A2", "B1", etc.
   task_name: string;
-  assigned_to: string; // UUID de l'intervenant
+  assigned_to: string[]; // Array des UUIDs des intervenants
   deadline: string; // ISO string
   validation_deadline: string; // ISO string
   validators: string[]; // Array des UUIDs des validateurs
@@ -37,7 +37,7 @@ export interface CreateTaskAssignmentData {
   section_id: string;
   subsection_id: string;
   task_name: string;
-  assigned_to: string;
+  assigned_to: string[];
   deadline: string;
   validation_deadline: string;
   validators: string[];
@@ -48,7 +48,7 @@ export interface CreateTaskAssignmentData {
 // Interface pour mettre à jour un assignement
 export interface UpdateTaskAssignmentData {
   id: string;
-  assigned_to?: string;
+  assigned_to?: string[];
   deadline?: string;
   validation_deadline?: string;
   validators?: string[];
@@ -106,7 +106,7 @@ export interface TaskAssignmentProject {
 
 // Interface enrichie avec les détails de l'intervenant et du projet
 export interface TaskAssignmentWithDetails extends TaskAssignment {
-  assignee?: TaskAssignmentIntervenant;
+  assignees?: TaskAssignmentIntervenant[];
   project?: TaskAssignmentProject;
   validator_details?: TaskAssignmentIntervenant[];
 }
@@ -156,14 +156,14 @@ export const validateTaskAssignment = (data: CreateTaskAssignmentData): string[]
   if (!data.section_id) errors.push('Section requise');
   if (!data.subsection_id) errors.push('Sous-section requise');
   if (!data.task_name.trim()) errors.push('Nom de la tâche requis');
-  if (!data.assigned_to) errors.push('Intervenant assigné requis');
+  if (!data.assigned_to || data.assigned_to.length === 0) errors.push('Au moins un intervenant assigné requis');
   if (!data.deadline) errors.push('Date limite requise');
   if (!data.validation_deadline) errors.push('Date limite de validation requise');
   if (data.validators.length === 0) errors.push('Au moins un validateur requis');
   
-  // Vérifier que l'assigné n'est pas dans les validateurs
-  if (data.validators.includes(data.assigned_to)) {
-    errors.push('L\'intervenant assigné ne peut pas être validateur');
+  // Vérifier que les assignés ne sont pas dans les validateurs
+  if (data.assigned_to && data.assigned_to.some(assignee => data.validators.includes(assignee))) {
+    errors.push('Un intervenant assigné ne peut pas être validateur');
   }
   
   // Vérifier l'ordre des dates

@@ -57,7 +57,7 @@ interface TaskAssignment {
   section_id: string; // "A", "B", "C", etc.
   subsection_id: string; // "A1", "A2", "B1", etc.
   task_name: string;
-  assigned_to: string; // ID de l'intervenant
+  assigned_to: string[]; // IDs des intervenants
   deadline: string;
   validation_deadline: string;
   validators: string[]; // IDs des intervenants validateurs
@@ -160,7 +160,7 @@ const IntervenantProjectDetails: React.FC = () => {
             columns: '*',
             filters: [
               { column: 'project_id', operator: 'eq', value: id },
-              { column: 'assigned_to', operator: 'eq', value: user.id }
+              { column: 'assigned_to', operator: 'cs', value: `{${user.id}}` }
             ]
           });
           
@@ -280,9 +280,17 @@ const IntervenantProjectDetails: React.FC = () => {
     fetchIntervenants();
   }, [getUsers]);
 
-  // Obtenir le nom de l'intervenant
-  const getIntervenantName = (userId: string) => {
-    const intervenant = intervenants.find(i => i.id === userId);
+  // Obtenir les noms des intervenants
+  const getIntervenantNames = (userIds: string | string[]) => {
+    if (Array.isArray(userIds)) {
+      if (userIds.length === 0) return 'Inconnu';
+      return userIds.map(userId => {
+        const intervenant = intervenants.find(i => i.id === userId);
+        return intervenant ? `${intervenant.first_name} ${intervenant.last_name}` : 'Inconnu';
+      }).join(', ');
+    }
+    
+    const intervenant = intervenants.find(i => i.id === userIds);
     return intervenant ? `${intervenant.first_name} ${intervenant.last_name}` : 'Inconnu';
   };
 
@@ -701,7 +709,7 @@ const IntervenantProjectDetails: React.FC = () => {
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                             <div>
                               <span className="text-gray-600">Assigné à:</span>
-                              <span className="ml-2 font-medium">{getIntervenantName(task.assigned_to)}</span>
+                              <span className="ml-2 font-medium">{getIntervenantNames(task.assigned_to)}</span>
                             </div>
                             <div>
                               <span className="text-gray-600">Échéance:</span>
@@ -729,7 +737,7 @@ const IntervenantProjectDetails: React.FC = () => {
                               <div>
                                 <span className="text-gray-600">Validé par:</span>
                                 <span className="ml-2 font-medium">
-                                  {getIntervenantName(task.validated_by)}
+                                  {getIntervenantNames(task.validated_by)}
                                 </span>
                               </div>
                             )}
@@ -964,7 +972,7 @@ const IntervenantProjectDetails: React.FC = () => {
                                                   {taskAssignment && (
                                                     <div className="text-xs text-gray-600 flex items-center gap-2">
                                                       <User className="h-3 w-3" />
-                                                      <span>Assigné à: {getIntervenantName(taskAssignment.assigned_to)}</span>
+                                                      <span>Assigné à: {getIntervenantNames(taskAssignment.assigned_to)}</span>
                                                       {taskAssignment.deadline && (
                                                         <>
                                                           <Calendar className="h-3 w-3 ml-2" />
@@ -1137,7 +1145,7 @@ const IntervenantProjectDetails: React.FC = () => {
                                                   {taskAssignment && (
                                                     <div className="text-xs text-gray-600 flex items-center gap-2">
                                                       <User className="h-3 w-3" />
-                                                      <span>Assigné à: {getIntervenantName(taskAssignment.assigned_to)}</span>
+                                                      <span>Assigné à: {getIntervenantNames(taskAssignment.assigned_to)}</span>
                                                       {taskAssignment.deadline && (
                                                         <>
                                                           <Calendar className="h-3 w-3 ml-2" />
@@ -1209,7 +1217,7 @@ const IntervenantProjectDetails: React.FC = () => {
                   <div>
                     <Label className="text-sm font-medium">Assigné à</Label>
                     <p className="text-sm text-gray-700">
-                      {getIntervenantName(selectedTaskDetails.assigned_to)}
+                      {getIntervenantNames(selectedTaskDetails.assigned_to)}
                     </p>
                   </div>
                   <div>
@@ -1242,7 +1250,7 @@ const IntervenantProjectDetails: React.FC = () => {
                       {selectedTaskDetails.validators.map((validatorId, index) => (
                         <li key={index} className="flex items-center gap-2">
                           <User className="h-3 w-3" />
-                          {getIntervenantName(validatorId)}
+                          {getIntervenantNames(validatorId)}
                         </li>
                       ))}
                     </ul>
@@ -1271,7 +1279,7 @@ const IntervenantProjectDetails: React.FC = () => {
                   <div>
                     <Label className="text-sm font-medium">Validé par</Label>
                     <p className="text-sm text-gray-700">
-                      {getIntervenantName(selectedTaskDetails.validated_by)}
+                      {getIntervenantNames(selectedTaskDetails.validated_by)}
                     </p>
                   </div>
                 )}

@@ -45,7 +45,8 @@ export const useTaskAssignments = () => {
         queryFilters.push({ column: 'section_id', operator: 'eq', value: filters.section_id });
       }
       if (filters?.assigned_to) {
-        queryFilters.push({ column: 'assigned_to', operator: 'eq', value: filters.assigned_to });
+        // Utiliser l'opérateur 'cs' (contains) pour les tableaux
+        queryFilters.push({ column: 'assigned_to', operator: 'cs', value: `{${filters.assigned_to}}` });
       }
       if (filters?.status) {
         queryFilters.push({ column: 'status', operator: 'eq', value: filters.status });
@@ -72,6 +73,21 @@ export const useTaskAssignments = () => {
           assignment.task_name.toLowerCase().includes(searchTerm) ||
           (assignment.comment && assignment.comment.toLowerCase().includes(searchTerm))
         );
+      }
+
+      // Exclure les tâches dont le projet n'existe plus
+      const projectIds = Array.from(new Set(filteredData.map(a => a.project_id).filter(Boolean)));
+      if (projectIds.length > 0) {
+        try {
+          const existingProjects = await fetchData<{ id: string }>('projects', {
+            columns: 'id',
+            filters: [{ column: 'id', operator: 'in', value: projectIds }]
+          });
+          const existingIds = new Set((existingProjects || []).map(p => p.id));
+          filteredData = filteredData.filter(a => existingIds.has(a.project_id));
+        } catch (e) {
+          console.warn('Erreur vérification existence des projets pour les tâches:', e);
+        }
       }
 
       setTaskAssignments(filteredData);
@@ -273,10 +289,10 @@ export const useTaskAssignments = () => {
 
     for (const assignment of assignments) {
       try {
-        // Récupérer les détails de l'assigné
+        // Récupérer les détails des assignés
         const assigneeDetails = await fetchData<any>('profiles', {
           columns: 'user_id, email, first_name, last_name, role, specialty',
-          filters: [{ column: 'user_id', operator: 'eq', value: assignment.assigned_to }]
+          filters: [{ column: 'user_id', operator: 'in', value: assignment.assigned_to }]
         });
 
         // Récupérer les détails du projet
@@ -286,38 +302,37 @@ export const useTaskAssignments = () => {
         });
 
         // Récupérer les détails des validateurs
-        const validatorPromises = assignment.validators.map(validatorId =>
-          fetchData<any>('profiles', {
-            columns: 'user_id, email, first_name, last_name, role, specialty',
-            filters: [{ column: 'user_id', operator: 'eq', value: validatorId }]
-          })
-        );
-        const validatorResults = await Promise.all(validatorPromises);
+        const validatorDetails = assignment.validators && assignment.validators.length > 0
+          ? await fetchData<any>('profiles', {
+              columns: 'user_id, email, first_name, last_name, role, specialty',
+              filters: [{ column: 'user_id', operator: 'in', value: assignment.validators }]
+            })
+          : [];
 
         const enriched: TaskAssignmentWithDetails = {
           ...assignment,
-          assignee: assigneeDetails?.[0] ? {
-            id: assigneeDetails[0].user_id,
-            email: assigneeDetails[0].email,
-            first_name: assigneeDetails[0].first_name,
-            last_name: assigneeDetails[0].last_name,
-            role: assigneeDetails[0].role,
-            specialty: assigneeDetails[0].specialty
-          } : undefined,
+          assignees: assigneeDetails ? assigneeDetails.map((profile: any) => ({
+            id: profile.user_id,
+            email: profile.email,
+            first_name: profile.first_name,
+            last_name: profile.last_name,
+            role: profile.role,
+            specialty: profile.specialty
+          })) : [],
           project: projectDetails?.[0] ? {
             id: projectDetails[0].id,
             name: projectDetails[0].name,
             description: projectDetails[0].description,
             start_date: projectDetails[0].start_date
           } : undefined,
-          validator_details: validatorResults.filter(result => result && result.length > 0).map(result => ({
-            id: result[0].user_id,
-            email: result[0].email,
-            first_name: result[0].first_name,
-            last_name: result[0].last_name,
-            role: result[0].role,
-            specialty: result[0].specialty
-          }))
+          validator_details: validatorDetails ? validatorDetails.map((profile: any) => ({
+            id: profile.user_id,
+            email: profile.email,
+            first_name: profile.first_name,
+            last_name: profile.last_name,
+            role: profile.role,
+            specialty: profile.specialty
+          })) : []
         };
 
         enrichedAssignments.push(enriched);

@@ -23,7 +23,7 @@ export interface ProjectTask {
   status: 'assigned' | 'in_progress' | 'submitted' | 'validated' | 'rejected';
   
   // Assignation
-  assigned_to: string;
+  assigned_to: string[]; // IDs des intervenants
   assigned_by?: string;
   assigned_at: string;
   
@@ -54,7 +54,7 @@ export interface ProjectTask {
   
   // Relations
   project?: Project;
-  assigned_user?: Profile;
+  assigned_users?: Profile[]; // Renommé car pluriel
   validator_users?: Profile[];
 }
 

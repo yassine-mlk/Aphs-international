@@ -84,7 +84,7 @@ interface TaskAssignment {
   section_id: string; // "A", "B", "C", etc.
   subsection_id: string; // "A1", "A2", "B1", etc.
   task_name: string;
-  assigned_to: string; // ID of the intervenant
+  assigned_to: string[]; // IDs of the intervenants
   deadline: string;
   validation_deadline: string;
   validators: string[]; // IDs of the intervenant validators
@@ -160,7 +160,7 @@ const TaskDetails: React.FC = () => {
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [validators, setValidators] = useState<Intervenant[]>([]);
-  const [assignedUser, setAssignedUser] = useState<Intervenant | null>(null);
+  const [assignedUsers, setAssignedUsers] = useState<Intervenant[]>([]);
   const [infoSheet, setInfoSheet] = useState<TaskInfoSheet | null>(null);
   const [submissionHistory, setSubmissionHistory] = useState<TaskSubmissionHistoryWithUser[]>([]);
   const [hasPendingSubmission, setHasPendingSubmission] = useState<boolean>(false);
@@ -175,11 +175,16 @@ const TaskDetails: React.FC = () => {
   const [validationComment, setValidationComment] = useState('');
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
+  const [uploadedBytes, setUploadedBytes] = useState(0);
+  const [totalBytes, setTotalBytes] = useState(0);
+  const [uploadSpeedBps, setUploadSpeedBps] = useState(0);
+  const [uploadEtaSec, setUploadEtaSec] = useState<number | null>(null);
+  const [uploadRetryCount, setUploadRetryCount] = useState(0);
   
   const [expandedInfoSheet, setExpandedInfoSheet] = useState<string | null>(null);
   
   // Determine if current user is assigned to this task
-  const isAssignedUser = user?.id === task?.assigned_to;
+  const isAssignedUser = task?.assigned_to.includes(user?.id || '') || false;
   
   // Determine if current user is a validator for this task
   const isValidator = task?.validators.includes(user?.id || '') || false;
@@ -207,7 +212,7 @@ const TaskDetails: React.FC = () => {
         if (userIds.length > 0) {
           const usersData = await fetchData<ProfileData>('profiles', {
             columns: 'user_id,email,first_name,last_name,role',
-            filters: [{ column: 'user_id', operator: 'in', value: `(${userIds.join(',')})` }]
+            filters: [{ column: 'user_id', operator: 'in', value: userIds }]
           });
           
           // Mapper les données avec les utilisateurs
@@ -303,26 +308,29 @@ const TaskDetails: React.FC = () => {
           }
           
           // Fetch assigned user details
-          const userData = await fetchData<ProfileData>('profiles', {
-            columns: 'user_id,email,first_name,last_name,role',
-            filters: [{ column: 'user_id', operator: 'eq', value: data[0].assigned_to }]
-          });
-          
-          if (userData && userData.length > 0) {
-            setAssignedUser({
-              id: userData[0].user_id,
-              email: userData[0].email,
-              first_name: userData[0].first_name,
-              last_name: userData[0].last_name,
-              role: userData[0].role
+          if (data[0].assigned_to && data[0].assigned_to.length > 0) {
+            const userData = await fetchData<ProfileData>('profiles', {
+              columns: 'user_id,email,first_name,last_name,role',
+              filters: [{ column: 'user_id', operator: 'in', value: data[0].assigned_to }]
             });
+            
+            if (userData && userData.length > 0) {
+              const formattedUsers = userData.map(u => ({
+                id: u.user_id,
+                email: u.email,
+                first_name: u.first_name,
+                last_name: u.last_name,
+                role: u.role
+              }));
+              setAssignedUsers(formattedUsers);
+            }
           }
           
           // Fetch validators details
           if (data[0].validators.length > 0) {
             const validatorsData = await fetchData<ProfileData>('profiles', {
               columns: 'user_id,email,first_name,last_name,role',
-              filters: [{ column: 'user_id', operator: 'in', value: `(${data[0].validators.join(',')})` }]
+              filters: [{ column: 'user_id', operator: 'in', value: data[0].validators }]
             });
             
             if (validatorsData) {
@@ -445,10 +453,10 @@ const TaskDetails: React.FC = () => {
     setUploadProgress(0);
     
     try {
-      // Vérifier la taille du fichier (limite à 50MB pour les fichiers AutoCAD)
-      const maxSize = selectedFile.name.toLowerCase().endsWith('.dwg') ? 50 * 1024 * 1024 : 10 * 1024 * 1024; // 50MB pour DWG, 10MB pour autres
+      // Vérifier la taille du fichier (augmentée à 5GB)
+      const maxSize = 5 * 1024 * 1024 * 1024; // 5GB pour tous les types
       if (selectedFile.size > maxSize) {
-        throw new Error(`Le fichier est trop volumineux. Taille maximale : ${Math.round(maxSize / (1024 * 1024))}MB`);
+        throw new Error(`Le fichier est trop volumineux. Taille maximale : ${Math.round(maxSize / (1024 * 1024 * 1024))}GB`);
       }
       
       // 1. Generate a unique file name
@@ -483,22 +491,17 @@ const TaskDetails: React.FC = () => {
       
       console.log(`Uploading file: ${selectedFile.name} (${Math.round(selectedFile.size / 1024)}KB) with type: ${contentType}`);
       
-      // Using a timer to simulate upload progress since we don't have actual upload progress
-      const progressTimer = setInterval(() => {
-        setUploadProgress(prev => {
-          if (prev >= 80) {
-            clearInterval(progressTimer);
-            return 80;
-          }
-          return prev + 10;
-        });
-      }, 300);
+      setTotalBytes(selectedFile.size);
+      setUploadedBytes(0);
+      setUploadSpeedBps(0);
+      setUploadEtaSec(null);
+      setUploadRetryCount(0);
       
       // Essayer d'abord l'upload direct pour les petits fichiers
       let fileUrl: string;
       let uploadSuccess = false;
       
-      if (selectedFile.size <= 5 * 1024 * 1024) { // 5MB
+      if (selectedFile.size <= 50 * 1024 * 1024) { // 50MB
         try {
           console.log('Tentative d\'upload direct...');
           const { data: uploadData, error: uploadError } = await supabase.storage
@@ -539,23 +542,68 @@ const TaskDetails: React.FC = () => {
           throw new Error(`Erreur lors de la création de l'URL signée: ${signedURLError.message}`);
       }
       
-      // Use the signed URL to upload the file
       const { signedUrl, path } = signedURLData;
-      
-      // Upload file with the signed URL
-      const uploadResponse = await fetch(signedUrl, {
-        method: 'PUT',
-        headers: {
-            'Content-Type': contentType,
-            'Cache-Control': '3600'
-        },
-        body: selectedFile,
-      });
-      
-      if (!uploadResponse.ok) {
-          const errorText = await uploadResponse.text();
-          console.error('Upload response error:', uploadResponse.status, errorText);
-          throw new Error(`Upload failed with status: ${uploadResponse.status} - ${errorText}`);
+      const uploadWithProgress = (): Promise<void> => {
+        return new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          const startedAt = performance.now();
+          let lastTickTime = startedAt;
+          let lastUploaded = 0;
+          xhr.open('PUT', signedUrl);
+          xhr.setRequestHeader('Content-Type', contentType);
+          xhr.setRequestHeader('Cache-Control', '3600');
+          xhr.upload.onprogress = (e) => {
+            if (!e.lengthComputable) return;
+            const uploaded = e.loaded;
+            const total = e.total;
+            setUploadedBytes(uploaded);
+            setTotalBytes(total);
+            const pct = Math.floor((uploaded / total) * 100);
+            setUploadProgress(pct);
+            const now = performance.now();
+            const dt = (now - lastTickTime) / 1000;
+            const dbytes = uploaded - lastUploaded;
+            if (dt > 0 && dbytes >= 0) {
+              const instBps = dbytes / dt;
+              setUploadSpeedBps((prev) => prev === 0 ? instBps : prev * 0.8 + instBps * 0.2);
+              const remaining = total - uploaded;
+              const eta = remaining / (instBps > 1 ? instBps : 1);
+              setUploadEtaSec(Math.max(0, Math.round(eta)));
+            }
+            lastTickTime = now;
+            lastUploaded = uploaded;
+          };
+          xhr.onerror = () => reject(new Error('Échec upload'));
+          xhr.onabort = () => reject(new Error('Upload annulé'));
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) resolve();
+            else reject(new Error(`Erreur HTTP ${xhr.status}`));
+          };
+          xhr.send(selectedFile);
+        });
+      };
+
+      let attempts = 0;
+      const maxAttempts = 3;
+      while (attempts < maxAttempts) {
+        try {
+          await uploadWithProgress();
+          const { data: urlData } = supabase.storage
+            .from('task_submissions')
+            .getPublicUrl(path);
+          fileUrl = urlData.publicUrl;
+          uploadSuccess = true;
+          break;
+        } catch (err) {
+          attempts += 1;
+          setUploadRetryCount(attempts);
+          if (attempts >= maxAttempts) {
+            throw err instanceof Error ? err : new Error('Upload échoué');
+          }
+          await new Promise(r => setTimeout(r, 1000 * attempts));
+          setUploadedBytes(0);
+          setUploadProgress(0);
+        }
       }
       
       // Get the public URL for the uploaded file
@@ -566,10 +614,7 @@ const TaskDetails: React.FC = () => {
         fileUrl = urlData.publicUrl;
       }
       
-      clearInterval(progressTimer);
-      setUploadProgress(90);
-      
-      setUploadProgress(95);
+      // Progression finale sera fixée à 100% après mise à jour des enregistrements
       
       // 3. Update the task assignment record
       await updateData('task_assignments', {
@@ -607,13 +652,18 @@ const TaskDetails: React.FC = () => {
       });
       
       setUploadProgress(100);
+      setUploadedBytes(0);
+      setTotalBytes(0);
+      setUploadSpeedBps(0);
+      setUploadEtaSec(null);
+      setUploadRetryCount(0);
       
       // === NOTIFICATIONS SYSTÈME ===
       try {
         // Récupérer le nom de l'intervenant qui soumet
-        const uploaderName = assignedUser ? 
-          `${assignedUser.first_name} ${assignedUser.last_name}` : 
-          'Intervenant inconnu';
+        const uploaderName = user?.user_metadata?.first_name && user?.user_metadata?.last_name 
+          ? `${user.user_metadata.first_name} ${user.user_metadata.last_name}`
+          : user?.email || 'Intervenant inconnu';
           
         // 1. Notifier tous les membres du projet et l'admin
         await notifyFileUploadedToProject(
@@ -1055,13 +1105,17 @@ const TaskDetails: React.FC = () => {
                 <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-md">
                   <User className="h-5 w-5 text-gray-500" />
                   <span>
-                    {assignedUser ? (
-                      assignedUser.first_name && assignedUser.last_name
-                        ? `${assignedUser.first_name} ${assignedUser.last_name}`
-                        : assignedUser.first_name || assignedUser.last_name
-                        ? `${assignedUser.first_name || ''} ${assignedUser.last_name || ''}`.trim()
-                        : assignedUser.email
-                    ) : t.details.unassigned}
+                    {assignedUsers.length > 0 
+                      ? assignedUsers.map(u => {
+                          if (u.first_name && u.last_name) {
+                            return `${u.first_name} ${u.last_name}`;
+                          } else if (u.first_name || u.last_name) {
+                            return `${u.first_name || ''} ${u.last_name || ''}`.trim();
+                          } else {
+                            return u.email;
+                          }
+                        }).join(', ')
+                      : t.details.unassigned}
                   </span>
                 </div>
               </div>
@@ -1342,6 +1396,16 @@ const TaskDetails: React.FC = () => {
                   <span>{uploadProgress}%</span>
                 </div>
                 <Progress value={uploadProgress} />
+                <div className="flex justify-between text-xs text-gray-500">
+                  <span>
+                    {Math.round(uploadedBytes / (1024 * 1024) * 100) / 100} MB / {Math.round((totalBytes || selectedFile?.size || 0) / (1024 * 1024) * 100) / 100} MB
+                  </span>
+                  <span>
+                    {uploadSpeedBps > 0 ? `${Math.round(uploadSpeedBps / (1024 * 1024) * 100) / 100} MB/s` : '—'}
+                    {uploadEtaSec !== null ? ` • ETA ${Math.floor(uploadEtaSec / 60)}:${String(uploadEtaSec % 60).padStart(2, '0')}` : ''}
+                    {uploadRetryCount > 0 ? ` • Retry ${uploadRetryCount}` : ''}
+                  </span>
+                </div>
               </div>
             )}
             
