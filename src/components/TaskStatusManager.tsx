@@ -21,7 +21,7 @@ interface TaskStatusManagerProps {
     project_id: string;
     project_name?: string;
     status: 'assigned' | 'in_progress' | 'submitted' | 'validated' | 'rejected';
-    assigned_to: string;
+    assigned_to: string | string[];
     validators: string[];
   };
   onStatusChange: () => void;
@@ -35,19 +35,27 @@ const TaskStatusManager: React.FC<TaskStatusManagerProps> = ({ task, onStatusCha
   
   const [loading, setLoading] = useState(false);
 
+  // Vérifier si l'utilisateur est assigné à la tâche
+  const isUserAssigned = () => {
+    if (Array.isArray(task.assigned_to)) {
+      return task.assigned_to.includes(user?.id || '');
+    }
+    return task.assigned_to === user?.id;
+  };
+
   // Vérifier si l'utilisateur peut modifier le statut
   const canModifyStatus = () => {
-    return task.assigned_to === user?.id || task.validators.includes(user?.id || '');
+    return isUserAssigned() || task.validators.includes(user?.id || '');
   };
 
   // Vérifier si l'utilisateur peut démarrer la tâche
   const canStartTask = () => {
-    return task.assigned_to === user?.id && task.status === 'assigned';
+    return isUserAssigned() && task.status === 'assigned';
   };
 
   // Vérifier si l'utilisateur peut soumettre la tâche
   const canSubmitTask = () => {
-    return task.assigned_to === user?.id && task.status === 'in_progress';
+    return isUserAssigned() && task.status === 'in_progress';
   };
 
   // Vérifier si l'utilisateur peut valider la tâche
