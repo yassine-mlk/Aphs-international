@@ -9,6 +9,7 @@ export interface Project {
   image_url?: string;
   company_id?: string;
   status: 'active' | 'completed' | 'paused' | 'cancelled';
+  show_info_sheets: boolean;
   created_by: string; // UUID de l'utilisateur qui a créé le projet
   created_at: string;
   updated_at?: string;
@@ -119,6 +120,7 @@ export interface ProjectFormData {
   image_url?: string;
   company_id?: string;
   status: Project['status'];
+  show_info_sheets: boolean;
 }
 
 export interface TaskFormData {
