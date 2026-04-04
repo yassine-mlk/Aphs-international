@@ -28,6 +28,7 @@ interface DashboardStats {
   pendingTasks: number;
   completedTasks: number;
   overdueTasks: number;
+  unassignedTasks: number;
 }
 
 
@@ -46,7 +47,8 @@ const AdminDashboard: React.FC = () => {
     totalTasks: 0,
     pendingTasks: 0,
     completedTasks: 0,
-    overdueTasks: 0
+    overdueTasks: 0,
+    unassignedTasks: 0
   });
   
   const [loading, setLoading] = useState(true);
@@ -74,7 +76,7 @@ const AdminDashboard: React.FC = () => {
 
       // Charger les tâches depuis task_assignments
       const taskAssignments = await fetchData('task_assignments', {
-        columns: 'id, status, deadline'
+        columns: 'id, status, deadline, assigned_to'
       }) || [];
 
       // Debug pour vérifier les données
@@ -85,21 +87,24 @@ const AdminDashboard: React.FC = () => {
       const now = new Date();
       const newStats: DashboardStats = {
         totalProjects: projects.length,
-        activeProjects: projects.filter((p: any) => p.status === 'active' || p.status === 'in_progress').length,
-        completedProjects: projects.filter((p: any) => p.status === 'completed').length,
+        activeProjects: projects.filter((p: any) => p.status === 'active' || p.status === 'in_progress' || p.status === 'assigned').length,
+        completedProjects: projects.filter((p: any) => p.status === 'completed' || p.status === 'finalized').length,
         totalIntervenants: intervenants.length,
         totalTasks: taskAssignments.length,
         pendingTasks: taskAssignments.filter((t: any) => 
           t.status === 'assigned' || 
           t.status === 'in_progress' || 
-          t.status === 'submitted'
+          t.status === 'submitted' ||
+          t.status === 'rejected'
         ).length,
-        completedTasks: taskAssignments.filter((t: any) => t.status === 'validated').length,
+        completedTasks: taskAssignments.filter((t: any) => t.status === 'validated' || t.status === 'finalized').length,
         overdueTasks: taskAssignments.filter((t: any) => 
           t.deadline && 
           new Date(t.deadline) < now && 
-          t.status !== 'validated'
-        ).length
+          t.status !== 'validated' &&
+          t.status !== 'finalized'
+        ).length,
+        unassignedTasks: taskAssignments.filter((t: any) => !t.assigned_to || t.assigned_to.length === 0).length
       };
 
       console.log('Statistiques calculées:', newStats);
@@ -229,10 +234,15 @@ const AdminDashboard: React.FC = () => {
               <AlertTriangle className="h-5 w-5 text-red-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-gray-900">{stats.overdueTasks}</div>
-              <p className="text-sm text-red-600 mt-1">
-                Tâches en retard
-              </p>
+              <div className="text-2xl font-bold text-gray-900">{stats.overdueTasks + stats.unassignedTasks}</div>
+              <div className="flex flex-col gap-1 mt-1">
+                <p className="text-xs text-red-600">
+                  {stats.overdueTasks} tâches en retard
+                </p>
+                <p className="text-xs text-amber-600">
+                  {stats.unassignedTasks} tâches non assignées
+                </p>
+              </div>
             </CardContent>
           </Card>
         </div>

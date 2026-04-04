@@ -163,7 +163,8 @@ const TaskDetails: React.FC = () => {
   const [assignedUsers, setAssignedUsers] = useState<Intervenant[]>([]);
   const [infoSheet, setInfoSheet] = useState<TaskInfoSheet | null>(null);
   const [submissionHistory, setSubmissionHistory] = useState<TaskSubmissionHistoryWithUser[]>([]);
-  const [hasPendingSubmission, setHasPendingSubmission] = useState<boolean>(false);
+  const [hasAnyPendingSubmission, setHasAnyPendingSubmission] = useState<boolean>(false);
+  const [hasCurrentUserPendingSubmission, setHasCurrentUserPendingSubmission] = useState<boolean>(false);
   
   const [isSubmitDialogOpen, setIsSubmitDialogOpen] = useState(false);
   const [isValidateDialogOpen, setIsValidateDialogOpen] = useState(false);
@@ -231,19 +232,23 @@ const TaskDetails: React.FC = () => {
           });
           
           setSubmissionHistory(historyWithUsers);
-          setHasPendingSubmission(checkPendingSubmission(historyWithUsers));
+          setHasAnyPendingSubmission(checkPendingSubmission(historyWithUsers));
+          setHasCurrentUserPendingSubmission(checkPendingSubmission(historyWithUsers, user?.id));
         } else {
           setSubmissionHistory(historyData.map(h => ({ ...h, performer: undefined })));
-          setHasPendingSubmission(checkPendingSubmission(historyData.map(h => ({ ...h, performer: undefined }))));
+          setHasAnyPendingSubmission(checkPendingSubmission(historyData.map(h => ({ ...h, performer: undefined }))));
+          setHasCurrentUserPendingSubmission(checkPendingSubmission(historyData.map(h => ({ ...h, performer: undefined })), user?.id));
         }
       } else {
         setSubmissionHistory([]);
-        setHasPendingSubmission(false);
+        setHasAnyPendingSubmission(false);
+        setHasCurrentUserPendingSubmission(false);
       }
     } catch (error) {
       console.error('Erreur lors du chargement de l\'historique des soumissions:', error);
       setSubmissionHistory([]);
-      setHasPendingSubmission(false);
+      setHasAnyPendingSubmission(false);
+      setHasCurrentUserPendingSubmission(false);
     }
   };
   
@@ -257,7 +262,7 @@ const TaskDetails: React.FC = () => {
   };
   
   // Check if there is a pending submission (submitted but not yet validated/rejected)
-  const checkPendingSubmission = (history: TaskSubmissionHistoryWithUser[]): boolean => {
+  const checkPendingSubmission = (history: TaskSubmissionHistoryWithUser[], userId?: string): boolean => {
     if (history.length === 0) return false;
     
     // Sort by performed_at to get the latest actions
@@ -265,14 +270,16 @@ const TaskDetails: React.FC = () => {
       new Date(b.performed_at).getTime() - new Date(a.performed_at).getTime()
     );
     
-    // Find the latest submission action
+    // Find the latest submission action (optionally by a specific user)
     const latestSubmission = sortedHistory.find(entry => 
-      entry.action_type === 'submitted' || entry.action_type === 'resubmitted'
+      (entry.action_type === 'submitted' || entry.action_type === 'resubmitted') &&
+      (!userId || entry.performed_by === userId)
     );
     
     if (!latestSubmission) return false;
     
     // Check if there's a validation/rejection after this submission
+    // Important: validation/rejection is global, not per-user
     const validationAfterSubmission = sortedHistory.find(entry => 
       (entry.action_type === 'validated' || entry.action_type === 'rejected') &&
       new Date(entry.performed_at) > new Date(latestSubmission.performed_at)
@@ -1236,7 +1243,7 @@ const TaskDetails: React.FC = () => {
               </Button>
             )}
             
-            {isAssignedUser && (task.status === 'assigned' || task.status === 'in_progress' || task.status === 'rejected') && !hasPendingSubmission && (
+            {isAssignedUser && (task.status === 'assigned' || task.status === 'in_progress' || task.status === 'rejected' || task.status === 'submitted') && !hasCurrentUserPendingSubmission && (
               <Button 
                 onClick={handleOpenSubmitDialog}
                 className="bg-green-600 hover:bg-green-700"
@@ -1246,8 +1253,8 @@ const TaskDetails: React.FC = () => {
               </Button>
             )}
             
-            {/* Message when submission is pending */}
-            {isAssignedUser && hasPendingSubmission && task.status !== 'finalized' && (
+            {/* Message when submission is pending for current user */}
+            {isAssignedUser && hasCurrentUserPendingSubmission && task.status === 'submitted' && (
               <div className="text-sm text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
                 {t.details.pendingValidation}
               </div>
@@ -1262,7 +1269,7 @@ const TaskDetails: React.FC = () => {
             )}
             
             {/* Actions for validators */}
-            {(isValidator || isAdmin) && (task.status === 'submitted' || hasPendingSubmission) && task.status !== 'finalized' && (
+            {(isValidator || isAdmin) && (task.status === 'submitted' || hasAnyPendingSubmission) && task.status !== 'finalized' && task.status !== 'validated' && (
               <div className="flex gap-2">
                 <Button 
                   onClick={handleOpenValidateDialog}

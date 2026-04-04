@@ -1401,14 +1401,14 @@ const ProjectDetails: React.FC = (): ReactNode => {
   } | null>(null);
   
   const [assignmentForm, setAssignmentForm] = useState<{
-    assigned_to: string;
+    assigned_to: string[];
     deadline: string;
     validation_deadline: string;
     validators: string[];
     file_extension: string;
     comment: string;
   }>({
-    assigned_to: '',
+    assigned_to: [],
     deadline: '',
     validation_deadline: '',
     validators: [],
@@ -1567,7 +1567,7 @@ const ProjectDetails: React.FC = (): ReactNode => {
     
     // Réinitialiser le formulaire
     setAssignmentForm({
-      assigned_to: '',
+      assigned_to: [],
       deadline: '',
       validation_deadline: '',
       validators: [],
@@ -1601,7 +1601,7 @@ const ProjectDetails: React.FC = (): ReactNode => {
   const handleSubmitAssignment = async () => {
     if (!selectedTask || !project) return;
     
-    if (!assignmentForm.assigned_to) {
+    if (!assignmentForm.assigned_to || assignmentForm.assigned_to.length === 0) {
       toast({
         title: "خطأ",
         description: getErrorMessage('select_stakeholder'),
@@ -1637,7 +1637,7 @@ const ProjectDetails: React.FC = (): ReactNode => {
       return;
     }
     
-    if (assignmentForm.validators.includes(assignmentForm.assigned_to)) {
+    if (assignmentForm.assigned_to.some(id => assignmentForm.validators.includes(id))) {
       toast({
         title: "خطأ",
         description: getErrorMessage('validator_conflict'),
@@ -1766,8 +1766,19 @@ const ProjectDetails: React.FC = (): ReactNode => {
   };
   
   // Formatter le nom de l'intervenant
-  const formatIntervenantName = (id: string) => {
-    const intervenant = intervenants.find(i => i.id === id);
+  const formatIntervenantName = (ids: string | string[]) => {
+    if (Array.isArray(ids)) {
+      if (ids.length === 0) return 'Ningún interventor';
+      if (ids.length === 1) {
+        const intervenant = intervenants.find(i => i.id === ids[0]);
+        return intervenant 
+          ? `${intervenant.first_name} ${intervenant.last_name}`
+          : 'Interventor desconocido';
+      }
+      return `${ids.length} مختصون`;
+    }
+    
+    const intervenant = intervenants.find(i => i.id === ids);
     return intervenant 
       ? `${intervenant.first_name} ${intervenant.last_name}`
       : 'Unknown stakeholder';
@@ -2313,41 +2324,57 @@ const ProjectDetails: React.FC = (): ReactNode => {
             </div>
             
             <div className="grid grid-cols-1 gap-2">
-              <Label htmlFor="assigned_to">المسؤول<span className="text-red-500">*</span></Label>
-              <Select
-                value={assignmentForm.assigned_to}
-                onValueChange={(value) => setAssignmentForm({...assignmentForm, assigned_to: value})}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="اختر مسؤولاً" />
-                </SelectTrigger>
-                <SelectContent className="max-h-60 overflow-y-auto">
-                  <SelectGroup>
-                    <SelectLabel>المسؤولون</SelectLabel>
-                    {loadingIntervenants ? (
-                      <SelectItem value="loading" disabled>جاري التحميل...</SelectItem>
-                    ) : filteredIntervenantsForAssignment.length > 0 ? (
-                      filteredIntervenantsForAssignment.map(intervenant => (
-                        <SelectItem key={intervenant.id} value={intervenant.id}>
-                          <div className="flex flex-col">
-                            <span className="font-medium">
-                              {intervenant.first_name} {intervenant.last_name}
-                            </span>
-                            <span className="text-xs text-gray-500">
-                              {intervenant.email}
-                              {intervenant.specialty && ` • ${intervenant.specialty}`}
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <SelectItem value="no-results" disabled>
-                        لم يتم العثور على مختص
-                      </SelectItem>
-                    )}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="assigned_to">المسؤولون<span className="text-red-500">*</span></Label>
+              <div className="border rounded-md p-2 max-h-48 overflow-y-auto">
+                {loadingIntervenants ? (
+                  <p className="text-sm text-gray-500 p-2">جاري التحميل...</p>
+                ) : filteredIntervenantsForAssignment.length > 0 ? (
+                  filteredIntervenantsForAssignment.map(intervenant => (
+                    <div key={intervenant.id} className="flex items-center my-1 p-1 hover:bg-gray-50 rounded transition-colors">
+                      <input
+                        type="checkbox"
+                        id={`assignee-${intervenant.id}`}
+                        className="mr-2 h-4 w-4 text-aphs-teal rounded border-gray-300 focus:ring-aphs-teal"
+                        checked={assignmentForm.assigned_to.includes(intervenant.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setAssignmentForm({
+                              ...assignmentForm, 
+                              assigned_to: [...assignmentForm.assigned_to, intervenant.id],
+                              // Quitar de validadores si ya está presente
+                              validators: assignmentForm.validators.filter(id => id !== intervenant.id)
+                            });
+                          } else {
+                            setAssignmentForm({
+                              ...assignmentForm, 
+                              assigned_to: assignmentForm.assigned_to.filter(id => id !== intervenant.id)
+                            });
+                          }
+                        }}
+                      />
+                      <label htmlFor={`assignee-${intervenant.id}`} className="text-sm cursor-pointer flex-1 text-gray-700">
+                        <div className="font-medium">
+                          {intervenant.first_name} {intervenant.last_name}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {intervenant.email}
+                          {intervenant.specialty && ` • ${intervenant.specialty}`}
+                        </div>
+                      </label>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-500 p-2">
+                    {assignmentSearchQuery ? 'لم يتم العثور على مختص لهذا البحث' : 'لا يوجد مختصون متاحون'}
+                  </p>
+                )}
+              </div>
+              <div className="text-xs text-gray-500 mt-1">
+                {assignmentForm.assigned_to.length > 0 ? 
+                  `تم اختيار ${assignmentForm.assigned_to.length} مختص(ين)` : 
+                  'لم يتم اختيار أي مختص'
+                }
+              </div>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2408,16 +2435,16 @@ const ProjectDetails: React.FC = (): ReactNode => {
                             });
                           }
                         }}
-                        disabled={intervenant.id === assignmentForm.assigned_to}
+                        disabled={assignmentForm.assigned_to.includes(intervenant.id)}
                       />
-                      <label htmlFor={`validator-${intervenant.id}`} className={`text-sm cursor-pointer flex-1 ${intervenant.id === assignmentForm.assigned_to ? 'text-gray-400' : 'text-gray-700'}`}>
+                      <label htmlFor={`validator-${intervenant.id}`} className={`text-sm cursor-pointer flex-1 ${assignmentForm.assigned_to.includes(intervenant.id) ? 'text-gray-400' : 'text-gray-700'}`}>
                         <div className="font-medium">
                           {intervenant.first_name} {intervenant.last_name}
                         </div>
                         <div className="text-xs text-gray-500">
                           {intervenant.email}
                           {intervenant.specialty && ` • ${intervenant.specialty}`}
-                          {intervenant.id === assignmentForm.assigned_to && (
+                          {assignmentForm.assigned_to.includes(intervenant.id) && (
                             <span className="text-gray-400 italic"> (معين كمسؤول)</span>
                           )}
                         </div>
@@ -2460,6 +2487,7 @@ const ProjectDetails: React.FC = (): ReactNode => {
                 placeholder="تعليمات أو معلومات إضافية"
                 rows={3}
               />
+            </div>
             </div>
           </div>
           
