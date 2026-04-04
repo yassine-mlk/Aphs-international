@@ -75,6 +75,7 @@ interface Project {
   name: string;
   description: string;
   start_date: string;
+  show_info_sheets?: boolean;
   image_url?: string;
   created_at: string;
   status?: string;
@@ -666,8 +667,9 @@ const ProjectDetails: React.FC = () => {
   
   // Ouvrir la boîte de dialogue des détails de tâche
   const handleViewTaskDetails = (assignment: TaskAssignment) => {
-    setSelectedTaskDetails(assignment);
-    setIsTaskDetailsDialogOpen(true);
+    if (assignment.id) {
+      navigate(`/dashboard/tasks/${assignment.id}`);
+    }
   };
   
   // Ouvrir la boîte de dialogue de confirmation pour désassigner une tâche
@@ -1436,7 +1438,7 @@ const ProjectDetails: React.FC = () => {
                                     {item.tasks.map((task, index) => {
                                       const assignment = getTaskAssignment(phaseStructure, section.id, item.id, task);
                                       return (
-                                        <li key={index} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
+                                        <li key={index} className="flex flex-col sm:flex-row sm:items-center justify-between py-3 border-b border-gray-100 last:border-0 gap-2">
                                           <div className="flex items-center">
                                             {assignment ? (
                                               <div className="flex items-center mr-2">
@@ -1459,20 +1461,23 @@ const ProjectDetails: React.FC = () => {
                                             ) : (
                                               <Circle className="h-3 w-3 text-gray-400 mr-2" />
                                             )}
-                                            <span className="text-sm">{task}</span>
+                                            <span className="text-sm font-medium">{task}</span>
                                           </div>
-                                          <div>
+                                          <div className="flex flex-wrap items-center gap-2">
                                             {assignment ? (
-                                              <div className="flex items-center text-xs text-gray-500">
-                                                <span className="mr-2">
-                                                  Assigné à: {formatIntervenantName(assignment.assigned_to)}
-                                                </span>
+                                              <>
+                                                <div className="flex items-center text-xs text-gray-500 bg-white px-2 py-1 rounded border shadow-sm">
+                                                  <Users className="h-3 w-3 mr-1 text-aphs-teal" />
+                                                  <span className="truncate max-w-[150px]">
+                                                    {formatIntervenantName(assignment.assigned_to)}
+                                                  </span>
+                                                </div>
                                                 <div className="flex gap-1">
                                                   <Button 
                                                     variant="outline" 
                                                     size="sm"
                                                     onClick={() => handleViewTaskDetails(assignment)}
-                                                    className="h-7 text-xs"
+                                                    className="h-7 text-xs px-2"
                                                   >
                                                     <Eye className="h-3 w-3 mr-1" />
                                                     Détails
@@ -1481,7 +1486,7 @@ const ProjectDetails: React.FC = () => {
                                                     variant="outline" 
                                                     size="sm"
                                                     onClick={() => handleUnassignTask(assignment)}
-                                                    className="h-7 text-xs"
+                                                    className="h-7 text-xs px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
                                                   >
                                                     <UserMinus className="h-3 w-3 mr-1" />
                                                     Désassigner
@@ -1490,19 +1495,19 @@ const ProjectDetails: React.FC = () => {
                                                     variant="outline" 
                                                     size="sm"
                                                     onClick={() => handleOpenAssignTask(phaseStructure, section.id, item.id, task)}
-                                                    className="h-7 text-xs"
+                                                    className="h-7 text-xs px-2"
                                                   >
                                                     <Edit className="h-3 w-3 mr-1" />
                                                     Réassigner
                                                   </Button>
                                                 </div>
-                                              </div>
+                                              </>
                                             ) : (
                                               <Button 
                                                 variant="outline" 
                                                 size="sm"
                                                 onClick={() => handleOpenAssignTask(phaseStructure, section.id, item.id, task)}
-                                                className="h-7 text-xs"
+                                                className="h-8 text-xs px-3 bg-white hover:bg-aphs-teal hover:text-white transition-colors border-aphs-teal text-aphs-teal"
                                               >
                                                 <UserPlus className="h-3 w-3 mr-1" />
                                                 Assigner

@@ -65,6 +65,7 @@ import { useNotificationTriggers } from '@/hooks/useNotificationTriggers';
 interface Project {
   id: string;
   name: string;
+  show_info_sheets?: boolean;
 }
 
 // Interface for user/intervenant
@@ -306,7 +307,7 @@ const TaskDetails: React.FC = () => {
           
           // Fetch project details
           const projectData = await fetchData<Project>('projects', {
-            columns: 'id,name',
+            columns: 'id,name,show_info_sheets',
             filters: [{ column: 'id', operator: 'eq', value: data[0].project_id }]
           });
           
@@ -1062,7 +1063,7 @@ const TaskDetails: React.FC = () => {
       </div>
       
       {/* Fiche informative repositionnée après le titre - maintenant déroulable */}
-      {infoSheet && (
+      {infoSheet && project.show_info_sheets !== false && (
         <Accordion
           type="single" 
           collapsible 
@@ -1323,29 +1324,41 @@ const TaskDetails: React.FC = () => {
                   <div className={`absolute left-[-9px] top-0 w-4 h-4 rounded-full ${TASK_SUBMISSION_ACTION_COLORS[entry.action_type]} border-4 border-white`}></div>
                   <div className="text-sm">
                     <p className="font-medium">{TASK_SUBMISSION_ACTION_LABELS[entry.action_type]}</p>
-                    <p className="text-gray-500">
-                      {formatDateTime(entry.performed_at)}
+                    <div className="flex flex-col text-gray-500">
+                      <span>{formatDateTime(entry.performed_at)}</span>
                       {entry.performer && (
-                        <span> par {entry.performer.first_name} {entry.performer.last_name}</span>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <User className="h-3 w-3" />
+                          <span className="font-medium text-gray-700">
+                            {entry.performer.first_name} {entry.performer.last_name}
+                          </span>
+                        </div>
                       )}
-                    </p>
+                    </div>
                     
                     {/* Show file info for submissions */}
                     {(entry.action_type === 'submitted' || entry.action_type === 'resubmitted') && entry.file_url && (
-                      <div className="mt-2 p-2 bg-gray-50 rounded">
-                        <div className="flex items-center gap-2">
-                          <FileUp className="h-4 w-4 text-gray-500" />
-                          <a 
-                            href={entry.file_url} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:underline text-xs"
+                      <div className="mt-2 p-3 bg-white border border-gray-100 shadow-sm rounded-md hover:border-blue-200 transition-colors">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 overflow-hidden">
+                            <FileUp className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                            <span className="text-xs font-medium text-gray-700 truncate">
+                              {entry.file_name || 'Fichier soumis'}
+                            </span>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0"
+                            onClick={() => window.open(entry.file_url, '_blank')}
                           >
-                            {entry.file_name || 'Fichier soumis'}
-                          </a>
+                            <Download className="h-3.5 w-3.5 text-blue-600" />
+                          </Button>
                         </div>
                         {entry.comment && (
-                          <p className="text-xs text-gray-600 mt-1">{entry.comment}</p>
+                          <div className="mt-2 text-xs text-gray-600 bg-gray-50 p-2 rounded italic">
+                            "{entry.comment}"
+                          </div>
                         )}
                       </div>
                     )}

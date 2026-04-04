@@ -62,7 +62,8 @@ const ProjectsEn: React.FC = () => {
     name: '',
     description: '',
     start_date: format(new Date(), 'yyyy-MM-dd'),
-    image_url: ''
+    image_url: '',
+    show_info_sheets: true
   });
   
   // Load projects when page loads
@@ -152,7 +153,8 @@ const ProjectsEn: React.FC = () => {
           name: '',
           description: '',
           start_date: format(new Date(), 'yyyy-MM-dd'),
-          image_url: ''
+          image_url: '',
+          show_info_sheets: true
         });
         // Reload projects
         fetchProjects();
@@ -439,6 +441,19 @@ const ProjectsEn: React.FC = () => {
                   onChange={(e) => setNewProject({...newProject, image_url: e.target.value})}
                 />
               </div>
+
+              <div className="flex items-center space-x-2 py-2">
+                <input
+                  type="checkbox"
+                  id="show_info_sheets"
+                  checked={newProject.show_info_sheets}
+                  onChange={(e) => setNewProject({...newProject, show_info_sheets: e.target.checked})}
+                  className="h-4 w-4 rounded border-gray-300 text-aphs-teal focus:ring-aphs-teal"
+                />
+                <Label htmlFor="show_info_sheets" className="text-sm font-medium leading-none cursor-pointer">
+                  Show information sheets for this project
+                </Label>
+              </div>
             </div>
           </div>
           
@@ -499,6 +514,19 @@ const ProjectsEn: React.FC = () => {
                   value={selectedProject.image_url || ''}
                   onChange={(e) => setSelectedProject({...selectedProject, image_url: e.target.value})}
                 />
+              </div>
+
+              <div className="flex items-center space-x-2 py-2">
+                <input
+                  type="checkbox"
+                  id="edit-show_info_sheets"
+                  checked={selectedProject.show_info_sheets ?? true}
+                  onChange={(e) => setSelectedProject({...selectedProject, show_info_sheets: e.target.checked})}
+                  className="h-4 w-4 rounded border-gray-300 text-aphs-teal focus:ring-aphs-teal"
+                />
+                <Label htmlFor="edit-show_info_sheets" className="text-sm font-medium leading-none cursor-pointer">
+                  Show information sheets for this project
+                </Label>
               </div>
             </div>
           )}

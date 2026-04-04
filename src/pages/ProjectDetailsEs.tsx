@@ -68,6 +68,7 @@ interface Project {
   name: string;
   description: string;
   start_date: string;
+  show_info_sheets?: boolean;
   image_url?: string;
   created_at: string;
 }
@@ -1746,8 +1747,9 @@ const ProjectDetails: React.FC = () => {
   
   // Ouvrir la boîte de dialogue des détails de tâche
   const handleViewTaskDetails = (assignment: TaskAssignment) => {
-    setSelectedTaskDetails(assignment);
-    setIsTaskDetailsDialogOpen(true);
+    if (assignment.id) {
+      navigate(`/dashboard/tasks/${assignment.id}`);
+    }
   };
   
   // Ouvrir la boîte de dialogue de confirmation pour désassigner une tâche
