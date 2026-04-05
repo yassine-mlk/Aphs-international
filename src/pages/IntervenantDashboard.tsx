@@ -127,14 +127,18 @@ const IntervenantDashboard: React.FC = () => {
       }
 
       console.log('Projets récupérés:', projects);
+      const projectIdsSet = new Set(projects.map((p: any) => p.id));
 
       // 2. Récupérer toutes les tâches assignées à l'utilisateur
-      const tasks = await fetchData('task_assignments', {
+      const rawTasks = await fetchData('task_assignments', {
         columns: 'id, task_name, status, deadline, project_id',
         filters: [{ column: 'assigned_to', operator: 'cs', value: `{${user.id}}` }]
       }) || [];
 
-      console.log('Tâches récupérées:', tasks);
+      // Filtrer pour ne garder que les tâches dont le projet existe encore
+      const tasks = rawTasks.filter((t: any) => projectIdsSet.has(t.project_id));
+
+      console.log('Tâches récupérées (filtrées):', tasks);
 
       // 3. Calculer les statistiques
       const now = new Date();
@@ -195,17 +199,28 @@ const IntervenantDashboard: React.FC = () => {
   }, [user?.id]);
 
   // Fonctions utilitaires
+  // Fonction pour formater la date
   const formatTimeAgo = (timestamp: string) => {
+    if (!timestamp) return 'Récemment';
     const now = new Date();
     const past = new Date(timestamp);
+    
+    // Vérifier si la date est valide
+    if (isNaN(past.getTime())) return 'Récemment';
+    
     const diffInMinutes = Math.floor((now.getTime() - past.getTime()) / (1000 * 60));
     
-    if (diffInMinutes < 60) {
+    if (diffInMinutes < 1) {
+      return 'À l\'instant';
+    } else if (diffInMinutes < 60) {
       return `Il y a ${diffInMinutes} min`;
     } else if (diffInMinutes < 1440) {
       return `Il y a ${Math.floor(diffInMinutes / 60)} h`;
     } else {
-      return `Il y a ${Math.floor(diffInMinutes / 1440)} j`;
+      const diffInDays = Math.floor(diffInMinutes / 1440);
+      if (diffInDays === 1) return 'Hier';
+      if (diffInDays < 30) return `Il y a ${diffInDays} j`;
+      return past.toLocaleDateString('fr-FR');
     }
   };
 

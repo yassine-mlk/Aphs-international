@@ -75,12 +75,16 @@ const AdminDashboard: React.FC = () => {
       }) || [];
 
       // Charger les tâches depuis task_assignments
-      const taskAssignments = await fetchData('task_assignments', {
-        columns: 'id, status, deadline, assigned_to'
+      const taskAssignmentsData = await fetchData('task_assignments', {
+        columns: 'id, status, deadline, assigned_to, project_id'
       }) || [];
 
+      // Filtrer pour ne garder que les tâches dont le projet existe
+      const projectIds = new Set(projects.map((p: any) => p.id));
+      const taskAssignments = taskAssignmentsData.filter((t: any) => projectIds.has(t.project_id));
+
       // Debug pour vérifier les données
-      console.log('Task assignments chargées:', taskAssignments);
+      console.log('Task assignments chargées (filtrées):', taskAssignments);
       console.log('Nombre de tâches trouvées:', taskAssignments.length);
 
       // Calculer les statistiques
@@ -132,16 +136,26 @@ const AdminDashboard: React.FC = () => {
 
   // Fonction pour formater la date
   const formatTimeAgo = (timestamp: string) => {
+    if (!timestamp) return 'Récemment';
     const now = new Date();
     const past = new Date(timestamp);
+    
+    // Vérifier si la date est valide
+    if (isNaN(past.getTime())) return 'Récemment';
+    
     const diffInMinutes = Math.floor((now.getTime() - past.getTime()) / (1000 * 60));
     
-    if (diffInMinutes < 60) {
+    if (diffInMinutes < 1) {
+      return 'À l\'instant';
+    } else if (diffInMinutes < 60) {
       return `Il y a ${diffInMinutes} min`;
     } else if (diffInMinutes < 1440) {
       return `Il y a ${Math.floor(diffInMinutes / 60)} h`;
     } else {
-      return `Il y a ${Math.floor(diffInMinutes / 1440)} j`;
+      const diffInDays = Math.floor(diffInMinutes / 1440);
+      if (diffInDays === 1) return 'Hier';
+      if (diffInDays < 30) return `Il y a ${diffInDays} j`;
+      return past.toLocaleDateString('fr-FR');
     }
   };
 

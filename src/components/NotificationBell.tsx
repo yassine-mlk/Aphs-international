@@ -84,8 +84,13 @@ const getNotificationColor = (type: NotificationType, read: boolean) => {
 };
 
 const formatTimeAgo = (dateString: string) => {
+  if (!dateString) return 'Récemment';
   const date = new Date(dateString);
   const now = new Date();
+  
+  // Vérifier si la date est valide
+  if (isNaN(date.getTime())) return 'Récemment';
+  
   const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
   
   if (diffInSeconds < 60) return 'À l\'instant';

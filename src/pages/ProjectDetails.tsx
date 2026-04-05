@@ -604,24 +604,18 @@ const ProjectDetails: React.FC = () => {
     if (!project) return;
     
     try {
-      try {
-        const { error: assignErr } = await useSupabase().supabase
-          .from('task_assignments')
-          .delete()
-          .eq('project_id', project.id);
-        if (assignErr) {
-          console.warn('Erreur suppression des assignations du projet:', assignErr);
-        }
-      } catch (e) {
-        console.warn('Exception suppression des assignations du projet:', e);
-      }
+      // 1. Nettoyer les données liées au projet (cascade manuelle)
+      await deleteData('task_assignments', project.id, 'project_id');
+      await deleteData('membre', project.id, 'project_id');
+      await deleteData('task_submissions', project.id, 'project_id');
 
+      // 2. Supprimer le projet lui-même
       const success = await deleteData('projects', project.id);
       
       if (success) {
         toast({
           title: "Succès",
-          description: "Projet supprimé avec succès",
+          description: "Projet et toutes ses données associées supprimés avec succès",
         });
         navigate('/dashboard/projets');
       }
@@ -629,7 +623,7 @@ const ProjectDetails: React.FC = () => {
       console.error('Erreur lors de la suppression du projet:', error);
       toast({
         title: "Erreur",
-        description: "Impossible de supprimer le projet",
+        description: "Impossible de supprimer le projet ou ses données",
         variant: "destructive",
       });
     }
