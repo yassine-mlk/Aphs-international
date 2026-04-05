@@ -175,7 +175,10 @@ export function useRecentActivities() {
   const enrichNotifications = useCallback(async (notifications: any[]): Promise<RecentActivity[]> => {
     const enrichedActivities = await Promise.all(
       notifications.map(async (notification) => {
-        let enrichedActivity = { ...notification };
+        let enrichedActivity = { 
+          ...notification,
+          timestamp: notification.created_at || notification.timestamp || new Date().toISOString()
+        };
         
         // Enrichir selon le type de notification
         if (notification.data) {

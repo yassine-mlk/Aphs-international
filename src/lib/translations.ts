@@ -285,9 +285,9 @@ export const translations = {
         notificationPrefsError: "Unable to update your notification preferences",
         // Propriétés pour l'interface des notifications
         notifications: "Notifications",
-        markAllRead: "Tout marquer",
-        noNotifications: "Aucune notification importante",
-        viewAll: "Voir l'activité récente"
+        markAllRead: "Mark all as read",
+        noNotifications: "No important notifications",
+        viewAll: "View recent activity"
       }
     },
     messages: {
@@ -2596,7 +2596,11 @@ export const translations = {
         cannotCreateCompany: "لا يمكن إنشاء الشركة. تحقق من المعلومات وحاول مرة أخرى.",
         cannotUpdateCompany: "لا يمكن تعديل الشركة. تحقق من المعلومات وحاول مرة أخرى.",
         passwordUpdateError: "لا يمكن تحديث كلمة المرور",
-        notificationPrefsError: "لا يمكن تحديث تفضيلات الإشعارات"
+        notificationPrefsError: "لا يمكن تحديث تفضيلات الإشعارات",
+        notifications: "التنبيهات",
+        markAllRead: "تحديد الكل كمقروء",
+        noNotifications: "لا توجد تنبيهات هامة",
+        viewAll: "عرض النشاط الأخير"
       }
     },
     messages: {
