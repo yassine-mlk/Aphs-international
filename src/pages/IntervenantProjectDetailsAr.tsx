@@ -45,6 +45,7 @@ interface Project {
   name: string;
   description: string;
   start_date: string;
+  show_info_sheets?: boolean;
   image_url?: string;
   created_at: string;
   status?: string;
@@ -944,19 +945,21 @@ const IntervenantProjectDetails: React.FC = () => {
                                                           )}
                                                         </>
                                                       )}
-                                                      <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() => toggleInfoSheet('conception', section.id, subsection.id, task)}
-                                                        disabled={isLoading}
-                                                        className="h-6 px-2"
-                                                      >
-                                                        {isLoading ? (
-                                                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-aphs-teal"></div>
-                                                        ) : (
-                                                          <FileText className="h-3 w-3" />
-                                                        )}
-                                                      </Button>
+                                                      {project.show_info_sheets !== false && (
+                                                        <Button
+                                                          variant="ghost"
+                                                          size="sm"
+                                                          onClick={() => toggleInfoSheet('conception', section.id, subsection.id, task)}
+                                                          disabled={isLoading}
+                                                          className="h-6 px-2"
+                                                        >
+                                                          {isLoading ? (
+                                                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-aphs-teal"></div>
+                                                          ) : (
+                                                            <FileText className="h-3 w-3" />
+                                                          )}
+                                                        </Button>
+                                                      )}
                                                     </div>
                                                   </div>
                                                   
@@ -1117,19 +1120,21 @@ const IntervenantProjectDetails: React.FC = () => {
                                                           )}
                                                         </>
                                                       )}
-                                                      <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() => toggleInfoSheet('realisation', section.id, subsection.id, task)}
-                                                        disabled={isLoading}
-                                                        className="h-6 px-2"
-                                                      >
-                                                        {isLoading ? (
-                                                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-aphs-teal"></div>
-                                                        ) : (
-                                                          <FileText className="h-3 w-3" />
-                                                        )}
-                                                      </Button>
+                                                      {project.show_info_sheets !== false && (
+                                                        <Button
+                                                          variant="ghost"
+                                                          size="sm"
+                                                          onClick={() => toggleInfoSheet('realisation', section.id, subsection.id, task)}
+                                                          disabled={isLoading}
+                                                          className="h-6 px-2"
+                                                        >
+                                                          {isLoading ? (
+                                                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-aphs-teal"></div>
+                                                          ) : (
+                                                            <FileText className="h-3 w-3" />
+                                                          )}
+                                                        </Button>
+                                                      )}
                                                     </div>
                                                   </div>
                                                   
