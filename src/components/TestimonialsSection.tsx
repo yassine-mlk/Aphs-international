@@ -156,28 +156,28 @@ const TestimonialsSection: React.FC = () => {
   const currentTestimonials = testimonials[language] || testimonials.en;
 
   return (
-    <section id="testimonials" className="py-20 px-4 bg-gradient-to-br from-slate-50 to-white" dir={textDirection}>
+    <section id="testimonials" className="py-20 px-4 bg-gray-50" dir={textDirection}>
       <div ref={sectionRef} className="container mx-auto opacity-0">
         <div className="text-center max-w-2xl mx-auto mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold text-aphs-navy mb-4">
+          <h2 className="text-3xl md:text-4xl font-bold text-black mb-4">
             {t.title}
           </h2>
-          <p className="text-aphs-gray text-lg">
+          <p className="text-gray-600 text-lg">
             {t.subtitle}
           </p>
         </div>
         
         <div className="max-w-5xl mx-auto">
-          <div className="bg-white rounded-3xl shadow-2xl p-8 md:p-12 relative overflow-hidden">
+          <div className="bg-white rounded-3xl shadow-xl p-8 md:p-12 relative overflow-hidden border border-gray-100">
             {/* Éléments décoratifs */}
-            <div className="absolute -top-6 -left-6 w-16 h-16 bg-gradient-to-br from-aphs-teal to-blue-500 rounded-full opacity-20"></div>
-            <div className="absolute -bottom-6 -right-6 w-20 h-20 bg-gradient-to-br from-blue-400 to-teal-500 rounded-full opacity-20"></div>
+            <div className="absolute -top-6 -left-6 w-16 h-16 bg-blue-600/5 rounded-full"></div>
+            <div className="absolute -bottom-6 -right-6 w-20 h-20 bg-black/5 rounded-full"></div>
             
             <div className="relative z-10">
               <div className="flex flex-col md:flex-row items-center gap-8">
                 {/* Image du témoignage */}
                 <div className="flex-shrink-0">
-                  <div className={`w-32 h-40 rounded-2xl border-4 border-aphs-teal shadow-xl overflow-hidden bg-gradient-to-br from-slate-100 to-white transition-all duration-500 ${isTransitioning ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
+                  <div className={`w-32 h-40 rounded-2xl border-4 border-blue-600 shadow-lg overflow-hidden bg-gray-50 transition-all duration-500 ${isTransitioning ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
                     <img 
                       src={currentTestimonials[activeIndex].image} 
                       alt={currentTestimonials[activeIndex].name}
@@ -189,7 +189,7 @@ const TestimonialsSection: React.FC = () => {
                         if (fallback) fallback.style.display = 'flex';
                       }}
                     />
-                    <div className="w-full h-full bg-gradient-to-br from-aphs-teal to-blue-500 text-white text-2xl font-bold hidden items-center justify-center">
+                    <div className="w-full h-full bg-blue-600 text-white text-2xl font-bold hidden items-center justify-center">
                       {currentTestimonials[activeIndex].name.substring(0, 2)}
                     </div>
                   </div>
@@ -197,14 +197,14 @@ const TestimonialsSection: React.FC = () => {
                 
                 {/* Contenu du témoignage */}
                 <div className="flex-1">
-                  <div className="text-4xl text-aphs-teal mb-4">"</div>
-                  <p className={`text-lg md:text-xl text-aphs-navy mb-6 leading-relaxed transition-all duration-500 ${isTransitioning ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'}`}>
+                  <div className="text-4xl text-blue-600 mb-4 font-serif">"</div>
+                  <p className={`text-lg md:text-xl text-black mb-6 leading-relaxed transition-all duration-500 ${isTransitioning ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'}`}>
                     {currentTestimonials[activeIndex].quote}
                   </p>
                   <div className={`transition-all duration-500 delay-100 ${isTransitioning ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'}`}>
-                    <h4 className="font-bold text-aphs-navy text-lg mb-1">{currentTestimonials[activeIndex].name}</h4>
-                    <p className="text-aphs-teal font-medium">{currentTestimonials[activeIndex].role}</p>
-                    <p className="text-sm text-aphs-gray">{currentTestimonials[activeIndex].company}</p>
+                    <h4 className="font-bold text-black text-lg mb-1">{currentTestimonials[activeIndex].name}</h4>
+                    <p className="text-blue-600 font-semibold">{currentTestimonials[activeIndex].role}</p>
+                    <p className="text-sm text-gray-500">{currentTestimonials[activeIndex].company}</p>
                   </div>
                 </div>
               </div>
@@ -217,9 +217,9 @@ const TestimonialsSection: React.FC = () => {
               <button
                 key={index}
                 onClick={() => changeTestimonial(index)}
-                className={`w-3 h-3 rounded-full transition-all duration-300 hover:scale-125 ${
+                className={`w-2.5 h-2.5 rounded-full transition-all duration-300 hover:scale-125 ${
                   activeIndex === index 
-                    ? 'bg-aphs-teal shadow-lg' 
+                    ? 'bg-blue-600 w-8' 
                     : 'bg-gray-300 hover:bg-gray-400'
                 }`}
                 aria-label={`View testimonial ${index + 1}`}
@@ -231,7 +231,7 @@ const TestimonialsSection: React.FC = () => {
           <div className="flex justify-between items-center mt-6">
             <button
               onClick={() => changeTestimonial((activeIndex - 1 + currentTestimonials.length) % currentTestimonials.length)}
-              className="p-3 rounded-full bg-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110 text-aphs-teal"
+              className="p-3 rounded-full bg-white shadow-md hover:shadow-lg transition-all duration-300 hover:scale-110 text-blue-600 border border-gray-100"
               aria-label="Previous testimonial"
             >
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -240,12 +240,12 @@ const TestimonialsSection: React.FC = () => {
             </button>
             
             <div className="text-center">
-              <span className="text-sm text-aphs-gray">{activeIndex + 1} / {currentTestimonials.length}</span>
+              <span className="text-sm text-gray-500 font-medium">{activeIndex + 1} / {currentTestimonials.length}</span>
             </div>
             
             <button
               onClick={() => changeTestimonial((activeIndex + 1) % currentTestimonials.length)}
-              className="p-3 rounded-full bg-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110 text-aphs-teal"
+              className="p-3 rounded-full bg-white shadow-md hover:shadow-lg transition-all duration-300 hover:scale-110 text-blue-600 border border-gray-100"
               aria-label="Next testimonial"
             >
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">

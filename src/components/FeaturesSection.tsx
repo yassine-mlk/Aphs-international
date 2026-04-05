@@ -63,32 +63,36 @@ const FeaturesSection: React.FC = () => {
 
   const t = translations[language].featuresSection;
   const textDirection = language === 'ar' ? 'rtl' : 'ltr';
+  const icons = ["📊", "👷", "📝", "💰", "⚙️", "🤝"];
 
   return (
-    <section id="features" className="py-20 px-4 bg-gray-50" dir={textDirection}>
-      <div ref={sectionRef} className="container mx-auto">
-        <div className="text-center max-w-2xl mx-auto mb-16 opacity-0">
-          <h2 className="text-3xl md:text-4xl font-bold text-aphs-navy mb-4">
+    <section id="features" className="py-24 px-4 bg-white" dir={textDirection}>
+      <div ref={sectionRef} className="container mx-auto opacity-0">
+        <div className="text-center max-w-3xl mx-auto mb-16">
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-black mb-6">
             {t.title}
           </h2>
-          <p className="text-aphs-gray text-lg">
+          <p className="text-gray-600 text-lg md:text-xl leading-relaxed">
             {t.subtitle}
           </p>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {t.features.map((feature, index) => (
-            <FeatureCard 
-              key={index}
-              title={feature.title}
-              description={feature.description}
-              icon={index === 0 ? "📊" : 
-                    index === 1 ? "👷" : 
-                    index === 2 ? "📝" : 
-                    index === 3 ? "💰" :
-                    index === 4 ? "⚙️" : "🤝"}
-              delay={index}
-            />
+            <div 
+              key={index} 
+              className="group p-8 rounded-2xl bg-gray-50 border border-gray-100 hover:bg-white hover:shadow-2xl hover:border-blue-600 transition-all duration-500 hover:-translate-y-2"
+            >
+              <div className="w-14 h-14 bg-blue-600 text-white rounded-xl flex items-center justify-center mb-6 shadow-lg shadow-blue-600/20 group-hover:scale-110 transition-transform duration-500">
+                <span className="text-2xl">{icons[index]}</span>
+              </div>
+              <h3 className="text-xl font-bold text-black mb-3 group-hover:text-blue-600 transition-colors duration-300">
+                {feature.title}
+              </h3>
+              <p className="text-gray-600 leading-relaxed group-hover:text-gray-700 transition-colors duration-300">
+                {feature.description}
+              </p>
+            </div>
           ))}
         </div>
       </div>

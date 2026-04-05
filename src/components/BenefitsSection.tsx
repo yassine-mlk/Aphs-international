@@ -39,10 +39,10 @@ const BenefitsSection: React.FC = () => {
     <section id="benefits" className="py-20 px-4 bg-white" dir={textDirection}>
       <div ref={sectionRef} className="container mx-auto">
         <div className="text-center max-w-2xl mx-auto mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold text-aphs-navy mb-4">
+          <h2 className="text-3xl md:text-4xl font-bold text-black mb-4">
             {t.title}
           </h2>
-          <p className="text-aphs-gray text-lg">
+          <p className="text-gray-600 text-lg">
             {t.subtitle}
           </p>
         </div>
@@ -51,31 +51,39 @@ const BenefitsSection: React.FC = () => {
           {t.benefits.map((benefit, index) => (
             <div 
               key={index} 
-              className={`rounded-xl p-8 text-center ${index === 0 ? 'bg-blue-100' : index === 1 ? 'bg-green-100' : 'bg-orange-100'} transition-all duration-500 hover:scale-105`}
+              className={`rounded-2xl p-10 text-center border transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 ${
+                index === 0 ? 'bg-blue-50 border-blue-100 hover:border-blue-600' : 
+                index === 1 ? 'bg-gray-50 border-gray-100 hover:border-black' : 
+                'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-600/20'
+              }`}
             >
-              <h3 className={`text-3xl font-bold mb-3 ${index === 0 ? 'text-blue-600' : index === 1 ? 'text-green-600' : 'text-orange-600'}`}>
+              <h3 className={`text-4xl font-black mb-4 ${
+                index === 2 ? 'text-white' : 
+                index === 0 ? 'text-blue-600' : 'text-black'
+              }`}>
                 {benefit.title}
               </h3>
-              <p className="text-gray-700">
+              <p className={index === 2 ? 'text-blue-50 font-medium' : 'text-gray-600 font-medium'}>
                 {benefit.description}
               </p>
             </div>
           ))}
         </div>
 
-        <div className="mt-20 bg-gradient-to-r from-aphs-navy to-aphs-teal rounded-xl p-8 md:p-12 flex flex-col md:flex-row items-center">
-          <div className="md:w-2/3 mb-8 md:mb-0">
-            <h2 className="text-3xl font-bold text-white mb-4">
+        <div className="mt-24 bg-black rounded-3xl p-10 md:p-16 flex flex-col md:flex-row items-center justify-between border border-gray-800 shadow-2xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/10 rounded-full -mr-32 -mt-32"></div>
+          <div className="md:w-2/3 relative z-10 text-center md:text-left">
+            <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">
               {t.cta.title}
             </h2>
-            <p className="text-white/90">
+            <p className="text-gray-400 text-lg md:text-xl max-w-xl">
               {t.cta.subtitle}
             </p>
           </div>
-          <div className="md:w-1/3 md:text-right">
+          <div className="md:w-1/3 text-center md:text-right mt-10 md:mt-0 relative z-10">
             <a 
               href="#contact" 
-              className="inline-block bg-white text-aphs-navy font-semibold py-3 px-8 rounded-lg hover:bg-opacity-90 transition-all"
+              className="inline-block bg-blue-600 text-white font-bold py-4 px-10 rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/30 transform hover:scale-105 active:scale-95"
             >
               {t.cta.button}
             </a>

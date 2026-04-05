@@ -164,14 +164,18 @@ const AdminDashboard: React.FC = () => {
         {/* En-tête */}
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">
-              Tableau de Bord Administrateur
+            <h1 className="text-4xl font-black text-black tracking-tight">
+              Tableau de Bord
             </h1>
-            <p className="text-gray-600 mt-1">
+            <p className="text-gray-500 mt-2 font-medium">
               Dernière mise à jour : {lastUpdate.toLocaleTimeString('fr-FR')}
             </p>
           </div>
-          <Button onClick={loadStats} variant="outline" className="flex items-center gap-2">
+          <Button 
+            onClick={loadStats} 
+            variant="outline" 
+            className="flex items-center gap-2 border-black text-black hover:bg-black hover:text-white transition-all"
+          >
             <RefreshCw className="h-4 w-4" />
             Actualiser
           </Button>
@@ -179,67 +183,77 @@ const AdminDashboard: React.FC = () => {
 
         {/* Statistiques principales */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="border-0 shadow-lg">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Projets</CardTitle>
-              <Briefcase className="h-5 w-5 text-blue-600" />
+          <Card className="border-0 shadow-xl bg-white rounded-2xl overflow-hidden">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 border-b border-gray-50">
+              <CardTitle className="text-xs font-bold text-gray-400 uppercase tracking-wider">Projets</CardTitle>
+              <div className="p-2 bg-blue-50 rounded-lg">
+                <Briefcase className="h-5 w-5 text-blue-600" />
+              </div>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-900">{stats.totalProjects}</div>
-              <div className="flex items-center space-x-2 text-sm text-gray-600 mt-1">
-                <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+            <CardContent className="pt-6">
+              <div className="text-4xl font-black text-black">{stats.totalProjects}</div>
+              <div className="flex flex-wrap gap-2 mt-4">
+                <Badge variant="secondary" className="bg-blue-600 text-white hover:bg-blue-700">
                   {stats.activeProjects} actifs
                 </Badge>
-                <Badge variant="secondary" className="bg-green-100 text-green-800">
+                <Badge variant="secondary" className="bg-black text-white hover:bg-gray-800">
                   {stats.completedProjects} terminés
                 </Badge>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-lg">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Intervenants</CardTitle>
-              <Users className="h-5 w-5 text-purple-600" />
+          <Card className="border-0 shadow-xl bg-white rounded-2xl overflow-hidden">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 border-b border-gray-50">
+              <CardTitle className="text-xs font-bold text-gray-400 uppercase tracking-wider">Intervenants</CardTitle>
+              <div className="p-2 bg-gray-50 rounded-lg">
+                <Users className="h-5 w-5 text-black" />
+              </div>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-900">{stats.totalIntervenants}</div>
-              <p className="text-sm text-gray-600 mt-1">
+            <CardContent className="pt-6">
+              <div className="text-4xl font-black text-black">{stats.totalIntervenants}</div>
+              <p className="text-sm text-gray-500 mt-2 font-medium">
                 Spécialistes actifs
               </p>
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-lg">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Tâches</CardTitle>
-              <ClipboardCheck className="h-5 w-5 text-green-600" />
+          <Card className="border-0 shadow-xl bg-white rounded-2xl overflow-hidden">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 border-b border-gray-50">
+              <CardTitle className="text-xs font-bold text-gray-400 uppercase tracking-wider">Tâches</CardTitle>
+              <div className="p-2 bg-blue-50 rounded-lg">
+                <ClipboardCheck className="h-5 w-5 text-blue-600" />
+              </div>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-900">{stats.totalTasks}</div>
-              <div className="flex items-center space-x-2 text-sm text-gray-600 mt-1">
-                <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+            <CardContent className="pt-6">
+              <div className="text-4xl font-black text-black">{stats.totalTasks}</div>
+              <div className="flex flex-wrap gap-2 mt-4">
+                <Badge variant="secondary" className="bg-blue-100 text-blue-700 font-bold">
                   {stats.pendingTasks} en cours
                 </Badge>
-                <Badge variant="secondary" className="bg-green-100 text-green-800">
+                <Badge variant="secondary" className="bg-gray-100 text-black font-bold">
                   {stats.completedTasks} validées
                 </Badge>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-lg">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Alertes</CardTitle>
-              <AlertTriangle className="h-5 w-5 text-red-600" />
+          <Card className="border-0 shadow-xl bg-white rounded-2xl overflow-hidden">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 border-b border-gray-50">
+              <CardTitle className="text-xs font-bold text-gray-400 uppercase tracking-wider">Alertes</CardTitle>
+              <div className="p-2 bg-red-50 rounded-lg">
+                <AlertTriangle className="h-5 w-5 text-red-600" />
+              </div>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-900">{stats.overdueTasks + stats.unassignedTasks}</div>
-              <div className="flex flex-col gap-1 mt-1">
-                <p className="text-xs text-red-600">
+            <CardContent className="pt-6">
+              <div className="text-4xl font-black text-red-600">{stats.overdueTasks + stats.unassignedTasks}</div>
+              <div className="flex flex-col gap-1 mt-3">
+                <p className="text-xs text-red-600 font-bold flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 bg-red-600 rounded-full"></span>
                   {stats.overdueTasks} tâches en retard
                 </p>
-                <p className="text-xs text-amber-600">
+                <p className="text-xs text-orange-600 font-bold flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 bg-orange-600 rounded-full"></span>
                   {stats.unassignedTasks} tâches non assignées
                 </p>
               </div>
@@ -248,17 +262,17 @@ const AdminDashboard: React.FC = () => {
         </div>
 
           {/* Activités récentes */}
-            <Card className="border-0 shadow-lg">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+            <Card className="border-0 shadow-2xl bg-white rounded-2xl overflow-hidden">
+              <CardHeader className="border-b border-gray-50 pb-4">
+                <CardTitle className="flex items-center gap-2 text-black font-bold">
                   <Clock className="h-5 w-5 text-blue-600" />
                   Activités Récentes
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="text-gray-500">
                   Dernières actions effectuées sur la plateforme
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-6">
                 <div className="space-y-4">
                   {activitiesLoading ? (
                     <div className="text-center py-4">

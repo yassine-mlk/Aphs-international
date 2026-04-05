@@ -111,7 +111,7 @@ const AboutSection: React.FC<AboutSectionProps> = ({ language }) => {
               className="team-member opacity-0 translate-y-10 transition-all duration-500 flex flex-col items-center text-center group"
             >
               <div className="relative mb-6">
-                <div className="h-72 w-48 rounded-2xl border-4 border-aphs-teal shadow-2xl transition-all duration-300 group-hover:scale-105 group-hover:shadow-3xl overflow-hidden bg-gradient-to-br from-slate-100 to-white">
+                <div className="h-72 w-48 rounded-2xl border-4 border-blue-600 shadow-xl transition-all duration-300 group-hover:scale-105 group-hover:shadow-2xl overflow-hidden bg-gray-50">
                   <img 
                     src={member.image} 
                     alt={member.name} 
@@ -123,34 +123,34 @@ const AboutSection: React.FC<AboutSectionProps> = ({ language }) => {
                       if (fallback) fallback.style.display = 'flex';
                     }}
                   />
-                  <div className="w-full h-full bg-gradient-to-br from-aphs-teal to-blue-500 text-white text-4xl font-bold hidden items-center justify-center">
+                  <div className="w-full h-full bg-blue-600 text-white text-4xl font-bold hidden items-center justify-center">
                     {member.name.substring(0, 2)}
                   </div>
                 </div>
-                <div className="absolute -bottom-3 -right-3 w-8 h-8 bg-gradient-to-br from-aphs-teal to-blue-500 rounded-full opacity-80 animate-pulse"></div>
+                <div className="absolute -bottom-3 -right-3 w-8 h-8 bg-blue-600 rounded-full opacity-80 animate-pulse"></div>
               </div>
-              <h3 className="text-2xl font-bold text-aphs-navy mb-2 group-hover:text-aphs-teal transition-colors duration-300">{member.name}</h3>
-              <p className="text-aphs-teal font-medium text-lg">{member.title[language]}</p>
+              <h3 className="text-2xl font-bold text-black mb-2 group-hover:text-blue-600 transition-colors duration-300">{member.name}</h3>
+              <p className="text-blue-600 font-medium text-lg">{member.title[language]}</p>
             </div>
           ))}
         </div>
         
-        <div className="bg-gradient-to-r from-aphs-navy to-aphs-teal p-8 md:p-12 rounded-xl text-white">
+        <div className="bg-black p-8 md:p-12 rounded-xl text-white">
           <div className="md:flex items-center">
             <div className="md:w-2/3 mb-6 md:mb-0 md:pr-8">
               <h3 className="text-2xl font-bold mb-4">{t.mission.title}</h3>
-              <p className="mb-4">{t.mission.content}</p>
-              <p>{t.mission.vision}</p>
+              <p className="mb-4 text-gray-300">{t.mission.content}</p>
+              <p className="text-gray-300">{t.mission.vision}</p>
             </div>
-            <div className="md:w-1/3 bg-white/10 p-6 rounded-lg backdrop-blur-sm">
+            <div className="md:w-1/3 bg-white/10 p-6 rounded-lg backdrop-blur-sm border border-white/10">
               <h4 className="font-bold mb-3 text-xl">{t.values.title}</h4>
               <ul className="space-y-2">
                 {t.values.list.map((value, index) => (
                   <li key={index} className="flex items-center gap-2">
-                    <span className="bg-white text-aphs-teal rounded-full h-6 w-6 flex items-center justify-center text-sm">
+                    <span className="bg-blue-600 text-white rounded-full h-6 w-6 flex items-center justify-center text-sm font-bold">
                       {index + 1}
                     </span>
-                    <span>{value}</span>
+                    <span className="text-gray-200">{value}</span>
                   </li>
                 ))}
               </ul>

@@ -212,17 +212,17 @@ const IntervenantDashboard: React.FC = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'assigned':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-blue-50 text-blue-700 border-blue-100';
       case 'in_progress':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-gray-100 text-black border-gray-200';
       case 'submitted':
-        return 'bg-purple-100 text-purple-800';
+        return 'bg-blue-600 text-white border-blue-600';
       case 'validated':
-        return 'bg-green-100 text-green-800';
+        return 'bg-black text-white border-black';
       case 'rejected':
-        return 'bg-red-100 text-red-800';
+        return 'bg-red-50 text-red-700 border-red-100';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-50 text-gray-600 border-gray-100';
     }
   };
 
@@ -288,19 +288,23 @@ const IntervenantDashboard: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen bg-white p-6">
+      <div className="max-w-7xl mx-auto space-y-8">
         {/* En-tête */}
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-end border-b border-gray-100 pb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">
+            <h1 className="text-4xl font-black text-black tracking-tight">
               {dashboardTranslations.title}
             </h1>
-            <p className="text-gray-600 mt-1">
+            <p className="text-gray-500 mt-2 font-medium">
               Dernière mise à jour : {lastUpdate.toLocaleTimeString('fr-FR')}
             </p>
           </div>
-          <Button onClick={loadStats} variant="outline" className="flex items-center gap-2">
+          <Button 
+            onClick={loadStats} 
+            variant="outline" 
+            className="flex items-center gap-2 border-black text-black hover:bg-black hover:text-white transition-all font-bold"
+          >
             <RefreshCw className="h-4 w-4" />
             {dashboardTranslations.refresh}
           </Button>
@@ -308,58 +312,66 @@ const IntervenantDashboard: React.FC = () => {
 
         {/* Statistiques principales */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="border-0 shadow-lg">
+          <Card className="border-0 shadow-xl bg-gray-50 rounded-2xl overflow-hidden">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Mes Tâches</CardTitle>
-              <ClipboardCheck className="h-5 w-5 text-blue-600" />
+              <CardTitle className="text-xs font-bold text-gray-400 uppercase tracking-wider">Mes Tâches</CardTitle>
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <ClipboardCheck className="h-5 w-5 text-blue-600" />
+              </div>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-900">{stats.totalTasks}</div>
-              <div className="flex items-center space-x-2 text-sm text-gray-600 mt-1">
-                <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+            <CardContent className="pt-4">
+              <div className="text-4xl font-black text-black">{stats.totalTasks}</div>
+              <div className="flex flex-wrap gap-2 mt-4">
+                <Badge variant="secondary" className="bg-white text-black border border-gray-200">
                   {stats.inProgressTasks} {dashboardTranslations.stats.inProgress}
                 </Badge>
-                <Badge variant="secondary" className="bg-green-100 text-green-800">
+                <Badge variant="secondary" className="bg-blue-600 text-white border-blue-600">
                   {stats.validatedTasks} {dashboardTranslations.stats.validated}
                 </Badge>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-lg">
+          <Card className="border-0 shadow-xl bg-gray-50 rounded-2xl overflow-hidden">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Projets</CardTitle>
-              <Briefcase className="h-5 w-5 text-purple-600" />
+              <CardTitle className="text-xs font-bold text-gray-400 uppercase tracking-wider">Projets</CardTitle>
+              <div className="p-2 bg-black/5 rounded-lg">
+                <Briefcase className="h-5 w-5 text-black" />
+              </div>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-900">{stats.totalProjects}</div>
-              <p className="text-sm text-gray-600 mt-1">
+            <CardContent className="pt-4">
+              <div className="text-4xl font-black text-black">{stats.totalProjects}</div>
+              <p className="text-sm text-gray-500 mt-2 font-medium">
                 {stats.activeProjects} projets actifs
               </p>
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-lg">
+          <Card className="border-0 shadow-xl bg-gray-50 rounded-2xl overflow-hidden">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Performance</CardTitle>
-              <TrendingUp className="h-5 w-5 text-green-600" />
+              <CardTitle className="text-xs font-bold text-gray-400 uppercase tracking-wider">Performance</CardTitle>
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <TrendingUp className="h-5 w-5 text-blue-600" />
+              </div>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-900">{stats.completionRate}%</div>
-              <p className="text-sm text-gray-600 mt-1">
+            <CardContent className="pt-4">
+              <div className="text-4xl font-black text-black">{stats.completionRate}%</div>
+              <p className="text-sm text-gray-500 mt-2 font-medium">
                 {dashboardTranslations.stats.successRate}
               </p>
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-lg">
+          <Card className="border-0 shadow-xl bg-gray-50 rounded-2xl overflow-hidden">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Alertes</CardTitle>
-              <AlertTriangle className="h-5 w-5 text-red-600" />
+              <CardTitle className="text-xs font-bold text-gray-400 uppercase tracking-wider">Alertes</CardTitle>
+              <div className="p-2 bg-red-50 rounded-lg">
+                <AlertTriangle className="h-5 w-5 text-red-600" />
+              </div>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-900">{stats.overdueTasks}</div>
-              <p className="text-sm text-red-600 mt-1">
+            <CardContent className="pt-4">
+              <div className="text-4xl font-black text-red-600">{stats.overdueTasks}</div>
+              <p className="text-sm text-red-600 mt-2 font-bold">
                 {dashboardTranslations.stats.overdueTasks}
               </p>
             </CardContent>
@@ -367,50 +379,68 @@ const IntervenantDashboard: React.FC = () => {
         </div>
 
         {/* Onglets avec contenu */}
-        <Tabs defaultValue="tasks" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="tasks">{dashboardTranslations.recentTasks.title}</TabsTrigger>
-            <TabsTrigger value="activities">{dashboardTranslations.recentActivities.title}</TabsTrigger>
+        <Tabs defaultValue="tasks" className="space-y-8">
+          <TabsList className="flex w-full bg-gray-100 p-1 rounded-xl">
+            <TabsTrigger value="tasks" className="flex-1 py-3 rounded-lg data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm font-bold transition-all">
+              {dashboardTranslations.recentTasks.title}
+            </TabsTrigger>
+            <TabsTrigger value="activities" className="flex-1 py-3 rounded-lg data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm font-bold transition-all">
+              {dashboardTranslations.recentActivities.title}
+            </TabsTrigger>
           </TabsList>
 
           {/* Tâches récentes */}
           <TabsContent value="tasks" className="space-y-6">
-            <Card className="border-0 shadow-lg">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ClipboardCheck className="h-5 w-5 text-blue-600" />
+            <Card className="border border-gray-100 shadow-2xl bg-white rounded-3xl overflow-hidden">
+              <CardHeader className="border-b border-gray-50 pb-6">
+                <CardTitle className="flex items-center gap-3 text-2xl font-black text-black">
+                  <div className="p-2 bg-blue-600 rounded-lg">
+                    <ClipboardCheck className="h-6 w-6 text-white" />
+                  </div>
                   {dashboardTranslations.recentTasks.title}
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="text-gray-500 font-medium text-base">
                   {dashboardTranslations.recentTasks.description}
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
+              <CardContent className="pt-8">
+                <div className="grid grid-cols-1 gap-4">
                   {recentTasks.length > 0 ? recentTasks.map((task) => {
                     const deadline = formatDeadline(task.deadline);
                     return (
-                      <div key={task.id} className="flex items-center justify-between p-4 rounded-lg border hover:bg-gray-50 transition-colors">
+                      <div key={task.id} className="flex items-center justify-between p-6 rounded-2xl border border-gray-100 hover:border-blue-600 hover:shadow-xl transition-all group bg-gray-50/50">
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-2">
-                            <h3 className="font-medium text-gray-900 truncate">{task.task_name}</h3>
-                            <Badge variant="secondary" className={getStatusColor(task.status)}>
+                          <div className="flex items-center gap-3 mb-3">
+                            <h3 className="text-lg font-bold text-black group-hover:text-blue-600 transition-colors truncate">{task.task_name}</h3>
+                            <Badge variant="outline" className={`${getStatusColor(task.status)} font-bold px-3 py-1 rounded-full`}>
                               {getStatusLabel(task.status)}
                             </Badge>
                           </div>
-                          <p className="text-sm text-gray-600 truncate">{task.project_name}</p>
-                          <p className={`text-xs ${deadline.color} mt-1`}>
-                            <Clock className="inline h-3 w-3 mr-1" />
-                            {deadline.text}
-                          </p>
+                          <div className="flex items-center gap-4 text-sm font-medium text-gray-500">
+                            <span className="flex items-center gap-1.5">
+                              <Briefcase className="h-4 w-4 text-gray-400" />
+                              {task.project_name}
+                            </span>
+                            <span className={`flex items-center gap-1.5 ${deadline.color}`}>
+                              <Clock className="h-4 w-4" />
+                              {deadline.text}
+                            </span>
+                          </div>
                         </div>
-
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="rounded-full hover:bg-blue-600 hover:text-white transition-all ml-4"
+                          onClick={() => navigate(`/dashboard/tasks/${task.id}`)}
+                        >
+                          <TrendingUp className="h-5 w-5" />
+                        </Button>
                       </div>
                     );
                   }) : (
-                    <div className="text-center py-8 text-gray-500">
-                      <ClipboardCheck className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                      <p>{dashboardTranslations.recentTasks.noTasks}</p>
+                    <div className="text-center py-16 text-gray-400">
+                      <ClipboardCheck className="h-20 w-20 mx-auto mb-6 text-gray-100" />
+                      <p className="text-xl font-medium">{dashboardTranslations.recentTasks.noTasks}</p>
                     </div>
                   )}
                 </div>
@@ -420,17 +450,19 @@ const IntervenantDashboard: React.FC = () => {
 
           {/* Activités récentes */}
           <TabsContent value="activities" className="space-y-6">
-            <Card className="border-0 shadow-lg">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Clock className="h-5 w-5 text-blue-600" />
+            <Card className="border border-gray-100 shadow-2xl bg-white rounded-3xl overflow-hidden">
+              <CardHeader className="border-b border-gray-50 pb-6">
+                <CardTitle className="flex items-center gap-3 text-2xl font-black text-black">
+                  <div className="p-2 bg-black rounded-lg">
+                    <Clock className="h-6 w-6 text-white" />
+                  </div>
                   {dashboardTranslations.recentActivities.title}
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="text-gray-500 font-medium text-base">
                   {dashboardTranslations.recentActivities.description}
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-8">
                 <div className="space-y-4">
                   {activitiesLoading ? (
                     <div className="text-center py-4">
