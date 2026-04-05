@@ -128,10 +128,10 @@ const Navbar: React.FC = () => {
                       <li className="row-span-3">
                         <NavigationMenuLink asChild>
                           <a
-                            className="flex flex-col justify-between h-full rounded-md bg-gradient-to-b from-slate-50 to-teal-50 p-4 no-underline"
+                            className="flex flex-col justify-between h-full rounded-md bg-gradient-to-b from-gray-50 to-blue-50 p-4 no-underline"
                             href="#about"
                           >
-                            <div className="mb-2 mt-4 text-lg font-medium text-slate-900">
+                            <div className="mb-2 mt-4 text-lg font-medium text-black">
                               <img src="/aphs-logo.svg" alt="APHS Internationale" className="h-12" />
                             </div>
                             <p className="text-sm text-gray-600">
@@ -140,7 +140,7 @@ const Navbar: React.FC = () => {
                                language === 'es' ? "Nuestra misión es apoyar a las empresas en su transformación digital y organizativa." :
                                                  "مهمتنا هي دعم الشركات في تحولها الرقمي والتنظيمي."}
                             </p>
-                            <div className="mt-2 text-teal-600">
+                            <div className="mt-2 text-blue-600 font-semibold">
                               {language === 'fr' ? "En savoir plus →" : 
                                language === 'en' ? "Learn more →" :
                                language === 'es' ? "Saber más →" :
@@ -191,10 +191,10 @@ const Navbar: React.FC = () => {
               </NavigationMenuList>
             </NavigationMenu>
             
-            <a href="#features" className="text-slate-900 font-medium hover:text-teal-600 transition-colors">
+            <a href="#features" className="text-black font-medium hover:text-blue-600 transition-colors">
               {t.support}
             </a>
-            <a href="#testimonials" className="text-slate-900 font-medium hover:text-teal-600 transition-colors">
+            <a href="#testimonials" className="text-black font-medium hover:text-blue-600 transition-colors">
               {t.testimonials}
             </a>
             <LanguageSelector 
@@ -203,7 +203,7 @@ const Navbar: React.FC = () => {
             />
             <Button 
               variant="default" 
-              className="bg-teal-600 hover:bg-slate-700 transition-colors"
+              className="bg-black hover:bg-blue-600 text-white transition-colors"
               onClick={navigateToLogin}
             >
               {language === 'fr' ? "Connexion" : 
@@ -251,28 +251,28 @@ const Navbar: React.FC = () => {
             <div className="flex flex-col space-y-3 px-4">
               <a 
                 href="#services" 
-                className="text-slate-900 font-medium py-2 hover:text-teal-600 transition-colors"
+                className="text-black font-medium py-2 hover:text-blue-600 transition-colors"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 {t.support}
               </a>
               <a 
                 href="#about" 
-                className="text-slate-900 font-medium py-2 hover:text-teal-600 transition-colors"
+                className="text-black font-medium py-2 hover:text-blue-600 transition-colors"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 {t.about}
               </a>
               <a 
                 href="#features" 
-                className="text-slate-900 font-medium py-2 hover:text-teal-600 transition-colors"
+                className="text-black font-medium py-2 hover:text-blue-600 transition-colors"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 {t.support}
               </a>
               <a 
                 href="#testimonials" 
-                className="text-slate-900 font-medium py-2 hover:text-teal-600 transition-colors"
+                className="text-black font-medium py-2 hover:text-blue-600 transition-colors"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 {t.testimonials}

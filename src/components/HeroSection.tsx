@@ -90,7 +90,7 @@ const HeroSection: React.FC = () => {
     <>
       <section 
         ref={sectionRef}
-        className="relative min-h-screen bg-gradient-to-br from-slate-50 via-white to-teal-50 flex items-center px-4 pt-20 opacity-0 translate-y-10 transition-all duration-1000 ease-out"
+        className="relative min-h-screen bg-white flex items-center px-4 pt-20 opacity-0 translate-y-10 transition-all duration-1000 ease-out"
         dir={textDirection}
       >
         <div className="container mx-auto">
@@ -100,15 +100,15 @@ const HeroSection: React.FC = () => {
                 <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
                   {language === 'ar' ? (
                     <span dir="rtl" className="block">
-                      <span className="text-slate-900">{translations[language].heroSection.title.split(' ')[0]}</span>{' '}
-                      <span className="bg-clip-text text-transparent bg-gradient-to-r from-teal-500 to-blue-500">
+                      <span className="text-black">{translations[language].heroSection.title.split(' ')[0]}</span>{' '}
+                      <span className="text-blue-600">
                         {translations[language].heroSection.title.split(' ').slice(1).join(' ')}
                       </span>
                     </span>
                   ) : (
                     <span>
-                      <span className="text-slate-900">{translations[language].heroSection.title.split(' ')[0]}</span>{' '}
-                      <span className="bg-clip-text text-transparent bg-gradient-to-r from-teal-500 to-blue-500">
+                      <span className="text-black">{translations[language].heroSection.title.split(' ')[0]}</span>{' '}
+                      <span className="text-blue-600">
                         {translations[language].heroSection.title.split(' ').slice(1).join(' ')}
                       </span>
                     </span>
@@ -120,7 +120,7 @@ const HeroSection: React.FC = () => {
               </p>
               <div className="flex flex-col sm:flex-row gap-4 pt-4">
                 <Button 
-                  className="bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white font-medium"
+                  className="bg-black hover:bg-blue-600 text-white font-medium transition-colors"
                   size="lg"
                   onClick={navigateToLogin}
                 >
@@ -128,7 +128,7 @@ const HeroSection: React.FC = () => {
                 </Button>
                 <Button 
                   variant="outline" 
-                  className="border-slate-700 text-slate-700 hover:bg-slate-700 hover:text-white flex items-center gap-2"
+                  className="border-black text-black hover:bg-black hover:text-white flex items-center gap-2 transition-colors"
                   size="lg"
                   onClick={openVideoModal}
                 >
@@ -152,12 +152,12 @@ const HeroSection: React.FC = () => {
                   />
                   
                   {/* Overlay avec logo et info */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900/30 via-transparent to-transparent"></div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent"></div>
                   
                   {/* Badge flottant */}
-                  <div className="absolute top-4 left-4 bg-white/95 backdrop-blur-sm rounded-lg px-3 py-2 shadow-lg">
+                  <div className="absolute top-4 left-4 bg-white/95 backdrop-blur-sm rounded-lg px-3 py-2 shadow-lg border border-gray-100">
                     <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                      <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
                       <span className="text-sm font-medium text-gray-800">
                         {language === 'fr' ? 'En ligne' :
                          language === 'en' ? 'Online' :
@@ -168,9 +168,9 @@ const HeroSection: React.FC = () => {
                   </div>
                   
                   {/* Statistiques flottantes */}
-                  <div className="absolute bottom-4 right-4 bg-white/95 backdrop-blur-sm rounded-lg p-3 shadow-lg">
+                  <div className="absolute bottom-4 right-4 bg-white/95 backdrop-blur-sm rounded-lg p-3 shadow-lg border border-gray-100">
                     <div className="text-sm">
-                      <div className="flex items-center gap-2 text-green-600 font-medium">
+                      <div className="flex items-center gap-2 text-blue-600 font-bold">
                         <span>📈</span>
                         <span>+23%</span>
                       </div>
@@ -185,13 +185,13 @@ const HeroSection: React.FC = () => {
                 </div>
                 
                 {/* Éléments décoratifs */}
-                <div className="absolute -top-4 -right-4 w-24 h-24 bg-gradient-to-br from-teal-400 to-blue-500 rounded-full opacity-20 animate-pulse"></div>
-                <div className="absolute -bottom-4 -left-4 w-32 h-32 bg-gradient-to-br from-blue-400 to-teal-500 rounded-full opacity-20 animate-pulse delay-1000"></div>
+                <div className="absolute -top-4 -right-4 w-24 h-24 bg-blue-600/10 rounded-full animate-pulse"></div>
+                <div className="absolute -bottom-4 -left-4 w-32 h-32 bg-black/5 rounded-full animate-pulse delay-1000"></div>
                 
                 {/* Petites cartes flottantes */}
-                <div className="absolute -left-6 top-1/2 transform -translate-y-1/2 bg-white rounded-xl shadow-lg p-4 hidden lg:block">
-                  <div className="w-8 h-8 bg-teal-100 rounded-lg flex items-center justify-center mb-2">
-                    <span className="text-sm text-teal-600">👥</span>
+                <div className="absolute -left-6 top-1/2 transform -translate-y-1/2 bg-white rounded-xl shadow-xl p-4 hidden lg:block border border-gray-50">
+                  <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center mb-2">
+                    <span className="text-sm">👥</span>
                   </div>
                   <div className="text-xs font-medium text-gray-800">
                     {language === 'fr' ? 'Équipes' :
@@ -199,12 +199,12 @@ const HeroSection: React.FC = () => {
                      language === 'es' ? 'Equipos' :
                                        'الفرق'}
                   </div>
-                  <div className="text-xs text-teal-600 font-bold">127</div>
+                  <div className="text-xs text-blue-600 font-bold">127</div>
                 </div>
                 
-                <div className="absolute -right-6 top-1/3 bg-white rounded-xl shadow-lg p-4 hidden lg:block">
-                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mb-2">
-                    <span className="text-sm text-blue-600">📋</span>
+                <div className="absolute -right-6 top-1/3 bg-white rounded-xl shadow-xl p-4 hidden lg:block border border-gray-50">
+                  <div className="w-8 h-8 bg-gray-50 rounded-lg flex items-center justify-center mb-2">
+                    <span className="text-sm">📋</span>
                   </div>
                   <div className="text-xs font-medium text-gray-800">
                     {language === 'fr' ? 'Projets' :
@@ -212,7 +212,7 @@ const HeroSection: React.FC = () => {
                      language === 'es' ? 'Proyectos' :
                                        'المشاريع'}
                   </div>
-                  <div className="text-xs text-blue-600 font-bold">43</div>
+                  <div className="text-xs text-black font-bold">43</div>
                 </div>
               </div>
             </div>

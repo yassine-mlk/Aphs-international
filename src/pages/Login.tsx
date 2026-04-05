@@ -118,14 +118,14 @@ const Login: React.FC = () => {
   const textDirection = language === 'ar' ? 'rtl' : 'ltr';
 
   return (
-    <div className="min-h-screen flex bg-gradient-to-br from-purple-50 to-indigo-50" dir={textDirection}>
+    <div className="min-h-screen flex bg-white" dir={textDirection}>
       {/* Partie gauche - Formulaire de connexion */}
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
             <img src="/aphs-logo.svg" alt="APHS Internationale" className="h-16 mx-auto" />
-            <p className="mt-2 text-gray-600">{t.subtitle}</p>
-            <div className="mt-4 flex justify-center">
+            <p className="mt-2 text-gray-500 font-medium">{t.subtitle}</p>
+            <div className="mt-6 flex justify-center">
               <LanguageSelector 
                 currentLanguage={language}
                 onLanguageChange={setLanguage}
@@ -133,15 +133,15 @@ const Login: React.FC = () => {
             </div>
           </div>
           
-          <div className="bg-white p-8 rounded-xl shadow-lg">
-            <h2 className="text-2xl font-bold text-gray-800 mb-6">
+          <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-2xl">
+            <h2 className="text-3xl font-bold text-black mb-8">
               {t.title}
             </h2>
             
             <form className="space-y-6" onSubmit={handleSubmit}>
-              <div className="space-y-4">
+              <div className="space-y-5">
                 <div>
-                  <Label htmlFor="email" className="text-gray-700">{t.email}</Label>
+                  <Label htmlFor="email" className="text-gray-700 font-semibold mb-1.5 block">{t.email}</Label>
                   <Input
                     id="email"
                     type="email"
@@ -149,13 +149,13 @@ const Login: React.FC = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="mt-1 w-full"
+                    className="h-12 border-gray-200 focus:border-blue-600 focus:ring-blue-600 transition-all"
                   />
                 </div>
                 <div>
-                  <div className="flex justify-between items-center">
-                    <Label htmlFor="password" className="text-gray-700">{t.password}</Label>
-                    <a href="#" className="text-sm text-teal-600 hover:text-teal-700">
+                  <div className="flex justify-between items-center mb-1.5">
+                    <Label htmlFor="password" className="text-gray-700 font-semibold">{t.password}</Label>
+                    <a href="#" className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors">
                       {t.forgotPassword}
                     </a>
                   </div>
@@ -165,24 +165,24 @@ const Login: React.FC = () => {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder={t.passwordPlaceholder}
                     required
-                    className="mt-1 w-full"
+                    className="h-12 border-gray-200 focus:border-blue-600 focus:ring-blue-600 transition-all"
                   />
                 </div>
               </div>
 
               <Button
                 type="submit"
-                className="w-full bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white"
+                className="w-full h-12 bg-black hover:bg-blue-600 text-white font-bold transition-all text-lg shadow-lg hover:shadow-blue-600/20"
                 disabled={isLoading}
               >
                 {isLoading ? t.loadingButton : t.loginButton}
               </Button>
               
-              <div className="text-sm text-gray-500 mt-4 p-4 bg-gray-50 rounded-lg">
-                <p className="font-medium mb-2">{language === 'fr' ? "Informations de connexion:" :
-                                                  language === 'en' ? "Login information:" :
-                                                  language === 'es' ? "Información de inicio de sesión:" :
-                                                                     "معلومات تسجيل الدخول:"}</p>
+              <div className="text-sm text-gray-500 mt-6 p-4 bg-gray-50 rounded-xl border border-gray-100">
+                <p className="font-bold text-black mb-1">{language === 'fr' ? "Besoin d'aide ?" :
+                                                  language === 'en' ? "Need help?" :
+                                                  language === 'es' ? "¿Necesita ayuda?" :
+                                                                     "هل تحتاج إلى مساعدة؟"}</p>
                 <p>{t.contactAdmin}</p>
               </div>
             </form>
@@ -191,31 +191,35 @@ const Login: React.FC = () => {
       </div>
       
       {/* Partie droite - Image/Illustration */}
-      <div className="hidden lg:block lg:flex-1 bg-cover bg-center" style={{ 
+      <div className="hidden lg:block lg:flex-1 bg-cover bg-center relative" style={{ 
         backgroundImage: 'url("https://images.unsplash.com/photo-1497366811353-6870744d04b2?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1350&q=80")',
         backgroundSize: 'cover'
       }}>
-        <div className="h-full w-full bg-gradient-to-br from-purple-900/70 to-indigo-900/70 flex flex-col justify-center p-12 text-white">
-          <h2 className="text-4xl font-bold mb-6">
-            {t.welcomeTitle} <img src="/aphs-logo.svg" alt="APHS Internationale" className="inline h-14 ml-2" />
-          </h2>
-          <p className="text-xl mb-8">{t.welcomeSubtitle}</p>
-          <div className="grid grid-cols-2 gap-4 mb-8">
-            <div className="bg-white/10 p-4 rounded-lg backdrop-blur-sm">
-              <h3 className="font-bold mb-2">{t.projectManagement}</h3>
-              <p>{t.projectManagementDesc}</p>
-            </div>
-            <div className="bg-white/10 p-4 rounded-lg backdrop-blur-sm">
-              <h3 className="font-bold mb-2">{t.collaboration}</h3>
-              <p>{t.collaborationDesc}</p>
-            </div>
-            <div className="bg-white/10 p-4 rounded-lg backdrop-blur-sm">
-              <h3 className="font-bold mb-2">{t.communication}</h3>
-              <p>{t.communicationDesc}</p>
-            </div>
-            <div className="bg-white/10 p-4 rounded-lg backdrop-blur-sm">
-              <h3 className="font-bold mb-2">{t.analysis}</h3>
-              <p>{t.analysisDesc}</p>
+        <div className="h-full w-full bg-black/60 backdrop-blur-[2px] flex flex-col justify-center p-16 text-white">
+          <div className="max-w-xl">
+            <h2 className="text-5xl font-black mb-8 leading-tight">
+              {t.welcomeTitle} <br/>
+              <span className="text-blue-500">APHS</span> <img src="/aphs-logo.svg" alt="APHS" className="inline h-12 ml-2 brightness-0 invert" />
+            </h2>
+            <p className="text-xl text-gray-200 mb-12 leading-relaxed">{t.welcomeSubtitle}</p>
+            
+            <div className="grid grid-cols-2 gap-6">
+              <div className="bg-white/10 p-6 rounded-2xl backdrop-blur-md border border-white/10 hover:bg-white/20 transition-all group">
+                <h3 className="font-bold mb-2 text-blue-400 group-hover:text-blue-300">{t.projectManagement}</h3>
+                <p className="text-sm text-gray-300">{t.projectManagementDesc}</p>
+              </div>
+              <div className="bg-white/10 p-6 rounded-2xl backdrop-blur-md border border-white/10 hover:bg-white/20 transition-all group">
+                <h3 className="font-bold mb-2 text-blue-400 group-hover:text-blue-300">{t.collaboration}</h3>
+                <p className="text-sm text-gray-300">{t.collaborationDesc}</p>
+              </div>
+              <div className="bg-white/10 p-6 rounded-2xl backdrop-blur-md border border-white/10 hover:bg-white/20 transition-all group">
+                <h3 className="font-bold mb-2 text-blue-400 group-hover:text-blue-300">{t.communication}</h3>
+                <p className="text-sm text-gray-300">{t.communicationDesc}</p>
+              </div>
+              <div className="bg-white/10 p-6 rounded-2xl backdrop-blur-md border border-white/10 hover:bg-white/20 transition-all group">
+                <h3 className="font-bold mb-2 text-blue-400 group-hover:text-blue-300">{t.analysis}</h3>
+                <p className="text-sm text-gray-300">{t.analysisDesc}</p>
+              </div>
             </div>
           </div>
         </div>
