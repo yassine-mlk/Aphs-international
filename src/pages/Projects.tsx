@@ -364,7 +364,7 @@ const Projects: React.FC = () => {
             Gérez et suivez tous vos projets
           </p>
         </div>
-        <Button className="bg-aphs-teal hover:bg-aphs-navy" onClick={handleCreateProject}>
+        <Button className="bg-aps-teal hover:bg-aps-navy" onClick={handleCreateProject}>
           <Plus className="mr-2 h-4 w-4" /> Nouveau Projet
         </Button>
       </div>
@@ -383,7 +383,7 @@ const Projects: React.FC = () => {
 
       {loading ? (
         <div className="flex justify-center items-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-aphs-teal"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-aps-teal"></div>
         </div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -439,7 +439,7 @@ const Projects: React.FC = () => {
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-1.5">
                         <div 
-                          className="bg-aphs-teal h-1.5 rounded-full transition-all duration-300" 
+                          className="bg-aps-teal h-1.5 rounded-full transition-all duration-300" 
                           style={{ width: `${stats.taskProgress}%` }}
                         ></div>
                       </div>
@@ -574,7 +574,7 @@ const Projects: React.FC = () => {
                   id="show_info_sheets"
                   checked={newProject.show_info_sheets}
                   onChange={(e) => setNewProject({...newProject, show_info_sheets: e.target.checked})}
-                  className="h-4 w-4 rounded border-gray-300 text-aphs-teal focus:ring-aphs-teal"
+                  className="h-4 w-4 rounded border-gray-300 text-aps-teal focus:ring-aps-teal"
                 />
                 <Label htmlFor="show_info_sheets" className="text-sm font-medium leading-none cursor-pointer">
                   Afficher les fiches informatives pour ce projet
@@ -675,7 +675,7 @@ const Projects: React.FC = () => {
                   id="edit-show_info_sheets"
                   checked={selectedProject?.show_info_sheets ?? true}
                   onChange={(e) => setSelectedProject(prev => prev ? {...prev, show_info_sheets: e.target.checked} : null)}
-                  className="h-4 w-4 rounded border-gray-300 text-aphs-teal focus:ring-aphs-teal"
+                  className="h-4 w-4 rounded border-gray-300 text-aps-teal focus:ring-aps-teal"
                 />
                 <Label htmlFor="edit-show_info_sheets" className="text-sm font-medium leading-none cursor-pointer">
                   Afficher les fiches informatives pour ce projet

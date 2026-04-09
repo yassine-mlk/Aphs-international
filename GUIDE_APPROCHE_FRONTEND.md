@@ -37,7 +37,7 @@ configOverwrite: {
 ### 2. **Noms de salles ultra-simples**
 
 ```typescript
-// AVANT : aphs-meeting_1750686076644_780cc_CSV2214U
+// AVANT : aps-meeting_1750686076644_780cc_CSV2214U
 // APRÈS : meetabc123def456
 
 const randomId = Math.random().toString(36).substring(2, 15);

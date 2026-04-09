@@ -2,7 +2,7 @@
 
 ## ✅ Implémentation Terminée
 
-Le tableau de bord **Maître d'ouvrage** est maintenant traduit dans les **4 langues** supportées par l'application APHS.
+Le tableau de bord **Maître d'ouvrage** est maintenant traduit dans les **4 langues** supportées par l'application APS.
 
 ## 🗣️ Langues Supportées
 

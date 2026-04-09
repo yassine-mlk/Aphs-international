@@ -406,7 +406,7 @@ export function useCompanies() {
             
             // Exclure les admins et utilisateurs bannis
             const isAdmin = user.user_metadata?.role === 'admin';
-            const isAdminEmail = user.email?.toLowerCase()?.includes('admin@aphs');
+            const isAdminEmail = user.email?.toLowerCase()?.includes('admin@aps');
             
             if (isAdmin || isAdminEmail || user.banned) return false;
             

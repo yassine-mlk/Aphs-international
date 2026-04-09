@@ -121,7 +121,7 @@ export function MeetingRequestsManager() {
       
       {loading ? (
         <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-aphs-teal mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-aps-teal mx-auto mb-4"></div>
           <p className="text-gray-500">Chargement des demandes...</p>
         </div>
       ) : requests.length === 0 ? (

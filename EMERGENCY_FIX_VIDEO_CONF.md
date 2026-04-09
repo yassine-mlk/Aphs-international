@@ -1,4 +1,4 @@
-# 🚨 CORRECTION URGENTE - Vidéoconférence APHS
+# 🚨 CORRECTION URGENTE - Vidéoconférence APS
 
 ## 🔍 **Problème Identifié**
 

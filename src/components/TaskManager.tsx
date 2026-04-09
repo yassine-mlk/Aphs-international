@@ -344,7 +344,7 @@ const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, curre
   if (loading) {
     return (
       <div className="flex justify-center items-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-aphs-teal"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-aps-teal"></div>
       </div>
     );
   }
@@ -366,7 +366,7 @@ const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, curre
       
       <div className="grid gap-4">
         {tasks.map(task => (
-          <Card key={task.id} className="border-l-4 border-l-aphs-teal">
+          <Card key={task.id} className="border-l-4 border-l-aps-teal">
             <CardHeader className="pb-3">
               <div className="flex justify-between items-start">
                 <div className="flex-1">
@@ -400,7 +400,7 @@ const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, curre
                       href={task.file_url} 
                       target="_blank" 
                       rel="noopener noreferrer"
-                      className="text-sm text-aphs-teal hover:underline"
+                      className="text-sm text-aps-teal hover:underline"
                     >
                       {task.file_name}
                     </a>
@@ -631,7 +631,7 @@ const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, curre
                     href={selectedTask.file_url} 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="text-aphs-teal hover:underline"
+                    className="text-aps-teal hover:underline"
                   >
                     {selectedTask.file_name}
                   </a>

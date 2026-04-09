@@ -96,10 +96,10 @@ const AboutSection: React.FC<AboutSectionProps> = ({ language }) => {
         dir={textDirection}
       >
         <div className="text-center max-w-3xl mx-auto mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold text-aphs-navy mb-4">
+          <h2 className="text-3xl md:text-4xl font-bold text-aps-navy mb-4">
             {t.title}
           </h2>
-          <p className="text-aphs-gray text-lg">
+          <p className="text-aps-gray text-lg">
             {t.subtitle}
           </p>
         </div>

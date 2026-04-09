@@ -39,7 +39,7 @@ CREATE POLICY "Intervenants can view custom project structures" ON custom_projec
             WHERE profiles.user_id = auth.uid() 
             AND profiles.role = 'admin'
         )
-        OR (auth.jwt() ->> 'email' = 'admin@aphs.com')
+        OR (auth.jwt() ->> 'email' = 'admin@aps.com')
     );
 
 -- 5. Recréer la fonction RPC avec le nouveau type de retour (assigned_to UUID[])

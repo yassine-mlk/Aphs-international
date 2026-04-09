@@ -63,7 +63,7 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				},
-				aphs: {
+				aps: {
 					navy: '#000000',
 					teal: '#2563EB',
 					orange: '#F97316',

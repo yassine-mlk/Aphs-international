@@ -16,18 +16,18 @@ const FeatureCard: React.FC<FeatureCardProps> = ({ title, description, icon, del
     <div 
       className={cn(
         "bg-white rounded-xl p-6 card-shadow opacity-0",
-        "hover:border-b-4 hover:border-aphs-teal hover:-translate-y-1 transition-all duration-300"
+        "hover:border-b-4 hover:border-aps-teal hover:-translate-y-1 transition-all duration-300"
       )}
       style={{
         animationDelay: `${delay * 0.2}s`,
         animationFillMode: 'forwards'
       }}
     >
-      <div className="h-12 w-12 bg-aphs-teal/10 rounded-lg flex items-center justify-center mb-4">
-        <span className="text-aphs-teal text-2xl">{icon}</span>
+      <div className="h-12 w-12 bg-aps-teal/10 rounded-lg flex items-center justify-center mb-4">
+        <span className="text-aps-teal text-2xl">{icon}</span>
       </div>
-      <h3 className="text-xl font-semibold mb-2 text-aphs-navy">{title}</h3>
-      <p className="text-aphs-gray">{description}</p>
+      <h3 className="text-xl font-semibold mb-2 text-aps-navy">{title}</h3>
+      <p className="text-aps-gray">{description}</p>
     </div>
   );
 };

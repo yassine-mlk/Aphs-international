@@ -58,10 +58,10 @@ const Login: React.FC = () => {
         
         let userRole = user.user_metadata?.role || 'intervenant';
         
-        // Force admin role for admin@aphs.com
-        if (email === 'admin@aphs.com') {
+        // Force admin role for admin@aps.com
+        if (email === 'admin@aps.com') {
           userRole = 'admin';
-          console.log('Forcing admin role for admin@aphs.com');
+          console.log('Forcing admin role for admin@aps.com');
         }
         
         const userData = {
@@ -123,7 +123,7 @@ const Login: React.FC = () => {
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
-            <img src="/aphs-logo.svg" alt="APHS Internationale" className="h-16 mx-auto" />
+            <img src="/aps-logo.svg" alt="APS" className="h-16 mx-auto" />
             <p className="mt-2 text-gray-500 font-medium">{t.subtitle}</p>
             <div className="mt-6 flex justify-center">
               <LanguageSelector 
@@ -199,7 +199,7 @@ const Login: React.FC = () => {
           <div className="max-w-xl">
             <h2 className="text-5xl font-black mb-8 leading-tight">
               {t.welcomeTitle} <br/>
-              <span className="text-blue-500">APHS</span> <img src="/aphs-logo.svg" alt="APHS" className="inline h-12 ml-2 brightness-0 invert" />
+              <span className="text-blue-500">APS</span> <img src="/aps-logo.svg" alt="APS" className="inline h-12 ml-2 brightness-0 invert" />
             </h2>
             <p className="text-xl text-gray-200 mb-12 leading-relaxed">{t.welcomeSubtitle}</p>
             

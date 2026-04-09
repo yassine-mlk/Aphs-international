@@ -104,15 +104,15 @@
 
 @layer components {
   .btn-primary {
-    @apply bg-aphs-navy hover:bg-opacity-90 text-white font-semibold py-3 px-6 rounded-lg transition-all;
+    @apply bg-aps-navy hover:bg-opacity-90 text-white font-semibold py-3 px-6 rounded-lg transition-all;
   }
 
   .btn-secondary {
-    @apply bg-aphs-teal hover:bg-opacity-90 text-white font-semibold py-3 px-6 rounded-lg transition-all;
+    @apply bg-aps-teal hover:bg-opacity-90 text-white font-semibold py-3 px-6 rounded-lg transition-all;
   }
 
   .btn-outline {
-    @apply border-2 border-aphs-navy text-aphs-navy hover:bg-aphs-navy hover:text-white font-semibold py-3 px-6 rounded-lg transition-all;
+    @apply border-2 border-aps-navy text-aps-navy hover:bg-aps-navy hover:text-white font-semibold py-3 px-6 rounded-lg transition-all;
   }
   
   .card-shadow {

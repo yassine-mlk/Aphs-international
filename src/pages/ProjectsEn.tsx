@@ -318,7 +318,7 @@ const ProjectsEn: React.FC = () => {
       {/* Projects grid */}
       {loading ? (
         <div className="flex justify-center items-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-aphs-teal"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-aps-teal"></div>
         </div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -448,7 +448,7 @@ const ProjectsEn: React.FC = () => {
                   id="show_info_sheets"
                   checked={newProject.show_info_sheets}
                   onChange={(e) => setNewProject({...newProject, show_info_sheets: e.target.checked})}
-                  className="h-4 w-4 rounded border-gray-300 text-aphs-teal focus:ring-aphs-teal"
+                  className="h-4 w-4 rounded border-gray-300 text-aps-teal focus:ring-aps-teal"
                 />
                 <Label htmlFor="show_info_sheets" className="text-sm font-medium leading-none cursor-pointer">
                   Show information sheets for this project
@@ -522,7 +522,7 @@ const ProjectsEn: React.FC = () => {
                   id="edit-show_info_sheets"
                   checked={selectedProject.show_info_sheets ?? true}
                   onChange={(e) => setSelectedProject({...selectedProject, show_info_sheets: e.target.checked})}
-                  className="h-4 w-4 rounded border-gray-300 text-aphs-teal focus:ring-aphs-teal"
+                  className="h-4 w-4 rounded border-gray-300 text-aps-teal focus:ring-aps-teal"
                 />
                 <Label htmlFor="edit-show_info_sheets" className="text-sm font-medium leading-none cursor-pointer">
                   Show information sheets for this project

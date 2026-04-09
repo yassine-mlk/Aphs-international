@@ -257,9 +257,9 @@ const IntervenantProjectDetails: React.FC = () => {
           const formattedUsers = userData.users
             .filter((user: any) => {
               const isAdmin = user.user_metadata?.role === 'admin';
-              const isAdminEmail = user.email?.toLowerCase() === 'admin@aphs.fr' || 
-                                  user.email?.toLowerCase() === 'admin@aphs.com' || 
-                                  user.email?.toLowerCase() === 'admin@aphs';
+              const isAdminEmail = user.email?.toLowerCase() === 'admin@aps.fr' || 
+                                  user.email?.toLowerCase() === 'admin@aps.com' || 
+                                  user.email?.toLowerCase() === 'admin@aps';
               return !isAdmin && !isAdminEmail && !user.banned;
             })
             .map((user: any) => ({
@@ -485,7 +485,7 @@ const IntervenantProjectDetails: React.FC = () => {
   if (loadingMembership || loading) {
     return (
       <div className="flex justify-center items-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-aphs-teal"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-aps-teal"></div>
       </div>
     );
   }
@@ -593,7 +593,7 @@ const IntervenantProjectDetails: React.FC = () => {
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2">
                           <div 
-                            className="bg-aphs-teal h-2 rounded-full transition-all duration-300" 
+                            className="bg-aps-teal h-2 rounded-full transition-all duration-300" 
                             style={{ 
                               width: `${getProjectProgress()}%` 
                             }}
@@ -685,7 +685,7 @@ const IntervenantProjectDetails: React.FC = () => {
                   <div className="space-y-3">
                     {loadingTasks ? (
                       <div className="flex justify-center py-8">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-aphs-teal"></div>
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-aps-teal"></div>
                       </div>
                     ) : taskAssignments.length > 0 ? (
                       taskAssignments.map((task) => (
@@ -962,7 +962,7 @@ const IntervenantProjectDetails: React.FC = () => {
                                                           className="h-6 px-2"
                                                         >
                                                           {isLoading ? (
-                                                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-aphs-teal"></div>
+                                                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-aps-teal"></div>
                                                           ) : (
                                                             <FileText className="h-3 w-3" />
                                                           )}
@@ -988,9 +988,9 @@ const IntervenantProjectDetails: React.FC = () => {
                                                 
                                                 {/* Fiche informative */}
                                                 {isExpanded && infoSheet && (
-                                                  <div className="p-3 bg-gradient-to-r from-aphs-teal/5 to-aphs-navy/5 border-t border-l-4 border-l-aphs-teal">
+                                                  <div className="p-3 bg-gradient-to-r from-aps-teal/5 to-aps-navy/5 border-t border-l-4 border-l-aps-teal">
                                                     <div className="flex items-center gap-2 mb-2">
-                                                      <Badge variant="outline" className="bg-aphs-teal bg-opacity-10 text-aphs-teal border-aphs-teal text-xs">
+                                                      <Badge variant="outline" className="bg-aps-teal bg-opacity-10 text-aps-teal border-aps-teal text-xs">
                                                         Document de référence
                                                       </Badge>
                                                       <Badge variant="outline" className="bg-blue-500 bg-opacity-10 text-blue-600 border-blue-500 text-xs">
@@ -1137,7 +1137,7 @@ const IntervenantProjectDetails: React.FC = () => {
                                                           className="h-6 px-2"
                                                         >
                                                           {isLoading ? (
-                                                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-aphs-teal"></div>
+                                                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-aps-teal"></div>
                                                           ) : (
                                                             <FileText className="h-3 w-3" />
                                                           )}
@@ -1163,9 +1163,9 @@ const IntervenantProjectDetails: React.FC = () => {
                                                 
                                                 {/* Fiche informative */}
                                                 {isExpanded && infoSheet && (
-                                                  <div className="p-3 bg-gradient-to-r from-aphs-teal/5 to-aphs-navy/5 border-t border-l-4 border-l-aphs-teal">
+                                                  <div className="p-3 bg-gradient-to-r from-aps-teal/5 to-aps-navy/5 border-t border-l-4 border-l-aps-teal">
                                                     <div className="flex items-center gap-2 mb-2">
-                                                      <Badge variant="outline" className="bg-aphs-teal bg-opacity-10 text-aphs-teal border-aphs-teal text-xs">
+                                                      <Badge variant="outline" className="bg-aps-teal bg-opacity-10 text-aps-teal border-aps-teal text-xs">
                                                         Document de référence
                                                       </Badge>
                                                       <Badge variant="outline" className="bg-blue-500 bg-opacity-10 text-blue-600 border-blue-500 text-xs">

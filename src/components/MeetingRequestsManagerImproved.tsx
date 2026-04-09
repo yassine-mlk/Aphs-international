@@ -165,7 +165,7 @@ export function MeetingRequestsManagerImproved() {
       
       {loading ? (
         <div className="flex items-center justify-center p-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-aphs-teal"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-aps-teal"></div>
         </div>
       ) : (
         <div className="space-y-6">

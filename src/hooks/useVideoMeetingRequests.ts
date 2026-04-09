@@ -35,7 +35,7 @@ export function useVideoMeetingRequests() {
   const [requests, setRequests] = useState<MeetingRequest[]>([]);
 
   // Vérifier si l'utilisateur est admin
-  const isAdmin = user?.user_metadata?.role === 'admin' || user?.email === 'admin@aphs.com';
+  const isAdmin = user?.user_metadata?.role === 'admin' || user?.email === 'admin@aps.com';
 
   // Récupérer les demandes de réunion
   const getMeetingRequests = useCallback(async (): Promise<MeetingRequest[]> => {

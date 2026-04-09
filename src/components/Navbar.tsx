@@ -50,7 +50,7 @@ const Navbar: React.FC = () => {
         <div className="flex justify-between items-center">
           <div className="flex items-center">
             <a href="/" className="flex items-center">
-              <img src="/aphs-logo.svg" alt="APHS Internationale" className="h-14" />
+              <img src="/aps-logo.svg" alt="APS" className="h-14" />
             </a>
           </div>
 
@@ -132,7 +132,7 @@ const Navbar: React.FC = () => {
                             href="#about"
                           >
                             <div className="mb-2 mt-4 text-lg font-medium text-black">
-                              <img src="/aphs-logo.svg" alt="APHS Internationale" className="h-12" />
+                              <img src="/aps-logo.svg" alt="APS" className="h-12" />
                             </div>
                             <p className="text-sm text-gray-600">
                               {language === 'fr' ? "Notre mission est d'accompagner les entreprises dans leur transformation digitale et organisationnelle." :

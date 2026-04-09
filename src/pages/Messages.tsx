@@ -85,7 +85,7 @@ const Messages: React.FC = () => {
   
   // Vérifier si l'utilisateur est admin
   const isAdmin = user?.user_metadata?.role === 'admin' || 
-                 user?.email === 'admin@aphs.com' || 
+                 user?.email === 'admin@aps.com' || 
                  JSON.parse(localStorage.getItem('user') || '{}')?.role === 'admin';
   
   // Charger les contacts disponibles
@@ -537,7 +537,7 @@ const Messages: React.FC = () => {
                       <Avatar className="h-12 w-12">
                         <AvatarImage src={conv.type === 'direct' && conv.participants.length > 0 ? conv.participants[0].avatar : ''} />
                         <AvatarFallback className={`
-                          ${conv.type === 'group' ? 'bg-aphs-navy' : 'bg-aphs-teal'}
+                          ${conv.type === 'group' ? 'bg-aps-navy' : 'bg-aps-teal'}
                           text-white
                         `}>
                           {conv.type === 'direct' && conv.participants.length > 0
@@ -613,7 +613,7 @@ const Messages: React.FC = () => {
                         </p>
                         
                         {conv.unreadCount > 0 && (
-                          <Badge variant="default" className="bg-aphs-teal ml-2">
+                          <Badge variant="default" className="bg-aps-teal ml-2">
                             {conv.unreadCount}
                           </Badge>
                         )}
@@ -636,7 +636,7 @@ const Messages: React.FC = () => {
                   <Avatar className="h-10 w-10">
                     <AvatarImage src={activeConversation.type === 'direct' && activeConversation.participants.length > 0 ? activeConversation.participants[0].avatar : ''} />
                     <AvatarFallback className={`
-                      ${activeConversation.type === 'group' ? 'bg-aphs-navy' : 'bg-aphs-teal'}
+                      ${activeConversation.type === 'group' ? 'bg-aps-navy' : 'bg-aps-teal'}
                       text-white
                     `}>
                       {activeConversation.type === 'direct' && activeConversation.participants.length > 0
@@ -687,7 +687,7 @@ const Messages: React.FC = () => {
                       >
                         {!isMe && showSender && activeConversation.participants.length > 0 && (
                           <Avatar className="h-8 w-8 mr-2 mt-1">
-                            <AvatarFallback className={`text-white text-xs ${isDeletedUserMessage ? 'bg-gray-400' : 'bg-aphs-teal'}`}>
+                            <AvatarFallback className={`text-white text-xs ${isDeletedUserMessage ? 'bg-gray-400' : 'bg-aps-teal'}`}>
                               {isDeletedUserMessage ? "?" : (
                                 msg.sender 
                                 ? getInitials(msg.sender)
@@ -720,7 +720,7 @@ const Messages: React.FC = () => {
                             <div
                               className={`px-4 py-2 rounded-2xl max-w-full overflow-hidden ${
                                 isMe 
-                                  ? 'bg-aphs-teal text-white rounded-tr-none' 
+                                  ? 'bg-aps-teal text-white rounded-tr-none' 
                                   : isDeletedUserMessage
                                     ? 'bg-gray-100 text-gray-500 italic rounded-tl-none shadow-sm'
                                     : 'bg-white text-gray-800 rounded-tl-none shadow-sm'
@@ -794,7 +794,7 @@ const Messages: React.FC = () => {
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <Avatar className="h-10 w-10">
                   <AvatarFallback className={`
-                    ${conversationToDelete.type === 'group' ? 'bg-aphs-navy' : 'bg-aphs-teal'}
+                    ${conversationToDelete.type === 'group' ? 'bg-aps-navy' : 'bg-aps-teal'}
                     text-white
                   `}>
                     {conversationToDelete.type === 'direct' && conversationToDelete.participants.length > 0

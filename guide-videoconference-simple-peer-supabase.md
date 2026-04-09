@@ -442,7 +442,7 @@ const MyVideoApp = () => {
 
   return (
     <div className="p-8">
-      <h1>Vidéoconférence APHS</h1>
+      <h1>Vidéoconférence APS</h1>
       <input
         value={roomId}
         onChange={(e) => setRoomId(e.target.value)}

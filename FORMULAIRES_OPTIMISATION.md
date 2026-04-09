@@ -135,4 +135,4 @@
 - **Visual feedback** : Compteurs et indicateurs
 - **Contextual actions** : Boutons adaptés au contexte
 
-Ces améliorations garantissent une expérience utilisateur optimale sur tous les formulaires de modification et de gestion dans l'application APHS. 
+Ces améliorations garantissent une expérience utilisateur optimale sur tous les formulaires de modification et de gestion dans l'application APS. 

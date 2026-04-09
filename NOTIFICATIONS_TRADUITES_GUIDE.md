@@ -1,4 +1,4 @@
-# 🌍 Guide des Notifications Traduites - APHS
+# 🌍 Guide des Notifications Traduites - APS
 
 ## ✅ Implémentation Terminée
 

@@ -1,5 +1,5 @@
 -- =========================================
--- SYSTÈME DE VIDÉOCONFÉRENCES POUR APHS
+-- SYSTÈME DE VIDÉOCONFÉRENCES POUR APS
 -- Script à exécuter dans Supabase Script Editor
 -- =========================================
 

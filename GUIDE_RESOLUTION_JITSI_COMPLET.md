@@ -5,7 +5,7 @@
 ### 1. Erreur Jitsi "membersOnly"
 ```
 Session b4vqzm8h: Jitsi error:
-error: {name: "conference.connectionError.membersOnly", params: ["aphs-meeting_1750686076644_780cc_csv2214u@lobby.meet.jit.si", true], recoverable: true, type: "CONFERENCE", isFatal: false}
+error: {name: "conference.connectionError.membersOnly", params: ["aps-meeting_1750686076644_780cc_csv2214u@lobby.meet.jit.si", true], recoverable: true, type: "CONFERENCE", isFatal: false}
 ```
 
 ### 2. Erreur base de données
@@ -31,13 +31,13 @@ error: {name: "conference.connectionError.membersOnly", params: ["aphs-meeting_1
 
 ### 🚫 **2. Changement du format des noms de salles**
 
-**Problème :** Les préfixes comme `aphs-private_` et même `aphs-meeting_` déclenchent des restrictions Jitsi.
+**Problème :** Les préfixes comme `aps-private_` et même `aps-meeting_` déclenchent des restrictions Jitsi.
 **Solution :** Format simple sans caractères spéciaux.
 
 **Fichier :** `src/hooks/useVideoMeetings.ts`
 ```typescript
 // AVANT
-const roomId = `aphs-meeting_${timestamp}_${userFragment}_${randomPart}`;
+const roomId = `aps-meeting_${timestamp}_${userFragment}_${randomPart}`;
 
 // APRÈS
 const roomId = `Room${timestamp}${randomPart}`;
@@ -84,7 +84,7 @@ configOverwrite: {
 ```typescript
 // AVANT
 if (isModerator) {
-  const roomPassword = `aphs-${Math.random().toString(36).substring(2, 8)}`;
+  const roomPassword = `aps-${Math.random().toString(36).substring(2, 8)}`;
   jitsiApi.executeCommand('password', roomPassword);
 }
 

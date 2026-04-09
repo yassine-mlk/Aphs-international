@@ -15,7 +15,7 @@
     "nodemon": "^3.0.1"
   },
   "keywords": ["websocket", "video", "conference", "webrtc", "production"],
-  "author": "APHS",
+  "author": "APS",
   "license": "MIT",
   "engines": {
     "node": ">=16.0.0"

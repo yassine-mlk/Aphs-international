@@ -1,8 +1,8 @@
-# Guide d'utilisation : Système de Vidéoconférence APHS
+# Guide d'utilisation : Système de Vidéoconférence APS
 
 ## 📋 Vue d'ensemble
 
-Le système de vidéoconférence APHS permet aux membres des projets de demander et organiser des réunions vidéo avec validation administrative.
+Le système de vidéoconférence APS permet aux membres des projets de demander et organiser des réunions vidéo avec validation administrative.
 
 ## 🔄 Processus de fonctionnement
 
@@ -146,4 +146,4 @@ Exécutez le script `create_video_conference_system.sql` dans l'éditeur SQL de 
 
 ---
 
-**Note** : Ce système est conçu pour s'intégrer parfaitement avec l'écosystème APHS existant, en utilisant les rôles et permissions déjà en place. 
+**Note** : Ce système est conçu pour s'intégrer parfaitement avec l'écosystème APS existant, en utilisant les rôles et permissions déjà en place. 

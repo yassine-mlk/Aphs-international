@@ -22,7 +22,7 @@ CREATE POLICY "Admins can manage custom project structures" ON custom_project_st
         )
         OR 
         -- Vérifier si l'utilisateur est admin via les métadonnées
-        (auth.jwt() ->> 'email' = 'admin@aphs.com')
+        (auth.jwt() ->> 'email' = 'admin@aps.com')
     );
 
 -- Politique pour les intervenants : lecture seule
@@ -49,7 +49,7 @@ CREATE POLICY "Intervenants can view custom project structures" ON custom_projec
             AND profiles.role = 'admin'
         )
         OR 
-        (auth.jwt() ->> 'email' = 'admin@aphs.com')
+        (auth.jwt() ->> 'email' = 'admin@aps.com')
     );
 
 -- =========================================
@@ -67,7 +67,7 @@ DROP POLICY IF EXISTS "Intervenants can view custom project structures" ON custo
 -- Politique simplifiée pour les admins
 CREATE POLICY "Admins can manage custom project structures" ON custom_project_structures
     FOR ALL USING (
-        auth.jwt() ->> 'email' = 'admin@aphs.com'
+        auth.jwt() ->> 'email' = 'admin@aps.com'
         OR 
         (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
     );
@@ -87,7 +87,7 @@ CREATE POLICY "Intervenants can view custom project structures" ON custom_projec
             AND task_assignments.assigned_to = auth.uid()
         )
         OR
-        auth.jwt() ->> 'email' = 'admin@aphs.com'
+        auth.jwt() ->> 'email' = 'admin@aps.com'
         OR 
         (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
     );

@@ -10,7 +10,7 @@
 ```typescript
 // ❌ PROBLÉMATIQUE - Même ID pour tous les navigateurs du même utilisateur
 const currentUserId = user?.id || `anonymous_${Date.now()}`;
-// Résultat : admin@aphs.com → même ID dans tous les navigateurs
+// Résultat : admin@aps.com → même ID dans tous les navigateurs
 ```
 
 ### Conséquence Supabase Realtime

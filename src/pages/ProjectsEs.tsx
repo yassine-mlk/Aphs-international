@@ -304,7 +304,7 @@ const ProjectsEs: React.FC = () => {
       {/* Cuadrícula de proyectos */}
       {loading ? (
         <div className="flex justify-center items-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-aphs-teal"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-aps-teal"></div>
         </div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">

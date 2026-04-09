@@ -1,4 +1,4 @@
-# 🎥 Corrections Système de Vidéoconférence APHS
+# 🎥 Corrections Système de Vidéoconférence APS
 
 ## 📋 Problèmes Identifiés et Corrigés
 
@@ -7,7 +7,7 @@
 
 **Solution :** 
 - Correction de la logique de modérateur dans `useVideoMeetings.ts`
-- SEULS les créateurs de réunion et les vrais admins (`admin@aphs.fr`, `admin@aphs.com`) sont modérateurs
+- SEULS les créateurs de réunion et les vrais admins (`admin@aps.fr`, `admin@aps.com`) sont modérateurs
 - Affichage correct du badge "MOD" uniquement pour les vrais modérateurs
 
 ### 2. Problème d'Affichage des Noms

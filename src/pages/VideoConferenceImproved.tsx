@@ -413,7 +413,7 @@ const VideoConferenceImproved: React.FC = () => {
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold tracking-tight">Vidéoconférences</h1>
         <div className="flex gap-2">
-          <Button onClick={handleCreateMeeting} className="bg-aphs-teal hover:bg-aphs-navy">
+          <Button onClick={handleCreateMeeting} className="bg-aps-teal hover:bg-aps-navy">
             <Plus className="mr-2 h-4 w-4" /> Nouvelle réunion
           </Button>
         </div>
@@ -423,14 +423,14 @@ const VideoConferenceImproved: React.FC = () => {
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger 
             value="meetings"
-            className={activeTab === "meetings" ? "bg-aphs-teal hover:bg-aphs-navy data-[state=active]:bg-aphs-teal" : ""}
+            className={activeTab === "meetings" ? "bg-aps-teal hover:bg-aps-navy data-[state=active]:bg-aps-teal" : ""}
           >
             <VideoIcon className="mr-2 h-4 w-4" />
             Mes réunions
           </TabsTrigger>
           <TabsTrigger 
             value="requests"
-            className={activeTab === "requests" ? "bg-aphs-teal hover:bg-aphs-navy data-[state=active]:bg-aphs-teal" : ""}
+            className={activeTab === "requests" ? "bg-aps-teal hover:bg-aps-navy data-[state=active]:bg-aps-teal" : ""}
           >
             <Calendar className="mr-2 h-4 w-4" />
             {isAdmin ? "Demandes de réunion" : "Demander une réunion"}
@@ -518,28 +518,28 @@ const VideoConferenceImproved: React.FC = () => {
               <Button
                 variant={filter === "toutes" ? "default" : "outline"}
                 onClick={() => setFilter("toutes")}
-                className={filter === "toutes" ? "bg-aphs-teal" : ""}
+                className={filter === "toutes" ? "bg-aps-teal" : ""}
               >
                 Toutes
               </Button>
               <Button
                 variant={filter === "actives" ? "default" : "outline"}
                 onClick={() => setFilter("actives")}
-                className={filter === "actives" ? "bg-aphs-teal" : ""}
+                className={filter === "actives" ? "bg-aps-teal" : ""}
               >
                 Actives
               </Button>
               <Button
                 variant={filter === "planifiees" ? "default" : "outline"}
                 onClick={() => setFilter("planifiees")}
-                className={filter === "planifiees" ? "bg-aphs-teal" : ""}
+                className={filter === "planifiees" ? "bg-aps-teal" : ""}
               >
                 Planifiées
               </Button>
               <Button
                 variant={filter === "terminees" ? "default" : "outline"}
                 onClick={() => setFilter("terminees")}
-                className={filter === "terminees" ? "bg-aphs-teal" : ""}
+                className={filter === "terminees" ? "bg-aps-teal" : ""}
               >
                 Terminées
               </Button>
@@ -565,7 +565,7 @@ const VideoConferenceImproved: React.FC = () => {
                         : `Aucune réunion ${filter === "actives" ? "active" : filter === "planifiees" ? "planifiée" : "terminée"} trouvée.`
                       }
                     </p>
-                    <Button onClick={handleCreateMeeting} className="bg-aphs-teal hover:bg-aphs-navy">
+                    <Button onClick={handleCreateMeeting} className="bg-aps-teal hover:bg-aps-navy">
                       <Plus className="mr-2 h-4 w-4" /> Créer une réunion
                     </Button>
                   </CardContent>
@@ -639,7 +639,7 @@ const VideoConferenceImproved: React.FC = () => {
                             <Button
                               onClick={() => handleJoinMeeting(meeting.id)}
                               disabled={loadingAction}
-                              className="bg-aphs-teal hover:bg-aphs-navy"
+                              className="bg-aps-teal hover:bg-aps-navy"
                             >
                               Rejoindre
                             </Button>
@@ -815,7 +815,7 @@ const VideoConferenceImproved: React.FC = () => {
             <Button 
               onClick={handleSubmitNewMeeting} 
               disabled={loading || projects.length === 0}
-              className="bg-aphs-teal hover:bg-aphs-navy"
+              className="bg-aps-teal hover:bg-aps-navy"
             >
               {loading ? "Création..." : formData.isInstant ? "Créer et rejoindre" : "Créer la réunion"}
             </Button>

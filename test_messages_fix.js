@@ -13,7 +13,7 @@ console.log('');
 console.log('✅ Logique de filtrage des contacts:');
 console.log('   - Exclusion de l\'utilisateur actuel');
 console.log('   - Exclusion des administrateurs');
-console.log('   - Exclusion des emails admin@aphs');
+console.log('   - Exclusion des emails admin@aps');
 console.log('   - Exclusion des utilisateurs bannis');
 console.log('');
 
@@ -47,9 +47,9 @@ const scenarios = [
     expected: 'Exclu (rôle admin)'
   },
   {
-    name: 'Email admin@aphs',
-    user: { id: 'admin2', email: 'admin@aphs.com', role: 'intervenant' },
-    expected: 'Exclu (email admin@aphs)'
+    name: 'Email admin@aps',
+    user: { id: 'admin2', email: 'admin@aps.com', role: 'intervenant' },
+    expected: 'Exclu (email admin@aps)'
   },
   {
     name: 'Utilisateur banni',

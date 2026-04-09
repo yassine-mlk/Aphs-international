@@ -158,7 +158,7 @@ CREATE POLICY "Admins can manage custom project structures" ON custom_project_st
             SELECT 1 FROM auth.users 
             WHERE id = auth.uid() 
             AND (
-                email = 'admin@aphs.com' 
+                email = 'admin@aps.com' 
                 OR raw_user_meta_data->>'role' = 'admin'
             )
         )

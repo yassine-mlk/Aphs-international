@@ -196,7 +196,7 @@ export function MeetingRequestForm({ onRequestSubmitted }: MeetingRequestFormPro
       </CardContent>
       <CardFooter>
         <Button 
-          className="bg-aphs-teal hover:bg-aphs-navy w-full" 
+          className="bg-aps-teal hover:bg-aps-navy w-full" 
           onClick={handleSubmit}
           disabled={loading}
         >
