@@ -90,7 +90,7 @@ const HeroSection: React.FC = () => {
     <>
       <section 
         ref={sectionRef}
-        className="relative min-h-screen bg-white flex items-center px-4 pt-20 opacity-0 translate-y-10 transition-all duration-1000 ease-out"
+        className="relative min-h-[90vh] lg:min-h-[85vh] bg-white flex items-center px-4 pt-24 pb-16 opacity-0 translate-y-10 transition-all duration-1000 ease-out"
         dir={textDirection}
       >
         <div className="container mx-auto">

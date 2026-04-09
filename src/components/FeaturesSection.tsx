@@ -40,10 +40,16 @@ const FeaturesSection: React.FC = () => {
     const observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
-          const elements = entry.target.querySelectorAll('.opacity-0');
+          // Faire apparaître le container principal
+          entry.target.classList.remove('opacity-0');
+          entry.target.classList.add('opacity-100');
+          
+          // Faire apparaître les cartes avec un délai
+          const elements = entry.target.querySelectorAll('.feature-card-item');
           elements.forEach((el, i) => {
             setTimeout(() => {
               el.classList.add('animate-fade-in');
+              el.classList.remove('opacity-0');
             }, i * 150);
           });
         }
@@ -66,8 +72,8 @@ const FeaturesSection: React.FC = () => {
   const icons = ["📊", "👷", "📝", "💰", "⚙️", "🤝"];
 
   return (
-    <section id="features" className="py-24 px-4 bg-white" dir={textDirection}>
-      <div ref={sectionRef} className="container mx-auto opacity-0">
+    <section id="features" className="py-16 px-4 bg-white" dir={textDirection}>
+      <div ref={sectionRef} className="container mx-auto transition-opacity duration-1000 opacity-0">
         <div className="text-center max-w-3xl mx-auto mb-16">
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-black mb-6">
             {t.title}
@@ -81,7 +87,7 @@ const FeaturesSection: React.FC = () => {
           {t.features.map((feature, index) => (
             <div 
               key={index} 
-              className="group p-8 rounded-2xl bg-gray-50 border border-gray-100 hover:bg-white hover:shadow-2xl hover:border-blue-600 transition-all duration-500 hover:-translate-y-2"
+              className="group p-8 rounded-2xl bg-gray-50 border border-gray-100 hover:bg-white hover:shadow-2xl hover:border-blue-600 transition-all duration-500 hover:-translate-y-2 opacity-0 feature-card-item"
             >
               <div className="w-14 h-14 bg-blue-600 text-white rounded-xl flex items-center justify-center mb-6 shadow-lg shadow-blue-600/20 group-hover:scale-110 transition-transform duration-500">
                 <span className="text-2xl">{icons[index]}</span>
