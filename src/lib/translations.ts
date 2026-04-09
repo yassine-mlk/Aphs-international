@@ -492,7 +492,29 @@ export const translations = {
       }
     },
     footer: {
-      copyright: "© 2025 APS. All rights reserved."
+      copyright: "© 2026 APS. All rights reserved.",
+      description: "Advanced construction project management software helping teams deliver projects on time and within budget.",
+      sections: {
+        product: {
+          title: "Product",
+          features: "Features",
+          pricing: "Pricing",
+          demo: "Request Demo"
+        },
+        company: {
+          title: "Company",
+          about: "About Us",
+          careers: "Careers",
+          contact: "Contact"
+        },
+        legal: {
+          title: "Legal",
+          privacy: "Privacy Policy",
+          terms: "Terms of Service",
+          cookies: "Cookie Policy",
+          legalNotice: "Legal Notice"
+        }
+      }
     },
     projects: {
       title: "Mes Projets",
@@ -927,7 +949,29 @@ export const translations = {
       }
     },
     footer: {
-      copyright: "© 2025 APS. Tous droits réservés."
+      copyright: "© 2026 APS. Tous droits réservés.",
+      description: "Logiciel de gestion de projets de construction avancé aidant les équipes à livrer leurs projets à temps et en respectant le budget.",
+      sections: {
+        product: {
+          title: "Produit",
+          features: "Fonctionnalités",
+          pricing: "Tarification",
+          demo: "Demander une Démo"
+        },
+        company: {
+          title: "Entreprise",
+          about: "À propos",
+          careers: "Carrières",
+          contact: "Contact"
+        },
+        legal: {
+          title: "Légal",
+          privacy: "Politique de confidentialité",
+          terms: "Conditions d'utilisation",
+          cookies: "Politique de cookies",
+          legalNotice: "Mentions légales"
+        }
+      }
     },
     sidebar: {
       dashboard: "Tableau de bord",
@@ -2046,7 +2090,29 @@ export const translations = {
       }
     },
     footer: {
-      copyright: "© 2025 APS. Todos los derechos reservados."
+      copyright: "© 2026 APS. Todos los derechos reservados.",
+      description: "Software avanzado de gestión de proyectos de construcción que ayuda a los equipos a entregar proyectos a tiempo y dentro del presupuesto.",
+      sections: {
+        product: {
+          title: "Producto",
+          features: "Características",
+          pricing: "Precios",
+          demo: "Solicitar Demo"
+        },
+        company: {
+          title: "Empresa",
+          about: "Sobre Nosotros",
+          careers: "Carreras",
+          contact: "Contacto"
+        },
+        legal: {
+          title: "Legal",
+          privacy: "Política de Privacidad",
+          terms: "Términos de Servicio",
+          cookies: "Política de Cookies",
+          legalNotice: "Aviso Legal"
+        }
+      }
     },
     projects: {
       title: "Mes Proyectos",
@@ -2805,7 +2871,29 @@ export const translations = {
       }
     },
     footer: {
-      copyright: "© 2025 APS. جميع الحقوق محفوظة."
+      copyright: "© 2026 APS. جميع الحقوق محفوظة.",
+      description: "برنامج متقدم لإدارة مشاريع البناء يساعد الفرق على تسليم المشاريع في الوقت المحدد وضمن الميزانية.",
+      sections: {
+        product: {
+          title: "المنتج",
+          features: "المميزات",
+          pricing: "الأسعار",
+          demo: "طلب عرض"
+        },
+        company: {
+          title: "الشركة",
+          about: "من نحن",
+          careers: "وظائف",
+          contact: "اتصل بنا"
+        },
+        legal: {
+          title: "قانوني",
+          privacy: "سياسة الخصوصية",
+          terms: "شروط الخدمة",
+          cookies: "سياسة ملفات الارتباط",
+          legalNotice: "إشعار قانوني"
+        }
+      }
     },
     projects: {
       title: "مشاريعي",
