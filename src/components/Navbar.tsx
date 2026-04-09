@@ -250,13 +250,6 @@ const Navbar: React.FC = () => {
           <nav className="md:hidden mt-4 py-4 bg-white rounded-lg shadow-lg">
             <div className="flex flex-col space-y-3 px-4">
               <a 
-                href="#services" 
-                className="text-black font-medium py-2 hover:text-blue-600 transition-colors"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                {t.support}
-              </a>
-              <a 
                 href="#about" 
                 className="text-black font-medium py-2 hover:text-blue-600 transition-colors"
                 onClick={() => setIsMobileMenuOpen(false)}
