@@ -126,15 +126,6 @@ const HeroSection: React.FC = () => {
                 >
                   {t.cta.primary}
                 </Button>
-                <Button 
-                  variant="outline" 
-                  className="border-black text-black hover:bg-black hover:text-white flex items-center gap-2 transition-colors"
-                  size="lg"
-                  onClick={openVideoModal}
-                >
-                  <Play className="w-4 h-4" />
-                  {t.cta.secondary}
-                </Button>
               </div>
             </div>
             
