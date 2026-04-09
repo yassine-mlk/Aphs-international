@@ -1,8 +1,8 @@
-# Documentation : Notifications Traduites APHS
+# Documentation : Notifications Traduites APS
 
 ## Vue d'ensemble
 
-L'application APHS dispose maintenant d'un système complet de notifications traduites qui supporte 4 langues :
+L'application APS dispose maintenant d'un système complet de notifications traduites qui supporte 4 langues :
 - **Français** (fr)
 - **Anglais** (en) 
 - **Espagnol** (es)

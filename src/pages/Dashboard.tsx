@@ -8,7 +8,7 @@ const Dashboard: React.FC = () => {
   
   // Déterminer si l'utilisateur est un administrateur
   const isAdmin = user?.user_metadata?.role === 'admin' || 
-                 user?.email === 'admin@aphs.com' || 
+                 user?.email === 'admin@aps.com' || 
                  JSON.parse(localStorage.getItem('user') || '{}')?.role === 'admin';
 
   // Rendu conditionnel selon le rôle

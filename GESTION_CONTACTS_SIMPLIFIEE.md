@@ -151,7 +151,7 @@ const getAvailableContacts = useCallback(async (): Promise<Contact[]> => {
       .filter((authUser: any) => {
         const isCurrentUser = authUser.id === user.id;
         const isAdmin = authUser.user_metadata?.role === 'admin';
-        const isAdminEmail = authUser.email?.toLowerCase()?.includes('admin@aphs');
+        const isAdminEmail = authUser.email?.toLowerCase()?.includes('admin@aps');
         const isBanned = authUser.banned;
         
         return !isCurrentUser && !isAdmin && !isAdminEmail && !isBanned;

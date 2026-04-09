@@ -134,7 +134,7 @@ server.on('request', (req, res) => {
     }));
   } else if (req.url === '/') {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('Video Conference WebSocket Server - APHS');
+    res.end('Video Conference WebSocket Server - APS');
   } else {
     res.writeHead(404);
     res.end('Not Found');

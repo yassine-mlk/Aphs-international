@@ -28,7 +28,7 @@ BEGIN
     END IF;
     
     -- Vérifier les permissions admin
-    IF admin_role != 'admin' AND admin_email != 'admin@aphs.com' THEN
+    IF admin_role != 'admin' AND admin_email != 'admin@aps.com' THEN
         RAISE EXCEPTION 'Accès refusé: seuls les administrateurs peuvent supprimer des conversations';
     END IF;
     
@@ -110,7 +110,7 @@ BEGIN
     END IF;
     
     -- Vérifier les permissions admin
-    IF admin_role != 'admin' AND admin_email != 'admin@aphs.com' THEN
+    IF admin_role != 'admin' AND admin_email != 'admin@aps.com' THEN
         RAISE EXCEPTION 'Accès refusé: seuls les administrateurs peuvent accéder aux statistiques';
     END IF;
     
@@ -176,7 +176,7 @@ BEGIN
     END IF;
     
     -- Vérifier les permissions admin
-    IF admin_role != 'admin' AND admin_email != 'admin@aphs.com' THEN
+    IF admin_role != 'admin' AND admin_email != 'admin@aps.com' THEN
         RAISE EXCEPTION 'Accès refusé: seuls les administrateurs peuvent accéder aux détails';
     END IF;
     
@@ -235,7 +235,7 @@ BEGIN
     END IF;
     
     -- Vérifier les permissions admin
-    IF admin_role != 'admin' AND admin_email != 'admin@aphs.com' THEN
+    IF admin_role != 'admin' AND admin_email != 'admin@aps.com' THEN
         RETURN FALSE;
     END IF;
     

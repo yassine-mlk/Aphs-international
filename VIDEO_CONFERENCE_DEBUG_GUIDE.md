@@ -1,4 +1,4 @@
-# 🔍 Guide de Debug - Système Vidéoconférence APHS
+# 🔍 Guide de Debug - Système Vidéoconférence APS
 
 ## 🎯 Changements Effectués
 
@@ -192,4 +192,4 @@ Puis recharger la page pour voir tous les logs.
 
 ---
 
-🎯 **Objectif :** Système vidéoconférence robuste permettant la communication fluide entre tous les participants du projet APHS. 
+🎯 **Objectif :** Système vidéoconférence robuste permettant la communication fluide entre tous les participants du projet APS. 

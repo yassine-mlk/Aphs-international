@@ -7,7 +7,7 @@ La fonctionnalité de suppression de conversations pour les administrateurs a é
 ## 🎯 Fonctionnement
 
 ### **Qui peut supprimer des conversations ?**
-- ✅ **Administrateurs uniquement** (`user.role === 'admin'` ou `user.email === 'admin@aphs.com'`)
+- ✅ **Administrateurs uniquement** (`user.role === 'admin'` ou `user.email === 'admin@aps.com'`)
 - ❌ **Utilisateurs normaux** ne voient pas les boutons de suppression
 - ❌ **Intervenants** ne peuvent pas supprimer les conversations
 
@@ -46,7 +46,7 @@ const { deleteConversation } = useMessages();
 
 // Vérification admin
 const isAdmin = user?.user_metadata?.role === 'admin' || 
-               user?.email === 'admin@aphs.com';
+               user?.email === 'admin@aps.com';
 
 // Bouton de suppression
 {isAdmin && conv.type !== 'workgroup' && (

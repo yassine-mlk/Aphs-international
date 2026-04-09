@@ -463,7 +463,7 @@ const IntervenantProjectDetailsEn: React.FC = () => {
   if (loadingMembership) {
     return (
       <div className="flex justify-center items-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-aphs-teal"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-aps-teal"></div>
       </div>
     );
   }
@@ -481,7 +481,7 @@ const IntervenantProjectDetailsEn: React.FC = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-aphs-teal"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-aps-teal"></div>
       </div>
     );
   }
@@ -681,7 +681,7 @@ const IntervenantProjectDetailsEn: React.FC = () => {
                                                           className="h-6 px-2"
                                                         >
                                                           {isLoading ? (
-                                                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-aphs-teal"></div>
+                                                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-aps-teal"></div>
                                                           ) : (
                                                             <FileText className="h-3 w-3" />
                                                           )}
@@ -707,9 +707,9 @@ const IntervenantProjectDetailsEn: React.FC = () => {
                                                 
                                                 {/* Information sheet */}
                                                 {isExpanded && infoSheet && (
-                                                  <div className="p-3 bg-gradient-to-r from-aphs-teal/5 to-aphs-navy/5 border-t border-l-4 border-l-aphs-teal">
+                                                  <div className="p-3 bg-gradient-to-r from-aps-teal/5 to-aps-navy/5 border-t border-l-4 border-l-aps-teal">
                                                     <div className="flex items-center gap-2 mb-2">
-                                                      <Badge variant="outline" className="bg-aphs-teal bg-opacity-10 text-aphs-teal border-aphs-teal text-xs">
+                                                      <Badge variant="outline" className="bg-aps-teal bg-opacity-10 text-aps-teal border-aps-teal text-xs">
                                                         Reference document
                                                       </Badge>
                                                       <Badge variant="outline" className="bg-blue-500 bg-opacity-10 text-blue-600 border-blue-500 text-xs">
@@ -846,7 +846,7 @@ const IntervenantProjectDetailsEn: React.FC = () => {
                                                           className="h-6 px-2"
                                                         >
                                                           {isLoading ? (
-                                                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-aphs-teal"></div>
+                                                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-aps-teal"></div>
                                                           ) : (
                                                             <FileText className="h-3 w-3" />
                                                           )}
@@ -872,9 +872,9 @@ const IntervenantProjectDetailsEn: React.FC = () => {
                                                 
                                                 {/* Information sheet */}
                                                 {isExpanded && infoSheet && (
-                                                  <div className="p-3 bg-gradient-to-r from-aphs-teal/5 to-aphs-navy/5 border-t border-l-4 border-l-aphs-teal">
+                                                  <div className="p-3 bg-gradient-to-r from-aps-teal/5 to-aps-navy/5 border-t border-l-4 border-l-aps-teal">
                                                     <div className="flex items-center gap-2 mb-2">
-                                                      <Badge variant="outline" className="bg-aphs-teal bg-opacity-10 text-aphs-teal border-aphs-teal text-xs">
+                                                      <Badge variant="outline" className="bg-aps-teal bg-opacity-10 text-aps-teal border-aps-teal text-xs">
                                                         Reference document
                                                       </Badge>
                                                       <Badge variant="outline" className="bg-blue-500 bg-opacity-10 text-blue-600 border-blue-500 text-xs">
@@ -921,7 +921,7 @@ const IntervenantProjectDetailsEn: React.FC = () => {
             <CardContent>
               {loadingTasks ? (
                 <div className="flex justify-center py-8">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-aphs-teal"></div>
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-aps-teal"></div>
                 </div>
               ) : taskAssignments.length === 0 ? (
                 <div className="text-center py-8">
@@ -1106,7 +1106,7 @@ const IntervenantProjectDetailsEn: React.FC = () => {
           </DialogHeader>
           {loadingInfoSheet ? (
             <div className="flex justify-center py-8">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-aphs-teal"></div>
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-aps-teal"></div>
             </div>
           ) : selectedInfoSheet ? (
             <div className="space-y-4">

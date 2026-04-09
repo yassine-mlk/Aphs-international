@@ -62,7 +62,7 @@ const EditProject: React.FC = () => {
 
   // Vérifier si l'utilisateur est admin
   const isAdmin = user?.user_metadata?.role === 'admin' || 
-                 user?.email === 'admin@aphs.com' || 
+                 user?.email === 'admin@aps.com' || 
                  JSON.parse(localStorage.getItem('user') || '{}')?.role === 'admin';
 
   // Rediriger si pas admin
@@ -252,7 +252,7 @@ const EditProject: React.FC = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-aphs-teal"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-aps-teal"></div>
       </div>
     );
   }
@@ -303,7 +303,7 @@ const EditProject: React.FC = () => {
           <Button 
             onClick={handleSave}
             disabled={saving}
-            className="bg-aphs-teal hover:bg-aphs-navy"
+            className="bg-aps-teal hover:bg-aps-navy"
           >
             <Save className="mr-2 h-4 w-4" />
             {saving ? 'Sauvegarde...' : 'Sauvegarder'}

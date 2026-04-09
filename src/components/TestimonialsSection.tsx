@@ -25,7 +25,7 @@ const testimonials: Record<string, Testimonial[]> = {
       role: "Developer",
       company: "Fradin Promotion",
       image: "/testimonials/norbert-fradin.jpg",
-      quote: "APHS and its teams supported us in delivering a 50-unit building within the allotted timeframe and in compliance with quality standards."
+      quote: "APS and its teams supported us in delivering a 50-unit building within the allotted timeframe and in compliance with quality standards."
     },
     {
       name: "Alice Moll-Bocherel",
@@ -48,7 +48,7 @@ const testimonials: Record<string, Testimonial[]> = {
       role: "Promoteur",
       company: "Fradin Promotion",
       image: "/testimonials/norbert-fradin.jpg",
-      quote: "APHS et ses équipes nous ont accompagné dans la livraison d'un immeuble de 50 logements dans les délais impartis et dans le respect de la qualité."
+      quote: "APS et ses équipes nous ont accompagné dans la livraison d'un immeuble de 50 logements dans les délais impartis et dans le respect de la qualité."
     },
     {
       name: "Alice Moll-Bocherel",
@@ -71,7 +71,7 @@ const testimonials: Record<string, Testimonial[]> = {
       role: "Promotor",
       company: "Fradin Promotion",
       image: "/testimonials/norbert-fradin.jpg",
-      quote: "APHS y sus equipos nos apoyaron en la entrega de un edificio de 50 unidades dentro del plazo asignado y cumpliendo con los estándares de calidad."
+      quote: "APS y sus equipos nos apoyaron en la entrega de un edificio de 50 unidades dentro del plazo asignado y cumpliendo con los estándares de calidad."
     },
     {
       name: "Alice Moll-Bocherel",
@@ -94,7 +94,7 @@ const testimonials: Record<string, Testimonial[]> = {
       role: "مطور",
       company: "فرادين بروموشن",
       image: "/testimonials/norbert-fradin.jpg",
-      quote: "دعمتنا APHS وفرقها في تسليم مبنى من 50 وحدة ضمن الإطار الزمني المخصص ووفقاً لمعايير الجودة."
+      quote: "دعمتنا APS وفرقها في تسليم مبنى من 50 وحدة ضمن الإطار الزمني المخصص ووفقاً لمعايير الجودة."
     },
     {
       name: "أليس مول-بوشيريل",

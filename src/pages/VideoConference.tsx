@@ -112,7 +112,7 @@ const VideoConference: React.FC = () => {
   });
 
   // Vérifier si l'utilisateur est admin
-  const isAdmin = user?.user_metadata?.role === 'admin' || user?.email === 'admin@aphs.com';
+  const isAdmin = user?.user_metadata?.role === 'admin' || user?.email === 'admin@aps.com';
   
   const { 
     loading, 
@@ -462,7 +462,7 @@ const VideoConference: React.FC = () => {
         <Button 
           variant={activeTab === "meetings" ? "default" : "outline"}
           onClick={() => setActiveTab("meetings")}
-          className={activeTab === "meetings" ? "bg-aphs-teal hover:bg-aphs-navy" : ""}
+          className={activeTab === "meetings" ? "bg-aps-teal hover:bg-aps-navy" : ""}
         >
           <VideoIcon className="mr-2 h-4 w-4" /> {t.myMeetings}
         </Button>
@@ -470,7 +470,7 @@ const VideoConference: React.FC = () => {
           <Button 
             variant={activeTab === "requests" ? "default" : "outline"}
             onClick={() => setActiveTab("requests")}
-            className={activeTab === "requests" ? "bg-aphs-teal hover:bg-aphs-navy" : ""}
+            className={activeTab === "requests" ? "bg-aps-teal hover:bg-aps-navy" : ""}
           >
             <Users className="mr-2 h-4 w-4" /> {t.meetingRequests}
           </Button>
@@ -485,7 +485,7 @@ const VideoConference: React.FC = () => {
               {isAdmin && (
                 <>
                   <Button 
-                    className="bg-aphs-teal hover:bg-aphs-navy flex-1 md:flex-none" 
+                    className="bg-aps-teal hover:bg-aps-navy flex-1 md:flex-none" 
                     onClick={handleCreateMeeting}
                   >
                     <Plus className="mr-2 h-4 w-4" /> Créer une réunion
@@ -537,7 +537,7 @@ const VideoConference: React.FC = () => {
                   <span>ID: {activeMeeting.roomId}</span>
                   <button 
                     onClick={() => handleCopyMeetingId(activeMeeting.roomId)}
-                    className="ml-1 hover:text-aphs-teal"
+                    className="ml-1 hover:text-aps-teal"
                     title={copyTooltip}
                   >
                     <Copy className="h-3 w-3" />
@@ -546,7 +546,7 @@ const VideoConference: React.FC = () => {
               </CardContent>
               <CardFooter className="flex justify-between py-3 border-t bg-white">
                 <Button 
-                  className="bg-aphs-teal hover:bg-aphs-navy"
+                  className="bg-aps-teal hover:bg-aps-navy"
                   onClick={() => handleJoinMeeting(activeMeeting.id)}
                 >
                   <VideoIcon className="mr-2 h-4 w-4" /> Rejoindre la réunion
@@ -581,7 +581,7 @@ const VideoConference: React.FC = () => {
             
             {loadingMeetings ? (
               <div className="text-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-aphs-teal mx-auto mb-4"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-aps-teal mx-auto mb-4"></div>
                 <p className="text-gray-500">Chargement des réunions...</p>
               </div>
             ) : (
@@ -634,7 +634,7 @@ const VideoConference: React.FC = () => {
                           {meeting.participants.map(participant => (
                             <div key={participant.id} className="flex items-center gap-1 bg-gray-100 rounded-full px-2 py-1">
                               <Avatar className="h-5 w-5">
-                                <AvatarFallback className="text-xs bg-aphs-navy text-white">
+                                <AvatarFallback className="text-xs bg-aps-navy text-white">
                                   {participant.name.split(' ').map(n => n[0]).join('')}
                                 </AvatarFallback>
                               </Avatar>
@@ -654,7 +654,7 @@ const VideoConference: React.FC = () => {
                             <code className="bg-gray-100 px-2 py-1 rounded text-sm">{meeting.roomId}</code>
                             <button 
                               onClick={() => handleCopyMeetingId(meeting.roomId)}
-                              className="text-gray-500 hover:text-aphs-teal"
+                              className="text-gray-500 hover:text-aps-teal"
                               title={copyTooltip}
                             >
                               <Copy className="h-4 w-4" />
@@ -665,7 +665,7 @@ const VideoConference: React.FC = () => {
                       <CardFooter className="flex justify-between pt-0">
                         <div className="flex gap-2">
                           <Button 
-                            className="bg-aphs-teal hover:bg-aphs-navy"
+                            className="bg-aps-teal hover:bg-aps-navy"
                             onClick={() => handleJoinMeeting(meeting.id)}
                             disabled={!canJoin}
                           >
@@ -711,7 +711,7 @@ const VideoConference: React.FC = () => {
                     <p className="text-gray-500">Vous n'avez pas de réunions {filter === "planifiees" ? "planifiées" : filter === "actives" ? "actives" : ""}</p>
                     {isAdmin && (
                       <Button 
-                        className="mt-4 bg-aphs-teal hover:bg-aphs-navy"
+                        className="mt-4 bg-aps-teal hover:bg-aps-navy"
                         onClick={handleCreateMeeting}
                       >
                         Planifier une réunion
@@ -836,7 +836,7 @@ const VideoConference: React.FC = () => {
             <Button variant="outline" onClick={() => setNewMeetingDialog(false)}>
               Annuler
             </Button>
-            <Button className="bg-aphs-teal hover:bg-aphs-navy" onClick={handleSubmitNewMeeting}>
+            <Button className="bg-aps-teal hover:bg-aps-navy" onClick={handleSubmitNewMeeting}>
               {formData.isInstant ? "Démarrer maintenant" : "Programmer la réunion"}
             </Button>
           </DialogFooter>

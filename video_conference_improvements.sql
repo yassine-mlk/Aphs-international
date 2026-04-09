@@ -1,5 +1,5 @@
 -- =========================================
--- AMÉLIORATIONS SYSTÈME VIDÉOCONFÉRENCE APHS
+-- AMÉLIORATIONS SYSTÈME VIDÉOCONFÉRENCE APS
 -- Script d'amélioration à exécuter après le script principal
 -- =========================================
 

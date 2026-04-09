@@ -205,7 +205,7 @@ const IntervenantProjects: React.FC = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-aphs-teal"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-aps-teal"></div>
       </div>
     );
   }
@@ -310,7 +310,7 @@ const IntervenantProjects: React.FC = () => {
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2">
                         <div 
-                          className="bg-aphs-teal h-2 rounded-full transition-all duration-300" 
+                          className="bg-aps-teal h-2 rounded-full transition-all duration-300" 
                           style={{ width: `${progress}%` }}
                         ></div>
                       </div>
@@ -330,7 +330,7 @@ const IntervenantProjects: React.FC = () => {
                       variant="outline" 
                       size="sm"
                       onClick={() => handleViewProject(project.id)}
-                      className="text-aphs-teal border-aphs-teal hover:bg-aphs-teal hover:text-white"
+                      className="text-aps-teal border-aps-teal hover:bg-aps-teal hover:text-white"
                     >
                       <Eye className="h-4 w-4 mr-1" />
                       {t.card.view}

@@ -3,7 +3,7 @@ import { Language } from "@/components/LanguageSelector";
 export const translations = {
   en: {
     meta: {
-      title: "APHS | Construction Project Management",
+      title: "APS | Construction Project Management",
       description: "Advanced construction project management software helping teams deliver projects on time and within budget."
     },
     navbar: {
@@ -396,7 +396,7 @@ export const translations = {
     },
     heroSection: {
       title: "Simplify Your Construction Projects Management",
-      subtitle: "Streamline workflows, enhance communication, and deliver projects on time with APHS : the all-in-one construction project management solution.",
+      subtitle: "Streamline workflows, enhance communication, and deliver projects on time with APS : the all-in-one construction project management solution.",
       cta: {
         primary: "Start Free Trial",
         secondary: "Watch Demo"
@@ -434,7 +434,7 @@ export const translations = {
     },
     benefitsSection: {
       title: "Transform Your Construction Management",
-      subtitle: "Real results from construction companies like yours who implemented APHS.",
+      subtitle: "Real results from construction companies like yours who implemented APS.",
       benefits: [
         {
           title: "Livraison de Projet 15% Plus Rapide",
@@ -451,13 +451,13 @@ export const translations = {
       ],
       cta: {
         title: "Ready to revolutionize how you manage construction projects?",
-        subtitle: "Join hundreds of construction companies already saving time and money with APHS.",
+        subtitle: "Join hundreds of construction companies already saving time and money with APS.",
         button: "Book a Demo"
       }
     },
     testimonialsSection: {
       title: "What Our Clients Say",
-      subtitle: "Don't take our word for it - hear from construction professionals using APHS."
+      subtitle: "Don't take our word for it - hear from construction professionals using APS."
     },
     aboutSection: {
       title: "Who We Are",
@@ -479,7 +479,7 @@ export const translations = {
     },
     ctaSection: {
       title: "Ready to Transform Your Construction Management?",
-      subtitle: "Get started with APHS today and join hundreds of construction companies already improving their project outcomes.",
+      subtitle: "Get started with APS today and join hundreds of construction companies already improving their project outcomes.",
       buttons: {
         trial: "Start",
         demo: "Book a Demo"
@@ -492,7 +492,7 @@ export const translations = {
       }
     },
     footer: {
-      copyright: "© 2025 APHS. All rights reserved."
+      copyright: "© 2025 APS. All rights reserved."
     },
     projects: {
       title: "Mes Projets",
@@ -795,7 +795,7 @@ export const translations = {
   },
   fr: {
     meta: {
-      title: "APHS International | Gestion de Projets de Construction",
+      title: "APS | Gestion de Projets de Construction",
       description: "Logiciel avancé de gestion de projets de construction aidant les équipes à livrer des projets à temps et dans les limites du budget."
     },
     navbar: {
@@ -831,7 +831,7 @@ export const translations = {
     },
     heroSection: {
       title: "Simplifiez la Gestion de vos Projets de Construction",
-      subtitle: "Rationalisez les flux de travail, améliorez la communication et livrez les projets à temps avec APHS : la solution tout-en-un de gestion de projets de construction.",
+      subtitle: "Rationalisez les flux de travail, améliorez la communication et livrez les projets à temps avec APS : la solution tout-en-un de gestion de projets de construction.",
       cta: {
         primary: "Essai Gratuit",
         secondary: "Voir la Démo"
@@ -869,7 +869,7 @@ export const translations = {
     },
     benefitsSection: {
       title: "Transformez Votre Gestion de Construction",
-      subtitle: "Résultats réels d'entreprises de construction comme la vôtre qui ont mis en œuvre APHS.",
+      subtitle: "Résultats réels d'entreprises de construction comme la vôtre qui ont mis en œuvre APS.",
       benefits: [
         {
           title: "Livraison de Projet 15% Plus Rapide",
@@ -886,13 +886,13 @@ export const translations = {
       ],
       cta: {
         title: "Prêt à révolutionner votre façon de gérer les projets de construction?",
-        subtitle: "Rejoignez des centaines d'entreprises de construction qui économisent déjà du temps et de l'argent avec APHS.",
+        subtitle: "Rejoignez des centaines d'entreprises de construction qui économisent déjà du temps et de l'argent avec APS.",
         button: "Réserver une Démo"
       }
     },
     testimonialsSection: {
       title: "Ce que Disent Nos Clients",
-      subtitle: "Ne nous croyez pas sur parole - écoutez les professionnels de la construction qui utilisent APHS."
+      subtitle: "Ne nous croyez pas sur parole - écoutez les professionnels de la construction qui utilisent APS."
     },
     aboutSection: {
       title: "Qui Sommes-Nous",
@@ -914,7 +914,7 @@ export const translations = {
     },
     ctaSection: {
       title: "Prêt à Transformer Votre Gestion de Construction?",
-      subtitle: "Commencez avec APHS aujourd'hui et rejoignez des centaines d'entreprises de construction qui améliorent déjà leurs résultats de projet.",
+      subtitle: "Commencez avec APS aujourd'hui et rejoignez des centaines d'entreprises de construction qui améliorent déjà leurs résultats de projet.",
       buttons: {
         trial: "Démarrer",
         demo: "Réserver une Démo"
@@ -927,7 +927,7 @@ export const translations = {
       }
     },
     footer: {
-      copyright: "© 2025 APHS International. Tous droits réservés."
+      copyright: "© 2025 APS. Tous droits réservés."
     },
     sidebar: {
       dashboard: "Tableau de bord",
@@ -1558,7 +1558,7 @@ export const translations = {
   },
   es: {
     meta: {
-      title: "APHS  | Gestión de Proyectos de Construcción",
+      title: "APS  | Gestión de Proyectos de Construcción",
       description: "Software avanzado de gestión de proyectos de construcción que ayuda a los equipos a entregar proyectos a tiempo y dentro del presupuesto."
     },
     navbar: {
@@ -1950,7 +1950,7 @@ export const translations = {
     },
     heroSection: {
       title: "Simplifique la Gestión de sus Proyectos de Construcción",
-      subtitle: "Optimice los flujos de trabajo, mejore la comunicación y entregue proyectos a tiempo con APHS : la solución todo en uno para la gestión de proyectos de construcción.",
+      subtitle: "Optimice los flujos de trabajo, mejore la comunicación y entregue proyectos a tiempo con APS : la solución todo en uno para la gestión de proyectos de construcción.",
       cta: {
         primary: "Comenzar Prueba Gratuita",
         secondary: "Ver Demostración"
@@ -1988,7 +1988,7 @@ export const translations = {
     },
     benefitsSection: {
       title: "Transforme su Gestión de Construcción",
-      subtitle: "Resultados reales de empresas de construcción como la suya que implementaron APHS.",
+      subtitle: "Resultados reales de empresas de construcción como la suya que implementaron APS.",
       benefits: [
         {
           title: "Entrega de Proyectos 15% Más Rápida",
@@ -2005,20 +2005,20 @@ export const translations = {
       ],
       cta: {
         title: "¿Listo para revolucionar cómo gestiona sus proyectos de construcción?",
-        subtitle: "Únase a cientos de empresas de construcción que ya están ahorrando tiempo y dinero con APHS.",
+        subtitle: "Únase a cientos de empresas de construcción que ya están ahorrando tiempo y dinero con APS.",
         button: "Agendar una Demostración"
       }
     },
     testimonialsSection: {
       title: "Lo que Dicen Nuestros Clientes",
-      subtitle: "No tome solo nuestra palabra - escuche a los profesionales de la construcción que utilizan APHS."
+      subtitle: "No tome solo nuestra palabra - escuche a los profesionales de la construcción que utilizan APS."
     },
     aboutSection: {
       title: "Quiénes Somos",
-      subtitle: "Conozca al equipo detrás de APHS, dedicado a revolucionar la gestión de proyectos de construcción.",
+      subtitle: "Conozca al equipo detrás de APS, dedicado a revolucionar la gestión de proyectos de construcción.",
       mission: {
         title: "Nuestra Misión",
-        content: "En APHS, nos comprometemos a simplificar la gestión de proyectos de construcción a través de tecnología innovadora, ayudando a los equipos a ahorrar tiempo, reducir costos y mejorar la colaboración.",
+        content: "En APS, nos comprometemos a simplificar la gestión de proyectos de construcción a través de tecnología innovadora, ayudando a los equipos a ahorrar tiempo, reducir costos y mejorar la colaboración.",
         vision: "Nuestra visión es convertirnos en el estándar de la industria para la gestión de proyectos de construcción en todo el mundo."
       },
       values: {
@@ -2033,7 +2033,7 @@ export const translations = {
     },
     ctaSection: {
       title: "¿Listo para Transformar su Gestión de Construcción?",
-      subtitle: "Comience con APHS hoy y únase a cientos de empresas de construcción que ya están mejorando sus resultados de proyecto.",
+      subtitle: "Comience con APS hoy y únase a cientos de empresas de construcción que ya están mejorando sus resultados de proyecto.",
       buttons: {
         trial: "Comenzar",
         demo: "Reservar una Demostración"
@@ -2046,7 +2046,7 @@ export const translations = {
       }
     },
     footer: {
-      copyright: "© 2025 APHS. Todos los derechos reservados."
+      copyright: "© 2025 APS. Todos los derechos reservados."
     },
     projects: {
       title: "Mes Proyectos",
@@ -2313,7 +2313,7 @@ export const translations = {
   },
   ar: {
     meta: {
-      title: "APHS  | إدارة مشاريع البناء",
+      title: "APS  | إدارة مشاريع البناء",
       description: "برنامج متقدم لإدارة مشاريع البناء يساعد الفرق على تسليم المشاريع في الوقت المحدد وضمن الميزانية."
     },
     navbar: {
@@ -2709,7 +2709,7 @@ export const translations = {
     },
     heroSection: {
       title: "بسّط إدارة مشاريع البناء الخاصة بك",
-      subtitle: "قم بتبسيط سير العمل، وتعزيز التواصل، وتسليم المشاريع في الوقت المحدد مع APHS : الحل الشامل لإدارة مشاريع البناء.",
+      subtitle: "قم بتبسيط سير العمل، وتعزيز التواصل، وتسليم المشاريع في الوقت المحدد مع APS : الحل الشامل لإدارة مشاريع البناء.",
       cta: {
         primary: "ابدأ النسخة التجريبية المجانية",
         secondary: "شاهد العرض التوضيحي"
@@ -2747,7 +2747,7 @@ export const translations = {
     },
     benefitsSection: {
       title: "حوّل إدارة البناء الخاصة بك",
-      subtitle: "نتائج حقيقية من شركات البناء مثل شركتك التي نفذت APHS.",
+      subtitle: "نتائج حقيقية من شركات البناء مثل شركتك التي نفذت APS.",
       benefits: [
         {
           title: "تسليم المشروع أسرع بنسبة 15%",
@@ -2764,20 +2764,20 @@ export const translations = {
       ],
       cta: {
         title: "هل أنت مستعد لإحداث ثورة في طريقة إدارتك لمشاريع البناء؟",
-        subtitle: "انضم إلى مئات شركات البناء التي توفر بالفعل الوقت والمال مع APHS.",
+        subtitle: "انضم إلى مئات شركات البناء التي توفر بالفعل الوقت والمال مع APS.",
         button: "احجز عرضًا توضيحيًا"
       }
     },
     testimonialsSection: {
       title: "ما يقوله عملاؤنا",
-      subtitle: "لا تأخذ كلمتنا فقط - اسمع من محترفي البناء الذين يستخدمون APHS."
+      subtitle: "لا تأخذ كلمتنا فقط - اسمع من محترفي البناء الذين يستخدمون APS."
     },
     aboutSection: {
       title: "من نحن",
-      subtitle: "تعرف على الفريق وراء APHS، المكرس لإحداث ثورة في إدارة مشاريع البناء.",
+      subtitle: "تعرف على الفريق وراء APS، المكرس لإحداث ثورة في إدارة مشاريع البناء.",
       mission: {
         title: "مهمتنا",
-        content: "في APHS، نلتزم بتبسيط إدارة مشاريع البناء من خلال التكنولوجيا المبتكرة، مما يساعد الفرق على توفير الوقت وتقليل التكاليف وتحسين التعاون.",
+        content: "في APS، نلتزم بتبسيط إدارة مشاريع البناء من خلال التكنولوجيا المبتكرة، مما يساعد الفرق على توفير الوقت وتقليل التكاليف وتحسين التعاون.",
         vision: "رؤيتنا هي أن نصبح المعيار الصناعي لإدارة مشاريع البناء في جميع أنحاء العالم."
       },
       values: {
@@ -2792,7 +2792,7 @@ export const translations = {
     },
     ctaSection: {
       title: "هل أنت مستعد لتحويل إدارة البناء الخاصة بك؟",
-      subtitle: "ابدأ مع APHS اليوم وانضم إلى مئات شركات البناء التي تحسن بالفعل نتائج مشاريعها.",
+      subtitle: "ابدأ مع APS اليوم وانضم إلى مئات شركات البناء التي تحسن بالفعل نتائج مشاريعها.",
       buttons: {
         trial: "ابدأ الآن",
         demo: "احجز عرضًا توضيحيًا"
@@ -2805,7 +2805,7 @@ export const translations = {
       }
     },
     footer: {
-      copyright: "© 2025 APHS. جميع الحقوق محفوظة."
+      copyright: "© 2025 APS. جميع الحقوق محفوظة."
     },
     projects: {
       title: "مشاريعي",

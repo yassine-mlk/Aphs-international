@@ -80,7 +80,7 @@ export function useVideoMeetingsImproved() {
   const [projects, setProjects] = useState<Project[]>([]);
 
   // Vérifier si l'utilisateur est admin
-  const isAdmin = user?.user_metadata?.role === 'admin' || user?.email === 'admin@aphs.com';
+  const isAdmin = user?.user_metadata?.role === 'admin' || user?.email === 'admin@aps.com';
 
   // Charger les projets accessibles
   const loadUserProjects = useCallback(async () => {

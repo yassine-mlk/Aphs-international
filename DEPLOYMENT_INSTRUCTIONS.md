@@ -1,9 +1,9 @@
-# 🚀 Instructions de Déploiement - Système WebRTC APHS
+# 🚀 Instructions de Déploiement - Système WebRTC APS
 
 ## 📁 **Structure du Projet**
 
 ```
-aphs-animate-build-view/
+aps-animate-build-view/
 ├── src/                    # Frontend React/TypeScript
 ├── server/                 # Serveur Socket.IO
 ├── create_recording_tables.sql
@@ -113,8 +113,8 @@ CMD ["npm", "start"]
 Build et run :
 ```bash
 cd server/
-docker build -t aphs-signaling .
-docker run -p 3001:3001 -e FRONTEND_URL=https://votre-frontend.com aphs-signaling
+docker build -t aps-signaling .
+docker run -p 3001:3001 -e FRONTEND_URL=https://votre-frontend.com aps-signaling
 ```
 
 ### Option C : Services Cloud
@@ -126,7 +126,7 @@ echo "web: npm start" > Procfile
 git init
 git add .
 git commit -m "Initial commit"
-heroku create aphs-signaling
+heroku create aps-signaling
 git push heroku main
 ```
 
@@ -237,7 +237,7 @@ artillery run artillery-test.yml
 #!/bin/bash
 # deploy.sh
 
-echo "🚀 Déploiement du système WebRTC APHS"
+echo "🚀 Déploiement du système WebRTC APS"
 
 # 1. Build du frontend
 echo "📦 Build du frontend..."

@@ -119,13 +119,13 @@ const App = () => {
 
   // Vérifier si l'utilisateur a un rôle admin (check both Supabase user and localStorage)
   const isAdmin = user?.user_metadata?.role === 'admin' || localUserRole === 'admin' || 
-                  user?.email === 'admin@aphs.com';
+                  user?.email === 'admin@aps.com';
 
   // Composant pour les routes accessibles uniquement aux admins
   const AdminRoute = ({ children }: { children: React.ReactNode }) => {
-    // Also check if the email is admin@aphs.com for direct access
+    // Also check if the email is admin@aps.com for direct access
     const userFromStorage = JSON.parse(localStorage.getItem('user') || '{}');
-    const hasAdminRole = isAdmin || userFromStorage?.email === 'admin@aphs.com';
+    const hasAdminRole = isAdmin || userFromStorage?.email === 'admin@aps.com';
     return hasAdminRole ? <>{children}</> : <Navigate to="/dashboard" replace />;
   };
 
@@ -147,7 +147,7 @@ const App = () => {
   const SharedRoute = ({ children }: { children: React.ReactNode }) => {
     const hasAccess = user?.user_metadata?.role === 'admin' || user?.user_metadata?.role === 'intervenant' || user?.user_metadata?.role === 'maitre_ouvrage' || 
                       localUserRole === 'admin' || localUserRole === 'intervenant' || localUserRole === 'maitre_ouvrage' ||
-                      user?.email === 'admin@aphs.com';
+                      user?.email === 'admin@aps.com';
     return hasAccess ? <>{children}</> : <Navigate to="/dashboard" replace />;
   };
 

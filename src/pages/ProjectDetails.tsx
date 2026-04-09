@@ -239,7 +239,7 @@ const ProjectDetails: React.FC = () => {
   
   // Vérifier si l'utilisateur est admin
   const isAdmin = user?.user_metadata?.role === 'admin' || 
-                 user?.email === 'admin@aphs.com' || 
+                 user?.email === 'admin@aps.com' || 
                  JSON.parse(localStorage.getItem('user') || '{}')?.role === 'admin';
   
   // Charger les détails du projet au chargement de la page
@@ -326,11 +326,11 @@ const ProjectDetails: React.FC = () => {
         // Transformer les données des utilisateurs en format Intervenant
         const formattedUsers = userData.users
           .filter((user: any) => {
-            // Exclure explicitement admin@aphs et tout utilisateur avec le rôle admin
+            // Exclure explicitement admin@aps et tout utilisateur avec le rôle admin
             const isAdmin = user.user_metadata?.role === 'admin';
-            const isAdminEmail = user.email?.toLowerCase() === 'admin@aphs.fr' || 
-                                user.email?.toLowerCase() === 'admin@aphs.com' || 
-                                user.email?.toLowerCase() === 'admin@aphs';
+            const isAdminEmail = user.email?.toLowerCase() === 'admin@aps.fr' || 
+                                user.email?.toLowerCase() === 'admin@aps.com' || 
+                                user.email?.toLowerCase() === 'admin@aps';
             return !isAdmin && !isAdminEmail && !user.banned;
           })
           .map((user: any) => ({
@@ -910,11 +910,11 @@ const ProjectDetails: React.FC = () => {
       if (userData && userData.users) {
         const formattedUsers: IntervenantWithDetails[] = userData.users
           .filter((user: any) => {
-            // Exclure explicitement admin@aphs et tout utilisateur avec le rôle admin
+            // Exclure explicitement admin@aps et tout utilisateur avec le rôle admin
             const isAdmin = user.user_metadata?.role === 'admin';
-            const isAdminEmail = user.email?.toLowerCase() === 'admin@aphs.fr' || 
-                                user.email?.toLowerCase() === 'admin@aphs.com' || 
-                                user.email?.toLowerCase() === 'admin@aphs';
+            const isAdminEmail = user.email?.toLowerCase() === 'admin@aps.fr' || 
+                                user.email?.toLowerCase() === 'admin@aps.com' || 
+                                user.email?.toLowerCase() === 'admin@aps';
             return !isAdmin && !isAdminEmail && !user.banned;
           })
           .map((user: any) => ({
@@ -1166,7 +1166,7 @@ const ProjectDetails: React.FC = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-aphs-teal"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-aps-teal"></div>
       </div>
     );
   }
@@ -1294,7 +1294,7 @@ const ProjectDetails: React.FC = () => {
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2">
                           <div 
-                            className="bg-aphs-teal h-2 rounded-full transition-all duration-300" 
+                            className="bg-aps-teal h-2 rounded-full transition-all duration-300" 
                             style={{ width: `${calculateGlobalProgress()}%` }}
                           ></div>
                         </div>
@@ -1307,8 +1307,8 @@ const ProjectDetails: React.FC = () => {
                     <div className="bg-white rounded-lg p-4 shadow-sm">
                       <Label className="text-sm font-medium text-gray-600">Intervenants assignés</Label>
                       <div className="flex items-center gap-2 mt-2">
-                        <div className="bg-aphs-teal/10 p-2 rounded">
-                          <Users className="h-5 w-5 text-aphs-teal" />
+                        <div className="bg-aps-teal/10 p-2 rounded">
+                          <Users className="h-5 w-5 text-aps-teal" />
                         </div>
                         <div className="flex flex-col">
                           <span className="text-2xl font-bold text-gray-900">{projectMembers.length}</span>
@@ -1405,7 +1405,7 @@ const ProjectDetails: React.FC = () => {
                             <div className="flex items-center gap-2">
                               <div className="w-36 bg-gray-200 rounded-full h-2.5">
                                 <div 
-                                  className="bg-aphs-teal h-2.5 rounded-full" 
+                                  className="bg-aps-teal h-2.5 rounded-full" 
                                   style={{ width: `${calculateSectionProgress(section.id, phaseStructure)}%` }}
                                 ></div>
                               </div>
@@ -1461,7 +1461,7 @@ const ProjectDetails: React.FC = () => {
                                             {assignment ? (
                                               <>
                                                 <div className="flex items-center text-xs text-gray-500 bg-white px-2 py-1 rounded border shadow-sm">
-                                                  <Users className="h-3 w-3 mr-1 text-aphs-teal" />
+                                                  <Users className="h-3 w-3 mr-1 text-aps-teal" />
                                                   <span className="truncate max-w-[150px]">
                                                     {formatIntervenantName(assignment.assigned_to)}
                                                   </span>
@@ -1501,7 +1501,7 @@ const ProjectDetails: React.FC = () => {
                                                 variant="outline" 
                                                 size="sm"
                                                 onClick={() => handleOpenAssignTask(phaseStructure, section.id, item.id, task)}
-                                                className="h-8 text-xs px-3 bg-white hover:bg-aphs-teal hover:text-white transition-colors border-aphs-teal text-aphs-teal"
+                                                className="h-8 text-xs px-3 bg-white hover:bg-aps-teal hover:text-white transition-colors border-aps-teal text-aps-teal"
                                               >
                                                 <UserPlus className="h-3 w-3 mr-1" />
                                                 Assigner
@@ -1543,7 +1543,7 @@ const ProjectDetails: React.FC = () => {
                       Gérez les intervenants qui ont accès à ce projet
                     </p>
                   </div>
-                  <Button onClick={handleOpenMembersDialog} className="bg-aphs-teal hover:bg-aphs-navy">
+                  <Button onClick={handleOpenMembersDialog} className="bg-aps-teal hover:bg-aps-navy">
                     <UserPlus className="mr-2 h-4 w-4" />
                     Ajouter des membres
                   </Button>
@@ -1551,7 +1551,7 @@ const ProjectDetails: React.FC = () => {
                 
                 {loadingMembers ? (
                   <div className="flex justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-aphs-teal"></div>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-aps-teal"></div>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -1562,7 +1562,7 @@ const ProjectDetails: React.FC = () => {
                         <p className="text-gray-500 mb-4">
                           Ce projet n'a pas encore de membres assignés.
                         </p>
-                        <Button onClick={handleOpenMembersDialog} className="bg-aphs-teal hover:bg-aphs-navy">
+                        <Button onClick={handleOpenMembersDialog} className="bg-aps-teal hover:bg-aps-navy">
                           <UserPlus className="mr-2 h-4 w-4" />
                           Ajouter le premier membre
                         </Button>
@@ -1579,7 +1579,7 @@ const ProjectDetails: React.FC = () => {
                               <div key={member.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                                 <div className="flex items-center space-x-3">
                                   <Avatar className="h-10 w-10">
-                                    <AvatarFallback className="bg-aphs-teal text-white">
+                                    <AvatarFallback className="bg-aps-teal text-white">
                                       {intervenantInfo ? 
                                         getInitials(intervenantInfo.first_name, intervenantInfo.last_name) : 
                                         'IN'
@@ -1811,7 +1811,7 @@ const ProjectDetails: React.FC = () => {
                       <input
                         type="checkbox"
                         id={`assignee-${intervenant.id}`}
-                        className="mr-2 h-4 w-4 text-aphs-teal rounded border-gray-300 focus:ring-aphs-teal"
+                        className="mr-2 h-4 w-4 text-aps-teal rounded border-gray-300 focus:ring-aps-teal"
                         checked={assignmentForm.assigned_to.includes(intervenant.id)}
                         onChange={(e) => {
                           if (e.target.checked) {
@@ -1970,7 +1970,7 @@ const ProjectDetails: React.FC = () => {
           
           <DialogFooter className="flex-shrink-0">
             <Button variant="outline" onClick={() => setIsAssignDialogOpen(false)}>Annuler</Button>
-            <Button onClick={handleSubmitAssignment} className="bg-aphs-teal hover:bg-aphs-navy">
+            <Button onClick={handleSubmitAssignment} className="bg-aps-teal hover:bg-aps-navy">
               <FileUp className="mr-2 h-4 w-4" />
               Assigner
             </Button>
@@ -2174,7 +2174,7 @@ const ProjectDetails: React.FC = () => {
             <ScrollArea className="h-[400px] border rounded-md p-4">
               {loadingAllIntervenants ? (
                 <div className="flex justify-center py-8">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-aphs-teal"></div>
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-aps-teal"></div>
                 </div>
               ) : filteredIntervenants.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
@@ -2244,7 +2244,7 @@ const ProjectDetails: React.FC = () => {
             <Button 
               onClick={handleAddMembers}
               disabled={selectedIntervenants.length === 0}
-              className="bg-aphs-teal hover:bg-aphs-navy"
+              className="bg-aps-teal hover:bg-aps-navy"
             >
               <UserPlus className="mr-2 h-4 w-4" />
               Ajouter {selectedIntervenants.length > 0 ? `(${selectedIntervenants.length})` : ''}

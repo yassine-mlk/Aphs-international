@@ -193,7 +193,7 @@ const TaskDetails: React.FC = () => {
   
   // Determine if current user is an admin
   const isAdmin = user?.user_metadata?.role === 'admin' || 
-                 user?.email === 'admin@aphs.com' || 
+                 user?.email === 'admin@aps.com' || 
                  JSON.parse(localStorage.getItem('user') || '{}')?.role === 'admin';
   
   // Determine if the user can take actions on this task
@@ -1009,7 +1009,7 @@ const TaskDetails: React.FC = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-aphs-teal"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-aps-teal"></div>
       </div>
     );
   }
@@ -1073,11 +1073,11 @@ const TaskDetails: React.FC = () => {
         >
           <AccordionItem 
             value="info-sheet" 
-            className="border-0 shadow-md bg-gradient-to-r from-aphs-teal/5 to-aphs-navy/5 rounded-md"
+            className="border-0 shadow-md bg-gradient-to-r from-aps-teal/5 to-aps-navy/5 rounded-md"
           >
             <AccordionTrigger className="px-6 py-3 hover:no-underline">
               <div className="flex items-center gap-2">
-                <Badge variant="outline" className="bg-aphs-teal bg-opacity-10 text-aphs-teal border-aphs-teal">
+                <Badge variant="outline" className="bg-aps-teal bg-opacity-10 text-aps-teal border-aps-teal">
                   {t.details.infoSheet}
                 </Badge>
                 <Badge variant="outline" className="bg-blue-500 bg-opacity-10 text-blue-600 border-blue-500">
@@ -1090,7 +1090,7 @@ const TaskDetails: React.FC = () => {
             </AccordionTrigger>
             <AccordionContent>
               <div className="px-6 pb-4">
-                <div className="p-4 bg-white rounded-md border border-l-4 border-l-aphs-teal whitespace-pre-line">
+                <div className="p-4 bg-white rounded-md border border-l-4 border-l-aps-teal whitespace-pre-line">
                   {infoSheet.info_sheet}
                 </div>
               </div>
@@ -1311,7 +1311,7 @@ const TaskDetails: React.FC = () => {
             <div className="space-y-4">
               {/* Timeline item for task creation */}
               <div className="relative pl-6 pb-6 border-l-2 border-gray-200">
-                <div className="absolute left-[-9px] top-0 w-4 h-4 rounded-full bg-aphs-teal border-4 border-white"></div>
+                <div className="absolute left-[-9px] top-0 w-4 h-4 rounded-full bg-aps-teal border-4 border-white"></div>
                 <div className="text-sm">
                   <p className="font-medium">{t.details.taskCreated}</p>
                   <p className="text-gray-500">{formatDateTime(task.created_at)}</p>

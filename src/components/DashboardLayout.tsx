@@ -167,8 +167,8 @@ const DashboardLayout: React.FC = () => {
           const parsedUser = JSON.parse(storedUser);
           console.log('DashboardLayout - user from localStorage:', parsedUser);
           
-          // Force admin role for admin@aphs.com
-          if (parsedUser.email === 'admin@aphs.com') {
+          // Force admin role for admin@aps.com
+          if (parsedUser.email === 'admin@aps.com') {
             parsedUser.role = 'admin';
             localStorage.setItem('user', JSON.stringify(parsedUser));
           }
@@ -250,7 +250,7 @@ const DashboardLayout: React.FC = () => {
 
   // Make sure we correctly identify admin role
   // Check both the role and directly for admin email
-  const isAdmin = user?.role === 'admin' || user?.email === 'admin@aphs.com';
+  const isAdmin = user?.role === 'admin' || user?.email === 'admin@aps.com';
   const isMaitreOuvrage = user?.role === 'maitre_ouvrage';
   
   const t = dashboardTranslations[language];
@@ -274,7 +274,7 @@ const DashboardLayout: React.FC = () => {
       <div className="flex w-full min-h-screen bg-gray-50" dir={textDirection}>
         <Sidebar side={language === 'ar' ? 'right' : 'left'}>
           <SidebarHeader className="flex items-center justify-center py-5 border-b">
-            <img src="/aphs-logo.svg" alt="APHS Internationale" className="h-12" />
+            <img src="/aps-logo.svg" alt="APS" className="h-12" />
           </SidebarHeader>
           <SidebarContent>
             <SidebarMenu>

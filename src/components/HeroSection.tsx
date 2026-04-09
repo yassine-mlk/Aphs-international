@@ -144,10 +144,10 @@ const HeroSection: React.FC = () => {
                 <div className="relative bg-white rounded-2xl shadow-2xl overflow-hidden">
                   <img 
                     src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80" 
-                    alt={language === 'fr' ? "Tableau de bord APHS" :
-                         language === 'en' ? "APHS Dashboard" :
-                         language === 'es' ? "Panel de Control APHS" :
-                                           "لوحة تحكم APHS"}
+                    alt={language === 'fr' ? "Tableau de bord APS" :
+                         language === 'en' ? "APS Dashboard" :
+                         language === 'es' ? "Panel de Control APS" :
+                                           "لوحة تحكم APS"}
                     className="w-full h-auto rounded-2xl"
                   />
                   
@@ -253,10 +253,10 @@ const HeroSection: React.FC = () => {
             
             <div className="mt-4 text-center">
               <p className="text-white text-sm">
-                {language === 'fr' ? "Vidéo de démonstration - APHS" :
-                 language === 'en' ? "Demo Video - APHS" :
-                 language === 'es' ? "Video de Demostración - APHS" :
-                                   "فيديو توضيحي - APHS"}
+                {language === 'fr' ? "Vidéo de démonstration - APS" :
+                 language === 'en' ? "Demo Video - APS" :
+                 language === 'es' ? "Video de Demostración - APS" :
+                                   "فيديو توضيحي - APS"}
               </p>
             </div>
           </div>

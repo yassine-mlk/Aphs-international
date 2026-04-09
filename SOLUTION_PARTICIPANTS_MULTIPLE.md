@@ -201,4 +201,4 @@ npm run build
 6. Vérifier : Rôles corrects (Modérateur/Participant) ✅
 ```
 
-🎉 **Système vidéoconférence APHS maintenant pleinement opérationnel !** 
+🎉 **Système vidéoconférence APS maintenant pleinement opérationnel !** 

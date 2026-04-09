@@ -219,7 +219,7 @@ export function MeetingRequestFormImproved({ onRequestSubmitted }: MeetingReques
       </CardContent>
       <CardFooter>
         <Button 
-          className="bg-aphs-teal hover:bg-aphs-navy w-full" 
+          className="bg-aps-teal hover:bg-aps-navy w-full" 
           onClick={handleSubmit}
           disabled={loading || projects.length === 0}
         >

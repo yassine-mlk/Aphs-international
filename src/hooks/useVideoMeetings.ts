@@ -376,8 +376,8 @@ export function useVideoMeetings() {
       // Détermination STRICTE du rôle modérateur
       const isCreator = meetingData.created_by === user.id;
       const isRealAdmin = user.user_metadata?.role === 'admin' || 
-                         user.email?.toLowerCase() === 'admin@aphs.fr' ||
-                         user.email?.toLowerCase() === 'admin@aphs.com';
+                         user.email?.toLowerCase() === 'admin@aps.fr' ||
+                         user.email?.toLowerCase() === 'admin@aps.com';
       
       // SEULS les créateurs et les vrais admins sont modérateurs
       const isModerator = isCreator || isRealAdmin;
@@ -853,8 +853,8 @@ export function useVideoMeetings() {
       if (meetingError) throw meetingError;
 
       const isAdmin = user.user_metadata?.role === 'admin' || 
-                     user.email?.toLowerCase() === 'admin@aphs.fr' ||
-                     user.email?.toLowerCase() === 'admin@aphs.com';
+                     user.email?.toLowerCase() === 'admin@aps.fr' ||
+                     user.email?.toLowerCase() === 'admin@aps.com';
       const isCreator = meeting.created_by === user.id;
 
       if (!isAdmin && !isCreator) {
@@ -899,8 +899,8 @@ export function useVideoMeetings() {
     setLoading(true);
     try {
       const isAdmin = user.user_metadata?.role === 'admin' || 
-                     user.email?.toLowerCase() === 'admin@aphs.fr' ||
-                     user.email?.toLowerCase() === 'admin@aphs.com';
+                     user.email?.toLowerCase() === 'admin@aps.fr' ||
+                     user.email?.toLowerCase() === 'admin@aps.com';
 
       if (!isAdmin) {
         toast({

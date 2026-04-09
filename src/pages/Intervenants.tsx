@@ -104,11 +104,11 @@ const Intervenants: React.FC = () => {
         // Transformer les données des utilisateurs en format Intervenant
         const formattedUsers: Intervenant[] = (userData.users as SupabaseUser[])
           .filter(user => {
-            // Exclure explicitement admin@aphs et tout utilisateur avec le rôle admin
+            // Exclure explicitement admin@aps et tout utilisateur avec le rôle admin
             const isAdmin = user.user_metadata?.role === 'admin';
-            const isAdminEmail = user.email.toLowerCase() === 'admin@aphs.fr' || 
-                                user.email.toLowerCase() === 'admin@aphs.com' || 
-                                user.email.toLowerCase() === 'admin@aphs';
+            const isAdminEmail = user.email.toLowerCase() === 'admin@aps.fr' || 
+                                user.email.toLowerCase() === 'admin@aps.com' || 
+                                user.email.toLowerCase() === 'admin@aps';
             return !isAdmin && !isAdminEmail;
           })
           .map(user => {

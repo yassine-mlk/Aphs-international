@@ -1386,7 +1386,7 @@ const ProjectDetails: React.FC = () => {
   
   // Vérifier si l'utilisateur est admin
   const isAdmin = user?.user_metadata?.role === 'admin' || 
-                 user?.email === 'admin@aphs.com' || 
+                 user?.email === 'admin@aps.com' || 
                  JSON.parse(localStorage.getItem('user') || '{}')?.role === 'admin';
   
   // Charger les détails du projet au chargement de la page
@@ -1941,7 +1941,7 @@ const ProjectDetails: React.FC = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-aphs-teal"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-aps-teal"></div>
       </div>
     );
   }
@@ -2108,7 +2108,7 @@ const ProjectDetails: React.FC = () => {
                             <div className="flex items-center gap-2">
                               <div className="w-36 bg-gray-200 rounded-full h-2.5">
                                 <div 
-                                  className="bg-aphs-teal h-2.5 rounded-full" 
+                                  className="bg-aps-teal h-2.5 rounded-full" 
                                   style={{ width: `${calculateSectionProgress(section.id, phaseStructure)}%` }}
                                 ></div>
                               </div>
@@ -2300,7 +2300,7 @@ const ProjectDetails: React.FC = () => {
                       <input
                         type="checkbox"
                         id={`assignee-${intervenant.id}`}
-                        className="mr-2 h-4 w-4 text-aphs-teal rounded border-gray-300 focus:ring-aphs-teal"
+                        className="mr-2 h-4 w-4 text-aps-teal rounded border-gray-300 focus:ring-aps-teal"
                         checked={assignmentForm.assigned_to.includes(intervenant.id)}
                         onChange={(e) => {
                           if (e.target.checked) {
@@ -2459,7 +2459,7 @@ const ProjectDetails: React.FC = () => {
           
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAssignDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSubmitAssignment} className="bg-aphs-teal hover:bg-aphs-navy">
+            <Button onClick={handleSubmitAssignment} className="bg-aps-teal hover:bg-aps-navy">
               <FileUp className="mr-2 h-4 w-4" />
               Asignar
             </Button>

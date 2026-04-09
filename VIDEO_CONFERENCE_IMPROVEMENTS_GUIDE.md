@@ -1,4 +1,4 @@
-# 🚀 Guide d'Amélioration du Système de Visioconférence APHS
+# 🚀 Guide d'Amélioration du Système de Visioconférence APS
 
 ## 📋 Résumé des Améliorations
 
@@ -233,7 +233,7 @@ erDiagram
 
 ## 🎉 Résultat Final
 
-Le système de visioconférence APHS dispose maintenant de :
+Le système de visioconférence APS dispose maintenant de :
 
 1. **Interface moderne** avec gestion complète des réunions
 2. **Système d'enregistrement** avec playback intégré

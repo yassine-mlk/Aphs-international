@@ -635,7 +635,7 @@ const Settings: React.FC = () => {
                     <div className="relative">
                       <Avatar className="w-24 h-24">
                         <AvatarImage src={avatarPreview || ""} />
-                        <AvatarFallback className="text-xl bg-aphs-navy text-white">
+                        <AvatarFallback className="text-xl bg-aps-navy text-white">
                           {profileForm.firstName.charAt(0)}{profileForm.lastName.charAt(0)}
                         </AvatarFallback>
                       </Avatar>
