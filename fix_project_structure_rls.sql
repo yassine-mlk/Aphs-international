@@ -23,6 +23,10 @@ CREATE POLICY "Admins can manage custom project structures" ON custom_project_st
         OR 
         -- Vérifier si l'utilisateur est admin via les métadonnées
         (auth.jwt() ->> 'email' = 'admin@aps.com')
+        OR
+        (auth.jwt() ->> 'email' = 'admin@aphs.com')
+        OR
+        (auth.jwt() -> 'user_metadata' ->> 'role' = 'admin')
     );
 
 -- Politique pour les intervenants : lecture seule
@@ -50,6 +54,10 @@ CREATE POLICY "Intervenants can view custom project structures" ON custom_projec
         )
         OR 
         (auth.jwt() ->> 'email' = 'admin@aps.com')
+        OR
+        (auth.jwt() ->> 'email' = 'admin@aphs.com')
+        OR
+        (auth.jwt() -> 'user_metadata' ->> 'role' = 'admin')
     );
 
 -- =========================================

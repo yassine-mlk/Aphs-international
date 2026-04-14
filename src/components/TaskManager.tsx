@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useSupabase } from '@/hooks/useSupabase';
 import { useNotificationTriggers } from '@/hooks/useNotificationTriggers';
 import { Plus, Calendar, User, FileText, Clock, CheckCircle, XCircle, AlertCircle, Upload, Download, Eye } from 'lucide-react';
+import { uploadToR2 } from '@/lib/r2';
 import { ProjectTask, TaskFormData, Profile, ProjectTaskHistory, TASK_STATUSES, TASK_PRIORITIES } from '../types/project';
 
 interface TaskManagerProps {
@@ -55,6 +56,22 @@ const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, curre
   
   // Fichier pour upload
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+
+  // Empêcher la fermeture de l'onglet pendant l'upload
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isUploading) {
+        e.preventDefault();
+        e.returnValue = ''; 
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isUploading]);
+
   const [validationComments, setValidationComments] = useState('');
   
   useEffect(() => {
@@ -136,6 +153,7 @@ const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, curre
       const newTask = {
         project_id: projectId,
         ...taskForm,
+        assigned_to: [taskForm.assigned_to], // Convertir en tableau
         assigned_by: currentUserId,
         due_date: new Date(taskForm.due_date).toISOString()
       };
@@ -170,24 +188,45 @@ const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, curre
       });
       return;
     }
+
+    // Vérifier la taille (limite 5Go)
+    const maxSize = 5 * 1024 * 1024 * 1024;
+    if (selectedFile.size > maxSize) {
+      toast({
+        title: "Fichier trop volumineux",
+        description: "La taille maximale autorisée est de 5Go.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setIsUploading(true);
+    setUploadProgress(0);
     
     try {
-      // Upload du fichier
-      const fileName = `${Date.now()}_${selectedFile.name}`;
+      // Upload du fichier vers Cloudflare R2 avec progression
+      const fileName = `${Date.now()}_${selectedFile.name.replace(/\s+/g, '_')}`;
       const filePath = `tasks/${task.id}/${fileName}`;
       
-      const uploadResult = await uploadFile('task-files', filePath, selectedFile);
+      console.log(`Tentative d'upload vers Cloudflare R2: ${filePath}`);
+      const fileUrl = await uploadToR2(selectedFile, filePath, (progress) => {
+        setUploadProgress(progress);
+      });
+      console.log('Upload R2 réussi:', fileUrl);
       
-      if (uploadResult.error) {
-        throw new Error(uploadResult.error.message);
-      }
+      // Notification de fin d'upload
+      toast({
+        title: "Succès",
+        description: "Fichier envoyé avec succès vers Cloudflare R2.",
+        className: "bg-green-600 text-white border-none",
+      });
       
       // Mise à jour de la tâche
       const updatedTask = {
         ...task,
         status: 'submitted' as const,
         submitted_at: new Date().toISOString(),
-        file_url: uploadResult.data?.publicUrl || uploadResult.data?.fullPath || '',
+        file_url: fileUrl,
         file_name: selectedFile.name,
         file_size: selectedFile.size,
         comments: taskForm.comments
@@ -333,10 +372,16 @@ const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, curre
   };
   
   const canUserSubmit = (task: ProjectTask) => {
-    return task.assigned_to === currentUserId && task.status === 'assigned';
+    return task.assigned_to.includes(currentUserId) && task.status === 'assigned';
   };
   
-  const getUserName = (userId: string) => {
+  const getUserName = (userId: string | string[]) => {
+    if (Array.isArray(userId)) {
+      return userId.map(id => {
+        const user = users.find(u => u.user_id === id);
+        return user ? `${user.first_name} ${user.last_name}` : 'Utilisateur inconnu';
+      }).join(', ');
+    }
     const user = users.find(u => u.user_id === userId);
     return user ? `${user.first_name} ${user.last_name}` : 'Utilisateur inconnu';
   };
@@ -590,13 +635,30 @@ const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, curre
               <Input
                 id="file"
                 type="file"
+                disabled={isUploading}
                 onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
               />
+              <p className="text-xs text-gray-500 mt-1">Taille maximale : 5Go</p>
             </div>
+            {isUploading && (
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Téléchargement...</span>
+                  <span>{uploadProgress}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2.5">
+                  <div 
+                    className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
+                    style={{ width: `${uploadProgress}%` }}
+                  ></div>
+                </div>
+              </div>
+            )}
             <div>
               <Label htmlFor="comments">Commentaires</Label>
               <Textarea
                 id="comments"
+                disabled={isUploading}
                 value={taskForm.comments}
                 onChange={(e) => setTaskForm({...taskForm, comments: e.target.value})}
                 placeholder="Commentaires sur votre soumission"
@@ -604,9 +666,12 @@ const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, curre
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsSubmitDialogOpen(false)}>Annuler</Button>
-            <Button onClick={() => selectedTask && handleSubmitTask(selectedTask)}>
-              Soumettre
+            <Button variant="outline" disabled={isUploading} onClick={() => setIsSubmitDialogOpen(false)}>Annuler</Button>
+            <Button 
+              disabled={isUploading || !selectedFile} 
+              onClick={() => selectedTask && handleSubmitTask(selectedTask)}
+            >
+              {isUploading ? "Envoi..." : "Soumettre"}
             </Button>
           </DialogFooter>
         </DialogContent>

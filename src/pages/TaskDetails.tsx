@@ -51,6 +51,7 @@ import { Progress } from '@/components/ui/progress';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translations } from '@/lib/translations';
+import { uploadToR2 } from '@/lib/r2';
 import {
   TaskSubmissionHistory,
   TaskSubmissionHistoryWithUser,
@@ -177,6 +178,20 @@ const TaskDetails: React.FC = () => {
   const [validationComment, setValidationComment] = useState('');
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
+
+  // Empêcher la fermeture de l'onglet pendant l'upload
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (uploading) {
+        e.preventDefault();
+        e.returnValue = ''; // Requis pour certains navigateurs
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [uploading]);
+
   const [uploadedBytes, setUploadedBytes] = useState(0);
   const [totalBytes, setTotalBytes] = useState(0);
   const [uploadSpeedBps, setUploadSpeedBps] = useState(0);
@@ -461,24 +476,21 @@ const TaskDetails: React.FC = () => {
     setUploadProgress(0);
     
     try {
-      // Vérifier la taille du fichier (augmentée à 5GB)
-      const maxSize = 5 * 1024 * 1024 * 1024; // 5GB pour tous les types
+      // Vérifier la taille du fichier (limite fixée à 5Go)
+      const maxSize = 5 * 1024 * 1024 * 1024; // 5GB
       if (selectedFile.size > maxSize) {
-        throw new Error(`Le fichier est trop volumineux. Taille maximale : ${Math.round(maxSize / (1024 * 1024 * 1024))}GB`);
+        throw new Error(`Le fichier est trop volumineux. Taille maximale : 5GB`);
       }
       
       // 1. Generate a unique file name
       const timestamp = Date.now();
       const fileExt = selectedFile.name.split('.').pop()?.toLowerCase();
-      const fileName = `task_${task.id}_${timestamp}.${fileExt}`;
       
       // Déterminer le Content-Type approprié
       let contentType = selectedFile.type;
       if (fileExt === 'dwg') {
-        // Utiliser un type MIME générique pour éviter les erreurs Supabase
-        contentType = 'application/octet-stream'; // Type générique accepté par Supabase
+        contentType = 'application/octet-stream';
       } else if (!contentType || contentType === 'application/octet-stream') {
-        // Fallback pour les types non reconnus
         const mimeTypes: { [key: string]: string } = {
           'pdf': 'application/pdf',
           'doc': 'application/msword',
@@ -492,135 +504,35 @@ const TaskDetails: React.FC = () => {
           'jpeg': 'image/jpeg',
           'png': 'image/png',
           'zip': 'application/zip',
-          'dwg': 'application/octet-stream' // Type générique pour AutoCAD
+          'dwg': 'application/octet-stream'
         };
         contentType = mimeTypes[fileExt] || 'application/octet-stream';
       }
       
-      console.log(`Uploading file: ${selectedFile.name} (${Math.round(selectedFile.size / 1024)}KB) with type: ${contentType}`);
+      console.log(`Uploading file: ${selectedFile.name} (${Math.round(selectedFile.size / (1024 * 1024))}MB) with type: ${contentType}`);
       
       setTotalBytes(selectedFile.size);
       setUploadedBytes(0);
-      setUploadSpeedBps(0);
-      setUploadEtaSec(null);
+      setUploadProgress(0);
       setUploadRetryCount(0);
       
-      // Essayer d'abord l'upload direct pour les petits fichiers
-      let fileUrl: string;
-      let uploadSuccess = false;
+      // Upload vers Cloudflare R2 avec barre de progression
+      const fileNameForR2 = `${timestamp}_${selectedFile.name.replace(/\s+/g, '_')}`;
+      const filePath = `tasks/${task.id}/${fileNameForR2}`;
       
-      if (selectedFile.size <= 50 * 1024 * 1024) { // 50MB
-        try {
-          console.log('Tentative d\'upload direct...');
-          const { data: uploadData, error: uploadError } = await supabase.storage
-            .from('task_submissions')
-            .upload(fileName, selectedFile, {
-              contentType: contentType,
-              cacheControl: '3600',
-              upsert: false
-            });
-          
-          if (uploadError) {
-            console.log('Upload direct échoué, tentative avec URL signée...', uploadError);
-            throw uploadError;
-          }
-          
-          const { data: urlData } = supabase.storage
-            .from('task_submissions')
-            .getPublicUrl(uploadData.path);
-          
-          fileUrl = urlData.publicUrl;
-          uploadSuccess = true;
-          console.log('Upload direct réussi');
-        } catch (directUploadError) {
-          console.log('Upload direct échoué, passage à l\'URL signée...', directUploadError);
-        }
-      }
+      console.log(`Tentative d'upload vers Cloudflare R2: ${filePath}`);
+      const fileUrl = await uploadToR2(selectedFile, filePath, (progress) => {
+        setUploadProgress(progress);
+        setUploadedBytes(Math.round((progress / 100) * selectedFile.size));
+      });
+      console.log('Upload R2 réussi:', fileUrl);
       
-      // Si l'upload direct échoue ou pour les gros fichiers, utiliser l'URL signée
-      if (!uploadSuccess) {
-        console.log('Utilisation de l\'URL signée...');
-      
-      // Try to create a signed URL approach
-      const { data: signedURLData, error: signedURLError } = await supabase.storage
-        .from('task_submissions')
-        .createSignedUploadUrl(fileName);
-        
-      if (signedURLError) {
-          throw new Error(`Erreur lors de la création de l'URL signée: ${signedURLError.message}`);
-      }
-      
-      const { signedUrl, path } = signedURLData;
-      const uploadWithProgress = (): Promise<void> => {
-        return new Promise((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          const startedAt = performance.now();
-          let lastTickTime = startedAt;
-          let lastUploaded = 0;
-          xhr.open('PUT', signedUrl);
-          xhr.setRequestHeader('Content-Type', contentType);
-          xhr.setRequestHeader('Cache-Control', '3600');
-          xhr.upload.onprogress = (e) => {
-            if (!e.lengthComputable) return;
-            const uploaded = e.loaded;
-            const total = e.total;
-            setUploadedBytes(uploaded);
-            setTotalBytes(total);
-            const pct = Math.floor((uploaded / total) * 100);
-            setUploadProgress(pct);
-            const now = performance.now();
-            const dt = (now - lastTickTime) / 1000;
-            const dbytes = uploaded - lastUploaded;
-            if (dt > 0 && dbytes >= 0) {
-              const instBps = dbytes / dt;
-              setUploadSpeedBps((prev) => prev === 0 ? instBps : prev * 0.8 + instBps * 0.2);
-              const remaining = total - uploaded;
-              const eta = remaining / (instBps > 1 ? instBps : 1);
-              setUploadEtaSec(Math.max(0, Math.round(eta)));
-            }
-            lastTickTime = now;
-            lastUploaded = uploaded;
-          };
-          xhr.onerror = () => reject(new Error('Échec upload'));
-          xhr.onabort = () => reject(new Error('Upload annulé'));
-          xhr.onload = () => {
-            if (xhr.status >= 200 && xhr.status < 300) resolve();
-            else reject(new Error(`Erreur HTTP ${xhr.status}`));
-          };
-          xhr.send(selectedFile);
-        });
-      };
-
-      let attempts = 0;
-      const maxAttempts = 3;
-      while (attempts < maxAttempts) {
-        try {
-          await uploadWithProgress();
-          const { data: urlData } = supabase.storage
-            .from('task_submissions')
-            .getPublicUrl(path);
-          fileUrl = urlData.publicUrl;
-          uploadSuccess = true;
-          break;
-        } catch (err) {
-          attempts += 1;
-          setUploadRetryCount(attempts);
-          if (attempts >= maxAttempts) {
-            throw err instanceof Error ? err : new Error('Upload échoué');
-          }
-          await new Promise(r => setTimeout(r, 1000 * attempts));
-          setUploadedBytes(0);
-          setUploadProgress(0);
-        }
-      }
-      
-      // Get the public URL for the uploaded file
-      const { data: urlData } = supabase.storage
-        .from('task_submissions')
-        .getPublicUrl(path);
-      
-        fileUrl = urlData.publicUrl;
-      }
+      // Notification de fin d'upload
+      toast({
+        title: "Upload Terminé",
+        description: "Le fichier a été correctement transféré vers Cloudflare R2.",
+        className: "bg-green-600 text-white border-none",
+      });
       
       // Progression finale sera fixée à 100% après mise à jour des enregistrements
       
