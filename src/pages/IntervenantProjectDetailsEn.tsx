@@ -112,10 +112,6 @@ const IntervenantProjectDetailsEn: React.FC = () => {
   const [loadingMembership, setLoadingMembership] = useState(true);
 
   // States for task details
-  const [isTaskDetailsDialogOpen, setIsTaskDetailsDialogOpen] = useState(false);
-  const [selectedTaskDetails, setSelectedTaskDetails] = useState<TaskAssignment | null>(null);
-
-  // States for information sheets
   const [isInfoSheetDialogOpen, setIsInfoSheetDialogOpen] = useState(false);
   const [selectedInfoSheet, setSelectedInfoSheet] = useState<TaskInfoSheet | null>(null);
   const [loadingInfoSheet, setLoadingInfoSheet] = useState(false);
@@ -319,8 +315,9 @@ const IntervenantProjectDetailsEn: React.FC = () => {
   };
 
   const handleViewTaskDetails = (assignment: TaskAssignment) => {
-    setSelectedTaskDetails(assignment);
-    setIsTaskDetailsDialogOpen(true);
+    if (assignment.id) {
+      navigate(`/dashboard/tasks/${assignment.id}`);
+    }
   };
 
   // Functions for progressive navigation
@@ -967,136 +964,6 @@ const IntervenantProjectDetailsEn: React.FC = () => {
           </Card>
         </TabsContent>
       </Tabs>
-
-      {/* Task Details Dialog */}
-      <Dialog open={isTaskDetailsDialogOpen} onOpenChange={setIsTaskDetailsDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Task Details</DialogTitle>
-          </DialogHeader>
-          {selectedTaskDetails && (
-            <div className="space-y-4">
-              <div>
-                <Label className="text-sm font-medium">Task Name</Label>
-                <p className="text-sm text-gray-600 mt-1">{selectedTaskDetails.task_name}</p>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium">Phase</Label>
-                  <p className="text-sm text-gray-600 mt-1">{selectedTaskDetails.phase_id}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Section</Label>
-                  <p className="text-sm text-gray-600 mt-1">{selectedTaskDetails.section_id}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Subsection</Label>
-                  <p className="text-sm text-gray-600 mt-1">{selectedTaskDetails.subsection_id}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Status</Label>
-                  <p className="text-sm text-gray-600 mt-1">{getStatusLabel(selectedTaskDetails.status)}</p>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium">Assigned to</Label>
-                  <p className="text-sm text-gray-600 mt-1">
-                    {getIntervenantName(selectedTaskDetails.assigned_to)}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Deadline</Label>
-                  <p className="text-sm text-gray-600 mt-1">
-                    {new Date(selectedTaskDetails.deadline).toLocaleDateString('en-US')}
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium">Validation Deadline</Label>
-                  <p className="text-sm text-gray-600 mt-1">
-                    {new Date(selectedTaskDetails.validation_deadline).toLocaleDateString('en-US')}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">File Format</Label>
-                  <p className="text-sm text-gray-600 mt-1">
-                    {selectedTaskDetails.file_extension.toUpperCase()}
-                  </p>
-                </div>
-              </div>
-
-              {selectedTaskDetails.validators && selectedTaskDetails.validators.length > 0 && (
-                <div>
-                  <Label className="text-sm font-medium">Validators</Label>
-                  <ul className="text-sm text-gray-600 mt-1">
-                    {selectedTaskDetails.validators.map((validatorId, index) => (
-                      <li key={index} className="flex items-center gap-2">
-                        <User className="h-3 w-3" />
-                        {getIntervenantName(validatorId)}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {selectedTaskDetails.submitted_at && (
-                <div>
-                  <Label className="text-sm font-medium">Submitted on</Label>
-                  <p className="text-sm text-gray-600 mt-1">
-                    {new Date(selectedTaskDetails.submitted_at).toLocaleDateString('en-US')}
-                  </p>
-                </div>
-              )}
-
-              {selectedTaskDetails.validated_at && (
-                <div>
-                  <Label className="text-sm font-medium">Validated on</Label>
-                  <p className="text-sm text-gray-600 mt-1">
-                    {new Date(selectedTaskDetails.validated_at).toLocaleDateString('en-US')}
-                  </p>
-                </div>
-              )}
-
-              {selectedTaskDetails.validated_by && (
-                <div>
-                  <Label className="text-sm font-medium">Validated by</Label>
-                  <p className="text-sm text-gray-600 mt-1">
-                    {getIntervenantName(selectedTaskDetails.validated_by)}
-                  </p>
-                </div>
-              )}
-              
-              {selectedTaskDetails.comment && (
-                <div>
-                  <Label className="text-sm font-medium">Comment</Label>
-                  <p className="text-sm text-gray-600 mt-1">{selectedTaskDetails.comment}</p>
-                </div>
-              )}
-              
-              {selectedTaskDetails.file_url && (
-                <div>
-                  <Label className="text-sm font-medium">File</Label>
-                  <div className="flex items-center gap-2 mt-1">
-                    <FileText className="h-4 w-4" />
-                    <Button variant="outline" size="sm">
-                      <Download className="h-4 w-4 mr-1" />
-                      Download
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-          <DialogFooter>
-            <Button onClick={() => setIsTaskDetailsDialogOpen(false)}>Close</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Information Sheet Dialog */}
       <Dialog open={isInfoSheetDialogOpen} onOpenChange={setIsInfoSheetDialogOpen}>
