@@ -130,13 +130,16 @@ const IntervenantDashboard: React.FC = () => {
       const projectIdsSet = new Set(projects.map((p: any) => p.id));
 
       // 2. Récupérer toutes les tâches assignées à l'utilisateur
-      const rawTasks = await fetchData('task_assignments', {
-        columns: 'id, task_name, status, deadline, project_id',
-        filters: [{ column: 'assigned_to', operator: 'cs', value: `{${user.id}}` }]
-      }) || [];
+      const { data: rawTasks, error: tasksError } = await supabase
+        .from('task_assignments')
+        .select('id, task_name, status, deadline, project_id, assigned_to');
+      
+      if (tasksError) throw tasksError;
 
-      // Filtrer pour ne garder que les tâches dont le projet existe encore
-      const tasks = rawTasks.filter((t: any) => projectIdsSet.has(t.project_id));
+      // Filtrer les tâches assignées à l'utilisateur et dont le projet existe
+      const tasks = (rawTasks || []).filter((t: any) => 
+        t.assigned_to && t.assigned_to.includes(user.id) && projectIdsSet.has(t.project_id)
+      );
 
       console.log('Tâches récupérées (filtrées):', tasks);
 

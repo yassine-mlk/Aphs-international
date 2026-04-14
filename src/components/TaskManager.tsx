@@ -289,6 +289,8 @@ const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, curre
         });
         setSelectedFile(null);
         setTaskForm({ ...taskForm, comments: '' });
+        setIsUploading(false);
+        setUploadProgress(0);
         setIsSubmitDialogOpen(false);
         loadTasks();
       }
