@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -337,124 +337,125 @@ const TaskDetails: React.FC = () => {
   };
   
   // Load task details
-  useEffect(() => {
-    const fetchTaskDetails = async () => {
-      if (!id) return;
+  const fetchTaskDetails = useCallback(async () => {
+    if (!id) return;
+    
+    setLoading(true);
+    try {
+      const data = await fetchData<TaskAssignment>('task_assignments', {
+        columns: '*',
+        filters: [{ column: 'id', operator: 'eq', value: id }]
+      });
       
-      setLoading(true);
-      try {
-        const data = await fetchData<TaskAssignment>('task_assignments', {
-          columns: '*',
-          filters: [{ column: 'id', operator: 'eq', value: id }]
+      if (data && data.length > 0) {
+        setTask(data[0]);
+        
+        // Fetch project details
+        const projectData = await fetchData<Project>('projects', {
+          columns: 'id,name,show_info_sheets',
+          filters: [{ column: 'id', operator: 'eq', value: data[0].project_id }]
         });
         
-        if (data && data.length > 0) {
-          setTask(data[0]);
-          
-          // Fetch project details
-          const projectData = await fetchData<Project>('projects', {
-            columns: 'id,name,show_info_sheets',
-            filters: [{ column: 'id', operator: 'eq', value: data[0].project_id }]
+        if (projectData && projectData.length > 0) {
+          setProject(projectData[0]);
+        }
+        
+        // Fetch assigned user details
+        if (data[0].assigned_to && data[0].assigned_to.length > 0) {
+          const userData = await fetchData<ProfileData>('profiles', {
+            columns: 'user_id,email,first_name,last_name,role',
+            filters: [{ column: 'user_id', operator: 'in', value: data[0].assigned_to }]
           });
           
-          if (projectData && projectData.length > 0) {
-            setProject(projectData[0]);
+          if (userData && userData.length > 0) {
+            const formattedUsers = userData.map(u => ({
+              id: u.user_id,
+              email: u.email,
+              first_name: u.first_name,
+              last_name: u.last_name,
+              role: u.role
+            }));
+            setAssignedUsers(formattedUsers);
           }
+        }
+        
+        // Fetch validators details
+        if (data[0].validators.length > 0) {
+          const validatorsData = await fetchData<ProfileData>('profiles', {
+            columns: 'user_id,email,first_name,last_name,role',
+            filters: [{ column: 'user_id', operator: 'in', value: data[0].validators }]
+          });
           
-          // Fetch assigned user details
-          if (data[0].assigned_to && data[0].assigned_to.length > 0) {
-            const userData = await fetchData<ProfileData>('profiles', {
-              columns: 'user_id,email,first_name,last_name,role',
-              filters: [{ column: 'user_id', operator: 'in', value: data[0].assigned_to }]
-            });
-            
-            if (userData && userData.length > 0) {
-              const formattedUsers = userData.map(u => ({
-                id: u.user_id,
-                email: u.email,
-                first_name: u.first_name,
-                last_name: u.last_name,
-                role: u.role
-              }));
-              setAssignedUsers(formattedUsers);
-            }
+          if (validatorsData) {
+            const formattedValidators = validatorsData.map(v => ({
+              id: v.user_id,
+              email: v.email,
+              first_name: v.first_name,
+              last_name: v.last_name,
+              role: v.role
+            }));
+            setValidators(formattedValidators);
           }
-          
-          // Fetch validators details
-          if (data[0].validators.length > 0) {
-            const validatorsData = await fetchData<ProfileData>('profiles', {
-              columns: 'user_id,email,first_name,last_name,role',
-              filters: [{ column: 'user_id', operator: 'in', value: data[0].validators }]
-            });
-            
-            if (validatorsData) {
-              const formattedValidators = validatorsData.map(v => ({
-                id: v.user_id,
-                email: v.email,
-                first_name: v.first_name,
-                last_name: v.last_name,
-                role: v.role
-              }));
-              setValidators(formattedValidators);
-            }
-          }
-          
-          // Fetch info sheet
-          const infoSheetData = await fetchData<TaskInfoSheet>('task_info_sheets', {
+        }
+        
+        // Fetch info sheet
+        const infoSheetData = await fetchData<TaskInfoSheet>('task_info_sheets', {
+          columns: '*',
+          filters: [
+            { column: 'phase_id', operator: 'eq', value: data[0].phase_id },
+            { column: 'section_id', operator: 'eq', value: data[0].section_id },
+            { column: 'subsection_id', operator: 'eq', value: data[0].subsection_id },
+            { column: 'task_name', operator: 'eq', value: data[0].task_name },
+            { column: 'language', operator: 'eq', value: language }
+          ]
+        });
+        
+        if (infoSheetData && infoSheetData.length > 0) {
+          setInfoSheet(infoSheetData[0]);
+        } else {
+          // Fallback vers la fiche en français si la fiche dans la langue actuelle n'existe pas
+          const fallbackInfoSheetData = await fetchData<TaskInfoSheet>('task_info_sheets', {
             columns: '*',
             filters: [
               { column: 'phase_id', operator: 'eq', value: data[0].phase_id },
               { column: 'section_id', operator: 'eq', value: data[0].section_id },
               { column: 'subsection_id', operator: 'eq', value: data[0].subsection_id },
               { column: 'task_name', operator: 'eq', value: data[0].task_name },
-              { column: 'language', operator: 'eq', value: language }
+              { column: 'language', operator: 'eq', value: 'fr' }
             ]
           });
           
-          if (infoSheetData && infoSheetData.length > 0) {
-            setInfoSheet(infoSheetData[0]);
-          } else {
-            // Fallback vers la fiche en français si la fiche dans la langue actuelle n'existe pas
-            const fallbackInfoSheetData = await fetchData<TaskInfoSheet>('task_info_sheets', {
-              columns: '*',
-              filters: [
-                { column: 'phase_id', operator: 'eq', value: data[0].phase_id },
-                { column: 'section_id', operator: 'eq', value: data[0].section_id },
-                { column: 'subsection_id', operator: 'eq', value: data[0].subsection_id },
-                { column: 'task_name', operator: 'eq', value: data[0].task_name },
-                { column: 'language', operator: 'eq', value: 'fr' }
-              ]
-            });
-            
-            if (fallbackInfoSheetData && fallbackInfoSheetData.length > 0) {
-              setInfoSheet(fallbackInfoSheetData[0]);
-            }
+          if (fallbackInfoSheetData && fallbackInfoSheetData.length > 0) {
+            setInfoSheet(fallbackInfoSheetData[0]);
           }
-          
-          // Load submission history
-          await loadSubmissionHistory(id);
-        } else {
-          toast({
-            title: "Erreur",
-            description: "Tâche non trouvée",
-            variant: "destructive",
-          });
-          navigate('/dashboard/tasks');
         }
-      } catch (error) {
-        console.error('Erreur lors de la récupération des détails de la tâche:', error);
+        
+        // Load submission history
+        await loadSubmissionHistory(id);
+      } else {
         toast({
-          title: t.details.toasts.error,
-          description: t.details.toasts.cannotLoadDetails,
+          title: "Erreur",
+          description: "Tâche non trouvée",
           variant: "destructive",
         });
-      } finally {
-        setLoading(false);
+        navigate('/dashboard/tasks');
       }
-    };
-    
-    fetchTaskDetails();
+    } catch (error) {
+      console.error('Erreur lors de la récupération des détails de la tâche:', error);
+      toast({
+        title: t.details.toasts.error,
+        description: t.details.toasts.cannotLoadDetails,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   }, [id, fetchData, navigate, toast, language]);
+
+  // Load task details on mount
+  useEffect(() => {
+    fetchTaskDetails();
+  }, [fetchTaskDetails]);
   
   const handleStartTask = async () => {
     if (!task) return;
@@ -645,8 +646,8 @@ const TaskDetails: React.FC = () => {
         description: t.details.toasts.taskSubmitted,
       });
       
-      // Recharger l'historique pour mettre à jour l'affichage
-      await loadSubmissionHistory(task.id);
+      // Recharger les détails de la tâche pour mettre à jour l'affichage
+      await fetchTaskDetails();
       
       setIsSubmitDialogOpen(false);
     } catch (error: any) {
