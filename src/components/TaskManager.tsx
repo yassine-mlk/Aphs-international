@@ -11,6 +11,7 @@ import { useSupabase } from '@/hooks/useSupabase';
 import { useNotificationTriggers } from '@/hooks/useNotificationTriggers';
 import { Plus, Calendar, User, FileText, Clock, CheckCircle, XCircle, AlertCircle, Upload, Download, Eye } from 'lucide-react';
 import { uploadToR2 } from '@/lib/r2';
+import { useUpload } from '@/contexts/UploadContext';
 import { ProjectTask, TaskFormData, Profile, ProjectTaskHistory, TASK_STATUSES, TASK_PRIORITIES } from '../types/project';
 
 interface TaskManagerProps {
@@ -23,6 +24,7 @@ interface TaskManagerProps {
 const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, currentUserId, userRole }) => {
   const { toast } = useToast();
   const { fetchData, insertData, updateData, uploadFile } = useSupabase();
+  const { startUpload, getUpload, clearUpload } = useUpload();
   const {
     notifyFileValidationRequest,
     createAdminNotification,
@@ -59,10 +61,23 @@ const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, curre
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
 
+  // Synchroniser l'état local avec l'état global de l'upload
+  const activeUpload = selectedTask ? getUpload(selectedTask.id) : undefined;
+  
+  useEffect(() => {
+    if (activeUpload) {
+      setUploadProgress(activeUpload.progress);
+      setIsUploading(activeUpload.isUploading);
+      if (activeUpload.isUploading) {
+        setIsSubmitDialogOpen(true);
+      }
+    }
+  }, [activeUpload]);
+
   // Empêcher la fermeture de l'onglet pendant l'upload
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (isUploading) {
+      if (isUploading || activeUpload?.isUploading) {
         e.preventDefault();
         e.returnValue = ''; 
       }
@@ -70,7 +85,7 @@ const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, curre
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [isUploading]);
+  }, [isUploading, activeUpload]);
 
   const [validationComments, setValidationComments] = useState('');
   
@@ -209,9 +224,7 @@ const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, curre
       const filePath = `tasks/${task.id}/${fileName}`;
       
       console.log(`Tentative d'upload vers Cloudflare R2: ${filePath}`);
-      const fileUrl = await uploadToR2(selectedFile, filePath, (progress) => {
-        setUploadProgress(progress);
-      });
+      const fileUrl = await startUpload(task.id, selectedFile, filePath);
       console.log('Upload R2 réussi:', fileUrl);
       
       // Notification de fin d'upload
@@ -220,6 +233,9 @@ const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, curre
         description: "Fichier envoyé avec succès vers Cloudflare R2.",
         className: "bg-green-600 text-white border-none",
       });
+      
+      // Nettoyer l'état d'upload global après succès
+      clearUpload(task.id);
       
       // Mise à jour de la tâche
       const updatedTask = {

@@ -30,6 +30,7 @@ import IntervenantProjectDetailsLangSwitch from "./pages/IntervenantProjectDetai
 
 import DashboardLayout from "./components/DashboardLayout";
 import { LanguageProvider } from "./contexts/LanguageContext";
+import { UploadProvider } from "./contexts/UploadContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { useAuth } from "./contexts/AuthContext";
 import { supabase } from "./lib/supabase";
@@ -156,145 +157,156 @@ const App = () => {
       <ThemeProvider>
         <TooltipProvider>
           <LanguageProvider>
-            <Toaster />
-            <Sonner />
-            {/* Initialisation du stockage Supabase */}
-            {user && <StorageInitializer />}
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/login" element={<Login />} />
-              
-              {/* Routes du dashboard protégées */}
-              <Route path="/dashboard" element={
-                <ProtectedRoute>
-                  <DashboardLayout />
-                </ProtectedRoute>
-              }>
-                <Route index element={<Dashboard />} />
+            <UploadProvider>
+              <Toaster />
+              <Sonner />
+              {/* Initialisation du stockage Supabase */}
+              {user && <StorageInitializer />}
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/login" element={<Login />} />
                 
-                {/* Projets - accessibles aux admins uniquement */}
-                <Route path="projets" element={
-                  <AdminRoute>
-                    <Projects />
-                  </AdminRoute>
-                } />
-                
-                {/* Language-specific Project pages */}
-                <Route path="projets/en" element={
-                  <AdminRoute>
-                    <ProjectsEn />
-                  </AdminRoute>
-                } />
-                <Route path="projets/es" element={
-                  <AdminRoute>
-                    <ProjectsEs />
-                  </AdminRoute>
-                } />
-                <Route path="projets/ar" element={
-                  <AdminRoute>
-                    <ProjectsAr />
-                  </AdminRoute>
-                } />
-                
-                <Route path="projets/:id" element={
-                  <AdminRoute>
-                    <ProjectDetails />
-                  </AdminRoute>
-                } />
-                <Route path="projets/edit/:id" element={
-                  <AdminRoute>
-                    <EditProject />
-                  </AdminRoute>
-                } />
-                
-                {/* Language-specific project details routes */}
-                <Route path="projets/:id/en" element={
-                  <AdminRoute>
-                    <ProjectDetailsEn />
-                  </AdminRoute>
-                } />
-                <Route path="projets/:id/es" element={
-                  <AdminRoute>
-                    <ProjectDetails />
-                  </AdminRoute>
-                } />
-                <Route path="projets/:id/ar" element={
-                  <AdminRoute>
-                    <ProjectDetails />
-                  </AdminRoute>
-                } />
-                
-                {/* Tâches - accessibles aux intervenants et aux admins */}
-                <Route path="tasks" element={
-                  <SharedRoute>
-                    <Tasks />
-                  </SharedRoute>
-                } />
-                <Route path="tasks/:id" element={
-                  <SharedRoute>
-                    <TaskDetails />
-                  </SharedRoute>
-                } />
-                
-                {/* Routes spécifiques aux intervenants */}
-                <Route path="intervenant/projets" element={
-                  <IntervenantRoute>
-                    <IntervenantProjects />
-                  </IntervenantRoute>
-                } />
-                <Route path="intervenant/projets/:id" element={
-                  <IntervenantRoute>
-                    <IntervenantProjectDetailsLangSwitch />
-                  </IntervenantRoute>
-                } />
-                
-                {/* Routes spécifiques aux maîtres d'ouvrage */}
-                <Route path="maitre-ouvrage/projets" element={
-                  <MaitreOuvrageRoute>
-                    <IntervenantProjects />
-                  </MaitreOuvrageRoute>
-                } />
-                <Route path="maitre-ouvrage/projets/:id" element={
-                  <MaitreOuvrageRoute>
-                    <IntervenantProjectDetailsLangSwitch />
-                  </MaitreOuvrageRoute>
-                } />
-                
-                <Route path="intervenants" element={
-                  <AdminRoute>
-                    <Intervenants />
-                  </AdminRoute>
-                } />
+                {/* Routes du dashboard protégées */}
+                <Route path="/dashboard" element={
+                  <ProtectedRoute>
+                    <DashboardLayout />
+                  </ProtectedRoute>
+                }>
+                  <Route index element={<Dashboard />} />
+                  
+                  {/* Projets - accessibles aux admins uniquement */}
+                  <Route path="projets" element={
+                    <AdminRoute>
+                      <Projects />
+                    </AdminRoute>
+                  } />
+                  
+                  {/* Language-specific Project pages */}
+                  <Route path="projets/en" element={
+                    <AdminRoute>
+                      <ProjectsEn />
+                    </AdminRoute>
+                  } />
+                  <Route path="projets/es" element={
+                    <AdminRoute>
+                      <ProjectsEs />
+                    </AdminRoute>
+                  } />
+                  <Route path="projets/ar" element={
+                    <AdminRoute>
+                      <ProjectsAr />
+                    </AdminRoute>
+                  } />
+                  
+                  <Route path="projets/:id" element={
+                    <AdminRoute>
+                      <ProjectDetails />
+                    </AdminRoute>
+                  } />
+                  <Route path="projets/:id/edit" element={
+                    <AdminRoute>
+                      <EditProject />
+                    </AdminRoute>
+                  } />
+                  
+                  {/* Language-specific project details routes */}
+                  <Route path="projets/:id/en" element={
+                    <AdminRoute>
+                      <ProjectDetailsEn />
+                    </AdminRoute>
+                  } />
+                  <Route path="projets/:id/es" element={
+                    <AdminRoute>
+                      <ProjectDetails />
+                    </AdminRoute>
+                  } />
+                  <Route path="projets/:id/ar" element={
+                    <AdminRoute>
+                      <ProjectDetails />
+                    </AdminRoute>
+                  } />
+                  
+                  {/* Tâches - accessibles aux intervenants et aux admins */}
+                  <Route path="taches" element={
+                    <SharedRoute>
+                      <Tasks />
+                    </SharedRoute>
+                  } />
+                  <Route path="taches/:id" element={
+                    <SharedRoute>
+                      <TaskDetails />
+                    </SharedRoute>
+                  } />
+                  
+                  {/* Routes spécifiques aux intervenants */}
+                  <Route path="intervenant/projets" element={
+                    <IntervenantRoute>
+                      <IntervenantProjects />
+                    </IntervenantRoute>
+                  } />
+                  <Route path="intervenant/projets/:id" element={
+                    <IntervenantRoute>
+                      <IntervenantProjectDetails />
+                    </IntervenantRoute>
+                  } />
+                  <Route path="intervenant/projets/:id/:lang" element={
+                    <IntervenantRoute>
+                      <IntervenantProjectDetailsLangSwitch />
+                    </IntervenantRoute>
+                  } />
+                  
+                  {/* Routes spécifiques aux maîtres d'ouvrage */}
+                  <Route path="maitre-ouvrage/projets" element={
+                    <MaitreOuvrageRoute>
+                      <IntervenantProjects />
+                    </MaitreOuvrageRoute>
+                  } />
+                  <Route path="maitre-ouvrage/projets/:id" element={
+                    <MaitreOuvrageRoute>
+                      <IntervenantProjectDetailsLangSwitch />
+                    </MaitreOuvrageRoute>
+                  } />
+                  
+                  <Route path="intervenants" element={
+                    <AdminRoute>
+                      <Intervenants />
+                    </AdminRoute>
+                  } />
 
-                <Route path="entreprises" element={
-                  <AdminRoute>
-                    <Companies />
-                  </AdminRoute>
-                } />
-                <Route path="groupes" element={
-                  <SharedRoute>
-                    <WorkGroups />
-                  </SharedRoute>
-                } />
-                <Route path="messages" element={
-                  <SharedRoute>
-                    <Messages />
-                  </SharedRoute>
-                } />
-                <Route path="video" element={
-                  <SharedRoute>
-                    <VideoConference />
-                  </SharedRoute>
-                } />
-                <Route path="parametres" element={<Settings />} />
+                  <Route path="entreprises" element={
+                    <AdminRoute>
+                      <Companies />
+                    </AdminRoute>
+                  } />
+                  <Route path="groupes-travail" element={
+                    <AdminRoute>
+                      <WorkGroups />
+                    </AdminRoute>
+                  } />
+                  <Route path="messages" element={
+                    <SharedRoute>
+                      <Messages />
+                    </SharedRoute>
+                  } />
+                  <Route path="visio" element={
+                    <SharedRoute>
+                      <VideoConference />
+                    </SharedRoute>
+                  } />
+                  <Route path="parametres" element={
+                    <SharedRoute>
+                      <Settings />
+                    </SharedRoute>
+                  } />
+                  
+                  {/* Test upload route - accessible to everyone */}
+                  <Route path="test-upload" element={<TestUpload />} />
+                </Route>
                 
-                {/* Test upload route - accessible to everyone */}
-                <Route path="test-upload" element={<TestUpload />} />
-              </Route>
-              
-              {/* Catch-all route */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+                <Route path="/404" element={<NotFound />} />
+                <Route path="*" element={<Navigate to="/404" replace />} />
+              </Routes>
+            </UploadProvider>
           </LanguageProvider>
         </TooltipProvider>
       </ThemeProvider>
