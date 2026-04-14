@@ -52,6 +52,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translations } from '@/lib/translations';
 import { uploadToR2 } from '@/lib/r2';
+import { useUpload } from '@/contexts/UploadContext';
 import {
   TaskSubmissionHistory,
   TaskSubmissionHistoryWithUser,
@@ -149,6 +150,7 @@ const TaskDetails: React.FC = () => {
   const { fetchData, updateData, uploadFile, getFileUrl, supabase, insertData } = useSupabase();
   const { user } = useAuth();
   const { language } = useLanguage();
+  const { startUpload, getUpload, clearUpload } = useUpload();
   const {
     notifyFileValidationRequest,
     createAdminNotification,
@@ -176,13 +178,27 @@ const TaskDetails: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [submitComment, setSubmitComment] = useState('');
   const [validationComment, setValidationComment] = useState('');
+  
+  // Remplacer les états locaux par les états du contexte si un upload est en cours
+  const activeUpload = id ? getUpload(id) : undefined;
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
+
+  // Synchroniser l'état local avec l'état global de l'upload
+  useEffect(() => {
+    if (activeUpload) {
+      setUploadProgress(activeUpload.progress);
+      setUploading(activeUpload.isUploading);
+      if (activeUpload.isUploading) {
+        setIsSubmitDialogOpen(true); // Garder le dialogue ouvert si l'upload continue
+      }
+    }
+  }, [activeUpload]);
 
   // Empêcher la fermeture de l'onglet pendant l'upload
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (uploading) {
+      if (uploading || activeUpload?.isUploading) {
         e.preventDefault();
         e.returnValue = ''; // Requis pour certains navigateurs
       }
@@ -190,7 +206,7 @@ const TaskDetails: React.FC = () => {
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [uploading]);
+  }, [uploading, activeUpload]);
 
   const [uploadedBytes, setUploadedBytes] = useState(0);
   const [totalBytes, setTotalBytes] = useState(0);
@@ -521,10 +537,7 @@ const TaskDetails: React.FC = () => {
       const filePath = `tasks/${task.id}/${fileNameForR2}`;
       
       console.log(`Tentative d'upload vers Cloudflare R2: ${filePath}`);
-      const fileUrl = await uploadToR2(selectedFile, filePath, (progress) => {
-        setUploadProgress(progress);
-        setUploadedBytes(Math.round((progress / 100) * selectedFile.size));
-      });
+      const fileUrl = await startUpload(task.id, selectedFile, filePath);
       console.log('Upload R2 réussi:', fileUrl);
       
       // Notification de fin d'upload
@@ -533,6 +546,9 @@ const TaskDetails: React.FC = () => {
         description: "Le fichier a été correctement transféré vers Cloudflare R2.",
         className: "bg-green-600 text-white border-none",
       });
+      
+      // Nettoyer l'état d'upload global après succès
+      clearUpload(task.id);
       
       // Progression finale sera fixée à 100% après mise à jour des enregistrements
       
