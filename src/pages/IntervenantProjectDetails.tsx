@@ -113,10 +113,6 @@ const IntervenantProjectDetails: React.FC = () => {
   const [isMember, setIsMember] = useState(false);
   const [loadingMembership, setLoadingMembership] = useState(true);
 
-  // États pour les détails de tâche
-  const [isTaskDetailsDialogOpen, setIsTaskDetailsDialogOpen] = useState(false);
-  const [selectedTaskDetails, setSelectedTaskDetails] = useState<TaskAssignment | null>(null);
-
   // États pour les fiches informatives
   const [taskInfoSheets, setTaskInfoSheets] = useState<{[key: string]: TaskInfoSheet}>({});
   const [loadingInfoSheets, setLoadingInfoSheets] = useState<{[key: string]: boolean}>({});
@@ -368,8 +364,9 @@ const IntervenantProjectDetails: React.FC = () => {
 
   // Fonction pour ouvrir les détails d'une tâche
   const handleViewTaskDetails = (assignment: TaskAssignment) => {
-    setSelectedTaskDetails(assignment);
-    setIsTaskDetailsDialogOpen(true);
+    if (assignment.id) {
+      navigate(`/dashboard/tasks/${assignment.id}`);
+    }
   };
 
   // Fonction pour basculer l'affichage d'une fiche informative
@@ -1200,147 +1197,6 @@ const IntervenantProjectDetails: React.FC = () => {
           </Card>
         </TabsContent>
       </Tabs>
-
-      {/* Dialogue pour afficher les détails des tâches */}
-      <Dialog open={isTaskDetailsDialogOpen} onOpenChange={setIsTaskDetailsDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle>Détails de la tâche</DialogTitle>
-          </DialogHeader>
-          {selectedTaskDetails && (
-            <div className="space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-center gap-4">
-                  <h4 className="text-lg font-semibold">{selectedTaskDetails.task_name}</h4>
-                  <Badge className={`${getStatusColor(selectedTaskDetails.status)}`}>
-                    {getStatusIcon(selectedTaskDetails.status)}
-                    <span className="ml-1">{getStatusLabel(selectedTaskDetails.status)}</span>
-                  </Badge>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-sm font-medium">Assigné à</Label>
-                    <p className="text-sm text-gray-700">
-                      {getIntervenantNames(selectedTaskDetails.assigned_to)}
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Date limite</Label>
-                    <p className="text-sm text-gray-700">
-                      {new Date(selectedTaskDetails.deadline).toLocaleDateString('fr-FR')}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-sm font-medium">Validation avant le</Label>
-                    <p className="text-sm text-gray-700">
-                      {new Date(selectedTaskDetails.validation_deadline).toLocaleDateString('fr-FR')}
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Format de fichier</Label>
-                    <p className="text-sm text-gray-700">
-                      {selectedTaskDetails.file_extension.toUpperCase()}
-                    </p>
-                  </div>
-                </div>
-
-                {selectedTaskDetails.validators && selectedTaskDetails.validators.length > 0 && (
-                  <div>
-                    <Label className="text-sm font-medium">Validateurs</Label>
-                    <ul className="text-sm text-gray-700 mt-1">
-                      {selectedTaskDetails.validators.map((validatorId, index) => (
-                        <li key={index} className="flex items-center gap-2">
-                          <User className="h-3 w-3" />
-                          {getIntervenantNames(validatorId)}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {selectedTaskDetails.submitted_at && (
-                  <div>
-                    <Label className="text-sm font-medium">Soumis le</Label>
-                    <p className="text-sm text-gray-700">
-                      {new Date(selectedTaskDetails.submitted_at).toLocaleDateString('fr-FR')}
-                    </p>
-                  </div>
-                )}
-
-                {selectedTaskDetails.validated_at && (
-                  <div>
-                    <Label className="text-sm font-medium">Validé le</Label>
-                    <p className="text-sm text-gray-700">
-                      {new Date(selectedTaskDetails.validated_at).toLocaleDateString('fr-FR')}
-                    </p>
-                  </div>
-                )}
-
-                {selectedTaskDetails.validated_by && (
-                  <div>
-                    <Label className="text-sm font-medium">Validé par</Label>
-                    <p className="text-sm text-gray-700">
-                      {getIntervenantNames(selectedTaskDetails.validated_by)}
-                    </p>
-                  </div>
-                )}
-
-                {selectedTaskDetails.comment && (
-                  <div>
-                    <Label className="text-sm font-medium">Commentaire</Label>
-                    <p className="text-sm text-gray-700">
-                      {selectedTaskDetails.comment}
-                    </p>
-                  </div>
-                )}
-
-                {selectedTaskDetails.file_url && (
-                  <div>
-                    <Label className="text-sm font-medium">Document</Label>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => handleOpenFile(selectedTaskDetails.file_url, selectedTaskDetails.task_name)}
-                      className="mt-2"
-                    >
-                      <Eye className="h-4 w-4 mr-2" />
-                      Voir le document
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => handleDownloadFile(selectedTaskDetails.file_url, selectedTaskDetails.task_name)}
-                      className="mt-2 ml-2"
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Télécharger le document
-                    </Button>
-                  </div>
-                )}
-
-                {selectedTaskDetails.validation_comment && (
-                  <div>
-                    <Label className="text-sm font-medium">Commentaire de validation</Label>
-                    <p className="text-sm text-gray-700">
-                      {selectedTaskDetails.validation_comment}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button type="button" onClick={() => setIsTaskDetailsDialogOpen(false)}>
-              Fermer
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
 
     </div>
   );

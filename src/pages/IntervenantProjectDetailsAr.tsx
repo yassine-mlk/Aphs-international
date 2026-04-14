@@ -113,10 +113,6 @@ const IntervenantProjectDetails: React.FC = () => {
   const [isMember, setIsMember] = useState(false);
   const [loadingMembership, setLoadingMembership] = useState(true);
 
-  // États pour les détails de tâche
-  const [isTaskDetailsDialogOpen, setIsTaskDetailsDialogOpen] = useState(false);
-  const [selectedTaskDetails, setSelectedTaskDetails] = useState<TaskAssignment | null>(null);
-
   // États pour les fiches informatives
   const [taskInfoSheets, setTaskInfoSheets] = useState<{[key: string]: TaskInfoSheet}>({});
   const [loadingInfoSheets, setLoadingInfoSheets] = useState<{[key: string]: boolean}>({});
@@ -360,8 +356,9 @@ const IntervenantProjectDetails: React.FC = () => {
 
   // Fonction pour ouvrir les détails d'une tâche
   const handleViewTaskDetails = (assignment: TaskAssignment) => {
-    setSelectedTaskDetails(assignment);
-    setIsTaskDetailsDialogOpen(true);
+    if (assignment.id) {
+      navigate(`/dashboard/tasks/${assignment.id}`);
+    }
   };
 
   // Fonction pour basculer l'affichage d'une fiche informative
