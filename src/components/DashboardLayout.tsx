@@ -358,9 +358,9 @@ const DashboardLayout: React.FC = () => {
                 <SidebarMenuButton
                   asChild
                   tooltip={t.videoconference}
-                  isActive={isLinkActive("/dashboard/video")}
+                  isActive={isLinkActive("/dashboard/visio")}
                 >
-                  <Link to="/dashboard/video">
+                  <Link to="/dashboard/visio">
                     <Video />
                     <span>{t.videoconference}</span>
                   </Link>
@@ -403,9 +403,9 @@ const DashboardLayout: React.FC = () => {
                   <SidebarMenuButton
                     asChild
                     tooltip={t.workgroups}
-                    isActive={isLinkActive("/dashboard/groupes")}
+                    isActive={isLinkActive("/dashboard/groupes-travail")}
                   >
-                    <Link to="/dashboard/groupes">
+                    <Link to="/dashboard/groupes-travail">
                       <Users />
                       <span>{t.workgroups}</span>
                     </Link>
@@ -451,9 +451,9 @@ const DashboardLayout: React.FC = () => {
                  location.pathname === "/dashboard/projets" ? t.projects :
                  location.pathname === "/dashboard/intervenants" ? t.intervenants :
                  location.pathname === "/dashboard/entreprises" ? t.companies :
-                 location.pathname === "/dashboard/groupes" ? t.workgroups :
+                 location.pathname === "/dashboard/groupes-travail" ? t.workgroups :
                  location.pathname === "/dashboard/messages" ? t.messages :
-                 location.pathname === "/dashboard/video" ? t.videoconference :
+                 location.pathname === "/dashboard/visio" ? t.videoconference :
                  location.pathname === "/dashboard/tasks" ? t.tasks :
                  location.pathname === "/dashboard/intervenant/projets" ? t.myProjects :
                  location.pathname.startsWith("/dashboard/intervenant/projets/") ? t.projectDetails :
