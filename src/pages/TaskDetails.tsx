@@ -189,6 +189,21 @@ const TaskDetails: React.FC = () => {
     if (activeUpload) {
       setUploadProgress(activeUpload.progress);
       setUploading(activeUpload.isUploading);
+      
+      // Restaurer les autres métadonnées si elles existent
+      if (activeUpload.uploadedBytes !== null) {
+        setUploadedBytes(activeUpload.uploadedBytes);
+      }
+      if (activeUpload.fileSize !== null) {
+        setTotalBytes(activeUpload.fileSize);
+      }
+      if (activeUpload.speedBps !== null) {
+        setUploadSpeedBps(activeUpload.speedBps);
+      }
+      if (activeUpload.etaSec !== null) {
+        setUploadEtaSec(activeUpload.etaSec);
+      }
+      
       if (activeUpload.isUploading) {
         setIsSubmitDialogOpen(true); // Garder le dialogue ouvert si l'upload continue
       }
@@ -1324,18 +1339,32 @@ const TaskDetails: React.FC = () => {
           
           <div className="grid gap-4 py-4">
             <Label htmlFor="file">Fichier ({task.file_extension})<span className="text-red-500">*</span></Label>
-            <input
-              id="file"
-              type="file"
-              onChange={handleFileChange}
-              className="block w-full text-sm text-gray-500
-                file:mr-4 file:py-2 file:px-4
-                file:rounded-md file:border-0
-                file:text-sm file:font-semibold
-                file:bg-gray-50 file:text-gray-700
-                hover:file:bg-gray-100"
-              accept={`.${task.file_extension === 'other' ? '*' : task.file_extension}`}
-            />
+            {uploading && (activeUpload?.fileName || selectedFile?.name) ? (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-md flex items-center gap-3">
+                <FileUp className="h-5 w-5 text-blue-600" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-blue-900 truncate">
+                    {activeUpload?.fileName || selectedFile?.name}
+                  </p>
+                  <p className="text-xs text-blue-700">
+                    {Math.round((activeUpload?.fileSize || selectedFile?.size || 0) / (1024 * 1024) * 100) / 100} MB
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <input
+                id="file"
+                type="file"
+                onChange={handleFileChange}
+                className="block w-full text-sm text-gray-500
+                  file:mr-4 file:py-2 file:px-4
+                  file:rounded-md file:border-0
+                  file:text-sm file:font-semibold
+                  file:bg-gray-50 file:text-gray-700
+                  hover:file:bg-gray-100"
+                accept={`.${task.file_extension === 'other' ? '*' : task.file_extension}`}
+              />
+            )}
             
             {uploading && (
               <div className="space-y-2">

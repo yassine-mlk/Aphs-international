@@ -648,12 +648,28 @@ const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, curre
           <div className="grid gap-4 py-4">
             <div>
               <Label htmlFor="file">Fichier à soumettre<span className="text-red-500">*</span></Label>
-              <Input
-                id="file"
-                type="file"
-                disabled={isUploading}
-                onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-              />
+              {isUploading && (activeUpload?.fileName || selectedFile?.name) ? (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-md flex items-center gap-3 mt-2">
+                  <FileText className="h-5 w-5 text-blue-600" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-blue-900 truncate">
+                      {activeUpload?.fileName || selectedFile?.name}
+                    </p>
+                    { (activeUpload?.fileSize || selectedFile?.size) && (
+                      <p className="text-xs text-blue-700">
+                        {Math.round((activeUpload?.fileSize || selectedFile?.size || 0) / (1024 * 1024) * 100) / 100} MB
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <Input
+                  id="file"
+                  type="file"
+                  disabled={isUploading}
+                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                />
+              )}
               <p className="text-xs text-gray-500 mt-1">Taille maximale : 5Go</p>
             </div>
             {isUploading && (
@@ -668,6 +684,11 @@ const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, curre
                     style={{ width: `${uploadProgress}%` }}
                   ></div>
                 </div>
+                { activeUpload?.uploadedBytes !== undefined && activeUpload?.fileSize && (
+                  <div className="text-xs text-gray-500 text-right">
+                    {Math.round((activeUpload.uploadedBytes || 0) / (1024 * 1024) * 100) / 100} MB / {Math.round(activeUpload.fileSize / (1024 * 1024) * 100) / 100} MB
+                  </div>
+                )}
               </div>
             )}
             <div>

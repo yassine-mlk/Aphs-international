@@ -227,12 +227,12 @@ const App = () => {
                   } />
                   
                   {/* Tâches - accessibles aux intervenants et aux admins */}
-                  <Route path="taches" element={
+                  <Route path="tasks" element={
                     <SharedRoute>
                       <Tasks />
                     </SharedRoute>
                   } />
-                  <Route path="taches/:id" element={
+                  <Route path="tasks/:id" element={
                     <SharedRoute>
                       <TaskDetails />
                     </SharedRoute>
