@@ -113,7 +113,6 @@ const IntervenantDashboard: React.FC = () => {
   const [recentTasks, setRecentTasks] = useState<TaskItem[]>([]);
   const [allTasks, setAllTasks] = useState<any[]>([]);
   const [validationTasks, setValidationTasks] = useState<any[]>([]);
-  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   
   // États pour la personnalisation du tableau de bord
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -264,7 +263,6 @@ const IntervenantDashboard: React.FC = () => {
       }));
 
       setRecentTasks(tasksWithProjects);
-      setLastUpdate(new Date());
 
       // Les activités récentes sont maintenant gérées par le hook useRecentActivities
 
@@ -465,18 +463,8 @@ const IntervenantDashboard: React.FC = () => {
             <h1 className="text-4xl font-black text-black tracking-tight">
               {dashboardTranslations.title}
             </h1>
-            <p className="text-gray-500 mt-2 font-medium">
-              Dernière mise à jour : {lastUpdate.toLocaleTimeString('fr-FR')}
-            </p>
           </div>
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 px-3 py-2 rounded-full bg-green-50 border border-green-100">
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
-              </span>
-              <span className="text-xs font-semibold text-green-700">Temps réel</span>
-            </div>
             <Button
               onClick={() => setIsSettingsOpen(true)}
               variant="outline"
