@@ -9,8 +9,8 @@ BEGIN
         WHERE table_name = 'profiles' 
         AND column_name = 'theme'
     ) THEN
-        ALTER TABLE profiles ADD COLUMN theme VARCHAR(10) DEFAULT 'light';
-        COMMENT ON COLUMN profiles.theme IS 'Thème de l utilisateur (light/dark)';
+        ALTER TABLE profiles ADD COLUMN theme VARCHAR(10) DEFAULT 'system';
+        COMMENT ON COLUMN profiles.theme IS 'Thème de l utilisateur (light/dark/system)';
     END IF;
 END $$;
 
@@ -78,7 +78,7 @@ BEGIN
 END $$;
 
 -- Mettre à jour les enregistrements existants avec les valeurs par défaut
-UPDATE profiles SET theme = COALESCE(theme, 'light') WHERE theme IS NULL;
+UPDATE profiles SET theme = COALESCE(theme, 'system') WHERE theme IS NULL OR theme NOT IN ('light', 'dark', 'system');
 UPDATE profiles SET language = COALESCE(language, 'fr') WHERE language IS NULL;
 UPDATE profiles SET email_notifications = COALESCE(email_notifications, true) WHERE email_notifications IS NULL;
 UPDATE profiles SET push_notifications = COALESCE(push_notifications, true) WHERE push_notifications IS NULL;

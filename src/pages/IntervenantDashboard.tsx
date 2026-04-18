@@ -477,16 +477,16 @@ const IntervenantDashboard: React.FC = () => {
       initial="hidden"
       animate="visible"
       variants={containerVariants}
-      className="min-h-screen bg-white p-6"
+      className="min-h-screen bg-background p-6"
     >
       <div className="max-w-7xl mx-auto space-y-8">
         {/* En-tête */}
         <motion.div variants={itemVariants} className="flex justify-between items-end border-b border-gray-100 pb-6">
           <div>
-            <p className="text-lg text-gray-600 mb-1">
+            <p className="text-lg text-muted-foreground mb-1">
               Bonjour{userProfile ? ` ${userProfile.first_name} ${userProfile.last_name}` : ''} 👋
             </p>
-            <h1 className="text-4xl font-black text-black tracking-tight">
+            <h1 className="text-4xl font-black tracking-tight">
               {dashboardTranslations.title}
             </h1>
           </div>
