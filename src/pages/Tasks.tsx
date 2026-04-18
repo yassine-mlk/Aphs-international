@@ -678,7 +678,7 @@ const Tasks: React.FC = () => {
           </p>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border p-5 mb-6 space-y-4">
+        <div className="bg-card rounded-lg shadow-sm border p-5 mb-6 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="flex-1">
               <label className="block text-sm font-medium mb-1">Recherche globale</label>
@@ -1022,7 +1022,7 @@ const Tasks: React.FC = () => {
       </div>
 
       {/* Menu de navigation principale */}
-      <div className="bg-white rounded-lg shadow-sm border p-2 mb-6">
+      <div className="bg-card rounded-lg shadow-sm border p-2 mb-6">
         <div className="flex flex-wrap gap-2">
           <Button
             variant={intervenantView === 'all' ? 'default' : 'outline'}
@@ -1053,7 +1053,7 @@ const Tasks: React.FC = () => {
 
       {/* Onglets pour Tâches à exécuter */}
       {intervenantView === 'execution' && (
-        <div className="bg-white rounded-lg shadow-sm border p-2 mb-6">
+        <div className="bg-card rounded-lg shadow-sm border p-2 mb-6">
           <div className="flex flex-wrap gap-2">
             <Button
               variant={executionTab === 'not_started' ? 'default' : 'outline'}
@@ -1101,7 +1101,7 @@ const Tasks: React.FC = () => {
 
       {/* Onglets pour Tâches à valider */}
       {intervenantView === 'validation' && (
-        <div className="bg-white rounded-lg shadow-sm border p-2 mb-6">
+        <div className="bg-card rounded-lg shadow-sm border p-2 mb-6">
           <div className="flex flex-wrap gap-2">
             <Button
               variant={validationTab === 'pending_validation' ? 'default' : 'outline'}
@@ -1149,7 +1149,7 @@ const Tasks: React.FC = () => {
 
       {/* Filtres (uniquement pour la vue "Toutes") */}
       {intervenantView === 'all' && (
-        <div className="bg-white rounded-lg shadow-sm border p-5 mb-6">
+        <div className="bg-card rounded-lg shadow-sm border p-5 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
             <div className="flex-1">
               <label className="block text-sm font-medium mb-1">{t.search.label}</label>

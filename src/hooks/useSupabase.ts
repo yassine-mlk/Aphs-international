@@ -41,7 +41,7 @@ export interface UserSettings {
   phone?: string;
   bio?: string;
   avatar_url?: string;
-  theme: 'light' | 'dark';
+  theme: 'light' | 'dark' | 'system';
   language: 'fr' | 'en' | 'es' | 'ar';
   notifications: {
     email: boolean;

@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
-import { useEffect, useState, createContext, useContext } from "react";
+import { useEffect, useState, createContext, useContext, useCallback } from "react";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
@@ -49,9 +49,11 @@ const queryClient = new QueryClient({
 });
 
 // Contexte pour gérer le thème
+type Theme = 'light' | 'dark' | 'system';
 type ThemeContextType = {
-  theme: 'light' | 'dark';
-  setTheme: (theme: 'light' | 'dark') => void;
+  theme: Theme;
+  setTheme: (theme: Theme) => void;
+  resolvedTheme: 'light' | 'dark';
 };
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -64,61 +66,84 @@ export function useTheme() {
   return context;
 }
 
+// Helper pour obtenir le thème résolu
+const getResolvedTheme = (theme: Theme): 'light' | 'dark' => {
+  if (theme === 'system') {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  return theme;
+};
+
 // Provider de thème
 const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [theme, setThemeState] = useState<Theme>('system');
+  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light');
+
+  // Mettre à jour le thème résolu quand le thème change
+  const updateResolvedTheme = useCallback((newTheme: Theme) => {
+    const resolved = getResolvedTheme(newTheme);
+    setResolvedTheme(resolved);
+    document.documentElement.classList.toggle('dark', resolved === 'dark');
+  }, []);
 
   useEffect(() => {
     const loadTheme = async () => {
       try {
         // Essayer de récupérer l'utilisateur actuel
         const { data: userData } = await supabase.auth.getUser();
+        let loadedTheme: Theme = 'system';
 
         if (userData?.user) {
           // Charger le thème depuis la table profiles
-          const { data: profile, error } = await supabase
+          const { data: profile } = await supabase
             .from('profiles')
             .select('theme')
             .eq('user_id', userData.user.id)
             .single();
 
-          if (profile?.theme) {
-            setTheme(profile.theme as 'light' | 'dark');
-            localStorage.setItem('preferredTheme', profile.theme);
-            return;
+          if (profile?.theme && ['light', 'dark', 'system'].includes(profile.theme)) {
+            loadedTheme = profile.theme as Theme;
+          }
+        } else {
+          // Fallback vers localStorage
+          const savedTheme = localStorage.getItem('preferredTheme') as Theme;
+          if (savedTheme && ['light', 'dark', 'system'].includes(savedTheme)) {
+            loadedTheme = savedTheme;
           }
         }
 
-        // Fallback vers localStorage
-        const savedTheme = localStorage.getItem('preferredTheme') as 'light' | 'dark';
-        if (savedTheme) {
-          setTheme(savedTheme);
-        } else {
-          // Utiliser les préférences du système
-          const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-          setTheme(prefersDark ? 'dark' : 'light');
-        }
+        setThemeState(loadedTheme);
+        updateResolvedTheme(loadedTheme);
       } catch (error) {
         console.error('Error loading theme preference:', error);
-        // Fallback vers localStorage en cas d'erreur
-        const savedTheme = localStorage.getItem('preferredTheme') as 'light' | 'dark';
-        if (savedTheme) {
-          setTheme(savedTheme);
-        }
+        // Fallback vers system en cas d'erreur
+        setThemeState('system');
+        updateResolvedTheme('system');
       }
     };
 
     loadTheme();
-  }, []);
-  
-  // Appliquer le thème lorsqu'il change
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark');
-    localStorage.setItem('preferredTheme', theme);
-  }, [theme]);
+
+    // Écouter les changements de préférence système
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = () => {
+      if (theme === 'system') {
+        updateResolvedTheme('system');
+      }
+    };
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, [theme, updateResolvedTheme]);
+
+  // Setter personnalisé
+  const setTheme = useCallback((newTheme: Theme) => {
+    setThemeState(newTheme);
+    localStorage.setItem('preferredTheme', newTheme);
+    updateResolvedTheme(newTheme);
+  }, [updateResolvedTheme]);
   
   return (
-    <ThemeContext.Provider value={{ theme, setTheme }}>
+    <ThemeContext.Provider value={{ theme, setTheme, resolvedTheme }}>
       {children}
     </ThemeContext.Provider>
   );

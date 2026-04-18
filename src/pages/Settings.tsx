@@ -46,7 +46,8 @@ const Settings: React.FC = () => {
   const { toast } = useToast();
   const { getUserSettings, updateUserSettings, updateUserPassword, fetchData, insertData, updateData, uploadFile, getFileUrl } = useSupabase();
   const { language, setLanguage } = useLanguage();
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, resolvedTheme } = useTheme();
+  type ThemeOption = 'light' | 'dark' | 'system';
   const { user: currentUser } = useAuth();
   const [user, setUser] = useState<{ email: string, role: string, id: string } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -89,7 +90,7 @@ const Settings: React.FC = () => {
     updates: true
   });
   
-  const [darkMode, setDarkMode] = useState(false);
+  const [selectedTheme, setSelectedTheme] = useState<ThemeOption>('system');
   const [selectedLanguage, setSelectedLanguage] = useState<Language>('fr');
 
   // Vérifier si l'utilisateur est admin
@@ -127,7 +128,7 @@ const Settings: React.FC = () => {
             }
             
             setNotifications(settings.notifications);
-            setDarkMode(settings.theme === 'dark');
+            setSelectedTheme((settings.theme as ThemeOption) || 'system');
             setSelectedLanguage(settings.language);
           }
         }
@@ -340,23 +341,21 @@ const Settings: React.FC = () => {
   };
 
   // Mettre à jour le thème
-  const handleThemeChange = async (isDark: boolean) => {
+  const handleThemeChange = async (newTheme: ThemeOption) => {
     if (!user?.id || !userSettings) return;
-    
-    setDarkMode(isDark);
+
+    setSelectedTheme(newTheme);
     try {
-      const newTheme = isDark ? 'dark' : 'light';
-      
       await updateUserSettings(user.id, {
         theme: newTheme
       });
-      
+
       // Mettre à jour le state local
       setUserSettings({
         ...userSettings,
         theme: newTheme
       });
-      
+
       // Appliquer le thème à l'application via le contexte
       setTheme(newTheme);
     } catch (error) {
@@ -860,19 +859,36 @@ const Settings: React.FC = () => {
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label>Mode sombre</Label>
+                  <Label>Thème</Label>
                   <p className="text-muted-foreground text-sm">
-                    Basculer entre le mode clair et le mode sombre.
+                    Choisissez le thème de l'application. Le mode Système suit vos préférences OS.
                   </p>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Sun className="h-4 w-4" />
-                  <Switch
-                    checked={darkMode}
-                    onCheckedChange={handleThemeChange}
-                  />
-                  <Moon className="h-4 w-4" />
-                </div>
+                <Select value={selectedTheme} onValueChange={(value) => handleThemeChange(value as ThemeOption)}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="light">
+                      <span className="flex items-center gap-2">
+                        <Sun className="h-4 w-4" /> Clair
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="dark">
+                      <span className="flex items-center gap-2">
+                        <Moon className="h-4 w-4" /> Sombre
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="system">
+                      <span className="flex items-center gap-2">
+                        <SettingsIcon className="h-4 w-4" /> Système
+                      </span>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Thème actuel: {resolvedTheme === 'dark' ? 'Sombre' : 'Clair'} {selectedTheme === 'system' && '(détecté du système)'}
               </div>
               
               <div className="flex items-center justify-between">
