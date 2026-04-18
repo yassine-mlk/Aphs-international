@@ -148,7 +148,7 @@ export function useNotifications() {
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(20); // Réduire la limite pour améliorer les performances
+        .limit(20);
 
       if (error) throw error;
 
@@ -162,7 +162,8 @@ export function useNotifications() {
     } finally {
       setLoading(false);
     }
-  }, [user?.id, translateNotification]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   // Marquer une notification comme lue
   const markAsRead = useCallback(async (notificationId: string) => {
@@ -313,16 +314,16 @@ export function useNotifications() {
         (payload) => {
           const rawNotification = payload.new as Notification;
           const newNotification = translateNotification(rawNotification);
-          
+
           setNotifications(prev => [newNotification, ...prev.slice(0, 19)]);
           setUnreadCount(prev => prev + 1);
           setHasNewNotification(true);
-          
+
           // Son et toast seulement pour les notifications importantes
           const importantTypes: NotificationType[] = [
-            'task_assigned', 
-            'meeting_invitation', 
-            'meeting_started', 
+            'task_assigned',
+            'meeting_invitation',
+            'meeting_started',
             'message_received',
             'task_validated',
             'task_status_changed',
@@ -331,6 +332,7 @@ export function useNotifications() {
 
           if (importantTypes.includes(newNotification.type)) {
             playNotificationSound();
+            // Utiliser une fonction toast stable
             toast({
               title: newNotification.title,
               description: newNotification.message,
@@ -378,17 +380,17 @@ export function useNotifications() {
       )
       .subscribe((status) => {
         setIsConnected(status === 'SUBSCRIBED');
-        
+
         if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-          // Reconnexion moins agressive
           reconnectTimeoutRef.current = setTimeout(() => {
             setupRealtimeConnection();
-          }, 10000); // 10 secondes au lieu de 5
+          }, 10000);
         }
       });
 
     channelRef.current = channel;
-  }, [user?.id, toast, playNotificationSound, translateNotification]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   // Écouter les nouvelles notifications en temps réel
   useEffect(() => {

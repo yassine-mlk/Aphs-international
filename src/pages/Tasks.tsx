@@ -301,6 +301,12 @@ const Tasks: React.FC = () => {
     loadTasks();
   }, [loadTasks]);
 
+  // Ref pour stabiliser sans recréer la subscription
+  const loadTasksRef = useRef(loadTasks);
+  useEffect(() => {
+    loadTasksRef.current = loadTasks;
+  }, [loadTasks]);
+
   // Souscription realtime: mise à jour silencieuse et debouncée
   const tasksRealtimeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
@@ -309,7 +315,7 @@ const Tasks: React.FC = () => {
     const schedule = () => {
       if (tasksRealtimeTimerRef.current) clearTimeout(tasksRealtimeTimerRef.current);
       tasksRealtimeTimerRef.current = setTimeout(() => {
-        loadTasks({ silent: true });
+        loadTasksRef.current({ silent: true });
       }, 600);
     };
 
@@ -326,7 +332,8 @@ const Tasks: React.FC = () => {
       if (tasksRealtimeTimerRef.current) clearTimeout(tasksRealtimeTimerRef.current);
       supabase.removeChannel(channel);
     };
-  }, [user?.id, supabase, loadTasks]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   useEffect(() => {
     if (!isAdmin) return;
