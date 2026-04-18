@@ -282,13 +282,19 @@ const IntervenantDashboard: React.FC = () => {
     }
   }, [user?.id, supabase, fetchData, toast]);
 
+  // Refs pour stabiliser les callbacks sans recréer la subscription
+  const loadStatsRef = useRef(loadStats);
+  useEffect(() => {
+    loadStatsRef.current = loadStats;
+  }, [loadStats]);
+
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scheduleSilentReload = useCallback(() => {
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     debounceTimerRef.current = setTimeout(() => {
-      loadStats({ silent: true });
+      loadStatsRef.current({ silent: true });
     }, 600);
-  }, [loadStats]);
+  }, []);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -313,7 +319,8 @@ const IntervenantDashboard: React.FC = () => {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
       supabase.removeChannel(channel);
     };
-  }, [user?.id, supabase, loadStats, scheduleSilentReload]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   // Fonctions utilitaires
   // Fonction pour formater la date

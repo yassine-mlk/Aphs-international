@@ -836,6 +836,12 @@ export function useVideoMeetings() {
     }
   }, [user?.id, loadMeetings]);
 
+  // Ref pour stabiliser sans recréer la subscription
+  const loadMeetingsRef = useRef(loadMeetings);
+  useEffect(() => {
+    loadMeetingsRef.current = loadMeetings;
+  }, [loadMeetings]);
+
   // Temps réel avec debounce
   const meetingsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
@@ -844,7 +850,7 @@ export function useVideoMeetings() {
     const scheduleSilentReload = () => {
       if (meetingsTimerRef.current) clearTimeout(meetingsTimerRef.current);
       meetingsTimerRef.current = setTimeout(() => {
-        loadMeetings({ silent: true });
+        loadMeetingsRef.current({ silent: true });
       }, 600);
     };
 
@@ -858,7 +864,8 @@ export function useVideoMeetings() {
       if (meetingsTimerRef.current) clearTimeout(meetingsTimerRef.current);
       supabase.removeChannel(channel);
     };
-  }, [user?.id, supabase, loadMeetings]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   // Supprimer définitivement une réunion (admin uniquement)
   const deleteMeeting = useCallback(async (meetingId: string): Promise<boolean> => {

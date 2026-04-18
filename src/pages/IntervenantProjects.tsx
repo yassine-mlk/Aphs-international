@@ -143,13 +143,19 @@ const IntervenantProjects: React.FC = () => {
     }
   }, [user?.id, fetchData, supabase, toast]);
 
+  // Ref pour stabiliser sans recréer la subscription
+  const loadProjectsRef = useRef(loadProjects);
+  useEffect(() => {
+    loadProjectsRef.current = loadProjects;
+  }, [loadProjects]);
+
   const projectsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scheduleSilentReload = useCallback(() => {
     if (projectsTimerRef.current) clearTimeout(projectsTimerRef.current);
     projectsTimerRef.current = setTimeout(() => {
-      loadProjects({ silent: true });
+      loadProjectsRef.current({ silent: true });
     }, 600);
-  }, [loadProjects]);
+  }, []);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -166,7 +172,8 @@ const IntervenantProjects: React.FC = () => {
       if (projectsTimerRef.current) clearTimeout(projectsTimerRef.current);
       supabase.removeChannel(channel);
     };
-  }, [user?.id, supabase, loadProjects, scheduleSilentReload]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   // Filtrer les projets selon la recherche
   const filteredProjects = projects.filter(project =>
