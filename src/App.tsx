@@ -27,10 +27,12 @@ import TestUpload from "./test-upload";
 import IntervenantProjects from "./pages/IntervenantProjects";
 import IntervenantProjectDetails from "./pages/IntervenantProjectDetails";
 import IntervenantProjectDetailsLangSwitch from "./pages/IntervenantProjectDetailsLangSwitch";
+import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 
 import DashboardLayout from "./components/DashboardLayout";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import { UploadProvider } from "./contexts/UploadContext";
+import { TenantProvider } from "./contexts/TenantContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { useAuth } from "./contexts/AuthContext";
 import { supabase } from "./lib/supabase";
@@ -205,16 +207,17 @@ const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <TooltipProvider>
-          <LanguageProvider>
-            <UploadProvider>
-              <Toaster />
-              <Sonner />
-              {/* Initialisation du stockage Supabase */}
-              {user && <StorageInitializer />}
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/login" element={<Login />} />
+        <TenantProvider>
+          <TooltipProvider>
+            <LanguageProvider>
+              <UploadProvider>
+                <Toaster />
+                <Sonner />
+                {/* Initialisation du stockage Supabase */}
+                {user && <StorageInitializer />}
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/login" element={<Login />} />
                 
                 {/* Routes du dashboard protégées */}
                 <Route path="/dashboard" element={
@@ -351,14 +354,18 @@ const App = () => {
                   
                   {/* Test upload route - accessible to everyone */}
                   <Route path="test-upload" element={<TestUpload />} />
+                  
+                  {/* Super Admin Route */}
+                  <Route path="super-admin" element={<SuperAdminDashboard />} />
                 </Route>
                 
-                <Route path="/404" element={<NotFound />} />
-                <Route path="*" element={<Navigate to="/404" replace />} />
+                  <Route path="/404" element={<NotFound />} />
+                  <Route path="*" element={<Navigate to="/404" replace />} />
               </Routes>
-            </UploadProvider>
-          </LanguageProvider>
-        </TooltipProvider>
+              </UploadProvider>
+            </LanguageProvider>
+          </TooltipProvider>
+        </TenantProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );
