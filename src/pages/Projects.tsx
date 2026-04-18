@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, MoreHorizontal, Users, BarChart3 } from 'lucide-react';
+import { Plus, Search, MoreHorizontal, Users, BarChart3, Clock as ClockIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
@@ -40,6 +40,8 @@ import { useNavigate } from 'react-router-dom';
 import ProjectsLanguageSelector from '@/components/ProjectsLanguageSelector';
 import ImageUpload from '@/components/ImageUpload';
 import { Project, ProjectFormData, PROJECT_STATUSES } from '../types/project';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ProjectListSkeleton } from '@/components/Skeletons';
 
 const Projects: React.FC = () => {
   const { toast } = useToast();
@@ -355,146 +357,178 @@ const Projects: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <h1 className="text-3xl font-bold tracking-tight">Projets</h1>
-          <ProjectsLanguageSelector currentLanguage="fr" />
-          <p className="text-muted-foreground">
-            Gérez et suivez tous vos projets
-          </p>
+    <>
+      <motion.div 
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="space-y-6"
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold tracking-tight">Projets</h1>
+            <ProjectsLanguageSelector currentLanguage="fr" />
+            <p className="text-muted-foreground">
+              Gérez et suivez tous vos projets
+            </p>
+          </div>
+          <Button className="bg-aps-teal hover:bg-aps-navy transition-all active:scale-95" onClick={handleCreateProject}>
+            <Plus className="mr-2 h-4 w-4" /> Nouveau Projet
+          </Button>
         </div>
-        <Button className="bg-aps-teal hover:bg-aps-navy" onClick={handleCreateProject}>
-          <Plus className="mr-2 h-4 w-4" /> Nouveau Projet
-        </Button>
-      </div>
 
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-        <div className="relative flex-1">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-          <Input
-            placeholder="Rechercher un projet..."
-            className="pl-8"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+            <Input
+              placeholder="Rechercher un projet..."
+              className="pl-8 focus-visible:ring-aps-teal"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
         </div>
-      </div>
 
-      {loading ? (
-        <div className="flex justify-center items-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-aps-teal"></div>
-        </div>
-      ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {filteredProjects.map(project => {
-            const stats = projectStats[project.id] || { memberCount: 0, taskProgress: 0 };
-            
-            return (
-              <Card key={project.id} className="border-0 shadow-md overflow-hidden hover:shadow-lg transition-shadow cursor-pointer" onClick={() => handleViewProjectDetails(project)}>
-                <CardContent className="p-6">
-                  <div className="flex justify-between items-start mb-3">
-                    <h3 className="font-semibold text-lg">{project.name}</h3>
-                    <Badge 
-                      variant="outline" 
-                      className={`text-xs ${
-                        project.status === 'active' ? 'bg-green-100 text-green-800 border-green-200' :
-                        project.status === 'completed' ? 'bg-blue-100 text-blue-800 border-blue-200' :
-                        project.status === 'paused' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
-                        'bg-red-100 text-red-800 border-red-200'
-                      }`}
-                    >
-                      {project.status === 'active' ? 'Actif' :
-                       project.status === 'completed' ? 'Terminé' :
-                       project.status === 'paused' ? 'En pause' :
-                       project.status === 'cancelled' ? 'Annulé' : project.status}
-                    </Badge>
-                  </div>
-                  
-                  {project.image_url && (
-                    <div className="mb-4 rounded overflow-hidden">
-                      <img 
-                        src={project.image_url} 
-                        alt={project.name} 
-                        className="w-full h-40 object-cover"
-                        onError={(e) => {
-                          e.currentTarget.src = 'https://placehold.co/600x400?text=Image+indisponible';
-                        }}
-                      />
-                    </div>
-                  )}
-                  
-                  <p className="text-sm text-gray-500 mb-4 line-clamp-2">{project.description}</p>
-                  
-                  {/* Statistiques du projet */}
-                  <div className="space-y-3">
-                    {/* Progression des tâches */}
-                    <div>
-                      <div className="flex items-center justify-between text-sm mb-1">
-                        <div className="flex items-center gap-1">
-                          <BarChart3 className="h-3 w-3 text-gray-500" />
-                          <span className="text-gray-600">Progression</span>
+        {loading ? (
+          <ProjectListSkeleton />
+        ) : (
+          <motion.div 
+            initial="hidden"
+            animate="visible"
+            variants={{
+              hidden: { opacity: 0 },
+              visible: {
+                opacity: 1,
+                transition: {
+                  staggerChildren: 0.1
+                }
+              }
+            }}
+            className="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
+          >
+            {filteredProjects.map(project => {
+              const stats = projectStats[project.id] || { memberCount: 0, taskProgress: 0 };
+              
+              return (
+                <motion.div
+                  variants={{
+                    hidden: { opacity: 0, scale: 0.95 },
+                    visible: { opacity: 1, scale: 1 }
+                  }}
+                  key={project.id}
+                >
+                  <Card 
+                    className="border-0 shadow-md overflow-hidden hover:shadow-xl transition-all cursor-pointer group" 
+                    onClick={() => handleViewProjectDetails(project)}
+                  >
+                    <CardContent className="p-6">
+                      <div className="flex justify-between items-start mb-3">
+                        <h3 className="font-semibold text-lg group-hover:text-aps-teal transition-colors">{project.name}</h3>
+                        <Badge 
+                          variant="outline" 
+                          className={`text-xs ${
+                            project.status === 'active' ? 'bg-green-100 text-green-800 border-green-200' :
+                            project.status === 'completed' ? 'bg-blue-100 text-blue-800 border-blue-200' :
+                            project.status === 'paused' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
+                            'bg-red-100 text-red-800 border-red-200'
+                          }`}
+                        >
+                          {project.status === 'active' ? 'Actif' :
+                           project.status === 'completed' ? 'Terminé' :
+                           project.status === 'paused' ? 'En pause' :
+                           project.status === 'cancelled' ? 'Annulé' : project.status}
+                        </Badge>
+                      </div>
+                      
+                      {project.image_url && (
+                        <div className="mb-4 rounded-xl overflow-hidden aspect-video">
+                          <img 
+                            src={project.image_url} 
+                            alt={project.name} 
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            onError={(e) => {
+                              e.currentTarget.src = 'https://placehold.co/600x400?text=Image+indisponible';
+                            }}
+                          />
                         </div>
-                        <span className="font-medium">{stats.taskProgress}%</span>
+                      )}
+                      
+                      <p className="text-sm text-gray-500 mb-4 line-clamp-2">{project.description}</p>
+                      
+                      {/* Statistiques du projet */}
+                      <div className="space-y-3">
+                        {/* Progression des tâches */}
+                        <div>
+                          <div className="flex items-center justify-between text-sm mb-1">
+                            <div className="flex items-center gap-1">
+                              <BarChart3 className="h-3 w-3 text-gray-500" />
+                              <span className="text-gray-600">Progression</span>
+                            </div>
+                            <span className="font-medium">{stats.taskProgress}%</span>
+                          </div>
+                          <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                            <motion.div 
+                              initial={{ width: 0 }}
+                              animate={{ width: `${stats.taskProgress}%` }}
+                              transition={{ duration: 1, ease: "easeOut" }}
+                              className="bg-aps-teal h-full rounded-full"
+                            />
+                          </div>
+                        </div>
+                        
+                        {/* Nombre d'intervenants */}
+                        <div className="flex items-center justify-between text-sm">
+                          <div className="flex items-center gap-1">
+                            <Users className="h-3 w-3 text-gray-500" />
+                            <span className="text-gray-600">Intervenants</span>
+                          </div>
+                          <span className="font-medium">{stats.memberCount}</span>
+                        </div>
+                        
+                        {/* Date de début */}
+                        <div className="text-xs text-gray-500 flex items-center gap-1">
+                          <ClockIcon className="h-3 w-3" />
+                          Début: {new Date(project.start_date).toLocaleDateString('fr-FR')}
+                        </div>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-1.5">
-                        <div 
-                          className="bg-aps-teal h-1.5 rounded-full transition-all duration-300" 
-                          style={{ width: `${stats.taskProgress}%` }}
-                        ></div>
-                      </div>
-                    </div>
+                    </CardContent>
                     
-                    {/* Nombre d'intervenants */}
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-1">
-                        <Users className="h-3 w-3 text-gray-500" />
-                        <span className="text-gray-600">Intervenants</span>
-                      </div>
-                      <span className="font-medium">{stats.memberCount}</span>
-                    </div>
-                    
-                    {/* Date de début */}
-                    <div className="text-xs text-gray-500">
-                      Début: {new Date(project.start_date).toLocaleDateString('fr-FR')}
-                    </div>
-                  </div>
-                </CardContent>
-                
-                <CardFooter className="flex justify-end py-3 px-6 border-t bg-gray-50">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => e.stopPropagation()}>
-                        <MoreHorizontal className="h-4 w-4" />
-                        <span className="sr-only">Plus d'options</span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={(e) => handleDropdownAction(e, () => handleEditProject(project))}>
-                        Modifier
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem 
-                        onClick={(e) => handleDropdownAction(e, () => handleDeleteProject(project))}
-                        className="text-red-600"
-                      >
-                        Supprimer
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </CardFooter>
-              </Card>
-            );
-          })}
-        </div>
-      )}
+                    <CardFooter className="flex justify-end py-3 px-6 border-t bg-gray-50/50">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-gray-200" onClick={(e) => e.stopPropagation()}>
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">Plus d'options</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={(e) => handleDropdownAction(e, () => handleEditProject(project))}>
+                            Modifier
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem 
+                            onClick={(e) => handleDropdownAction(e, () => handleDeleteProject(project))}
+                            className="text-red-600"
+                          >
+                            Supprimer
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </CardFooter>
+                  </Card>
+                </motion.div>
+              );
+            })}
+          </motion.div>
+        )}
 
-      {!loading && filteredProjects.length === 0 && (
-        <div className="text-center py-12">
-          <h3 className="text-lg font-medium mb-2">Aucun projet trouvé</h3>
-          <p className="text-gray-500">Aucun projet ne correspond à votre recherche.</p>
-        </div>
-      )}
+        {!loading && filteredProjects.length === 0 && (
+          <div className="text-center py-20 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
+            <Search className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+            <h3 className="text-lg font-medium mb-2">Aucun projet trouvé</h3>
+            <p className="text-gray-500">Aucun projet ne correspond à votre recherche.</p>
+          </div>
+        )}
+      </motion.div>
 
       {/* Boîte de dialogue pour ajouter un nouveau projet */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
@@ -715,7 +749,7 @@ const Projects: React.FC = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </>
   );
 };
 
