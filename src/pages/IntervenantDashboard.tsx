@@ -13,9 +13,12 @@ import {
   CheckCircle,
   Briefcase,
   TrendingUp,
-
+  Settings2,
   Activity,
-  RefreshCw
+  RefreshCw,
+  Calendar as CalendarIcon,
+  LayoutGrid,
+  ChevronRight
 } from 'lucide-react';
 import { useSupabase } from '@/hooks/useSupabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -26,6 +29,18 @@ import { ActivityIcon } from '@/components/ActivityIcon';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DashboardSkeleton } from '@/components/Skeletons';
 import { Skeleton } from '@/components/ui/skeleton';
+import { DeadlineCalendar } from '@/components/DeadlineCalendar';
+import { PriorityTasks } from '@/components/PriorityTasks';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogFooter 
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 
 interface IntervenantStats {
   totalTasks: number;
@@ -72,7 +87,31 @@ const IntervenantDashboard: React.FC = () => {
   
   const [loading, setLoading] = useState(true);
   const [recentTasks, setRecentTasks] = useState<TaskItem[]>([]);
+  const [allTasks, setAllTasks] = useState<any[]>([]);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  
+  // États pour la personnalisation du tableau de bord
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [preferences, setPreferences] = useState({
+    showCalendar: true,
+    showPriorityTasks: true,
+    showRecentActivities: true,
+    useCustomView: false // Bascule entre vue classique (Tabs) et vue personnalisée
+  });
+
+  // Charger les préférences au montage
+  useEffect(() => {
+    const savedPrefs = localStorage.getItem(`dashboard_prefs_${user?.id}`);
+    if (savedPrefs) {
+      setPreferences(JSON.parse(savedPrefs));
+    }
+  }, [user?.id]);
+
+  // Sauvegarder les préférences
+  const savePreferences = (newPrefs: typeof preferences) => {
+    setPreferences(newPrefs);
+    localStorage.setItem(`dashboard_prefs_${user?.id}`, JSON.stringify(newPrefs));
+  };
   
   // Utiliser le hook pour les activités récentes
   const { activities: recentActivities, loading: activitiesLoading } = useRecentActivities();
@@ -166,6 +205,10 @@ const IntervenantDashboard: React.FC = () => {
 
       console.log('Statistiques calculées:', newStats);
       setStats(newStats);
+      setAllTasks(tasks.map((t: any) => ({
+        ...t,
+        project_name: projectMap.get(t.project_id) || 'Projet inconnu'
+      })));
 
       // 4. Préparer les tâches récentes avec noms de projets
       const projectMap = new Map(projects.map((p: any) => [p.id, p.name]));
@@ -383,14 +426,24 @@ const IntervenantDashboard: React.FC = () => {
               Dernière mise à jour : {lastUpdate.toLocaleTimeString('fr-FR')}
             </p>
           </div>
-          <Button 
-            onClick={loadStats} 
-            variant="outline" 
-            className="flex items-center gap-2 border-black text-black hover:bg-black hover:text-white transition-all font-bold active:scale-95"
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            {dashboardTranslations.refresh}
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button 
+              onClick={() => setIsSettingsOpen(true)} 
+              variant="outline" 
+              className="flex items-center gap-2 border-gray-200 text-gray-600 hover:bg-gray-50 transition-all active:scale-95"
+            >
+              <Settings2 className="h-4 w-4" />
+              Personnaliser
+            </Button>
+            <Button 
+              onClick={loadStats} 
+              variant="outline" 
+              className="flex items-center gap-2 border-black text-black hover:bg-black hover:text-white transition-all font-bold active:scale-95"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              {dashboardTranslations.refresh}
+            </Button>
+          </div>
         </motion.div>
 
         {/* Statistiques principales */}
@@ -469,154 +522,321 @@ const IntervenantDashboard: React.FC = () => {
           </motion.div>
         </div>
 
-        {/* Onglets avec contenu */}
-        <Tabs defaultValue="tasks" className="space-y-8">
-          <motion.div variants={itemVariants}>
-            <TabsList className="flex w-full bg-gray-100 p-1 rounded-xl">
-              <TabsTrigger value="tasks" className="flex-1 py-3 rounded-lg data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm font-bold transition-all">
-                {dashboardTranslations.recentTasks.title}
-              </TabsTrigger>
-              <TabsTrigger value="activities" className="flex-1 py-3 rounded-lg data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm font-bold transition-all">
-                {dashboardTranslations.recentActivities.title}
-              </TabsTrigger>
-            </TabsList>
-          </motion.div>
-
-          {/* Tâches récentes */}
-          <TabsContent value="tasks" className="space-y-6">
-            <motion.div variants={itemVariants}>
-              <Card className="border border-gray-100 shadow-2xl bg-white rounded-3xl overflow-hidden">
-                <CardHeader className="border-b border-gray-50 pb-6">
-                  <CardTitle className="flex items-center gap-3 text-2xl font-black text-black">
-                    <div className="p-2 bg-blue-600 rounded-lg">
-                      <ClipboardCheck className="h-6 w-6 text-white" />
-                    </div>
-                    {dashboardTranslations.recentTasks.title}
-                  </CardTitle>
-                  <CardDescription className="text-gray-500 font-medium text-base">
-                    {dashboardTranslations.recentTasks.description}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="pt-8">
-                  <div className="grid grid-cols-1 gap-4">
-                    {recentTasks.length > 0 ? (
-                      <AnimatePresence mode="popLayout">
-                        {recentTasks.map((task) => {
-                          const deadline = formatDeadline(task.deadline);
-                          return (
+        {/* Vue Personnalisée ou Vue par Onglets */}
+        {preferences.useCustomView ? (
+          <div className="space-y-8">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+              {preferences.showPriorityTasks && (
+                <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
+                  <PriorityTasks tasks={allTasks} />
+                </motion.div>
+              )}
+              {preferences.showCalendar && (
+                <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
+                  <DeadlineCalendar tasks={allTasks} />
+                </motion.div>
+              )}
+            </div>
+            
+            {preferences.showRecentActivities && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }} 
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-6"
+              >
+                <Card className="border border-gray-100 shadow-2xl bg-white rounded-3xl overflow-hidden">
+                  <CardHeader className="border-b border-gray-50 pb-6">
+                    <CardTitle className="flex items-center gap-3 text-2xl font-black text-black">
+                      <div className="p-2 bg-black rounded-lg">
+                        <Clock className="h-6 w-6 text-white" />
+                      </div>
+                      {dashboardTranslations.recentActivities.title}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-8">
+                    <div className="space-y-4">
+                      {activitiesLoading ? (
+                        <div className="space-y-4">
+                          {[1, 2, 3].map(i => (
+                            <div key={i} className="flex items-center space-x-3">
+                              <Skeleton className="h-10 w-10 rounded-full" />
+                              <div className="space-y-2 flex-1">
+                                <Skeleton className="h-4 w-1/3" />
+                                <Skeleton className="h-3 w-1/2" />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : recentActivities.length > 0 ? (
+                        <AnimatePresence mode="popLayout">
+                          {recentActivities.map((activity) => (
                             <motion.div 
                               layout
-                              initial={{ opacity: 0, scale: 0.95 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              exit={{ opacity: 0, scale: 0.95 }}
-                              key={task.id} 
-                              className="flex items-center justify-between p-6 rounded-2xl border border-gray-100 hover:border-blue-600 hover:shadow-xl transition-all group bg-gray-50/50 cursor-pointer"
-                              onClick={() => navigate(`/dashboard/tasks/${task.id}`)}
+                              initial={{ opacity: 0, x: -20 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              exit={{ opacity: 0, x: 20 }}
+                              key={activity.id} 
+                              className="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-50 transition-colors"
                             >
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-3 mb-3">
-                                  <h3 className="text-lg font-bold text-black group-hover:text-blue-600 transition-colors truncate">{task.task_name}</h3>
-                                  <Badge variant="outline" className={`${getStatusColor(task.status)} font-bold px-3 py-1 rounded-full`}>
-                                    {getStatusLabel(task.status)}
-                                  </Badge>
-                                </div>
-                                <div className="flex items-center gap-4 text-sm font-medium text-gray-500">
-                                  <span className="flex items-center gap-1.5">
-                                    <Briefcase className="h-4 w-4 text-gray-400" />
-                                    {task.project_name}
-                                  </span>
-                                  <span className={`flex items-center gap-1.5 ${deadline.color}`}>
-                                    <Clock className="h-4 w-4" />
-                                    {deadline.text}
-                                  </span>
-                                </div>
+                              <div className="flex-shrink-0 mt-1">
+                                <ActivityIcon type={activity.iconType} />
                               </div>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="rounded-full hover:bg-blue-600 hover:text-white transition-all ml-4"
-                              >
-                                <TrendingUp className="h-5 w-5" />
-                              </Button>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-900">{activity.title}</p>
+                                <p className="text-sm text-gray-500">{activity.description}</p>
+                                <p className="text-xs text-gray-400 mt-1">{formatTimeAgo(activity.timestamp)}</p>
+                              </div>
                             </motion.div>
-                          );
-                        })}
-                      </AnimatePresence>
-                    ) : (
-                      <div className="text-center py-16 text-gray-400">
-                        <ClipboardCheck className="h-20 w-20 mx-auto mb-6 text-gray-100" />
-                        <p className="text-xl font-medium">{dashboardTranslations.recentTasks.noTasks}</p>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          </TabsContent>
-
-          {/* Activités récentes */}
-          <TabsContent value="activities" className="space-y-6">
-            <motion.div variants={itemVariants}>
-              <Card className="border border-gray-100 shadow-2xl bg-white rounded-3xl overflow-hidden">
-                <CardHeader className="border-b border-gray-50 pb-6">
-                  <CardTitle className="flex items-center gap-3 text-2xl font-black text-black">
-                    <div className="p-2 bg-black rounded-lg">
-                      <Clock className="h-6 w-6 text-white" />
+                          ))}
+                        </AnimatePresence>
+                      ) : (
+                        <div className="text-center py-8 text-gray-500">
+                          <Activity className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                          <p>{dashboardTranslations.recentActivities.noActivities}</p>
+                        </div>
+                      )}
                     </div>
-                    {dashboardTranslations.recentActivities.title}
-                  </CardTitle>
-                  <CardDescription className="text-gray-500 font-medium text-base">
-                    {dashboardTranslations.recentActivities.description}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="pt-8">
-                  <div className="space-y-4">
-                    {activitiesLoading ? (
-                      <div className="space-y-4">
-                        {[1, 2, 3].map(i => (
-                          <div key={i} className="flex items-center space-x-3">
-                            <Skeleton className="h-10 w-10 rounded-full" />
-                            <div className="space-y-2 flex-1">
-                              <Skeleton className="h-4 w-1/3" />
-                              <Skeleton className="h-3 w-1/2" />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : recentActivities.length > 0 ? (
-                      <AnimatePresence mode="popLayout">
-                        {recentActivities.map((activity) => (
-                          <motion.div 
-                            layout
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: 20 }}
-                            key={activity.id} 
-                            className="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-50 transition-colors"
-                          >
-                            <div className="flex-shrink-0 mt-1">
-                              <ActivityIcon type={activity.iconType} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-900">{activity.title}</p>
-                              <p className="text-sm text-gray-500">{activity.description}</p>
-                              <p className="text-xs text-gray-400 mt-1">{formatTimeAgo(activity.timestamp)}</p>
-                            </div>
-                          </motion.div>
-                        ))}
-                      </AnimatePresence>
-                    ) : (
-                      <div className="text-center py-8 text-gray-500">
-                        <Activity className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                        <p>{dashboardTranslations.recentActivities.noActivities}</p>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+          </div>
+        ) : (
+          <Tabs defaultValue="tasks" className="space-y-8">
+            <motion.div variants={itemVariants}>
+              <TabsList className="flex w-full bg-gray-100 p-1 rounded-xl">
+                <TabsTrigger value="tasks" className="flex-1 py-3 rounded-lg data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm font-bold transition-all">
+                  {dashboardTranslations.recentTasks.title}
+                </TabsTrigger>
+                <TabsTrigger value="activities" className="flex-1 py-3 rounded-lg data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm font-bold transition-all">
+                  {dashboardTranslations.recentActivities.title}
+                </TabsTrigger>
+              </TabsList>
             </motion.div>
-          </TabsContent>
-        </Tabs>
+
+            {/* Tâches récentes */}
+            <TabsContent value="tasks" className="space-y-6">
+              <motion.div variants={itemVariants}>
+                <Card className="border border-gray-100 shadow-2xl bg-white rounded-3xl overflow-hidden">
+                  <CardHeader className="border-b border-gray-50 pb-6">
+                    <CardTitle className="flex items-center gap-3 text-2xl font-black text-black">
+                      <div className="p-2 bg-blue-600 rounded-lg">
+                        <ClipboardCheck className="h-6 w-6 text-white" />
+                      </div>
+                      {dashboardTranslations.recentTasks.title}
+                    </CardTitle>
+                    <CardDescription className="text-gray-500 font-medium text-base">
+                      {dashboardTranslations.recentTasks.description}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="pt-8">
+                    <div className="grid grid-cols-1 gap-4">
+                      {recentTasks.length > 0 ? (
+                        <AnimatePresence mode="popLayout">
+                          {recentTasks.map((task) => {
+                            const deadline = formatDeadline(task.deadline);
+                            return (
+                              <motion.div 
+                                layout
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.95 }}
+                                key={task.id} 
+                                className="flex items-center justify-between p-6 rounded-2xl border border-gray-100 hover:border-blue-600 hover:shadow-xl transition-all group bg-gray-50/50 cursor-pointer"
+                                onClick={() => navigate(`/dashboard/tasks/${task.id}`)}
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-3 mb-3">
+                                    <h3 className="text-lg font-bold text-black group-hover:text-blue-600 transition-colors truncate">{task.task_name}</h3>
+                                    <Badge variant="outline" className={`${getStatusColor(task.status)} font-bold px-3 py-1 rounded-full`}>
+                                      {getStatusLabel(task.status)}
+                                    </Badge>
+                                  </div>
+                                  <div className="flex items-center gap-4 text-sm font-medium text-gray-500">
+                                    <span className="flex items-center gap-1.5">
+                                      <Briefcase className="h-4 w-4 text-gray-400" />
+                                      {task.project_name}
+                                    </span>
+                                    <span className={`flex items-center gap-1.5 ${deadline.color}`}>
+                                      <Clock className="h-4 w-4" />
+                                      {deadline.text}
+                                    </span>
+                                  </div>
+                                </div>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="rounded-full hover:bg-blue-600 hover:text-white transition-all ml-4"
+                                >
+                                  <TrendingUp className="h-5 w-5" />
+                                </Button>
+                              </motion.div>
+                            );
+                          })}
+                        </AnimatePresence>
+                      ) : (
+                        <div className="text-center py-16 text-gray-400">
+                          <ClipboardCheck className="h-20 w-20 mx-auto mb-6 text-gray-100" />
+                          <p className="text-xl font-medium">{dashboardTranslations.recentTasks.noTasks}</p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            </TabsContent>
+
+            {/* Activités récentes */}
+            <TabsContent value="activities" className="space-y-6">
+              <motion.div variants={itemVariants}>
+                <Card className="border border-gray-100 shadow-2xl bg-white rounded-3xl overflow-hidden">
+                  <CardHeader className="border-b border-gray-50 pb-6">
+                    <CardTitle className="flex items-center gap-3 text-2xl font-black text-black">
+                      <div className="p-2 bg-black rounded-lg">
+                        <Clock className="h-6 w-6 text-white" />
+                      </div>
+                      {dashboardTranslations.recentActivities.title}
+                    </CardTitle>
+                    <CardDescription className="text-gray-500 font-medium text-base">
+                      {dashboardTranslations.recentActivities.description}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="pt-8">
+                    <div className="space-y-4">
+                      {activitiesLoading ? (
+                        <div className="space-y-4">
+                          {[1, 2, 3].map(i => (
+                            <div key={i} className="flex items-center space-x-3">
+                              <Skeleton className="h-10 w-10 rounded-full" />
+                              <div className="space-y-2 flex-1">
+                                <Skeleton className="h-4 w-1/3" />
+                                <Skeleton className="h-3 w-1/2" />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : recentActivities.length > 0 ? (
+                        <AnimatePresence mode="popLayout">
+                          {recentActivities.map((activity) => (
+                            <motion.div 
+                              layout
+                              initial={{ opacity: 0, x: -20 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              exit={{ opacity: 0, x: 20 }}
+                              key={activity.id} 
+                              className="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-50 transition-colors"
+                            >
+                              <div className="flex-shrink-0 mt-1">
+                                <ActivityIcon type={activity.iconType} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-900">{activity.title}</p>
+                                <p className="text-sm text-gray-500">{activity.description}</p>
+                                <p className="text-xs text-gray-400 mt-1">{formatTimeAgo(activity.timestamp)}</p>
+                              </div>
+                            </motion.div>
+                          ))}
+                        </AnimatePresence>
+                      ) : (
+                        <div className="text-center py-8 text-gray-500">
+                          <Activity className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                          <p>{dashboardTranslations.recentActivities.noActivities}</p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            </TabsContent>
+          </Tabs>
+        )}
+
+        {/* Dialogue de Personnalisation */}
+        <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+          <DialogContent className="sm:max-w-[500px] rounded-3xl p-0 overflow-hidden border-0 shadow-2xl">
+            <div className="bg-black p-8 text-white">
+              <DialogHeader>
+                <DialogTitle className="text-2xl font-black flex items-center gap-3">
+                  <Settings2 className="h-6 w-6 text-blue-500" />
+                  Personnalisation
+                </DialogTitle>
+                <DialogDescription className="text-gray-400 font-medium">
+                  Configurez votre espace de travail selon vos besoins
+                </DialogDescription>
+              </DialogHeader>
+            </div>
+            
+            <div className="p-8 space-y-8">
+              <div className="space-y-6">
+                <div className="flex items-center justify-between p-4 rounded-2xl bg-gray-50 hover:bg-gray-100 transition-colors group">
+                  <div className="space-y-1">
+                    <Label className="text-base font-bold text-black flex items-center gap-2">
+                      <LayoutGrid className="h-4 w-4 text-blue-600" />
+                      Vue Widget (Personnalisée)
+                    </Label>
+                    <p className="text-sm text-gray-500 font-medium">Utiliser des widgets au lieu des onglets classiques</p>
+                  </div>
+                  <Switch 
+                    checked={preferences.useCustomView} 
+                    onCheckedChange={(checked) => savePreferences({...preferences, useCustomView: checked})}
+                  />
+                </div>
+
+                <AnimatePresence>
+                  {preferences.useCustomView && (
+                    <motion.div 
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="space-y-4 pt-4 border-t border-gray-100"
+                    >
+                      <h4 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-4">Widgets Actifs</h4>
+                      
+                      <div className="flex items-center justify-between p-3 rounded-xl border border-gray-100">
+                        <Label className="text-sm font-bold flex items-center gap-2">
+                          <TrendingUp className="h-4 w-4 text-red-500" />
+                          Tâches Prioritaires
+                        </Label>
+                        <Switch 
+                          checked={preferences.showPriorityTasks} 
+                          onCheckedChange={(checked) => savePreferences({...preferences, showPriorityTasks: checked})}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between p-3 rounded-xl border border-gray-100">
+                        <Label className="text-sm font-bold flex items-center gap-2">
+                          <CalendarIcon className="h-4 w-4 text-blue-500" />
+                          Calendrier des Échéances
+                        </Label>
+                        <Switch 
+                          checked={preferences.showCalendar} 
+                          onCheckedChange={(checked) => savePreferences({...preferences, showCalendar: checked})}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between p-3 rounded-xl border border-gray-100">
+                        <Label className="text-sm font-bold flex items-center gap-2">
+                          <Clock className="h-4 w-4 text-gray-500" />
+                          Activités Récentes
+                        </Label>
+                        <Switch 
+                          checked={preferences.showRecentActivities} 
+                          onCheckedChange={(checked) => savePreferences({...preferences, showRecentActivities: checked})}
+                        />
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
+
+            <DialogFooter className="p-8 bg-gray-50">
+              <Button onClick={() => setIsSettingsOpen(false)} className="w-full bg-black hover:bg-gray-800 text-white font-bold py-6 rounded-2xl transition-all">
+                Enregistrer les préférences
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </motion.div>
   );
