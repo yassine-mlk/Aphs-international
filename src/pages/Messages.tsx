@@ -216,34 +216,73 @@ const Messages: React.FC = () => {
     }, 600);
   }, []);
 
-  // Configuration du temps réel Supabase pour les messages (avec debounce)
+  // Configuration du temps réel Supabase pour les messages
+  // On souscrit aux conversations spécifiques de l'utilisateur pour respecter RLS
   useEffect(() => {
     if (!user?.id) {
       console.log('[Messages] No user ID, skipping realtime subscription');
       return;
     }
-    console.log(`[Messages] Setting up realtime subscription for user ${user.id}`);
 
-    const channel = supabase
-      .channel(`messages-realtime-${user.id}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
-        console.log('[Messages] INSERT on messages:', payload);
-        scheduleSilentReload();
-      })
+    const conversationIds = conversations.map(c => c.id);
+    console.log(`[Messages] Setting up realtime for ${conversationIds.length} conversations`);
+
+    if (conversationIds.length === 0) {
+      console.log('[Messages] No conversations yet, skipping message subscription');
+      // Still subscribe to conversations table for new conversations
+      const channel = supabase
+        .channel(`messages-conversations-${user.id}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, (payload) => {
+          console.log('[Messages] New/updated conversation:', payload);
+          scheduleSilentReload();
+        })
+        .subscribe((status) => {
+          console.log(`[Messages] Conversations subscription status: ${status}`);
+        });
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+
+    // Subscribe to messages for each conversation (respects RLS)
+    const channels: any[] = [];
+
+    conversationIds.forEach((convId, index) => {
+      const channel = supabase
+        .channel(`messages-conv-${convId}-${index}`)
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${convId}`
+        }, (payload) => {
+          console.log(`[Messages] New message in conv ${convId}:`, payload);
+          scheduleSilentReload();
+        })
+        .subscribe((status) => {
+          if (status !== 'SUBSCRIBED') {
+            console.log(`[Messages] Channel ${index} status: ${status}`);
+          }
+        });
+      channels.push(channel);
+    });
+
+    // Also subscribe to conversations for updates
+    const convChannel = supabase
+      .channel(`messages-conversations-${user.id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, (payload) => {
-        console.log('[Messages] Event on conversations:', payload);
+        console.log('[Messages] Conversation updated:', payload);
         scheduleSilentReload();
       })
-      .subscribe((status) => {
-        console.log(`[Messages] Subscription status: ${status}`);
-      });
+      .subscribe();
+    channels.push(convChannel);
 
     return () => {
       if (messagesTimerRef.current) clearTimeout(messagesTimerRef.current);
-      supabase.removeChannel(channel);
+      channels.forEach(ch => supabase.removeChannel(ch));
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [user?.id, conversations]);
 
   // Polling de secours très espacé (5 minutes) en cas de défaillance realtime
   useEffect(() => {
