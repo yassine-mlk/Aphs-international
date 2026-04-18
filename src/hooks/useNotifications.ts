@@ -293,10 +293,16 @@ export function useNotifications() {
 
   // Fonction pour établir la connexion temps réel (optimisée)
   const setupRealtimeConnection = useCallback(() => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      console.log('[Notifications] Pas d\'user ID, subscription annulée');
+      return;
+    }
+
+    console.log(`[Notifications] Configuration subscription pour user ${user.id}`);
 
     // Nettoyer la connexion précédente
     if (channelRef.current) {
+      console.log('[Notifications] Nettoyage channel précédent');
       channelRef.current.unsubscribe();
     }
 
@@ -312,6 +318,7 @@ export function useNotifications() {
           filter: `user_id=eq.${user.id}`
         },
         (payload) => {
+          console.log('[Notifications] INSERT reçu:', payload);
           const rawNotification = payload.new as Notification;
           const newNotification = translateNotification(rawNotification);
 
@@ -332,7 +339,6 @@ export function useNotifications() {
 
           if (importantTypes.includes(newNotification.type)) {
             playNotificationSound();
-            // Utiliser une fonction toast stable
             toast({
               title: newNotification.title,
               description: newNotification.message,
@@ -379,9 +385,11 @@ export function useNotifications() {
         }
       )
       .subscribe((status) => {
+        console.log(`[Notifications] Status subscription: ${status}`);
         setIsConnected(status === 'SUBSCRIBED');
 
         if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+          console.log('[Notifications] Reconnexion dans 10s...');
           reconnectTimeoutRef.current = setTimeout(() => {
             setupRealtimeConnection();
           }, 10000);

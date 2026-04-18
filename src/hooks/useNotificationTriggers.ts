@@ -12,52 +12,34 @@ export function useNotificationTriggers() {
     messageParams: Record<string, any> = {},
     data: Record<string, any> = {}
   ) => {
+    console.log(`[NotificationTrigger] Création notification type=${type} pour user=${userId}`);
     try {
-      // Vérifier si les nouvelles colonnes existent
-      const { data: columns, error: columnError } = await supabase
+      // Générer des messages par défaut en français (fallback)
+      const defaultTitle = getDefaultTitle(type, titleParams);
+      const defaultMessage = getDefaultMessage(type, messageParams);
+
+      // Insérer avec les nouvelles colonnes (title_key/message_key)
+      const { error } = await supabase
         .from('notifications')
-        .select('*')
-        .limit(0);
+        .insert({
+          user_id: userId,
+          type,
+          title: defaultTitle, // Fallback pour compatibilité
+          message: defaultMessage, // Fallback pour compatibilité
+          title_key: type,
+          message_key: type,
+          title_params: titleParams,
+          message_params: messageParams,
+          data
+        });
 
-      if (columnError && columnError.message.includes('column')) {
-        // Anciennes colonnes - mode de compatibilité
-        console.warn('Mode compatibilité notifications - exécutez le script SQL pour activer les traductions');
-        
-        // Générer des messages par défaut en français
-        const defaultTitle = getDefaultTitle(type, titleParams);
-        const defaultMessage = getDefaultMessage(type, messageParams);
-        
-        const { error } = await supabase
-          .from('notifications')
-          .insert({
-            user_id: userId,
-            type,
-            title: defaultTitle,
-            message: defaultMessage,
-            data
-          });
-
-        if (error) throw error;
-      } else {
-        // Nouvelles colonnes - mode complet avec traductions
-        const { error } = await supabase
-          .from('notifications')
-          .insert({
-            user_id: userId,
-            type,
-            title: '', // Sera rempli dynamiquement selon la langue
-            message: '', // Sera rempli dynamiquement selon la langue
-            title_key: type,
-            message_key: type,
-            title_params: titleParams,
-            message_params: messageParams,
-            data
-          });
-
-        if (error) throw error;
+      if (error) {
+        console.error('[NotificationTrigger] Erreur insertion:', error);
+        throw error;
       }
+      console.log('[NotificationTrigger] Notification créée avec succès');
     } catch (error) {
-      console.error('Erreur lors de la création de notification:', error);
+      console.error('[NotificationTrigger] Erreur lors de la création de notification:', error);
     }
   }, []);
 
@@ -220,6 +202,7 @@ export function useNotificationTriggers() {
     projectName?: string,
     assignerName?: string
   ) => {
+    console.log(`[NotificationTrigger] notifyTaskAssigned appelé pour ${intervenantId}, tâche: ${taskName}`);
     await createNotification(
       intervenantId,
       'task_assigned',
