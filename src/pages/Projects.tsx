@@ -42,6 +42,24 @@ import ImageUpload from '@/components/ImageUpload';
 import { Project, ProjectFormData, PROJECT_STATUSES } from '../types/project';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ProjectListSkeleton } from '@/components/Skeletons';
+import { projectStructure, realizationStructure } from '@/data/project-structure';
+
+interface CustomStructureItem {
+  phase_id: 'conception' | 'realisation';
+  section_id: string;
+  subsection_id: string | null;
+  is_deleted: boolean;
+}
+
+type ProjectStatItem = {
+  memberCount: number;
+  taskProgress: number;
+  totalTasks: number;
+  tasksAssigned: number;
+  tasksSubmitted: number;
+  tasksValidated: number;
+  tasksRejected: number;
+};
 
 const Projects: React.FC = () => {
   const { toast } = useToast();
@@ -51,7 +69,7 @@ const Projects: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [projectStats, setProjectStats] = useState<{[projectId: string]: {memberCount: number, taskProgress: number}}>({});
+  const [projectStats, setProjectStats] = useState<Record<string, ProjectStatItem>>({});
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -98,7 +116,31 @@ const Projects: React.FC = () => {
 
   // Récupérer les statistiques des projets (membres et progression)
   const fetchProjectStats = async (projectList: Project[]) => {
-    const stats: {[projectId: string]: {memberCount: number, taskProgress: number}} = {};
+    const stats: Record<string, ProjectStatItem> = {};
+
+    const computeTotalTasksFromStructure = (deletions: CustomStructureItem[]): number => {
+      const isDeletedSection = (phase: 'conception' | 'realisation', sectionId: string) => {
+        return deletions.some(d => d.is_deleted && d.phase_id === phase && d.section_id === sectionId && d.subsection_id === null);
+      };
+      const isDeletedSubsection = (phase: 'conception' | 'realisation', sectionId: string, subsectionId: string) => {
+        return deletions.some(d => d.is_deleted && d.phase_id === phase && d.section_id === sectionId && d.subsection_id === subsectionId);
+      };
+
+      const countPhase = (phase: 'conception' | 'realisation') => {
+        const structure = phase === 'conception' ? projectStructure : realizationStructure;
+        let count = 0;
+        for (const section of structure) {
+          if (isDeletedSection(phase, section.id)) continue;
+          for (const item of section.items) {
+            if (isDeletedSubsection(phase, section.id, item.id)) continue;
+            count += item.tasks.length;
+          }
+        }
+        return count;
+      };
+
+      return countPhase('conception') + countPhase('realisation');
+    };
     
     for (const project of projectList) {
       try {
@@ -107,25 +149,52 @@ const Projects: React.FC = () => {
           columns: 'id',
           filters: [{ column: 'project_id', operator: 'eq', value: project.id }]
         });
+
+        // Récupérer les suppressions (structure personnalisée) pour calculer le total de tâches réel du projet
+        const deletions = await fetchData<CustomStructureItem>('custom_project_structures', {
+          columns: 'phase_id,section_id,subsection_id,is_deleted',
+          filters: [
+            { column: 'project_id', operator: 'eq', value: project.id },
+            { column: 'is_deleted', operator: 'eq', value: true }
+          ]
+        });
         
-        // Récupérer les tâches et leur progression
+        // Récupérer les tâches et leurs statuts
         const tasks = await fetchData<any>('task_assignments', {
           columns: 'status',
           filters: [{ column: 'project_id', operator: 'eq', value: project.id }]
         });
         
         const memberCount = members ? members.length : 0;
-        const totalTasks = tasks ? tasks.length : 0;
-        const completedTasks = tasks ? tasks.filter((task: any) => task.status === 'validated').length : 0;
-        const taskProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+        const tasksAssigned = tasks ? tasks.filter((task: any) => task.status === 'assigned').length : 0;
+        const tasksSubmitted = tasks ? tasks.filter((task: any) => task.status === 'submitted').length : 0;
+        const tasksValidated = tasks ? tasks.filter((task: any) => task.status === 'validated').length : 0;
+        const tasksRejected = tasks ? tasks.filter((task: any) => task.status === 'rejected').length : 0;
+
+        const totalTasks = computeTotalTasksFromStructure(deletions || []);
+        const taskProgress = totalTasks > 0 ? Math.round((tasksValidated / totalTasks) * 100) : 0;
         
         stats[project.id] = {
           memberCount,
-          taskProgress
+          taskProgress,
+          totalTasks,
+          tasksAssigned,
+          tasksSubmitted,
+          tasksValidated,
+          tasksRejected
         };
       } catch (error) {
         console.error(`Erreur lors de la récupération des stats pour le projet ${project.id}:`, error);
-        stats[project.id] = { memberCount: 0, taskProgress: 0 };
+        stats[project.id] = {
+          memberCount: 0,
+          taskProgress: 0,
+          totalTasks: 0,
+          tasksAssigned: 0,
+          tasksSubmitted: 0,
+          tasksValidated: 0,
+          tasksRejected: 0
+        };
       }
     }
     
@@ -406,7 +475,15 @@ const Projects: React.FC = () => {
             className="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
           >
             {filteredProjects.map(project => {
-              const stats = projectStats[project.id] || { memberCount: 0, taskProgress: 0 };
+              const stats = projectStats[project.id] || {
+                memberCount: 0,
+                taskProgress: 0,
+                totalTasks: 0,
+                tasksAssigned: 0,
+                tasksSubmitted: 0,
+                tasksValidated: 0,
+                tasksRejected: 0
+              };
               
               return (
                 <motion.div
@@ -472,6 +549,23 @@ const Projects: React.FC = () => {
                               transition={{ duration: 1, ease: "easeOut" }}
                               className="bg-aps-teal h-full rounded-full"
                             />
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <Badge variant="secondary" className="bg-gray-100 text-gray-800">
+                              Total: {stats.totalTasks}
+                            </Badge>
+                            <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+                              En attente exécution: {stats.tasksAssigned}
+                            </Badge>
+                            <Badge variant="secondary" className="bg-orange-100 text-orange-800">
+                              En attente validation: {stats.tasksSubmitted}
+                            </Badge>
+                            <Badge variant="secondary" className="bg-green-100 text-green-800">
+                              Complètes: {stats.tasksValidated}
+                            </Badge>
+                            <Badge variant="secondary" className="bg-red-100 text-red-800">
+                              À revoir: {stats.tasksRejected}
+                            </Badge>
                           </div>
                         </div>
                         

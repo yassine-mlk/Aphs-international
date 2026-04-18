@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Badge } from '@/components/ui/badge';
 import CreateUserForm from "@/components/CreateUserForm";
 import EditUserForm from "@/components/EditUserForm";
 import { useSupabase, SPECIALTIES } from '../hooks/useSupabase';
@@ -31,6 +32,19 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ArrowUpDown, Users } from "lucide-react";
+import {
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip as RechartsTooltip,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Legend
+} from 'recharts';
 
 // Type pour un intervenant
 interface Intervenant {
@@ -46,6 +60,37 @@ interface Intervenant {
   status: 'active' | 'inactive';
   joinDate: string;
   joinDateRaw: Date; // Pour le tri
+}
+
+interface ProjectMemberRow {
+  id: string;
+  project_id: string;
+  user_id: string;
+  role: string;
+  added_at: string;
+}
+
+interface ProjectRow {
+  id: string;
+  name: string;
+  description: string;
+  status: string;
+  start_date: string;
+}
+
+interface TaskAssignmentRow {
+  id: string;
+  project_id: string;
+  phase_id: string;
+  section_id: string;
+  subsection_id: string;
+  task_name: string;
+  assigned_to: string[];
+  validators: string[];
+  deadline: string;
+  validation_deadline: string;
+  status: 'assigned' | 'in_progress' | 'submitted' | 'validated' | 'rejected' | 'finalized';
+  file_url?: string;
 }
 
 // Type pour les données d'utilisateur de Supabase
@@ -83,6 +128,12 @@ const Intervenants: React.FC = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedIntervenant, setSelectedIntervenant] = useState<Intervenant | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const [selectedIntervenantSummary, setSelectedIntervenantSummary] = useState<Intervenant | null>(null);
+  const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryProjects, setSummaryProjects] = useState<ProjectRow[]>([]);
+  const [summaryTasks, setSummaryTasks] = useState<TaskAssignmentRow[]>([]);
   
 
   
@@ -218,10 +269,131 @@ const Intervenants: React.FC = () => {
   const handleDialogClose = () => {
     setCreateDialogOpen(false);
     setEditDialogOpen(false);
-    setSelectedIntervenant(null);
-    // Recharger la liste des utilisateurs
-    fetchIntervenants();
   };
+
+  const openIntervenantSummary = (intervenant: Intervenant) => {
+    setSelectedIntervenantSummary(intervenant);
+    setSummaryDialogOpen(true);
+  };
+
+  useEffect(() => {
+    const loadSummary = async () => {
+      if (!summaryDialogOpen || !selectedIntervenantSummary?.id) return;
+      setSummaryLoading(true);
+      try {
+        const userId = selectedIntervenantSummary.id;
+
+        const { data: members, error: memberError } = await supabase
+          .from('membre')
+          .select('id,project_id,user_id,role,added_at')
+          .eq('user_id', userId);
+
+        if (memberError) throw memberError;
+        const projectIds = Array.from(new Set((members || []).map(m => m.project_id).filter(Boolean)));
+
+        let projects: ProjectRow[] = [];
+        if (projectIds.length > 0) {
+          const { data: proj, error: projError } = await supabase
+            .from('projects')
+            .select('id,name,description,status,start_date')
+            .in('id', projectIds);
+          if (projError) throw projError;
+          projects = (proj || []) as ProjectRow[];
+        }
+        setSummaryProjects(projects);
+
+        const { data: tasks, error: taskError } = await supabase
+          .from('task_assignments')
+          .select('id,project_id,phase_id,section_id,subsection_id,task_name,assigned_to,validators,deadline,validation_deadline,status,file_url')
+          .or(`assigned_to.cs.{${userId}},validators.cs.{${userId}}`);
+        if (taskError) throw taskError;
+        setSummaryTasks((tasks || []) as TaskAssignmentRow[]);
+      } catch (error) {
+        console.error('Erreur lors du chargement du résumé intervenant:', error);
+        toast({
+          title: 'Erreur',
+          description: "Impossible de charger le résumé de l'intervenant",
+          variant: 'destructive',
+        });
+      } finally {
+        setSummaryLoading(false);
+      }
+    };
+
+    loadSummary();
+  }, [selectedIntervenantSummary?.id, summaryDialogOpen, supabase, toast]);
+
+  const summaryExecutionTasks = useMemo(() => {
+    if (!selectedIntervenantSummary?.id) return [] as TaskAssignmentRow[];
+    return summaryTasks.filter(t => (t.assigned_to || []).includes(selectedIntervenantSummary.id));
+  }, [selectedIntervenantSummary?.id, summaryTasks]);
+
+  const summaryValidationTasks = useMemo(() => {
+    if (!selectedIntervenantSummary?.id) return [] as TaskAssignmentRow[];
+    return summaryTasks.filter(t => (t.validators || []).includes(selectedIntervenantSummary.id));
+  }, [selectedIntervenantSummary?.id, summaryTasks]);
+
+  const statusColors = {
+    assigned: '#f59e0b',
+    in_progress: '#3b82f6',
+    submitted: '#f97316',
+    validated: '#22c55e',
+    rejected: '#ef4444',
+    finalized: '#10b981'
+  } as const;
+
+  const taskKpis = useMemo(() => {
+    const now = new Date();
+    const all = summaryExecutionTasks;
+    const toValidate = summaryValidationTasks;
+
+    const execTotal = all.length;
+    const execValidated = all.filter(t => t.status === 'validated' || t.status === 'finalized').length;
+    const execRejected = all.filter(t => t.status === 'rejected').length;
+    const execOverdue = all.filter(t => {
+      const d = t.deadline ? new Date(t.deadline) : null;
+      return !!d && !isNaN(d.getTime()) && d < now && t.status !== 'validated' && t.status !== 'finalized';
+    }).length;
+
+    const valTotal = toValidate.length;
+    const valValidated = toValidate.filter(t => t.status === 'validated' || t.status === 'finalized').length;
+    const valOverdue = toValidate.filter(t => {
+      const d = t.validation_deadline ? new Date(t.validation_deadline) : null;
+      return !!d && !isNaN(d.getTime()) && d < now && t.status !== 'validated' && t.status !== 'finalized';
+    }).length;
+
+    const execCompletionRate = execTotal > 0 ? Math.round((execValidated / execTotal) * 100) : 0;
+    const valCompletionRate = valTotal > 0 ? Math.round((valValidated / valTotal) * 100) : 0;
+
+    return {
+      execTotal,
+      execValidated,
+      execRejected,
+      execOverdue,
+      execCompletionRate,
+      valTotal,
+      valValidated,
+      valOverdue,
+      valCompletionRate
+    };
+  }, [summaryExecutionTasks, summaryValidationTasks]);
+
+  const statusPieData = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const t of summaryExecutionTasks) {
+      counts[t.status] = (counts[t.status] || 0) + 1;
+    }
+    return Object.entries(counts)
+      .map(([name, value]) => ({ name, value, color: (statusColors as any)[name] || '#6b7280' }))
+      .filter(d => d.value > 0);
+  }, [summaryExecutionTasks]);
+
+  const perfBarData = useMemo(() => {
+    return [
+      { name: 'Exécution', completion: taskKpis.execCompletionRate, overdue: taskKpis.execOverdue },
+      { name: 'Validation', completion: taskKpis.valCompletionRate, overdue: taskKpis.valOverdue }
+    ];
+  }, [taskKpis.execCompletionRate, taskKpis.execOverdue, taskKpis.valCompletionRate, taskKpis.valOverdue]);
 
   // Fonctions pour la gestion des contacts
 
@@ -411,7 +583,11 @@ const Intervenants: React.FC = () => {
                 </tr>
               ) : (
                 filteredAndSortedIntervenants.map((intervenant) => (
-                  <tr key={intervenant.id} className="hover:bg-gray-50">
+                  <tr
+                    key={intervenant.id}
+                    className="hover:bg-gray-50 cursor-pointer"
+                    onClick={() => openIntervenantSummary(intervenant)}
+                  >
                     <td className="px-4 py-3 font-medium text-gray-900">{getDisplayName(intervenant)}</td>
                     <td className="px-4 py-3 text-gray-500">{intervenant.email}</td>
                     <td className="px-4 py-3 text-gray-500">{intervenant.company || 'Indépendant'}</td>
@@ -429,13 +605,19 @@ const Intervenants: React.FC = () => {
                     </td>
                     <td className="px-4 py-3 space-x-1">
                       <button
-                        onClick={() => prepareEdit(intervenant)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          prepareEdit(intervenant);
+                        }}
                         className="text-xs px-2 py-1 rounded font-medium bg-blue-100 text-blue-800 hover:bg-blue-200"
                       >
                         Modifier
                       </button>
                       <button 
-                        onClick={() => toggleStatus(intervenant.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleStatus(intervenant.id);
+                        }}
                         className={`text-xs px-2 py-1 rounded font-medium ${
                           intervenant.status === 'active'
                             ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
@@ -445,7 +627,10 @@ const Intervenants: React.FC = () => {
                         {intervenant.status === 'active' ? 'Désactiver' : 'Activer'}
                       </button>
                       <button 
-                        onClick={() => prepareDelete(intervenant)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          prepareDelete(intervenant);
+                        }}
                         className="text-xs px-2 py-1 rounded font-medium bg-red-100 text-red-800 hover:bg-red-200"
                       >
                         Supprimer
@@ -458,6 +643,155 @@ const Intervenants: React.FC = () => {
           </table>
         </div>
       )}
+
+      {/* Dialogue résumé & historique */}
+      <Dialog open={summaryDialogOpen} onOpenChange={setSummaryDialogOpen}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Résumé intervenant</DialogTitle>
+            <DialogDescription>
+              {selectedIntervenantSummary ? `${getDisplayName(selectedIntervenantSummary)} • ${selectedIntervenantSummary.email}` : ''}
+            </DialogDescription>
+          </DialogHeader>
+
+          {summaryLoading ? (
+            <div className="py-10 flex justify-center">
+              <div className="w-10 h-10 border-4 border-t-teal-500 border-r-transparent border-b-teal-500 border-l-transparent rounded-full animate-spin"></div>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+                <div className="border rounded-lg p-4 bg-white">
+                  <div className="text-sm text-gray-500">Projets</div>
+                  <div className="text-2xl font-bold">{summaryProjects.length}</div>
+                </div>
+                <div className="border rounded-lg p-4 bg-white">
+                  <div className="text-sm text-gray-500">Tâches (exécution)</div>
+                  <div className="text-2xl font-bold">{taskKpis.execTotal}</div>
+                  <div className="text-xs text-gray-500">Complétion: {taskKpis.execCompletionRate}%</div>
+                </div>
+                <div className="border rounded-lg p-4 bg-white">
+                  <div className="text-sm text-gray-500">Tâches (validation)</div>
+                  <div className="text-2xl font-bold">{taskKpis.valTotal}</div>
+                  <div className="text-xs text-gray-500">Complétion: {taskKpis.valCompletionRate}%</div>
+                </div>
+                <div className="border rounded-lg p-4 bg-white">
+                  <div className="text-sm text-gray-500">Retards</div>
+                  <div className="text-2xl font-bold">{taskKpis.execOverdue + taskKpis.valOverdue}</div>
+                  <div className="text-xs text-gray-500">Exéc: {taskKpis.execOverdue} • Valid: {taskKpis.valOverdue}</div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                <div className="border rounded-lg p-4 bg-white">
+                  <div className="text-sm font-medium text-gray-700 mb-2">Répartition (tâches d’exécution)</div>
+                  <div className="h-72">
+                    {statusPieData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={statusPieData} dataKey="value" nameKey="name" innerRadius={60} outerRadius={95} paddingAngle={2}>
+                            {statusPieData.map((entry, idx) => (
+                              <Cell key={`cell-${idx}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <RechartsTooltip />
+                          <Legend verticalAlign="bottom" height={36} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="h-full flex items-center justify-center text-sm text-gray-500">Aucune donnée</div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="border rounded-lg p-4 bg-white">
+                  <div className="text-sm font-medium text-gray-700 mb-2">Performance</div>
+                  <div className="h-72">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={perfBarData} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" />
+                        <YAxis allowDecimals={false} />
+                        <RechartsTooltip />
+                        <Legend />
+                        <Bar dataKey="completion" name="Complétion (%)" fill="#0f766e" radius={[6, 6, 0, 0]} />
+                        <Bar dataKey="overdue" name="Retards" fill="#ef4444" radius={[6, 6, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border rounded-lg p-4 bg-white">
+                <div className="text-sm font-medium text-gray-700 mb-3">Projets où il est membre</div>
+                {summaryProjects.length === 0 ? (
+                  <div className="text-sm text-gray-500">Aucun projet</div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {summaryProjects.map(p => (
+                      <Badge key={p.id} variant="secondary" className="bg-gray-100 text-gray-800">
+                        {p.name}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                <div className="border rounded-lg p-4 bg-white">
+                  <div className="text-sm font-medium text-gray-700 mb-3">Tâches à exécuter</div>
+                  <div className="space-y-2">
+                    {summaryExecutionTasks.length === 0 ? (
+                      <div className="text-sm text-gray-500">Aucune tâche</div>
+                    ) : (
+                      summaryExecutionTasks.slice(0, 30).map(t => (
+                        <div key={t.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium truncate">{t.task_name}</div>
+                            <div className="text-xs text-gray-500 truncate">{t.phase_id} • {t.section_id} • {t.subsection_id}</div>
+                          </div>
+                          <Badge
+                            variant="secondary"
+                            className="text-white"
+                            style={{ backgroundColor: (statusColors as any)[t.status] || '#6b7280' }}
+                          >
+                            {t.status}
+                          </Badge>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <div className="border rounded-lg p-4 bg-white">
+                  <div className="text-sm font-medium text-gray-700 mb-3">Tâches à valider</div>
+                  <div className="space-y-2">
+                    {summaryValidationTasks.length === 0 ? (
+                      <div className="text-sm text-gray-500">Aucune tâche</div>
+                    ) : (
+                      summaryValidationTasks.slice(0, 30).map(t => (
+                        <div key={t.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium truncate">{t.task_name}</div>
+                            <div className="text-xs text-gray-500 truncate">{t.phase_id} • {t.section_id} • {t.subsection_id}</div>
+                          </div>
+                          <Badge
+                            variant="secondary"
+                            className="text-white"
+                            style={{ backgroundColor: (statusColors as any)[t.status] || '#6b7280' }}
+                          >
+                            {t.status}
+                          </Badge>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Dialogue de modification */}
       {selectedIntervenant && (

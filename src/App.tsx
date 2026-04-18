@@ -36,7 +36,17 @@ import { useAuth } from "./contexts/AuthContext";
 import { supabase } from "./lib/supabase";
 import StorageInitializer from "./components/StorageInitializer";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      refetchOnMount: false,
+      retry: 1,
+      staleTime: 30_000,
+    },
+  },
+});
 
 // Contexte pour gérer le thème
 type ThemeContextType = {

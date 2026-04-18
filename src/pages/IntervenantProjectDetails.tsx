@@ -112,6 +112,7 @@ const IntervenantProjectDetails: React.FC = () => {
   // Vérifier si l'utilisateur est membre du projet
   const [isMember, setIsMember] = useState(false);
   const [loadingMembership, setLoadingMembership] = useState(true);
+  const [isViewerRole, setIsViewerRole] = useState(false);
 
   // États pour les fiches informatives
   const [taskInfoSheets, setTaskInfoSheets] = useState<{[key: string]: TaskInfoSheet}>({});
@@ -127,7 +128,7 @@ const IntervenantProjectDetails: React.FC = () => {
     customProjectStructure,
     customRealizationStructure,
     loading: structureLoading
-  } = useProjectStructure(id || '');
+  } = useProjectStructure(id || '') as any;
 
   // Get translations
   const translations = projectStructureTranslations.fr;
@@ -150,6 +151,7 @@ const IntervenantProjectDetails: React.FC = () => {
         });
         
         if (memberData && memberData.length > 0) {
+          setIsViewerRole(memberData[0]?.role === 'viewer');
           setIsMember(true);
         } else {
           // Si pas membre, vérifier s'il a des tâches assignées dans ce projet
@@ -178,7 +180,17 @@ const IntervenantProjectDetails: React.FC = () => {
     };
     
     checkProjectAccess();
-  }, [id, user, fetchData, toast, navigate]);
+  }, [id, user, fetchData]);
+
+  useEffect(() => {
+    if (!isViewerRole) return;
+    toast({
+      title: "Accès limité",
+      description: "Votre accès aux détails de ce projet est désactivé. Contactez un administrateur.",
+      variant: "destructive",
+    });
+    navigate('/dashboard/intervenant/projets');
+  }, [isViewerRole, navigate, toast]);
 
   // Charger les détails du projet
   useEffect(() => {
@@ -486,6 +498,8 @@ const IntervenantProjectDetails: React.FC = () => {
       </div>
     );
   }
+
+  if (isViewerRole) return null;
 
   if (!project) {
     return (
@@ -850,7 +864,7 @@ const IntervenantProjectDetails: React.FC = () => {
                     <div className="space-y-4">
                       {customProjectStructure.map((section) => {
                         const sectionKey = section.id as keyof typeof translations.sections;
-                        const sectionTranslation = translations.sections[sectionKey];
+                        const sectionTranslation: any = (translations.sections as any)[sectionKey];
                         const sectionExpansionKey = `conception-${section.id}`;
                         const isSectionExpanded = expandedSections[sectionExpansionKey];
                         
@@ -874,7 +888,7 @@ const IntervenantProjectDetails: React.FC = () => {
                               <div className="border-t border-gray-200 p-4 space-y-3">
                                 {section.items.map((subsection) => {
                                   const subsectionKey = subsection.id as keyof typeof sectionTranslation.items;
-                                  const subsectionTranslation = sectionTranslation?.items?.[subsectionKey];
+                                  const subsectionTranslation: any = sectionTranslation?.items?.[subsectionKey];
                                   const subsectionExpansionKey = `conception-${section.id}-${subsection.id}`;
                                   const isSubsectionExpanded = expandedSubsections[subsectionExpansionKey];
                                   
@@ -1025,7 +1039,7 @@ const IntervenantProjectDetails: React.FC = () => {
                     <div className="space-y-4">
                       {customRealizationStructure.map((section) => {
                         const sectionKey = section.id as keyof typeof translations.sections;
-                        const sectionTranslation = translations.sections[sectionKey];
+                        const sectionTranslation: any = (translations.sections as any)[sectionKey];
                         const sectionExpansionKey = `realisation-${section.id}`;
                         const isSectionExpanded = expandedSections[sectionExpansionKey];
                         
@@ -1049,7 +1063,7 @@ const IntervenantProjectDetails: React.FC = () => {
                               <div className="border-t border-gray-200 p-4 space-y-3">
                                 {section.items.map((subsection) => {
                                   const subsectionKey = subsection.id as keyof typeof sectionTranslation.items;
-                                  const subsectionTranslation = sectionTranslation?.items?.[subsectionKey];
+                                  const subsectionTranslation: any = sectionTranslation?.items?.[subsectionKey];
                                   const subsectionExpansionKey = `realisation-${section.id}-${subsection.id}`;
                                   const isSubsectionExpanded = expandedSubsections[subsectionExpansionKey];
                                   

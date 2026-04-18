@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -85,151 +85,186 @@ const Messages: React.FC = () => {
   const [conversationToDelete, setConversationToDelete] = useState<Conversation | null>(null);
   
   // Vérifier si l'utilisateur est admin
-  const isAdmin = user?.user_metadata?.role === 'admin' || 
-                 user?.email === 'admin@aps.com' || 
+  const isAdmin = user?.user_metadata?.role === 'admin' ||
+                 user?.email === 'admin@aps.com' ||
                  JSON.parse(localStorage.getItem('user') || '{}')?.role === 'admin';
-  
-  // Charger les contacts disponibles
-  useEffect(() => {
-    const loadContacts = async () => {
-      try {
+
+  // Charger les messages d'une conversation
+  const loadMessages = useCallback(async (conversationId: string, showLoading = true) => {
+    try {
+      if (showLoading) {
         setLoading(true);
-        setContactsError(false);
-        const fetchedContacts = await getAvailableContacts();
-        setContacts(fetchedContacts);
-        
-        // Après avoir chargé les contacts, charger les conversations
-        await loadConversations();
-      } catch (error) {
-        console.error('Erreur lors du chargement des contacts:', error);
-        setContactsError(true);
+      }
+
+      setMessagesError(false);
+
+      const fetchedMessages = await getMessages(conversationId);
+      setMessages(fetchedMessages);
+
+      setTimeout(() => {
+        if (messageEndRef.current) {
+          messageEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 100);
+    } catch (error) {
+      console.error('Erreur lors du chargement des messages:', error);
+      setMessagesError(true);
+      if (showLoading) {
         toast({
           title: "Erreur",
-          description: "Impossible de charger les contacts. Cliquez sur 'Actualiser' pour réessayer.",
+          description: "Impossible de charger les messages.",
           variant: "destructive"
         });
-      } finally {
+      }
+    } finally {
+      if (showLoading) {
         setLoading(false);
       }
-    };
-    
-    if (user) {
+    }
+  }, [getMessages, toast]);
+
+  // Charger les conversations
+  const loadConversations = useCallback(async (showLoading = true) => {
+    try {
+      if (showLoading) {
+        setLoading(true);
+      }
+
+      setConversationsError(false);
+
+      const fetchedConversations = await getConversations();
+      setConversations(prev => {
+        if (fetchedConversations.length > 0 && !activeConversation && showLoading) {
+          return fetchedConversations;
+        }
+        return fetchedConversations;
+      });
+
+      if (fetchedConversations.length > 0 && !activeConversation && showLoading) {
+        setActiveConversation(fetchedConversations[0]);
+        await loadMessages(fetchedConversations[0].id, showLoading);
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement des conversations:', error);
+      setConversationsError(true);
+      if (showLoading) {
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger les conversations.",
+          variant: "destructive"
+        });
+      }
+    } finally {
+      if (showLoading) {
+        setLoading(false);
+      }
+    }
+  }, [getConversations, activeConversation, loadMessages, toast]);
+
+  // Charger les contacts disponibles (déclaré après loadConversations)
+  const loadContacts = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+    try {
+      if (!silent) setLoading(true);
+      setContactsError(false);
+      const fetchedContacts = await getAvailableContacts();
+      setContacts(fetchedContacts);
+      await loadConversations(silent);
+    } catch (error) {
+      console.error('Erreur lors du chargement des contacts:', error);
+      setContactsError(true);
+      if (!silent) {
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger les contacts.",
+          variant: "destructive"
+        });
+      }
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  }, [getAvailableContacts, loadConversations]);
+
+  useEffect(() => {
+    if (user?.id) {
       loadContacts();
     }
-  }, [user, getAvailableContacts]);
-  
-  // Configuration du temps réel Supabase pour les messages
+  }, [user?.id, loadContacts]);
+
+  // Debounced reload for realtime updates
+  const messagesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleSilentReload = useCallback(() => {
+    if (messagesTimerRef.current) clearTimeout(messagesTimerRef.current);
+    messagesTimerRef.current = setTimeout(() => {
+      loadConversations(false);
+      if (activeConversation) {
+        loadMessages(activeConversation.id, false);
+      }
+      setLastPollingTime(new Date());
+    }, 600);
+  }, [loadConversations, loadMessages, activeConversation]);
+
+  // Configuration du temps réel Supabase pour les messages (avec debounce)
   useEffect(() => {
-    if (!user) return;
-    
-    console.log('🔌 Configuration du temps réel pour les messages...');
-    
-    // S'abonner aux nouveaux messages
+    if (!user?.id) return;
+
     const channel = supabase
-      .channel('messages-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages'
-        },
-        async (payload) => {
-          const newMessage = payload.new as any;
-          console.log('📩 Nouveau message reçu en temps réel:', newMessage);
-          
-          // 1. Rafraîchir la liste des conversations pour mettre à jour les derniers messages et compteurs
-          await loadConversations(false);
-          
-          // 2. Si le message appartient à la conversation active, l'ajouter à la liste
-          if (activeConversation && newMessage.conversation_id === activeConversation.id) {
-            // Éviter les doublons si c'est nous qui avons envoyé le message
-            setMessages(prev => {
-              const exists = prev.some(m => m.id === newMessage.id);
-              if (exists) return prev;
-              
-              const formattedMessage: Message = {
-                id: newMessage.id,
-                conversationId: newMessage.conversation_id,
-                senderId: newMessage.sender_id,
-                content: newMessage.content,
-                timestamp: new Date(newMessage.created_at),
-                isRead: newMessage.is_read
-              };
-              
-              return [...prev, formattedMessage];
-            });
-            
-            // Défiler vers le bas
-            setTimeout(() => {
-              if (messageEndRef.current) {
-                messageEndRef.current.scrollIntoView({ behavior: 'smooth' });
-              }
-            }, 100);
-          }
-        }
-      )
+      .channel(`messages-realtime-${user.id}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, scheduleSilentReload)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, scheduleSilentReload)
       .subscribe();
-    
+
     return () => {
+      if (messagesTimerRef.current) clearTimeout(messagesTimerRef.current);
       supabase.removeChannel(channel);
     };
-  }, [user, activeConversation, supabase]);
-  
-  // Configuration du polling automatique (gardé en fallback mais avec un intervalle plus long)
+  }, [user?.id, supabase, scheduleSilentReload]);
+
+  // Polling de secours très espacé (5 minutes) en cas de défaillance realtime
   useEffect(() => {
-    if (!user) return;
-    
+    if (!user?.id) return;
+
     const pollForUpdates = async () => {
-      // Le temps réel devrait déjà tout gérer, mais on garde un polling lent au cas où
-      if (!isPolling) {
-        setIsPolling(true);
-        try {
-          await loadConversations(false);
-          if (activeConversation) {
-            await loadMessages(activeConversation.id, false);
-          }
-          setLastPollingTime(new Date());
-        } catch (error) {
-          console.error('Erreur lors du polling de secours:', error);
-        } finally {
-          setIsPolling(false);
+      try {
+        await loadConversations(false);
+        if (activeConversation) {
+          await loadMessages(activeConversation.id, false);
         }
+        setLastPollingTime(new Date());
+      } catch (error) {
+        console.error('Erreur lors du polling de secours:', error);
       }
     };
-    
-    const pollingInterval = setInterval(pollForUpdates, 60000); // 1 minute au lieu de 30s
-    
+
+    const pollingInterval = setInterval(pollForUpdates, 5 * 60 * 1000); // 5 minutes
+
     return () => {
       clearInterval(pollingInterval);
     };
-  }, [user, activeConversation]);
-  
-  // Fonction manuelle pour rafraîchir les données
+  }, [user?.id, activeConversation?.id, loadConversations, loadMessages]);
+
+  // Fonction manuelle pour rafraîchir les données (erreur uniquement)
   const handleRefresh = async () => {
     if (isPolling) return;
-    
+
     setIsPolling(true);
     try {
-      // Reset all error states
       setContactsError(false);
       setConversationsError(false);
       setMessagesError(false);
-      
-      // If we had a contacts error, reload contacts first
+
       if (contactsError) {
         const fetchedContacts = await getAvailableContacts();
         setContacts(fetchedContacts);
       }
-      
+
       await loadConversations(true);
-      
+
       if (activeConversation) {
         await loadMessages(activeConversation.id, true);
       }
-      
+
       setLastPollingTime(new Date());
-      
+
       toast({
         title: "Mise à jour",
         description: "Les messages ont été actualisés",
@@ -243,77 +278,6 @@ const Messages: React.FC = () => {
       });
     } finally {
       setIsPolling(false);
-    }
-  };
-  
-  // Charger les conversations
-  const loadConversations = async (showLoading = true) => {
-    try {
-      if (showLoading) {
-        setLoading(true);
-      }
-      
-      setConversationsError(false);
-      
-      // Récupérer les vraies conversations depuis Supabase
-      const fetchedConversations = await getConversations();
-      setConversations(fetchedConversations);
-      
-      // Sélectionner la première conversation par défaut seulement au premier chargement
-      if (fetchedConversations.length > 0 && !activeConversation && showLoading) {
-        setActiveConversation(fetchedConversations[0]);
-        await loadMessages(fetchedConversations[0].id, showLoading);
-      }
-    } catch (error) {
-      console.error('Erreur lors du chargement des conversations:', error);
-      setConversationsError(true);
-      if (showLoading) {
-        toast({
-          title: "Erreur",
-          description: "Impossible de charger les conversations. Cliquez sur 'Actualiser' pour réessayer.",
-          variant: "destructive"
-        });
-      }
-    } finally {
-      if (showLoading) {
-        setLoading(false);
-      }
-    }
-  };
-  
-  // Charger les messages d'une conversation
-  const loadMessages = async (conversationId: string, showLoading = true) => {
-    try {
-      if (showLoading) {
-        setLoading(true);
-      }
-      
-      setMessagesError(false);
-      
-      // Récupérer les vrais messages depuis Supabase
-      const fetchedMessages = await getMessages(conversationId);
-      setMessages(fetchedMessages);
-      
-      // Défiler vers le bas automatiquement
-      setTimeout(() => {
-        if (messageEndRef.current) {
-          messageEndRef.current.scrollIntoView({ behavior: 'smooth' });
-        }
-      }, 100);
-    } catch (error) {
-      console.error('Erreur lors du chargement des messages:', error);
-      setMessagesError(true);
-      if (showLoading) {
-        toast({
-          title: "Erreur",
-          description: "Impossible de charger les messages. Cliquez sur 'Actualiser' pour réessayer.",
-          variant: "destructive"
-        });
-      }
-    } finally {
-      if (showLoading) {
-        setLoading(false);
-      }
     }
   };
   
@@ -519,9 +483,9 @@ const Messages: React.FC = () => {
               Vérifiez votre connexion Internet et réessayez.
             </AlertDescription>
           </Alert>
-          <Button 
-            variant="default" 
-            onClick={handleRefresh}
+          <Button
+            variant="default"
+            onClick={() => loadContacts()}
             disabled={isPolling}
             className="mt-4"
           >
@@ -545,21 +509,18 @@ const Messages: React.FC = () => {
         </div>
         
         <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-50 border border-green-100">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+            </span>
+            <span className="text-xs font-semibold text-green-700">Temps réel</span>
+          </div>
           {lastPollingTime && (
-            <span className="text-xs text-gray-500">
+            <span className="text-xs text-gray-500 ml-2">
               {t.lastUpdate}: {formatTimestamp(lastPollingTime)}
             </span>
           )}
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleRefresh}
-            disabled={isPolling || messagesLoading}
-            className="flex items-center gap-1"
-          >
-            <RefreshCw className={`h-4 w-4 ${isPolling ? 'animate-spin' : ''}`} />
-            {t.refresh}
-          </Button>
         </div>
       </div>
 

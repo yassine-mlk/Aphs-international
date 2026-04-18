@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import { useSupabase } from './useSupabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
@@ -806,37 +806,59 @@ export function useVideoMeetings() {
   }, [user, supabase, toast, createMeeting]);
 
   // Charger les réunions
+  const loadMeetings = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!user?.id) return;
+    if (!silent) setLoadingMeetings(true);
+    try {
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('user_id', user.id)
+        .single();
+
+      const isAdmin = profileData?.role === 'admin';
+
+      const meetingsData = isAdmin
+        ? await getAllMeetings()
+        : await getUserMeetings();
+
+      setMeetings(meetingsData);
+    } catch (error) {
+      console.error("Erreur lors du chargement des réunions:", error);
+    } finally {
+      if (!silent) setLoadingMeetings(false);
+    }
+  }, [getAllMeetings, getUserMeetings, supabase, user?.id]);
+
   useEffect(() => {
-    const loadMeetings = async () => {
-      setLoadingMeetings(true);
-      try {
-        // Vérifier si l'utilisateur est admin en utilisant son rôle dans profiles
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('user_id', user?.id)
-          .single();
-          
-        const isAdmin = profileData?.role === 'admin';
-        
-        const meetingsData = isAdmin 
-          ? await getAllMeetings() 
-          : await getUserMeetings();
-          
-        setMeetings(meetingsData);
-      } catch (error) {
-        console.error("Erreur lors du chargement des réunions:", error);
-      } finally {
-        setLoadingMeetings(false);
-      }
-    };
-    
-    if (user) {
+    if (user?.id) {
       loadMeetings();
     }
-    // Charger aussi la liste des utilisateurs pour les invitations
-    // TODO: Implémenter cette partie
-  }, [getAllMeetings, getUserMeetings, supabase, user]);
+  }, [user?.id, loadMeetings]);
+
+  // Temps réel avec debounce
+  const meetingsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const scheduleSilentReload = () => {
+      if (meetingsTimerRef.current) clearTimeout(meetingsTimerRef.current);
+      meetingsTimerRef.current = setTimeout(() => {
+        loadMeetings({ silent: true });
+      }, 600);
+    };
+
+    const channel = supabase
+      .channel(`video-meetings-${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'video_meetings' }, scheduleSilentReload)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'video_meeting_participants' }, scheduleSilentReload)
+      .subscribe();
+
+    return () => {
+      if (meetingsTimerRef.current) clearTimeout(meetingsTimerRef.current);
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, supabase, loadMeetings]);
 
   // Supprimer définitivement une réunion (admin uniquement)
   const deleteMeeting = useCallback(async (meetingId: string): Promise<boolean> => {
