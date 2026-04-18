@@ -23,6 +23,9 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { translations } from '@/lib/translations';
 import { useRecentActivities, type RecentActivity } from '@/hooks/useRecentActivities';
 import { ActivityIcon } from '@/components/ActivityIcon';
+import { motion, AnimatePresence } from 'framer-motion';
+import { DashboardSkeleton } from '@/components/Skeletons';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface IntervenantStats {
   totalTasks: number;
@@ -331,20 +334,47 @@ const IntervenantDashboard: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center space-y-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="text-gray-600">Chargement de votre tableau de bord...</p>
+      <div className="min-h-screen bg-white p-6">
+        <div className="max-w-7xl mx-auto">
+          <DashboardSkeleton />
         </div>
       </div>
     );
   }
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: {
+      y: 0,
+      opacity: 1,
+      transition: {
+        type: "spring" as const,
+        stiffness: 100,
+        damping: 15
+      }
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-white p-6">
+    <motion.div 
+      initial="hidden"
+      animate="visible"
+      variants={containerVariants}
+      className="min-h-screen bg-white p-6"
+    >
       <div className="max-w-7xl mx-auto space-y-8">
         {/* En-tête */}
-        <div className="flex justify-between items-end border-b border-gray-100 pb-6">
+        <motion.div variants={itemVariants} className="flex justify-between items-end border-b border-gray-100 pb-6">
           <div>
             <h1 className="text-4xl font-black text-black tracking-tight">
               {dashboardTranslations.title}
@@ -356,198 +386,239 @@ const IntervenantDashboard: React.FC = () => {
           <Button 
             onClick={loadStats} 
             variant="outline" 
-            className="flex items-center gap-2 border-black text-black hover:bg-black hover:text-white transition-all font-bold"
+            className="flex items-center gap-2 border-black text-black hover:bg-black hover:text-white transition-all font-bold active:scale-95"
           >
-            <RefreshCw className="h-4 w-4" />
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             {dashboardTranslations.refresh}
           </Button>
-        </div>
+        </motion.div>
 
         {/* Statistiques principales */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="border-0 shadow-xl bg-gray-50 rounded-2xl overflow-hidden">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-xs font-bold text-gray-400 uppercase tracking-wider">Mes Tâches</CardTitle>
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <ClipboardCheck className="h-5 w-5 text-blue-600" />
-              </div>
-            </CardHeader>
-            <CardContent className="pt-4">
-              <div className="text-4xl font-black text-black">{stats.totalTasks}</div>
-              <div className="flex flex-wrap gap-2 mt-4">
-                <Badge variant="secondary" className="bg-white text-black border border-gray-200">
-                  {stats.inProgressTasks} {dashboardTranslations.stats.inProgress}
-                </Badge>
-                <Badge variant="secondary" className="bg-blue-600 text-white border-blue-600">
-                  {stats.validatedTasks} {dashboardTranslations.stats.validated}
-                </Badge>
-              </div>
-            </CardContent>
-          </Card>
+          <motion.div variants={itemVariants}>
+            <Card className="border-0 shadow-xl bg-gray-50 rounded-2xl overflow-hidden hover:shadow-2xl transition-shadow duration-300">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-xs font-bold text-gray-400 uppercase tracking-wider">Mes Tâches</CardTitle>
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <ClipboardCheck className="h-5 w-5 text-blue-600" />
+                </div>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <div className="text-4xl font-black text-black">{stats.totalTasks}</div>
+                <div className="flex flex-wrap gap-2 mt-4">
+                  <Badge variant="secondary" className="bg-white text-black border border-gray-200">
+                    {stats.inProgressTasks} {dashboardTranslations.stats.inProgress}
+                  </Badge>
+                  <Badge variant="secondary" className="bg-blue-600 text-white border-blue-600">
+                    {stats.validatedTasks} {dashboardTranslations.stats.validated}
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
 
-          <Card className="border-0 shadow-xl bg-gray-50 rounded-2xl overflow-hidden">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-xs font-bold text-gray-400 uppercase tracking-wider">Projets</CardTitle>
-              <div className="p-2 bg-black/5 rounded-lg">
-                <Briefcase className="h-5 w-5 text-black" />
-              </div>
-            </CardHeader>
-            <CardContent className="pt-4">
-              <div className="text-4xl font-black text-black">{stats.totalProjects}</div>
-              <p className="text-sm text-gray-500 mt-2 font-medium">
-                {stats.activeProjects} projets actifs
-              </p>
-            </CardContent>
-          </Card>
+          <motion.div variants={itemVariants}>
+            <Card className="border-0 shadow-xl bg-gray-50 rounded-2xl overflow-hidden hover:shadow-2xl transition-shadow duration-300">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-xs font-bold text-gray-400 uppercase tracking-wider">Projets</CardTitle>
+                <div className="p-2 bg-black/5 rounded-lg">
+                  <Briefcase className="h-5 w-5 text-black" />
+                </div>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <div className="text-4xl font-black text-black">{stats.totalProjects}</div>
+                <p className="text-sm text-gray-500 mt-2 font-medium">
+                  {stats.activeProjects} projets actifs
+                </p>
+              </CardContent>
+            </Card>
+          </motion.div>
 
-          <Card className="border-0 shadow-xl bg-gray-50 rounded-2xl overflow-hidden">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-xs font-bold text-gray-400 uppercase tracking-wider">Performance</CardTitle>
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <TrendingUp className="h-5 w-5 text-blue-600" />
-              </div>
-            </CardHeader>
-            <CardContent className="pt-4">
-              <div className="text-4xl font-black text-black">{stats.completionRate}%</div>
-              <p className="text-sm text-gray-500 mt-2 font-medium">
-                {dashboardTranslations.stats.successRate}
-              </p>
-            </CardContent>
-          </Card>
+          <motion.div variants={itemVariants}>
+            <Card className="border-0 shadow-xl bg-gray-50 rounded-2xl overflow-hidden hover:shadow-2xl transition-shadow duration-300">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-xs font-bold text-gray-400 uppercase tracking-wider">Performance</CardTitle>
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <TrendingUp className="h-5 w-5 text-blue-600" />
+                </div>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <div className="text-4xl font-black text-black">{stats.completionRate}%</div>
+                <p className="text-sm text-gray-500 mt-2 font-medium">
+                  {dashboardTranslations.stats.successRate}
+                </p>
+              </CardContent>
+            </Card>
+          </motion.div>
 
-          <Card className="border-0 shadow-xl bg-gray-50 rounded-2xl overflow-hidden">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-xs font-bold text-gray-400 uppercase tracking-wider">Alertes</CardTitle>
-              <div className="p-2 bg-red-50 rounded-lg">
-                <AlertTriangle className="h-5 w-5 text-red-600" />
-              </div>
-            </CardHeader>
-            <CardContent className="pt-4">
-              <div className="text-4xl font-black text-red-600">{stats.overdueTasks}</div>
-              <p className="text-sm text-red-600 mt-2 font-bold">
-                {dashboardTranslations.stats.overdueTasks}
-              </p>
-            </CardContent>
-          </Card>
+          <motion.div variants={itemVariants}>
+            <Card className="border-0 shadow-xl bg-gray-50 rounded-2xl overflow-hidden hover:shadow-2xl transition-shadow duration-300">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-xs font-bold text-gray-400 uppercase tracking-wider">Alertes</CardTitle>
+                <div className="p-2 bg-red-50 rounded-lg">
+                  <AlertTriangle className="h-5 w-5 text-red-600" />
+                </div>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <div className="text-4xl font-black text-red-600">{stats.overdueTasks}</div>
+                <p className="text-sm text-red-600 mt-2 font-bold">
+                  {dashboardTranslations.stats.overdueTasks}
+                </p>
+              </CardContent>
+            </Card>
+          </motion.div>
         </div>
 
         {/* Onglets avec contenu */}
         <Tabs defaultValue="tasks" className="space-y-8">
-          <TabsList className="flex w-full bg-gray-100 p-1 rounded-xl">
-            <TabsTrigger value="tasks" className="flex-1 py-3 rounded-lg data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm font-bold transition-all">
-              {dashboardTranslations.recentTasks.title}
-            </TabsTrigger>
-            <TabsTrigger value="activities" className="flex-1 py-3 rounded-lg data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm font-bold transition-all">
-              {dashboardTranslations.recentActivities.title}
-            </TabsTrigger>
-          </TabsList>
+          <motion.div variants={itemVariants}>
+            <TabsList className="flex w-full bg-gray-100 p-1 rounded-xl">
+              <TabsTrigger value="tasks" className="flex-1 py-3 rounded-lg data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm font-bold transition-all">
+                {dashboardTranslations.recentTasks.title}
+              </TabsTrigger>
+              <TabsTrigger value="activities" className="flex-1 py-3 rounded-lg data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm font-bold transition-all">
+                {dashboardTranslations.recentActivities.title}
+              </TabsTrigger>
+            </TabsList>
+          </motion.div>
 
           {/* Tâches récentes */}
           <TabsContent value="tasks" className="space-y-6">
-            <Card className="border border-gray-100 shadow-2xl bg-white rounded-3xl overflow-hidden">
-              <CardHeader className="border-b border-gray-50 pb-6">
-                <CardTitle className="flex items-center gap-3 text-2xl font-black text-black">
-                  <div className="p-2 bg-blue-600 rounded-lg">
-                    <ClipboardCheck className="h-6 w-6 text-white" />
-                  </div>
-                  {dashboardTranslations.recentTasks.title}
-                </CardTitle>
-                <CardDescription className="text-gray-500 font-medium text-base">
-                  {dashboardTranslations.recentTasks.description}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pt-8">
-                <div className="grid grid-cols-1 gap-4">
-                  {recentTasks.length > 0 ? recentTasks.map((task) => {
-                    const deadline = formatDeadline(task.deadline);
-                    return (
-                      <div key={task.id} className="flex items-center justify-between p-6 rounded-2xl border border-gray-100 hover:border-blue-600 hover:shadow-xl transition-all group bg-gray-50/50">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-3 mb-3">
-                            <h3 className="text-lg font-bold text-black group-hover:text-blue-600 transition-colors truncate">{task.task_name}</h3>
-                            <Badge variant="outline" className={`${getStatusColor(task.status)} font-bold px-3 py-1 rounded-full`}>
-                              {getStatusLabel(task.status)}
-                            </Badge>
-                          </div>
-                          <div className="flex items-center gap-4 text-sm font-medium text-gray-500">
-                            <span className="flex items-center gap-1.5">
-                              <Briefcase className="h-4 w-4 text-gray-400" />
-                              {task.project_name}
-                            </span>
-                            <span className={`flex items-center gap-1.5 ${deadline.color}`}>
-                              <Clock className="h-4 w-4" />
-                              {deadline.text}
-                            </span>
-                          </div>
-                        </div>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="rounded-full hover:bg-blue-600 hover:text-white transition-all ml-4"
-                          onClick={() => navigate(`/dashboard/tasks/${task.id}`)}
-                        >
-                          <TrendingUp className="h-5 w-5" />
-                        </Button>
-                      </div>
-                    );
-                  }) : (
-                    <div className="text-center py-16 text-gray-400">
-                      <ClipboardCheck className="h-20 w-20 mx-auto mb-6 text-gray-100" />
-                      <p className="text-xl font-medium">{dashboardTranslations.recentTasks.noTasks}</p>
+            <motion.div variants={itemVariants}>
+              <Card className="border border-gray-100 shadow-2xl bg-white rounded-3xl overflow-hidden">
+                <CardHeader className="border-b border-gray-50 pb-6">
+                  <CardTitle className="flex items-center gap-3 text-2xl font-black text-black">
+                    <div className="p-2 bg-blue-600 rounded-lg">
+                      <ClipboardCheck className="h-6 w-6 text-white" />
                     </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+                    {dashboardTranslations.recentTasks.title}
+                  </CardTitle>
+                  <CardDescription className="text-gray-500 font-medium text-base">
+                    {dashboardTranslations.recentTasks.description}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-8">
+                  <div className="grid grid-cols-1 gap-4">
+                    {recentTasks.length > 0 ? (
+                      <AnimatePresence mode="popLayout">
+                        {recentTasks.map((task) => {
+                          const deadline = formatDeadline(task.deadline);
+                          return (
+                            <motion.div 
+                              layout
+                              initial={{ opacity: 0, scale: 0.95 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.95 }}
+                              key={task.id} 
+                              className="flex items-center justify-between p-6 rounded-2xl border border-gray-100 hover:border-blue-600 hover:shadow-xl transition-all group bg-gray-50/50 cursor-pointer"
+                              onClick={() => navigate(`/dashboard/tasks/${task.id}`)}
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-3 mb-3">
+                                  <h3 className="text-lg font-bold text-black group-hover:text-blue-600 transition-colors truncate">{task.task_name}</h3>
+                                  <Badge variant="outline" className={`${getStatusColor(task.status)} font-bold px-3 py-1 rounded-full`}>
+                                    {getStatusLabel(task.status)}
+                                  </Badge>
+                                </div>
+                                <div className="flex items-center gap-4 text-sm font-medium text-gray-500">
+                                  <span className="flex items-center gap-1.5">
+                                    <Briefcase className="h-4 w-4 text-gray-400" />
+                                    {task.project_name}
+                                  </span>
+                                  <span className={`flex items-center gap-1.5 ${deadline.color}`}>
+                                    <Clock className="h-4 w-4" />
+                                    {deadline.text}
+                                  </span>
+                                </div>
+                              </div>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="rounded-full hover:bg-blue-600 hover:text-white transition-all ml-4"
+                              >
+                                <TrendingUp className="h-5 w-5" />
+                              </Button>
+                            </motion.div>
+                          );
+                        })}
+                      </AnimatePresence>
+                    ) : (
+                      <div className="text-center py-16 text-gray-400">
+                        <ClipboardCheck className="h-20 w-20 mx-auto mb-6 text-gray-100" />
+                        <p className="text-xl font-medium">{dashboardTranslations.recentTasks.noTasks}</p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
           </TabsContent>
 
           {/* Activités récentes */}
           <TabsContent value="activities" className="space-y-6">
-            <Card className="border border-gray-100 shadow-2xl bg-white rounded-3xl overflow-hidden">
-              <CardHeader className="border-b border-gray-50 pb-6">
-                <CardTitle className="flex items-center gap-3 text-2xl font-black text-black">
-                  <div className="p-2 bg-black rounded-lg">
-                    <Clock className="h-6 w-6 text-white" />
-                  </div>
-                  {dashboardTranslations.recentActivities.title}
-                </CardTitle>
-                <CardDescription className="text-gray-500 font-medium text-base">
-                  {dashboardTranslations.recentActivities.description}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pt-8">
-                <div className="space-y-4">
-                  {activitiesLoading ? (
-                    <div className="text-center py-4">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                      <p className="text-sm text-gray-500 mt-2">{dashboardTranslations.loading}</p>
+            <motion.div variants={itemVariants}>
+              <Card className="border border-gray-100 shadow-2xl bg-white rounded-3xl overflow-hidden">
+                <CardHeader className="border-b border-gray-50 pb-6">
+                  <CardTitle className="flex items-center gap-3 text-2xl font-black text-black">
+                    <div className="p-2 bg-black rounded-lg">
+                      <Clock className="h-6 w-6 text-white" />
                     </div>
-                  ) : recentActivities.length > 0 ? (
-                    recentActivities.map((activity) => (
-                      <div key={activity.id} className="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
-                        <div className="flex-shrink-0 mt-1">
-                          <ActivityIcon type={activity.iconType} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900">{activity.title}</p>
-                          <p className="text-sm text-gray-500">{activity.description}</p>
-                          <p className="text-xs text-gray-400 mt-1">{formatTimeAgo(activity.timestamp)}</p>
-                        </div>
+                    {dashboardTranslations.recentActivities.title}
+                  </CardTitle>
+                  <CardDescription className="text-gray-500 font-medium text-base">
+                    {dashboardTranslations.recentActivities.description}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-8">
+                  <div className="space-y-4">
+                    {activitiesLoading ? (
+                      <div className="space-y-4">
+                        {[1, 2, 3].map(i => (
+                          <div key={i} className="flex items-center space-x-3">
+                            <Skeleton className="h-10 w-10 rounded-full" />
+                            <div className="space-y-2 flex-1">
+                              <Skeleton className="h-4 w-1/3" />
+                              <Skeleton className="h-3 w-1/2" />
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-8 text-gray-500">
-                      <Activity className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                      <p>{dashboardTranslations.recentActivities.noActivities}</p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+                    ) : recentActivities.length > 0 ? (
+                      <AnimatePresence mode="popLayout">
+                        {recentActivities.map((activity) => (
+                          <motion.div 
+                            layout
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: 20 }}
+                            key={activity.id} 
+                            className="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-50 transition-colors"
+                          >
+                            <div className="flex-shrink-0 mt-1">
+                              <ActivityIcon type={activity.iconType} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900">{activity.title}</p>
+                              <p className="text-sm text-gray-500">{activity.description}</p>
+                              <p className="text-xs text-gray-400 mt-1">{formatTimeAgo(activity.timestamp)}</p>
+                            </div>
+                          </motion.div>
+                        ))}
+                      </AnimatePresence>
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <Activity className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                        <p>{dashboardTranslations.recentActivities.noActivities}</p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
           </TabsContent>
         </Tabs>
       </div>
-    </div>
+    </motion.div>
   );
 };
 

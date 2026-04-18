@@ -18,6 +18,9 @@ import { useSupabase } from '@/hooks/useSupabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRecentActivities, type RecentActivity } from '@/hooks/useRecentActivities';
 import { ActivityIcon } from '@/components/ActivityIcon';
+import { motion, AnimatePresence } from 'framer-motion';
+import { DashboardSkeleton } from '@/components/Skeletons';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface DashboardStats {
   totalProjects: number;
@@ -196,20 +199,47 @@ const AdminDashboard: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center space-y-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="text-gray-600">Chargement du tableau de bord...</p>
+      <div className="min-h-screen bg-gray-50 p-6">
+        <div className="max-w-7xl mx-auto">
+          <DashboardSkeleton />
         </div>
       </div>
     );
   }
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: {
+      y: 0,
+      opacity: 1,
+      transition: {
+        type: "spring" as const,
+        stiffness: 100,
+        damping: 15
+      }
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <motion.div 
+      initial="hidden"
+      animate="visible"
+      variants={containerVariants}
+      className="min-h-screen bg-gray-50 p-6"
+    >
       <div className="max-w-7xl mx-auto space-y-6">
         {/* En-tête */}
-        <div className="flex justify-between items-center">
+        <motion.div variants={itemVariants} className="flex justify-between items-center">
           <div>
             <h1 className="text-4xl font-black text-black tracking-tight">
               Tableau de Bord
@@ -221,94 +251,103 @@ const AdminDashboard: React.FC = () => {
           <Button 
             onClick={loadStats} 
             variant="outline" 
-            className="flex items-center gap-2 border-black text-black hover:bg-black hover:text-white transition-all"
+            className="flex items-center gap-2 border-black text-black hover:bg-black hover:text-white transition-all active:scale-95"
           >
-            <RefreshCw className="h-4 w-4" />
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Actualiser
           </Button>
-        </div>
+        </motion.div>
 
         {/* Statistiques principales */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="border-0 shadow-xl bg-white rounded-2xl overflow-hidden">
-            <CardHeader className="flex flex-row items-center justify-between pb-2 border-b border-gray-50">
-              <CardTitle className="text-xs font-bold text-gray-400 uppercase tracking-wider">Projets</CardTitle>
-              <div className="p-2 bg-blue-50 rounded-lg">
-                <Briefcase className="h-5 w-5 text-blue-600" />
-              </div>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <div className="text-4xl font-black text-black">{stats.totalProjects}</div>
-              <div className="flex flex-wrap gap-2 mt-4">
-                <Badge variant="secondary" className="bg-blue-600 text-white hover:bg-blue-700">
-                  {stats.activeProjects} actifs
-                </Badge>
-                <Badge variant="secondary" className="bg-black text-white hover:bg-gray-800">
-                  {stats.completedProjects} terminés
-                </Badge>
-              </div>
-            </CardContent>
-          </Card>
+          <motion.div variants={itemVariants}>
+            <Card className="border-0 shadow-xl bg-white rounded-2xl overflow-hidden hover:shadow-2xl transition-shadow duration-300">
+              <CardHeader className="flex flex-row items-center justify-between pb-2 border-b border-gray-50">
+                <CardTitle className="text-xs font-bold text-gray-400 uppercase tracking-wider">Projets</CardTitle>
+                <div className="p-2 bg-blue-50 rounded-lg">
+                  <Briefcase className="h-5 w-5 text-blue-600" />
+                </div>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <div className="text-4xl font-black text-black">{stats.totalProjects}</div>
+                <div className="flex flex-wrap gap-2 mt-4">
+                  <Badge variant="secondary" className="bg-blue-600 text-white hover:bg-blue-700">
+                    {stats.activeProjects} actifs
+                  </Badge>
+                  <Badge variant="secondary" className="bg-black text-white hover:bg-gray-800">
+                    {stats.completedProjects} terminés
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
 
-          <Card className="border-0 shadow-xl bg-white rounded-2xl overflow-hidden">
-            <CardHeader className="flex flex-row items-center justify-between pb-2 border-b border-gray-50">
-              <CardTitle className="text-xs font-bold text-gray-400 uppercase tracking-wider">Intervenants</CardTitle>
-              <div className="p-2 bg-gray-50 rounded-lg">
-                <Users className="h-5 w-5 text-black" />
-              </div>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <div className="text-4xl font-black text-black">{stats.totalIntervenants}</div>
-              <p className="text-sm text-gray-500 mt-2 font-medium">
-                Spécialistes actifs
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-0 shadow-xl bg-white rounded-2xl overflow-hidden">
-            <CardHeader className="flex flex-row items-center justify-between pb-2 border-b border-gray-50">
-              <CardTitle className="text-xs font-bold text-gray-400 uppercase tracking-wider">Tâches</CardTitle>
-              <div className="p-2 bg-blue-50 rounded-lg">
-                <ClipboardCheck className="h-5 w-5 text-blue-600" />
-              </div>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <div className="text-4xl font-black text-black">{stats.totalTasks}</div>
-              <div className="flex flex-wrap gap-2 mt-4">
-                <Badge variant="secondary" className="bg-blue-100 text-blue-700 font-bold">
-                  {stats.pendingTasks} en cours
-                </Badge>
-                <Badge variant="secondary" className="bg-gray-100 text-black font-bold">
-                  {stats.completedTasks} validées
-                </Badge>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-0 shadow-xl bg-white rounded-2xl overflow-hidden">
-            <CardHeader className="flex flex-row items-center justify-between pb-2 border-b border-gray-50">
-              <CardTitle className="text-xs font-bold text-gray-400 uppercase tracking-wider">Alertes</CardTitle>
-              <div className="p-2 bg-red-50 rounded-lg">
-                <AlertTriangle className="h-5 w-5 text-red-600" />
-              </div>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <div className="text-4xl font-black text-red-600">{stats.overdueTasks + stats.unassignedTasks}</div>
-              <div className="flex flex-col gap-1 mt-3">
-                <p className="text-xs text-red-600 font-bold flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 bg-red-600 rounded-full"></span>
-                  {stats.overdueTasks} tâches en retard
+          <motion.div variants={itemVariants}>
+            <Card className="border-0 shadow-xl bg-white rounded-2xl overflow-hidden hover:shadow-2xl transition-shadow duration-300">
+              <CardHeader className="flex flex-row items-center justify-between pb-2 border-b border-gray-50">
+                <CardTitle className="text-xs font-bold text-gray-400 uppercase tracking-wider">Intervenants</CardTitle>
+                <div className="p-2 bg-gray-50 rounded-lg">
+                  <Users className="h-5 w-5 text-black" />
+                </div>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <div className="text-4xl font-black text-black">{stats.totalIntervenants}</div>
+                <p className="text-sm text-gray-500 mt-2 font-medium">
+                  Spécialistes actifs
                 </p>
-                <p className="text-xs text-orange-600 font-bold flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 bg-orange-600 rounded-full"></span>
-                  {stats.unassignedTasks} tâches non assignées
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div variants={itemVariants}>
+            <Card className="border-0 shadow-xl bg-white rounded-2xl overflow-hidden hover:shadow-2xl transition-shadow duration-300">
+              <CardHeader className="flex flex-row items-center justify-between pb-2 border-b border-gray-50">
+                <CardTitle className="text-xs font-bold text-gray-400 uppercase tracking-wider">Tâches</CardTitle>
+                <div className="p-2 bg-blue-50 rounded-lg">
+                  <ClipboardCheck className="h-5 w-5 text-blue-600" />
+                </div>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <div className="text-4xl font-black text-black">{stats.totalTasks}</div>
+                <div className="flex flex-wrap gap-2 mt-4">
+                  <Badge variant="secondary" className="bg-blue-100 text-blue-700 font-bold">
+                    {stats.pendingTasks} en cours
+                  </Badge>
+                  <Badge variant="secondary" className="bg-gray-100 text-black font-bold">
+                    {stats.completedTasks} validées
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div variants={itemVariants}>
+            <Card className="border-0 shadow-xl bg-white rounded-2xl overflow-hidden hover:shadow-2xl transition-shadow duration-300">
+              <CardHeader className="flex flex-row items-center justify-between pb-2 border-b border-gray-50">
+                <CardTitle className="text-xs font-bold text-gray-400 uppercase tracking-wider">Alertes</CardTitle>
+                <div className="p-2 bg-red-50 rounded-lg">
+                  <AlertTriangle className="h-5 w-5 text-red-600" />
+                </div>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <div className="text-4xl font-black text-red-600">{stats.overdueTasks + stats.unassignedTasks}</div>
+                <div className="flex flex-col gap-1 mt-3">
+                  <p className="text-xs text-red-600 font-bold flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 bg-red-600 rounded-full"></span>
+                    {stats.overdueTasks} tâches en retard
+                  </p>
+                  <p className="text-xs text-orange-600 font-bold flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 bg-orange-600 rounded-full"></span>
+                    {stats.unassignedTasks} tâches non assignées
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
         </div>
 
           {/* Activités récentes */}
+          <motion.div variants={itemVariants}>
             <Card className="border-0 shadow-2xl bg-white rounded-2xl overflow-hidden">
               <CardHeader className="border-b border-gray-50 pb-4">
                 <CardTitle className="flex items-center gap-2 text-black font-bold">
@@ -322,23 +361,39 @@ const AdminDashboard: React.FC = () => {
               <CardContent className="pt-6">
                 <div className="space-y-4">
                   {activitiesLoading ? (
-                    <div className="text-center py-4">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                      <p className="text-sm text-gray-500 mt-2">Chargement des activités...</p>
+                    <div className="space-y-4">
+                      {[1, 2, 3].map(i => (
+                        <div key={i} className="flex items-center space-x-3">
+                          <Skeleton className="h-10 w-10 rounded-full" />
+                          <div className="space-y-2 flex-1">
+                            <Skeleton className="h-4 w-1/3" />
+                            <Skeleton className="h-3 w-1/2" />
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   ) : recentActivities.length > 0 ? (
-                    recentActivities.map((activity) => (
-                      <div key={activity.id} className="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
-                        <div className="flex-shrink-0 mt-1">
-                          <ActivityIcon type={activity.iconType} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900">{activity.title}</p>
-                          <p className="text-sm text-gray-500">{activity.description}</p>
-                          <p className="text-xs text-gray-400 mt-1">{formatTimeAgo(activity.timestamp)}</p>
-                        </div>
-                      </div>
-                    ))
+                    <AnimatePresence mode="popLayout">
+                      {recentActivities.map((activity) => (
+                        <motion.div 
+                          layout
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 20 }}
+                          key={activity.id} 
+                          className="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-50 transition-colors"
+                        >
+                          <div className="flex-shrink-0 mt-1">
+                            <ActivityIcon type={activity.iconType} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900">{activity.title}</p>
+                            <p className="text-sm text-gray-500">{activity.description}</p>
+                            <p className="text-xs text-gray-400 mt-1">{formatTimeAgo(activity.timestamp)}</p>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
                   ) : (
                     <div className="text-center py-8 text-gray-500">
                       <Clock className="h-12 w-12 mx-auto mb-4 text-gray-300" />
@@ -348,8 +403,9 @@ const AdminDashboard: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
+          </motion.div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 
