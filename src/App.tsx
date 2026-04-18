@@ -67,18 +67,28 @@ export function useTheme() {
 // Provider de thème
 const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
-  
+
   useEffect(() => {
     const loadTheme = async () => {
       try {
         // Essayer de récupérer l'utilisateur actuel
         const { data: userData } = await supabase.auth.getUser();
-        
+
         if (userData?.user) {
-          // Note: Les paramètres de thème sont maintenant stockés uniquement en localStorage
-          // pour éviter les erreurs avec user_settings qui n'existe plus
+          // Charger le thème depuis la table profiles
+          const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('theme')
+            .eq('user_id', userData.user.id)
+            .single();
+
+          if (profile?.theme) {
+            setTheme(profile.theme as 'light' | 'dark');
+            localStorage.setItem('preferredTheme', profile.theme);
+            return;
+          }
         }
-        
+
         // Fallback vers localStorage
         const savedTheme = localStorage.getItem('preferredTheme') as 'light' | 'dark';
         if (savedTheme) {
@@ -90,9 +100,14 @@ const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         }
       } catch (error) {
         console.error('Error loading theme preference:', error);
+        // Fallback vers localStorage en cas d'erreur
+        const savedTheme = localStorage.getItem('preferredTheme') as 'light' | 'dark';
+        if (savedTheme) {
+          setTheme(savedTheme);
+        }
       }
     };
-    
+
     loadTheme();
   }, []);
   

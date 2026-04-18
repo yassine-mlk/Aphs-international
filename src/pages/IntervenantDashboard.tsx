@@ -113,6 +113,9 @@ const IntervenantDashboard: React.FC = () => {
   const [recentTasks, setRecentTasks] = useState<TaskItem[]>([]);
   const [allTasks, setAllTasks] = useState<any[]>([]);
   const [validationTasks, setValidationTasks] = useState<any[]>([]);
+
+  // État pour le profil utilisateur (nom, prénom)
+  const [userProfile, setUserProfile] = useState<{ first_name: string; last_name: string } | null>(null);
   
   // États pour la personnalisation du tableau de bord
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -130,6 +133,26 @@ const IntervenantDashboard: React.FC = () => {
       setPreferences(JSON.parse(savedPrefs));
     }
   }, [user?.id]);
+
+  // Charger le profil utilisateur pour afficher le nom
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      if (!user?.id) return;
+      try {
+        const profile = await fetchData('profiles', {
+          columns: 'first_name,last_name',
+          filters: [{ column: 'user_id', operator: 'eq', value: user.id }]
+        });
+        if (profile && profile.length > 0) {
+          const p = profile[0] as { first_name: string; last_name: string };
+          setUserProfile(p);
+        }
+      } catch (error) {
+        console.error('Erreur lors du chargement du profil:', error);
+      }
+    };
+    loadUserProfile();
+  }, [user?.id, fetchData]);
 
   // Sauvegarder les préférences
   const savePreferences = (newPrefs: typeof preferences) => {
@@ -460,6 +483,9 @@ const IntervenantDashboard: React.FC = () => {
         {/* En-tête */}
         <motion.div variants={itemVariants} className="flex justify-between items-end border-b border-gray-100 pb-6">
           <div>
+            <p className="text-lg text-gray-600 mb-1">
+              Bonjour{userProfile ? ` ${userProfile.first_name} ${userProfile.last_name}` : ''} 👋
+            </p>
             <h1 className="text-4xl font-black text-black tracking-tight">
               {dashboardTranslations.title}
             </h1>
