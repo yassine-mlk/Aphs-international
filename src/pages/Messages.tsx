@@ -190,34 +190,60 @@ const Messages: React.FC = () => {
     }
   }, [user?.id, loadContacts]);
 
+  // Stabilisation des callbacks pour realtime sans re-subscription
+  const loadConversationsRef = useRef(loadConversations);
+  const loadMessagesRef = useRef(loadMessages);
+  const activeConversationRef = useRef(activeConversation);
+
+  useEffect(() => {
+    loadConversationsRef.current = loadConversations;
+    loadMessagesRef.current = loadMessages;
+    activeConversationRef.current = activeConversation;
+  }, [loadConversations, loadMessages, activeConversation]);
+
   // Debounced reload for realtime updates
   const messagesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scheduleSilentReload = useCallback(() => {
+    console.log('[Messages] Realtime event received, scheduling reload');
     if (messagesTimerRef.current) clearTimeout(messagesTimerRef.current);
     messagesTimerRef.current = setTimeout(() => {
-      loadConversations(false);
-      if (activeConversation) {
-        loadMessages(activeConversation.id, false);
+      console.log('[Messages] Executing silent reload');
+      loadConversationsRef.current(false);
+      if (activeConversationRef.current) {
+        loadMessagesRef.current(activeConversationRef.current.id, false);
       }
       setLastPollingTime(new Date());
     }, 600);
-  }, [loadConversations, loadMessages, activeConversation]);
+  }, []);
 
   // Configuration du temps réel Supabase pour les messages (avec debounce)
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      console.log('[Messages] No user ID, skipping realtime subscription');
+      return;
+    }
+    console.log(`[Messages] Setting up realtime subscription for user ${user.id}`);
 
     const channel = supabase
       .channel(`messages-realtime-${user.id}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, scheduleSilentReload)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, scheduleSilentReload)
-      .subscribe();
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+        console.log('[Messages] INSERT on messages:', payload);
+        scheduleSilentReload();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, (payload) => {
+        console.log('[Messages] Event on conversations:', payload);
+        scheduleSilentReload();
+      })
+      .subscribe((status) => {
+        console.log(`[Messages] Subscription status: ${status}`);
+      });
 
     return () => {
       if (messagesTimerRef.current) clearTimeout(messagesTimerRef.current);
       supabase.removeChannel(channel);
     };
-  }, [user?.id, supabase, scheduleSilentReload]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   // Polling de secours très espacé (5 minutes) en cas de défaillance realtime
   useEffect(() => {
