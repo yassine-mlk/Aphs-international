@@ -12,20 +12,17 @@ export function useNotificationTriggers() {
     messageParams: Record<string, any> = {},
     data: Record<string, any> = {}
   ) => {
-    console.log(`[NotificationTrigger] Création notification type=${type} pour user=${userId}`);
     try {
-      // Générer des messages par défaut en français (fallback)
       const defaultTitle = getDefaultTitle(type, titleParams);
       const defaultMessage = getDefaultMessage(type, messageParams);
 
-      // Insérer avec les nouvelles colonnes (title_key/message_key)
       const { error } = await supabase
         .from('notifications')
         .insert({
           user_id: userId,
           type,
-          title: defaultTitle, // Fallback pour compatibilité
-          message: defaultMessage, // Fallback pour compatibilité
+          title: defaultTitle,
+          message: defaultMessage,
           title_key: type,
           message_key: type,
           title_params: titleParams,
@@ -33,13 +30,9 @@ export function useNotificationTriggers() {
           data
         });
 
-      if (error) {
-        console.error('[NotificationTrigger] Erreur insertion:', error);
-        throw error;
-      }
-      console.log('[NotificationTrigger] Notification créée avec succès');
+      if (error) throw error;
     } catch (error) {
-      console.error('[NotificationTrigger] Erreur lors de la création de notification:', error);
+      console.error('Erreur lors de la création de notification:', error);
     }
   }, []);
 
@@ -202,7 +195,6 @@ export function useNotificationTriggers() {
     projectName?: string,
     assignerName?: string
   ) => {
-    console.log(`[NotificationTrigger] notifyTaskAssigned appelé pour ${intervenantId}, tâche: ${taskName}`);
     await createNotification(
       intervenantId,
       'task_assigned',

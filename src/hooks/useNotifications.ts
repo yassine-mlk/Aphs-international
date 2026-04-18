@@ -293,16 +293,10 @@ export function useNotifications() {
 
   // Fonction pour établir la connexion temps réel (optimisée)
   const setupRealtimeConnection = useCallback(() => {
-    if (!user?.id) {
-      console.log('[Notifications] Pas d\'user ID, subscription annulée');
-      return;
-    }
-
-    console.log(`[Notifications] Configuration subscription pour user ${user.id}`);
+    if (!user?.id) return;
 
     // Nettoyer la connexion précédente
     if (channelRef.current) {
-      console.log('[Notifications] Nettoyage channel précédent');
       channelRef.current.unsubscribe();
     }
 
@@ -318,7 +312,6 @@ export function useNotifications() {
           filter: `user_id=eq.${user.id}`
         },
         (payload) => {
-          console.log('[Notifications] INSERT reçu:', payload);
           const rawNotification = payload.new as Notification;
           const newNotification = translateNotification(rawNotification);
 
@@ -385,11 +378,9 @@ export function useNotifications() {
         }
       )
       .subscribe((status) => {
-        console.log(`[Notifications] Status subscription: ${status}`);
         setIsConnected(status === 'SUBSCRIBED');
 
         if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-          console.log('[Notifications] Reconnexion dans 10s...');
           reconnectTimeoutRef.current = setTimeout(() => {
             setupRealtimeConnection();
           }, 10000);
@@ -411,12 +402,7 @@ export function useNotifications() {
   }, [setupRealtimeConnection, fetchNotifications]);
 
   useEffect(() => {
-    if (!user?.id) {
-      console.log('[Notifications] No user ID, skipping');
-      return;
-    }
-
-    console.log('[Notifications] Initializing subscription');
+    if (!user?.id) return;
 
     // Charger les notifications initiales
     fetchNotifRef.current(true);
@@ -426,7 +412,6 @@ export function useNotifications() {
 
     // Nettoyage
     return () => {
-      console.log('[Notifications] Cleanup subscription');
       if (channelRef.current) {
         channelRef.current.unsubscribe();
       }

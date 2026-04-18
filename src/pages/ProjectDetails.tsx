@@ -622,9 +622,7 @@ const ProjectDetails: React.FC = () => {
         });
 
         // Envoyer une notification aux intervenants assignés (seulement pour les nouvelles assignations)
-        console.log(`[ProjectDetails] existingAssignment=${existingAssignment}, envoi notification=${!existingAssignment}`);
         if (!existingAssignment) {
-          console.log('[ProjectDetails] Envoi notifications aux intervenants:', assignmentForm.assigned_to);
           try {
             const adminProfile = await fetchData<{first_name?: string; last_name?: string; email?: string}>('profiles', {
               columns: 'first_name, last_name, email',
@@ -638,7 +636,6 @@ const ProjectDetails: React.FC = () => {
 
             // Notifier chaque intervenant assigné
             for (const assignedToId of assignmentForm.assigned_to) {
-              console.log(`[ProjectDetails] Appel notifyTaskAssigned pour ${assignedToId}`);
               await notifyTaskAssigned(
                 assignedToId,
                 selectedTask.taskName,
@@ -646,13 +643,10 @@ const ProjectDetails: React.FC = () => {
                 adminName
               );
             }
-            console.log('[ProjectDetails] Toutes les notifications envoyées avec succès');
           } catch (notificationError) {
-            console.error('[ProjectDetails] Erreur lors de l\'envoi de la notification:', notificationError);
+            console.error('Erreur lors de l\'envoi de la notification:', notificationError);
             // Ne pas faire échouer l'assignation si la notification échoue
           }
-        } else {
-          console.log('[ProjectDetails] Pas de notification car existingAssignment=true');
         }
         
         // Recharger les assignations

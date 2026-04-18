@@ -85,7 +85,6 @@ const AdminDashboard: React.FC = () => {
   const [urgentItems, setUrgentItems] = useState<AdminUrgencyItem[]>([]);
   
   const [loading, setLoading] = useState(true);
-  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   
   // Utiliser le hook pour les activités récentes
   const { activities: recentActivities, loading: activitiesLoading } = useRecentActivities();
@@ -236,9 +235,8 @@ const AdminDashboard: React.FC = () => {
       console.log('Statistiques calculées:', newStats);
 
       setStats(newStats);
-      setLastUpdate(new Date());
 
-      // Construire le bloc “À faire maintenant” (Top 10 urgences)
+      // Construire le bloc "À faire maintenant" (Top 10 urgences)
       const urgencyItems: AdminUrgencyItem[] = [];
 
       const formatProjectName = (projectId: string) => {
@@ -439,18 +437,7 @@ const AdminDashboard: React.FC = () => {
             <h1 className="text-4xl font-black text-black tracking-tight">
               Tableau de Bord
             </h1>
-            <p className="text-gray-500 mt-2 font-medium">
-              Dernière mise à jour : {lastUpdate.toLocaleTimeString('fr-FR')}
-            </p>
           </div>
-          <Button 
-            onClick={loadStats} 
-            variant="outline" 
-            className="flex items-center gap-2 border-black text-black hover:bg-black hover:text-white transition-all active:scale-95"
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            Actualiser
-          </Button>
         </motion.div>
 
         {/* KPI essentiels */}

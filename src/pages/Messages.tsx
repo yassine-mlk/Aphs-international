@@ -72,7 +72,6 @@ const Messages: React.FC = () => {
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isPolling, setIsPolling] = useState(false);
-  const [lastPollingTime, setLastPollingTime] = useState<Date | null>(null);
   const messageEndRef = useRef<HTMLDivElement>(null);
   
   // Add error states to track specific issues
@@ -206,50 +205,34 @@ const Messages: React.FC = () => {
   // Debounced reload for realtime updates
   const messagesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scheduleSilentReload = useCallback(() => {
-    console.log('[Messages] Realtime event received, scheduling reload');
     if (messagesTimerRef.current) clearTimeout(messagesTimerRef.current);
     messagesTimerRef.current = setTimeout(() => {
-      console.log('[Messages] Executing silent reload');
       loadConversationsRef.current(false);
       if (activeConversationRef.current) {
         loadMessagesRef.current(activeConversationRef.current.id, false);
       }
-      setLastPollingTime(new Date());
     }, 600);
   }, []);
 
-  // Configuration du temps réel Supabase simplifiée (RLS désactivé = pas besoin de filtre)
+  // Realtime subscription for messages and conversations
   useEffect(() => {
-    if (!user?.id) {
-      console.log('[Messages] No user ID, skipping realtime');
-      return;
-    }
+    if (!user?.id) return;
 
-    console.log(`[Messages] Setting up SINGLE realtime subscription for user ${user.id}`);
-
-    // SINGLE channel for ALL messages - no complex filters needed with RLS disabled
     const channel = supabase
       .channel(`messages-all-${user.id}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
-        console.log('[Messages] NEW MESSAGE RECEIVED:', payload.new);
-        // Check if this message belongs to a conversation we care about (using ref for fresh data)
         const msgConvId = payload.new?.conversation_id;
         const relevant = conversationsRef.current.some(c => c.id === msgConvId);
-        console.log(`[Messages] Message in conversation ${msgConvId}, relevant: ${relevant}, current conversations:`, conversationsRef.current.map(c => c.id));
         if (relevant) {
           scheduleSilentReload();
         }
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, (payload) => {
-        console.log('[Messages] CONVERSATION UPDATE:', payload);
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => {
         scheduleSilentReload();
       })
-      .subscribe((status) => {
-        console.log(`[Messages] Subscription status: ${status}`);
-      });
+      .subscribe();
 
     return () => {
-      console.log('[Messages] Cleaning up subscription');
       if (messagesTimerRef.current) clearTimeout(messagesTimerRef.current);
       supabase.removeChannel(channel);
     };
@@ -266,7 +249,6 @@ const Messages: React.FC = () => {
         if (activeConversation) {
           await loadMessages(activeConversation.id, false);
         }
-        setLastPollingTime(new Date());
       } catch (error) {
         console.error('Erreur lors du polling de secours:', error);
       }
@@ -299,8 +281,6 @@ const Messages: React.FC = () => {
       if (activeConversation) {
         await loadMessages(activeConversation.id, true);
       }
-
-      setLastPollingTime(new Date());
 
       toast({
         title: "Mise à jour",
@@ -545,20 +525,6 @@ const Messages: React.FC = () => {
           </p>
         </div>
         
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-50 border border-green-100">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-            </span>
-            <span className="text-xs font-semibold text-green-700">Temps réel</span>
-          </div>
-          {lastPollingTime && (
-            <span className="text-xs text-gray-500 ml-2">
-              {t.lastUpdate}: {formatTimestamp(lastPollingTime)}
-            </span>
-          )}
-        </div>
       </div>
 
       <div className="flex h-full w-full max-w-full overflow-hidden border rounded-lg shadow-md">
