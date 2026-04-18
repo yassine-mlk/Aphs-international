@@ -401,17 +401,32 @@ export function useNotifications() {
   }, [user?.id]);
 
   // Écouter les nouvelles notifications en temps réel
+  // Utiliser refs pour éviter la recréation de la subscription
+  const setupRealtimeRef = useRef(setupRealtimeConnection);
+  const fetchNotifRef = useRef(fetchNotifications);
+
   useEffect(() => {
-    if (!user?.id) return;
+    setupRealtimeRef.current = setupRealtimeConnection;
+    fetchNotifRef.current = fetchNotifications;
+  }, [setupRealtimeConnection, fetchNotifications]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      console.log('[Notifications] No user ID, skipping');
+      return;
+    }
+
+    console.log('[Notifications] Initializing subscription');
 
     // Charger les notifications initiales
-    fetchNotifications(true);
+    fetchNotifRef.current(true);
 
     // Configurer la connexion temps réel
-    setupRealtimeConnection();
+    setupRealtimeRef.current();
 
     // Nettoyage
     return () => {
+      console.log('[Notifications] Cleanup subscription');
       if (channelRef.current) {
         channelRef.current.unsubscribe();
       }
@@ -419,7 +434,8 @@ export function useNotifications() {
         clearTimeout(reconnectTimeoutRef.current);
       }
     };
-  }, [user?.id, setupRealtimeConnection, fetchNotifications]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   // Recharger les notifications quand la langue change
   useEffect(() => {
