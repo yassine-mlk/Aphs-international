@@ -153,7 +153,7 @@ const ProjectDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { fetchData, deleteData, insertData, updateData, getUsers } = useSupabase();
+  const { fetchData, deleteData, insertData, updateData, getUsers, supabase } = useSupabase();
   const { user } = useAuth();
   const { notifyTaskAssigned, notifyProjectAdded } = useNotificationTriggers();
   
@@ -277,6 +277,28 @@ const ProjectDetails: React.FC = () => {
     };
     
     fetchProjectDetails();
+
+    // S'abonner aux changements du projet
+    const channel = supabase
+      .channel(`project-details-${id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'projects',
+          filter: `id=eq.${id}`
+        },
+        () => {
+          console.log('Projet mis à jour, actualisation...');
+          fetchProjectDetails();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [id, fetchData, navigate, toast]);
   
   // Charger les assignations de tâches existantes et les intervenants
@@ -305,10 +327,32 @@ const ProjectDetails: React.FC = () => {
     
     fetchTaskAssignments();
     
+    // S'abonner aux changements des tâches du projet
+    const channel = supabase
+      .channel(`project-tasks-${id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'task_assignments',
+          filter: `project_id=eq.${id}`
+        },
+        () => {
+          console.log('Tâches du projet mises à jour, actualisation...');
+          fetchTaskAssignments();
+        }
+      )
+      .subscribe();
+
     // Charger aussi les intervenants pour l'affichage des noms
     if (intervenants.length === 0) {
       fetchIntervenants();
     }
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [id, fetchData, toast]);
   
     // Charger les intervenants disponibles
