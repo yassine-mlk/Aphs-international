@@ -389,14 +389,14 @@ export function useSupabase() {
         last_name: data.last_name || '',
         phone: data.phone || '',
         bio: '',
-        theme: 'light',
-        language: 'fr',
+        theme: data.theme || 'light',
+        language: data.language || 'fr',
         specialty: data.specialty,
         notifications: {
-          email: true,
-          push: true,
-          messages: false,
-          updates: true
+          email: data.email_notifications ?? true,
+          push: data.push_notifications ?? true,
+          messages: data.message_notifications ?? false,
+          updates: data.update_notifications ?? true
         },
         created_at: data.created_at,
         updated_at: data.updated_at
@@ -426,6 +426,8 @@ export function useSupabase() {
       if (settings.last_name !== undefined) profileUpdate.last_name = settings.last_name;
       if (settings.phone !== undefined) profileUpdate.phone = settings.phone;
       if (settings.specialty !== undefined) profileUpdate.specialty = settings.specialty;
+      if (settings.theme !== undefined) profileUpdate.theme = settings.theme;
+      if (settings.language !== undefined) profileUpdate.language = settings.language;
 
       const { data, error } = await supabase
         .from('profiles')

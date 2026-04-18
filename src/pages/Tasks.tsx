@@ -75,6 +75,11 @@ type AdminQuickFilter = 'all' | 'overdue' | 'unassigned' | 'to_validate' | 'bloc
 
 type AdminSortField = 'deadline' | 'validation_deadline' | 'task_name' | 'project' | 'status';
 
+// Types pour la navigation intervenant
+type IntervenantView = 'all' | 'execution' | 'validation';
+type ExecutionTab = 'not_started' | 'started' | 'waiting' | 'finished';
+type ValidationTab = 'pending_validation' | 'pending_resubmission' | 'validated' | 'rejected';
+
 const Tasks: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -95,7 +100,12 @@ const Tasks: React.FC = () => {
   const [projectFilter, setProjectFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('deadline');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-  
+
+  // États pour la navigation intervenant
+  const [intervenantView, setIntervenantView] = useState<IntervenantView>('all');
+  const [executionTab, setExecutionTab] = useState<ExecutionTab>('not_started');
+  const [validationTab, setValidationTab] = useState<ValidationTab>('pending_validation');
+
   // Projects list for filter
   const [projects, setProjects] = useState<Project[]>([]);
   
@@ -463,27 +473,85 @@ const Tasks: React.FC = () => {
       task.section_id,
       task.subsection_id,
       task.project?.name || '',
-      task.assigned_users && task.assigned_users.length > 0 ? 
+      task.assigned_users && task.assigned_users.length > 0 ?
         task.assigned_users.map(u => (u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email)).join(', ') :
         ''
     ];
-    
-    const matchesSearch = searchQuery === '' || 
-      searchFields.some(field => 
+
+    const matchesSearch = searchQuery === '' ||
+      searchFields.some(field =>
         field.toLowerCase().includes(searchQuery.toLowerCase())
       );
-    
+
     // Status filter
     const matchesStatus = statusFilter === 'all' || task.status === statusFilter;
-    
+
     // Phase filter
     const matchesPhase = phaseFilter === 'all' || task.phase_id === phaseFilter;
-    
+
     // Project filter
     const matchesProject = projectFilter === 'all' || task.project_id === projectFilter;
-    
+
     return matchesSearch && matchesStatus && matchesPhase && matchesProject;
   });
+
+  // Nouvelle logique: séparer les tâches par rôle (exécutant vs validateur)
+  const executionTasks = useMemo(() => {
+    return tasks.filter(task => task.assigned_to?.includes(user?.id || ''));
+  }, [tasks, user?.id]);
+
+  const validationTasksList = useMemo(() => {
+    return tasks.filter(task => task.validators?.includes(user?.id || ''));
+  }, [tasks, user?.id]);
+
+  // Filtrer les tâches d'exécution selon l'onglet actif
+  const filteredExecutionTasks = useMemo(() => {
+    return executionTasks.filter(task => {
+      switch (executionTab) {
+        case 'not_started':
+          return task.status === 'assigned';
+        case 'started':
+          return task.status === 'in_progress';
+        case 'waiting':
+          return task.status === 'submitted';
+        case 'finished':
+          return task.status === 'validated' || task.status === 'rejected';
+        default:
+          return true;
+      }
+    });
+  }, [executionTasks, executionTab]);
+
+  // Filtrer les tâches de validation selon l'onglet actif
+  const filteredValidationTasks = useMemo(() => {
+    return validationTasksList.filter(task => {
+      switch (validationTab) {
+        case 'pending_validation':
+          return task.status === 'submitted';
+        case 'pending_resubmission':
+          return task.status === 'rejected';
+        case 'validated':
+          return task.status === 'validated';
+        case 'rejected':
+          return task.status === 'rejected';
+        default:
+          return true;
+      }
+    });
+  }, [validationTasksList, validationTab]);
+
+  // Tâches à afficher selon la vue active
+  const displayedTasks = useMemo(() => {
+    switch (intervenantView) {
+      case 'execution':
+        return filteredExecutionTasks;
+      case 'validation':
+        return filteredValidationTasks;
+      case 'all':
+      default:
+        return filteredTasks;
+    }
+  }, [intervenantView, filteredExecutionTasks, filteredValidationTasks, filteredTasks]);
   
   // Sort tasks
   const sortedTasks = [...filteredTasks].sort((a, b) => {
@@ -855,219 +923,355 @@ const Tasks: React.FC = () => {
     );
   }
   
+  // Composant de rendu de la liste de tâches
+  const renderTaskList = (tasksToRender: TaskAssignment[], showRole: boolean = false) => {
+    if (tasksToRender.length === 0) {
+      return (
+        <div className="py-12 text-center">
+          <div className="mx-auto w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+            <AlertCircle className="h-6 w-6 text-gray-500" />
+          </div>
+          <h3 className="text-lg font-medium mb-1">{t.empty.noTasks}</h3>
+          <p className="text-gray-500 max-w-md mx-auto">{t.empty.noTasksDesc}</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{t.card.task}</TableHead>
+              <TableHead>{t.card.project}</TableHead>
+              {showRole && <TableHead>Rôle</TableHead>}
+              <TableHead>{t.filters.statusLabel}</TableHead>
+              <TableHead>{t.card.deadline}</TableHead>
+              <TableHead>{t.card.type}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {tasksToRender.map((task) => (
+              <TableRow
+                key={task.id}
+                onClick={() => handleTaskClick(task.id)}
+                className="cursor-pointer hover:bg-gray-50"
+              >
+                <TableCell className="font-medium">
+                  <div className="flex flex-col">
+                    <span>{task.task_name}</span>
+                    <span className="text-xs text-gray-500">
+                      {task.phase_id === 'conception' ? t.filters.conception : t.filters.realization} &gt; {task.section_id} &gt; {task.subsection_id}
+                    </span>
+                  </div>
+                </TableCell>
+                <TableCell>{task.project?.name || '-'}</TableCell>
+                {showRole && (
+                  <TableCell>
+                    <Badge variant="outline" className="text-xs">
+                      {task.assigned_to?.includes(user?.id || '') && task.validators?.includes(user?.id || '')
+                        ? 'Exécuteur & Validateur'
+                        : task.validators?.includes(user?.id || '')
+                        ? 'Validateur'
+                        : 'Exécuteur'}
+                    </Badge>
+                  </TableCell>
+                )}
+                <TableCell>{getStatusBadge(task.status)}</TableCell>
+                <TableCell>
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-1">
+                      <Calendar className="h-3 w-3 text-gray-500" />
+                      <span className="text-xs">{formatDate(task.deadline)}</span>
+                    </div>
+                    <div className="mt-1">
+                      {getDeadlineLabel(task.deadline)}
+                    </div>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <FileUp className="h-4 w-4 text-gray-500" />
+                    <span className="text-xs uppercase">
+                      {task.file_extension === 'pdf' && 'PDF'}
+                      {task.file_extension === 'doc' && 'WORD'}
+                      {task.file_extension === 'xls' && 'EXCEL'}
+                      {task.file_extension === 'ppt' && 'POWERPOINT'}
+                      {task.file_extension === 'txt' && 'TEXTE'}
+                      {task.file_extension === 'jpg' && 'JPEG'}
+                      {task.file_extension === 'png' && 'PNG'}
+                      {task.file_extension === 'zip' && 'ZIP'}
+                      {task.file_extension === 'dwg' && 'AUTOCAD'}
+                      {task.file_extension === 'other' && 'AUTRE'}
+                    </span>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    );
+  };
+
   return (
     <div className="container mx-auto px-4 py-6 max-w-7xl">
       <div className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight mb-2">{t.title}</h1>
-        <p className="text-muted-foreground">
-          {t.subtitle}
-        </p>
+        <p className="text-muted-foreground">{t.subtitle}</p>
       </div>
-      
-      {/* Filters */}
-      <div className="bg-white rounded-lg shadow-sm border p-5 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-          <div className="flex-1">
-            <label className="block text-sm font-medium mb-1">{t.search.label}</label>
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-              <Input
-                type="search"
-                placeholder={t.search.placeholder}
-                className="pl-8"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+
+      {/* Menu de navigation principale */}
+      <div className="bg-white rounded-lg shadow-sm border p-2 mb-6">
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant={intervenantView === 'all' ? 'default' : 'outline'}
+            onClick={() => setIntervenantView('all')}
+            className="flex-1 min-w-[180px]"
+          >
+            Toutes mes tâches
+            <Badge variant="secondary" className="ml-2">{tasks.length}</Badge>
+          </Button>
+          <Button
+            variant={intervenantView === 'execution' ? 'default' : 'outline'}
+            onClick={() => setIntervenantView('execution')}
+            className="flex-1 min-w-[180px]"
+          >
+            Tâches à exécuter
+            <Badge variant="secondary" className="ml-2">{executionTasks.length}</Badge>
+          </Button>
+          <Button
+            variant={intervenantView === 'validation' ? 'default' : 'outline'}
+            onClick={() => setIntervenantView('validation')}
+            className="flex-1 min-w-[180px]"
+          >
+            Tâches à valider
+            <Badge variant="secondary" className="ml-2">{validationTasksList.length}</Badge>
+          </Button>
+        </div>
+      </div>
+
+      {/* Onglets pour Tâches à exécuter */}
+      {intervenantView === 'execution' && (
+        <div className="bg-white rounded-lg shadow-sm border p-2 mb-6">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant={executionTab === 'not_started' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setExecutionTab('not_started')}
+            >
+              Pas encore démarré
+              <Badge variant="secondary" className="ml-2">
+                {executionTasks.filter(t => t.status === 'assigned').length}
+              </Badge>
+            </Button>
+            <Button
+              variant={executionTab === 'started' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setExecutionTab('started')}
+            >
+              Débuté
+              <Badge variant="secondary" className="ml-2">
+                {executionTasks.filter(t => t.status === 'in_progress').length}
+              </Badge>
+            </Button>
+            <Button
+              variant={executionTab === 'waiting' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setExecutionTab('waiting')}
+            >
+              En attente
+              <Badge variant="secondary" className="ml-2">
+                {executionTasks.filter(t => t.status === 'submitted').length}
+              </Badge>
+            </Button>
+            <Button
+              variant={executionTab === 'finished' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setExecutionTab('finished')}
+            >
+              Terminé
+              <Badge variant="secondary" className="ml-2">
+                {executionTasks.filter(t => t.status === 'validated' || t.status === 'rejected').length}
+              </Badge>
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Onglets pour Tâches à valider */}
+      {intervenantView === 'validation' && (
+        <div className="bg-white rounded-lg shadow-sm border p-2 mb-6">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant={validationTab === 'pending_validation' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setValidationTab('pending_validation')}
+            >
+              En attente de validation
+              <Badge variant="secondary" className="ml-2">
+                {validationTasksList.filter(t => t.status === 'submitted').length}
+              </Badge>
+            </Button>
+            <Button
+              variant={validationTab === 'pending_resubmission' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setValidationTab('pending_resubmission')}
+            >
+              En attente de resoumission
+              <Badge variant="secondary" className="ml-2">
+                {validationTasksList.filter(t => t.status === 'rejected').length}
+              </Badge>
+            </Button>
+            <Button
+              variant={validationTab === 'validated' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setValidationTab('validated')}
+            >
+              Validé
+              <Badge variant="secondary" className="ml-2">
+                {validationTasksList.filter(t => t.status === 'validated').length}
+              </Badge>
+            </Button>
+            <Button
+              variant={validationTab === 'rejected' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setValidationTab('rejected')}
+            >
+              Non validé
+              <Badge variant="secondary" className="ml-2">
+                {validationTasksList.filter(t => t.status === 'rejected').length}
+              </Badge>
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Filtres (uniquement pour la vue "Toutes") */}
+      {intervenantView === 'all' && (
+        <div className="bg-white rounded-lg shadow-sm border p-5 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+            <div className="flex-1">
+              <label className="block text-sm font-medium mb-1">{t.search.label}</label>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+                <Input
+                  type="search"
+                  placeholder={t.search.placeholder}
+                  className="pl-8"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="w-full">
+              <label className="block text-sm font-medium mb-1">{t.filters.statusLabel}</label>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder={t.filters.all} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t.filters.all}</SelectItem>
+                  <SelectItem value="assigned">{t.filters.assigned}</SelectItem>
+                  <SelectItem value="in_progress">{t.filters.inProgress}</SelectItem>
+                  <SelectItem value="submitted">{t.filters.submitted}</SelectItem>
+                  <SelectItem value="validated">{t.filters.validated}</SelectItem>
+                  <SelectItem value="rejected">{t.filters.rejected}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="w-full">
+              <label className="block text-sm font-medium mb-1">{t.filters.phase}</label>
+              <Select value={phaseFilter} onValueChange={setPhaseFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder={t.filters.allPhases} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t.filters.allPhases}</SelectItem>
+                  <SelectItem value="conception">{t.filters.conception}</SelectItem>
+                  <SelectItem value="realisation">{t.filters.realization}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="w-full">
+              <label className="block text-sm font-medium mb-1">Projet</label>
+              <Select value={projectFilter} onValueChange={setProjectFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Tous les projets" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous les projets</SelectItem>
+                  {projects.map((project) => (
+                    <SelectItem key={project.id} value={project.id}>
+                      {project.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
-          
-          <div className="w-full">
-            <label className="block text-sm font-medium mb-1">{t.filters.statusLabel}</label>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder={t.filters.all} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t.filters.all}</SelectItem>
-                <SelectItem value="assigned">{t.filters.assigned}</SelectItem>
-                <SelectItem value="in_progress">{t.filters.inProgress}</SelectItem>
-                <SelectItem value="submitted">{t.filters.submitted}</SelectItem>
-                <SelectItem value="validated">{t.filters.validated}</SelectItem>
-                <SelectItem value="rejected">{t.filters.rejected}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <div className="w-full">
-            <label className="block text-sm font-medium mb-1">{t.filters.phase}</label>
-            <Select value={phaseFilter} onValueChange={setPhaseFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder={t.filters.allPhases} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t.filters.allPhases}</SelectItem>
-                <SelectItem value="conception">{t.filters.conception}</SelectItem>
-                <SelectItem value="realisation">{t.filters.realization}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <div className="w-full">
-            <label className="block text-sm font-medium mb-1">Projet</label>
-            <Select value={projectFilter} onValueChange={setProjectFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Tous les projets" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tous les projets</SelectItem>
-                {projects.map((project) => (
-                  <SelectItem key={project.id} value={project.id}>
-                    {project.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+
+          {/* Sort controls */}
+          <div className="flex flex-col md:flex-row gap-4 items-end">
+            <div className="w-full md:w-48">
+              <label className="block text-sm font-medium mb-1">Trier par</label>
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="deadline">Échéance</SelectItem>
+                  <SelectItem value="task_name">Nom de la tâche</SelectItem>
+                  <SelectItem value="project">Projet</SelectItem>
+                  <SelectItem value="status">Statut</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="w-full md:w-48">
+              <label className="block text-sm font-medium mb-1">Ordre</label>
+              <Select value={sortOrder} onValueChange={(value: 'asc' | 'desc') => setSortOrder(value)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="asc">Croissant</SelectItem>
+                  <SelectItem value="desc">Décroissant</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {(searchQuery || statusFilter !== 'all' || phaseFilter !== 'all' || projectFilter !== 'all') && (
+              <Button
+                variant="ghost"
+                onClick={clearFilters}
+                className="flex items-center gap-1 h-10"
+              >
+                <X className="h-4 w-4" />
+                <span>{t.filters.clear}</span>
+              </Button>
+            )}
           </div>
         </div>
-        
-        {/* Sort controls */}
-        <div className="flex flex-col md:flex-row gap-4 items-end">
-          <div className="w-full md:w-48">
-            <label className="block text-sm font-medium mb-1">Trier par</label>
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="deadline">Échéance</SelectItem>
-                <SelectItem value="task_name">Nom de la tâche</SelectItem>
-                <SelectItem value="project">Projet</SelectItem>
-                <SelectItem value="status">Statut</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <div className="w-full md:w-48">
-            <label className="block text-sm font-medium mb-1">Ordre</label>
-            <Select value={sortOrder} onValueChange={(value: 'asc' | 'desc') => setSortOrder(value)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="asc">Croissant</SelectItem>
-                <SelectItem value="desc">Décroissant</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          
-          {(searchQuery || statusFilter !== 'all' || phaseFilter !== 'all' || projectFilter !== 'all') && (
-            <Button 
-              variant="ghost" 
-              onClick={clearFilters}
-              className="flex items-center gap-1 h-10"
-            >
-              <X className="h-4 w-4" />
-              <span>{t.filters.clear}</span>
-            </Button>
-          )}
-        </div>
-      </div>
-      
-      {/* Task List */}
+      )}
+
+      {/* Liste des tâches */}
       <Card className="border shadow-sm">
         <CardHeader className="pb-2">
-          <CardTitle>{t.card.taskList} ({sortedTasks.length})</CardTitle>
+          <CardTitle>
+            {intervenantView === 'all' && `${t.card.taskList} (${sortedTasks.length})`}
+            {intervenantView === 'execution' && `Tâches à exécuter (${filteredExecutionTasks.length})`}
+            {intervenantView === 'validation' && `Tâches à valider (${filteredValidationTasks.length})`}
+          </CardTitle>
           <CardDescription>
-            {sortedTasks.length === 0 ? 
-              t.search.noResults : 
-              t.card.taskListDesc}
+            {displayedTasks.length === 0 ? t.search.noResults : t.card.taskListDesc}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {sortedTasks.length > 0 ? (
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t.card.task}</TableHead>
-                    <TableHead>{t.card.project}</TableHead>
-                    <TableHead>{t.filters.statusLabel}</TableHead>
-                    <TableHead>{t.card.deadline}</TableHead>
-                    <TableHead>{t.card.type}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sortedTasks.map((task) => (
-                    <TableRow 
-                      key={task.id}
-                      onClick={() => handleTaskClick(task.id)}
-                      className="cursor-pointer hover:bg-gray-50"
-                    >
-                      <TableCell className="font-medium">
-                        <div className="flex flex-col">
-                          <span>{task.task_name}</span>
-                          <span className="text-xs text-gray-500">
-                            {task.phase_id === 'conception' ? t.filters.conception : t.filters.realization} &gt; {task.section_id} &gt; {task.subsection_id}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>{task.project?.name || '-'}</TableCell>
-                      <TableCell>{getStatusBadge(task.status)}</TableCell>
-                      <TableCell>
-                        <div className="flex flex-col">
-                          <div className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3 text-gray-500" />
-                            <span className="text-xs">{formatDate(task.deadline)}</span>
-                          </div>
-                          <div className="mt-1">
-                            {getDeadlineLabel(task.deadline)}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <FileUp className="h-4 w-4 text-gray-500" />
-                          <span className="text-xs uppercase">
-                            {task.file_extension === 'pdf' && 'PDF'}
-                            {task.file_extension === 'doc' && 'WORD'}
-                            {task.file_extension === 'xls' && 'EXCEL'}
-                            {task.file_extension === 'ppt' && 'POWERPOINT'}
-                            {task.file_extension === 'txt' && 'TEXTE'}
-                            {task.file_extension === 'jpg' && 'JPEG'}
-                            {task.file_extension === 'png' && 'PNG'}
-                            {task.file_extension === 'zip' && 'ZIP'}
-                            {task.file_extension === 'dwg' && 'AUTOCAD'}
-                            {task.file_extension === 'other' && 'AUTRE'}
-                          </span>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          ) : (
-            <div className="py-12 text-center">
-              <div className="mx-auto w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-4">
-                <AlertCircle className="h-6 w-6 text-gray-500" />
-              </div>
-              <h3 className="text-lg font-medium mb-1">{t.empty.noTasks}</h3>
-              <p className="text-gray-500 max-w-md mx-auto">
-                {searchQuery || statusFilter !== 'all' || phaseFilter !== 'all' || projectFilter !== 'all' ? 
-                  t.empty.noResultsDesc : 
-                  t.empty.noTasksDesc}
-              </p>
-              {(searchQuery || statusFilter !== 'all' || phaseFilter !== 'all' || projectFilter !== 'all') && (
-                <Button 
-                  variant="outline" 
-                  onClick={clearFilters}
-                  className="mt-4"
-                >
-                  {t.filters.clearFilters}
-                </Button>
-              )}
-            </div>
-          )}
+          {renderTaskList(displayedTasks, intervenantView === 'all')}
         </CardContent>
       </Card>
     </div>
