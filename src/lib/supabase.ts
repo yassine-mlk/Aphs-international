@@ -61,11 +61,23 @@ const initializeSupabase = () => {
     }
 
     // Client Supabase standard pour les opérations côté client
-    const client = createClient(supabaseUrl, supabaseAnonKey);
-    
+    const client = createClient(supabaseUrl, supabaseAnonKey, {
+      realtime: {
+        params: {
+          eventsPerSecond: 10,
+        },
+      },
+    });
+
     // Client Supabase admin pour les opérations d'administration
     const supabaseServiceKey = getConfigValue('VITE_SUPABASE_SERVICE_ROLE_KEY', '');
-    const adminClient = supabaseServiceKey ? createClient(supabaseUrl, supabaseServiceKey) : null;
+    const adminClient = supabaseServiceKey ? createClient(supabaseUrl, supabaseServiceKey, {
+      realtime: {
+        params: {
+          eventsPerSecond: 10,
+        },
+      },
+    }) : null;
 
     if (!supabaseServiceKey) {
       console.error('⚠️ VITE_SUPABASE_SERVICE_ROLE_KEY est manquant dans votre configuration');
