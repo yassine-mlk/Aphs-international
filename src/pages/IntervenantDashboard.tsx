@@ -438,13 +438,10 @@ const IntervenantDashboard: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white p-6">
+      <div className="min-h-screen bg-background p-6">
         <div className="max-w-7xl mx-auto">
           <DashboardSkeleton />
         </div>
-
-        {/* Charts KPI (résumé intervenant) */}
-        <IntervenantKpiCharts allTasks={allTasks} validationTasks={validationTasks} />
       </div>
     );
   }
@@ -481,12 +478,12 @@ const IntervenantDashboard: React.FC = () => {
     >
       <div className="max-w-7xl mx-auto space-y-8">
         {/* En-tête */}
-        <motion.div variants={itemVariants} className="flex justify-between items-end border-b border-gray-100 pb-6">
+        <motion.div variants={itemVariants} className="flex justify-between items-end border-b border-border pb-6">
           <div>
             <p className="text-lg text-muted-foreground mb-1">
               Bonjour{userProfile ? ` ${userProfile.first_name} ${userProfile.last_name}` : ''} 👋
             </p>
-            <h1 className="text-4xl font-black tracking-tight">
+            <h1 className="text-4xl font-black text-foreground tracking-tight">
               {dashboardTranslations.title}
             </h1>
           </div>
@@ -494,7 +491,7 @@ const IntervenantDashboard: React.FC = () => {
             <Button
               onClick={() => setIsSettingsOpen(true)}
               variant="outline"
-              className="flex items-center gap-2 border-gray-200 text-gray-600 hover:bg-gray-50 transition-all active:scale-95"
+              className="flex items-center gap-2"
             >
               <Settings2 className="h-4 w-4" />
               Personnaliser
@@ -506,22 +503,22 @@ const IntervenantDashboard: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <motion.div variants={itemVariants}>
             <Card
-              className="border-0 shadow-xl bg-gray-50 rounded-2xl overflow-hidden hover:shadow-2xl transition-shadow duration-300 cursor-pointer"
+              className="border shadow-xl bg-card rounded-2xl overflow-hidden hover:shadow-2xl transition-shadow duration-300 cursor-pointer"
               onClick={() => navigate('/dashboard/tasks')}
             >
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-xs font-bold text-gray-400 uppercase tracking-wider">Mes Tâches</CardTitle>
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <ClipboardCheck className="h-5 w-5 text-blue-600" />
+                <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Mes Tâches</CardTitle>
+                <div className="p-2 bg-blue-500/20 rounded-lg">
+                  <ClipboardCheck className="h-5 w-5 text-blue-500" />
                 </div>
               </CardHeader>
               <CardContent className="pt-4">
-                <div className="text-4xl font-black text-black">{stats.totalTasks}</div>
+                <div className="text-4xl font-black text-foreground">{stats.totalTasks}</div>
                 <div className="flex flex-wrap gap-2 mt-4">
-                  <Badge variant="secondary" className="bg-white text-black border border-gray-200">
+                  <Badge variant="secondary">
                     {stats.inProgressTasks} {dashboardTranslations.stats.inProgress}
                   </Badge>
-                  <Badge variant="secondary" className="bg-blue-600 text-white border-blue-600">
+                  <Badge className="bg-blue-500 text-white hover:bg-blue-600">
                     {stats.validatedTasks} {dashboardTranslations.stats.validated}
                   </Badge>
                 </div>
@@ -531,18 +528,18 @@ const IntervenantDashboard: React.FC = () => {
 
           <motion.div variants={itemVariants}>
             <Card
-              className="border-0 shadow-xl bg-gray-50 rounded-2xl overflow-hidden hover:shadow-2xl transition-shadow duration-300 cursor-pointer"
+              className="border shadow-xl bg-card rounded-2xl overflow-hidden hover:shadow-2xl transition-shadow duration-300 cursor-pointer"
               onClick={() => navigate('/dashboard/intervenant/projets')}
             >
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-xs font-bold text-gray-400 uppercase tracking-wider">Projets</CardTitle>
-                <div className="p-2 bg-black/5 rounded-lg">
-                  <Briefcase className="h-5 w-5 text-black" />
+                <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Projets</CardTitle>
+                <div className="p-2 bg-muted rounded-lg">
+                  <Briefcase className="h-5 w-5 text-foreground" />
                 </div>
               </CardHeader>
               <CardContent className="pt-4">
-                <div className="text-4xl font-black text-black">{stats.totalProjects}</div>
-                <p className="text-sm text-gray-500 mt-2 font-medium">
+                <div className="text-4xl font-black text-foreground">{stats.totalProjects}</div>
+                <p className="text-sm text-muted-foreground mt-2 font-medium">
                   {stats.activeProjects} projets actifs
                 </p>
               </CardContent>
@@ -550,16 +547,16 @@ const IntervenantDashboard: React.FC = () => {
           </motion.div>
 
           <motion.div variants={itemVariants}>
-            <Card className="border-0 shadow-xl bg-gray-50 rounded-2xl overflow-hidden hover:shadow-2xl transition-shadow duration-300">
+            <Card className="border shadow-xl bg-card rounded-2xl overflow-hidden hover:shadow-2xl transition-shadow duration-300">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-xs font-bold text-gray-400 uppercase tracking-wider">Performance</CardTitle>
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <TrendingUp className="h-5 w-5 text-blue-600" />
+                <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Performance</CardTitle>
+                <div className="p-2 bg-blue-500/20 rounded-lg">
+                  <TrendingUp className="h-5 w-5 text-blue-500" />
                 </div>
               </CardHeader>
               <CardContent className="pt-4">
-                <div className="text-4xl font-black text-black">{stats.completionRate}%</div>
-                <p className="text-sm text-gray-500 mt-2 font-medium">
+                <div className="text-4xl font-black text-foreground">{stats.completionRate}%</div>
+                <p className="text-sm text-muted-foreground mt-2 font-medium">
                   {dashboardTranslations.stats.successRate}
                 </p>
               </CardContent>
@@ -567,16 +564,16 @@ const IntervenantDashboard: React.FC = () => {
           </motion.div>
 
           <motion.div variants={itemVariants}>
-            <Card className="border-0 shadow-xl bg-gray-50 rounded-2xl overflow-hidden hover:shadow-2xl transition-shadow duration-300">
+            <Card className="border shadow-xl bg-card rounded-2xl overflow-hidden hover:shadow-2xl transition-shadow duration-300">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-xs font-bold text-gray-400 uppercase tracking-wider">Alertes</CardTitle>
-                <div className="p-2 bg-red-50 rounded-lg">
-                  <AlertTriangle className="h-5 w-5 text-red-600" />
+                <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Alertes</CardTitle>
+                <div className="p-2 bg-red-500/20 rounded-lg">
+                  <AlertTriangle className="h-5 w-5 text-red-500" />
                 </div>
               </CardHeader>
               <CardContent className="pt-4">
-                <div className="text-4xl font-black text-red-600">{stats.overdueTasks}</div>
-                <p className="text-sm text-red-600 mt-2 font-bold">
+                <div className="text-4xl font-black text-red-500">{stats.overdueTasks}</div>
+                <p className="text-sm text-red-500 mt-2 font-bold">
                   {dashboardTranslations.stats.overdueTasks}
                 </p>
               </CardContent>
@@ -606,11 +603,11 @@ const IntervenantDashboard: React.FC = () => {
                 animate={{ opacity: 1, y: 0 }}
                 className="space-y-6"
               >
-                <Card className="border border-gray-100 shadow-2xl bg-white rounded-3xl overflow-hidden">
-                  <CardHeader className="border-b border-gray-50 pb-6">
-                    <CardTitle className="flex items-center gap-3 text-2xl font-black text-black">
-                      <div className="p-2 bg-black rounded-lg">
-                        <Clock className="h-6 w-6 text-white" />
+                <Card className="border shadow-2xl bg-card rounded-3xl overflow-hidden">
+                  <CardHeader className="border-b pb-6">
+                    <CardTitle className="flex items-center gap-3 text-2xl font-black text-foreground">
+                      <div className="p-2 bg-primary rounded-lg">
+                        <Clock className="h-6 w-6 text-primary-foreground" />
                       </div>
                       {dashboardTranslations.recentActivities.title}
                     </CardTitle>
@@ -638,22 +635,22 @@ const IntervenantDashboard: React.FC = () => {
                               animate={{ opacity: 1, x: 0 }}
                               exit={{ opacity: 0, x: 20 }}
                               key={activity.id} 
-                              className="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-50 transition-colors"
+                              className="flex items-start space-x-3 p-3 rounded-lg hover:bg-accent transition-colors"
                             >
                               <div className="flex-shrink-0 mt-1">
                                 <ActivityIcon type={activity.iconType} />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-900">{activity.title}</p>
-                                <p className="text-sm text-gray-500">{activity.description}</p>
-                                <p className="text-xs text-gray-400 mt-1">{formatTimeAgo(activity.timestamp)}</p>
+                                <p className="text-sm font-medium text-foreground">{activity.title}</p>
+                                <p className="text-sm text-muted-foreground">{activity.description}</p>
+                                <p className="text-xs text-muted-foreground mt-1">{formatTimeAgo(activity.timestamp)}</p>
                               </div>
                             </motion.div>
                           ))}
                         </AnimatePresence>
                       ) : (
-                        <div className="text-center py-8 text-gray-500">
-                          <Activity className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                        <div className="text-center py-8 text-muted-foreground">
+                          <Activity className="h-12 w-12 mx-auto mb-4 text-muted" />
                           <p>{dashboardTranslations.recentActivities.noActivities}</p>
                         </div>
                       )}
@@ -666,11 +663,11 @@ const IntervenantDashboard: React.FC = () => {
         ) : (
           <Tabs defaultValue="tasks" className="space-y-8">
             <motion.div variants={itemVariants}>
-              <TabsList className="flex w-full bg-gray-100 p-1 rounded-xl">
-                <TabsTrigger value="tasks" className="flex-1 py-3 rounded-lg data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm font-bold transition-all">
+              <TabsList className="flex w-full bg-muted p-1 rounded-xl">
+                <TabsTrigger value="tasks" className="flex-1 py-3 rounded-lg data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm font-bold transition-all">
                   {dashboardTranslations.recentTasks.title}
                 </TabsTrigger>
-                <TabsTrigger value="activities" className="flex-1 py-3 rounded-lg data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm font-bold transition-all">
+                <TabsTrigger value="activities" className="flex-1 py-3 rounded-lg data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm font-bold transition-all">
                   {dashboardTranslations.recentActivities.title}
                 </TabsTrigger>
               </TabsList>
@@ -679,15 +676,15 @@ const IntervenantDashboard: React.FC = () => {
             {/* Tâches récentes */}
             <TabsContent value="tasks" className="space-y-6">
               <motion.div variants={itemVariants}>
-                <Card className="border border-gray-100 shadow-2xl bg-white rounded-3xl overflow-hidden">
-                  <CardHeader className="border-b border-gray-50 pb-6">
-                    <CardTitle className="flex items-center gap-3 text-2xl font-black text-black">
+                <Card className="border shadow-2xl bg-card rounded-3xl overflow-hidden">
+                  <CardHeader className="border-b pb-6">
+                    <CardTitle className="flex items-center gap-3 text-2xl font-black text-foreground">
                       <div className="p-2 bg-blue-600 rounded-lg">
                         <ClipboardCheck className="h-6 w-6 text-white" />
                       </div>
                       {dashboardTranslations.recentTasks.title}
                     </CardTitle>
-                    <CardDescription className="text-gray-500 font-medium text-base">
+                    <CardDescription className="text-muted-foreground font-medium text-base">
                       {dashboardTranslations.recentTasks.description}
                     </CardDescription>
                   </CardHeader>
@@ -704,19 +701,19 @@ const IntervenantDashboard: React.FC = () => {
                                 animate={{ opacity: 1, scale: 1 }}
                                 exit={{ opacity: 0, scale: 0.95 }}
                                 key={task.id} 
-                                className="flex items-center justify-between p-6 rounded-2xl border border-gray-100 hover:border-blue-600 hover:shadow-xl transition-all group bg-gray-50/50 cursor-pointer"
+                                className="flex items-center justify-between p-6 rounded-2xl border hover:border-blue-500 hover:shadow-xl transition-all group bg-accent/50 cursor-pointer"
                                 onClick={() => navigate(`/dashboard/tasks/${task.id}`)}
                               >
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-3 mb-3">
-                                    <h3 className="text-lg font-bold text-black group-hover:text-blue-600 transition-colors truncate">{task.task_name}</h3>
+                                    <h3 className="text-lg font-bold text-foreground group-hover:text-blue-500 transition-colors truncate">{task.task_name}</h3>
                                     <Badge variant="outline" className={`${getStatusColor(task.status)} font-bold px-3 py-1 rounded-full`}>
                                       {getStatusLabel(task.status)}
                                     </Badge>
                                   </div>
-                                  <div className="flex items-center gap-4 text-sm font-medium text-gray-500">
+                                  <div className="flex items-center gap-4 text-sm font-medium text-muted-foreground">
                                     <span className="flex items-center gap-1.5">
-                                      <Briefcase className="h-4 w-4 text-gray-400" />
+                                      <Briefcase className="h-4 w-4 text-muted-foreground" />
                                       {task.project_name}
                                     </span>
                                     <span className={`flex items-center gap-1.5 ${deadline.color}`}>
@@ -737,8 +734,8 @@ const IntervenantDashboard: React.FC = () => {
                           })}
                         </AnimatePresence>
                       ) : (
-                        <div className="text-center py-16 text-gray-400">
-                          <ClipboardCheck className="h-20 w-20 mx-auto mb-6 text-gray-100" />
+                        <div className="text-center py-16 text-muted-foreground">
+                          <ClipboardCheck className="h-20 w-20 mx-auto mb-6 text-muted" />
                           <p className="text-xl font-medium">{dashboardTranslations.recentTasks.noTasks}</p>
                         </div>
                       )}
@@ -751,15 +748,15 @@ const IntervenantDashboard: React.FC = () => {
             {/* Activités récentes */}
             <TabsContent value="activities" className="space-y-6">
               <motion.div variants={itemVariants}>
-                <Card className="border border-gray-100 shadow-2xl bg-white rounded-3xl overflow-hidden">
-                  <CardHeader className="border-b border-gray-50 pb-6">
-                    <CardTitle className="flex items-center gap-3 text-2xl font-black text-black">
-                      <div className="p-2 bg-black rounded-lg">
-                        <Clock className="h-6 w-6 text-white" />
+                <Card className="border shadow-2xl bg-card rounded-3xl overflow-hidden">
+                  <CardHeader className="border-b pb-6">
+                    <CardTitle className="flex items-center gap-3 text-2xl font-black text-foreground">
+                      <div className="p-2 bg-primary rounded-lg">
+                        <Clock className="h-6 w-6 text-primary-foreground" />
                       </div>
                       {dashboardTranslations.recentActivities.title}
                     </CardTitle>
-                    <CardDescription className="text-gray-500 font-medium text-base">
+                    <CardDescription className="text-muted-foreground font-medium text-base">
                       {dashboardTranslations.recentActivities.description}
                     </CardDescription>
                   </CardHeader>
@@ -786,22 +783,22 @@ const IntervenantDashboard: React.FC = () => {
                               animate={{ opacity: 1, x: 0 }}
                               exit={{ opacity: 0, x: 20 }}
                               key={activity.id} 
-                              className="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-50 transition-colors"
+                              className="flex items-start space-x-3 p-3 rounded-lg hover:bg-accent transition-colors"
                             >
                               <div className="flex-shrink-0 mt-1">
                                 <ActivityIcon type={activity.iconType} />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-900">{activity.title}</p>
-                                <p className="text-sm text-gray-500">{activity.description}</p>
-                                <p className="text-xs text-gray-400 mt-1">{formatTimeAgo(activity.timestamp)}</p>
+                                <p className="text-sm font-medium text-foreground">{activity.title}</p>
+                                <p className="text-sm text-muted-foreground">{activity.description}</p>
+                                <p className="text-xs text-muted-foreground mt-1">{formatTimeAgo(activity.timestamp)}</p>
                               </div>
                             </motion.div>
                           ))}
                         </AnimatePresence>
                       ) : (
-                        <div className="text-center py-8 text-gray-500">
-                          <Activity className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                        <div className="text-center py-8 text-muted-foreground">
+                          <Activity className="h-12 w-12 mx-auto mb-4 text-muted" />
                           <p>{dashboardTranslations.recentActivities.noActivities}</p>
                         </div>
                       )}
@@ -816,13 +813,13 @@ const IntervenantDashboard: React.FC = () => {
         {/* Dialogue de Personnalisation */}
         <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
           <DialogContent className="sm:max-w-[500px] rounded-3xl p-0 overflow-hidden border-0 shadow-2xl">
-            <div className="bg-black p-8 text-white">
+            <div className="bg-primary p-8 text-primary-foreground">
               <DialogHeader>
                 <DialogTitle className="text-2xl font-black flex items-center gap-3">
                   <Settings2 className="h-6 w-6 text-blue-500" />
                   Personnalisation
                 </DialogTitle>
-                <DialogDescription className="text-gray-400 font-medium">
+                <DialogDescription className="text-primary-foreground/70 font-medium">
                   Configurez votre espace de travail selon vos besoins
                 </DialogDescription>
               </DialogHeader>
@@ -830,13 +827,13 @@ const IntervenantDashboard: React.FC = () => {
             
             <div className="p-8 space-y-8">
               <div className="space-y-6">
-                <div className="flex items-center justify-between p-4 rounded-2xl bg-gray-50 hover:bg-gray-100 transition-colors group">
+                <div className="flex items-center justify-between p-4 rounded-2xl bg-accent hover:bg-accent/80 transition-colors group">
                   <div className="space-y-1">
-                    <Label className="text-base font-bold text-black flex items-center gap-2">
-                      <LayoutGrid className="h-4 w-4 text-blue-600" />
+                    <Label className="text-base font-bold text-foreground flex items-center gap-2">
+                      <LayoutGrid className="h-4 w-4 text-blue-500" />
                       Vue Widget (Personnalisée)
                     </Label>
-                    <p className="text-sm text-gray-500 font-medium">Utiliser des widgets au lieu des onglets classiques</p>
+                    <p className="text-sm text-muted-foreground font-medium">Utiliser des widgets au lieu des onglets classiques</p>
                   </div>
                   <Switch 
                     checked={preferences.useCustomView} 
@@ -850,11 +847,11 @@ const IntervenantDashboard: React.FC = () => {
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
                       exit={{ opacity: 0, height: 0 }}
-                      className="space-y-4 pt-4 border-t border-gray-100"
+                      className="space-y-4 pt-4 border-t"
                     >
-                      <h4 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-4">Widgets Actifs</h4>
+                      <h4 className="text-sm font-black text-muted-foreground uppercase tracking-widest mb-4">Widgets Actifs</h4>
                       
-                      <div className="flex items-center justify-between p-3 rounded-xl border border-gray-100">
+                      <div className="flex items-center justify-between p-3 rounded-xl border">
                         <Label className="text-sm font-bold flex items-center gap-2">
                           <TrendingUp className="h-4 w-4 text-red-500" />
                           Tâches Prioritaires
@@ -865,7 +862,7 @@ const IntervenantDashboard: React.FC = () => {
                         />
                       </div>
 
-                      <div className="flex items-center justify-between p-3 rounded-xl border border-gray-100">
+                      <div className="flex items-center justify-between p-3 rounded-xl border">
                         <Label className="text-sm font-bold flex items-center gap-2">
                           <CalendarIcon className="h-4 w-4 text-blue-500" />
                           Calendrier des Échéances
@@ -876,9 +873,9 @@ const IntervenantDashboard: React.FC = () => {
                         />
                       </div>
 
-                      <div className="flex items-center justify-between p-3 rounded-xl border border-gray-100">
+                      <div className="flex items-center justify-between p-3 rounded-xl border">
                         <Label className="text-sm font-bold flex items-center gap-2">
-                          <Clock className="h-4 w-4 text-gray-500" />
+                          <Clock className="h-4 w-4 text-muted-foreground" />
                           Activités Récentes
                         </Label>
                         <Switch 
@@ -892,8 +889,8 @@ const IntervenantDashboard: React.FC = () => {
               </div>
             </div>
 
-            <DialogFooter className="p-8 bg-gray-50">
-              <Button onClick={() => setIsSettingsOpen(false)} className="w-full bg-black hover:bg-gray-800 text-white font-bold py-6 rounded-2xl transition-all">
+            <DialogFooter className="p-8 bg-accent">
+              <Button onClick={() => setIsSettingsOpen(false)} className="w-full font-bold py-6 rounded-2xl transition-all">
                 Enregistrer les préférences
               </Button>
             </DialogFooter>
@@ -966,10 +963,10 @@ function IntervenantKpiCharts({ allTasks, validationTasks }: { allTasks: any[]; 
 
   return (
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-      <Card className="border border-gray-100 shadow-2xl bg-white rounded-3xl overflow-hidden">
-        <CardHeader className="border-b border-gray-50 pb-6">
-          <CardTitle className="text-xl font-black text-black">Répartition (tâches d’exécution)</CardTitle>
-          <CardDescription className="text-gray-500 font-medium">Statuts des tâches où vous êtes exécuteur</CardDescription>
+      <Card className="border shadow-2xl bg-card rounded-3xl overflow-hidden">
+        <CardHeader className="border-b pb-6">
+          <CardTitle className="text-xl font-black text-foreground">Répartition (tâches d'exécution)</CardTitle>
+          <CardDescription className="text-muted-foreground font-medium">Statuts des tâches où vous êtes exécuteur</CardDescription>
         </CardHeader>
         <CardContent className="pt-6">
           <div className="h-80">
@@ -986,16 +983,16 @@ function IntervenantKpiCharts({ allTasks, validationTasks }: { allTasks: any[]; 
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-full flex items-center justify-center text-sm text-gray-500">Aucune donnée</div>
+              <div className="h-full flex items-center justify-center text-sm text-muted-foreground">Aucune donnée</div>
             )}
           </div>
         </CardContent>
       </Card>
 
-      <Card className="border border-gray-100 shadow-2xl bg-white rounded-3xl overflow-hidden">
-        <CardHeader className="border-b border-gray-50 pb-6">
-          <CardTitle className="text-xl font-black text-black">Performance</CardTitle>
-          <CardDescription className="text-gray-500 font-medium">Complétion et retards (exécution / validation)</CardDescription>
+      <Card className="border shadow-2xl bg-card rounded-3xl overflow-hidden">
+        <CardHeader className="border-b pb-6">
+          <CardTitle className="text-xl font-black text-foreground">Performance</CardTitle>
+          <CardDescription className="text-muted-foreground font-medium">Complétion et retards (exécution / validation)</CardDescription>
         </CardHeader>
         <CardContent className="pt-6">
           <div className="h-80">
