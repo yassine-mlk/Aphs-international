@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -61,95 +61,112 @@ const IntervenantProjects: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [taskStats, setTaskStats] = useState<{[projectId: string]: {total: number, completed: number}}>({});
+  const [memberRolesByProjectId, setMemberRolesByProjectId] = useState<Record<string, string>>({});
 
   const t = translations[language as keyof typeof translations].projects;
 
   // Charger les projets auxquels l'intervenant est assigné
-  useEffect(() => {
-    const fetchUserProjects = async () => {
-      if (!user) {
-        console.log('Aucun utilisateur connecté');
-        return;
-      }
-      
-      console.log('Récupération des projets pour l\'utilisateur:', user.id);
-      setLoading(true);
-      try {
-        // Récupérer les projets dont l'utilisateur est membre
-        const memberData = await fetchData<ProjectMember>('membre', {
-          columns: '*',
-          filters: [{ column: 'user_id', operator: 'eq', value: user.id }]
-        });
-        
-        console.log('Données membres récupérées:', memberData);
-        
-        if (memberData && memberData.length > 0) {
-          // Récupérer les détails des projets
-          const projectIds = memberData
-            .map(member => member.project_id)
-            .filter(id => id && typeof id === 'string' && id.trim() !== ''); // Filtrer les IDs valides
-          
-          console.log('IDs des projets à récupérer:', projectIds);
-          
-          if (projectIds.length === 0) {
-            console.log('Aucun ID de projet valide trouvé');
-            setProjects([]);
-            setTaskStats({});
-            return;
-          }
-          
-          // Utiliser une requête directe Supabase au lieu du helper générique pour le filtre 'in'
-          const { data: projectsData, error } = await supabase
-            .from('projects')
-            .select('*')
-            .in('id', projectIds);
-          
-          if (error) {
-            console.error('Erreur lors de la récupération des données depuis projects:', error);
-            throw error;
-          }
-          
-          console.log('Projets récupérés:', projectsData);
-        
-          if (projectsData) {
-            setProjects(projectsData);
-            
-            // Calculer les statistiques des tâches pour chaque projet
-            const stats: {[projectId: string]: {total: number, completed: number}} = {};
-            for (const project of projectsData) {
-              const tasks = await fetchData<TaskAssignment>('task_assignments', {
-                columns: 'id,status',
-                filters: [{ column: 'project_id', operator: 'eq', value: project.id }]
-              });
-              
-              if (tasks) {
-                stats[project.id] = {
-                  total: tasks.length,
-                  completed: tasks.filter(task => task.status === 'validated').length
-                };
-              }
-            }
-            setTaskStats(stats);
-          }
-        } else {
-          console.log('Aucun projet trouvé pour cet utilisateur');
+  const loadProjects = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!user?.id) {
+      console.log('Aucun utilisateur connecté');
+      return;
+    }
+
+    if (!silent) setLoading(true);
+    try {
+      // Récupérer les projets dont l'utilisateur est membre
+      const memberData = await fetchData<ProjectMember>('membre', {
+        columns: '*',
+        filters: [{ column: 'user_id', operator: 'eq', value: user.id }]
+      });
+
+      if (memberData && memberData.length > 0) {
+        const rolesMap: Record<string, string> = {};
+        for (const m of memberData) {
+          if (m.project_id) rolesMap[m.project_id] = m.role;
+        }
+        setMemberRolesByProjectId(rolesMap);
+
+        const projectIds = memberData
+          .map(member => member.project_id)
+          .filter(id => id && typeof id === 'string' && id.trim() !== '');
+
+        if (projectIds.length === 0) {
           setProjects([]);
           setTaskStats({});
+          if (!silent) setLoading(false);
+          return;
         }
-      } catch (error) {
-        console.error('Erreur lors de la récupération des projets:', error);
+
+        const { data: projectsData, error } = await supabase
+          .from('projects')
+          .select('*')
+          .in('id', projectIds);
+
+        if (error) throw error;
+
+        if (projectsData) {
+          setProjects(projectsData);
+
+          const stats: {[projectId: string]: {total: number, completed: number}} = {};
+          for (const project of projectsData) {
+            const tasks = await fetchData<TaskAssignment>('task_assignments', {
+              columns: 'id,status',
+              filters: [{ column: 'project_id', operator: 'eq', value: project.id }]
+            });
+
+            if (tasks) {
+              stats[project.id] = {
+                total: tasks.length,
+                completed: tasks.filter(task => task.status === 'validated').length
+              };
+            }
+          }
+          setTaskStats(stats);
+        }
+      } else {
+        setProjects([]);
+        setTaskStats({});
+        setMemberRolesByProjectId({});
+      }
+    } catch (error) {
+      console.error('Erreur lors de la récupération des projets:', error);
+      if (!silent) {
         toast({
           title: "Erreur",
           description: "Impossible de charger vos projets",
           variant: "destructive",
         });
-      } finally {
-        setLoading(false);
       }
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  }, [user?.id, fetchData, supabase, toast]);
+
+  const projectsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleSilentReload = useCallback(() => {
+    if (projectsTimerRef.current) clearTimeout(projectsTimerRef.current);
+    projectsTimerRef.current = setTimeout(() => {
+      loadProjects({ silent: true });
+    }, 600);
+  }, [loadProjects]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    loadProjects();
+
+    const channel = supabase
+      .channel(`intervenant-projects-${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'membre', filter: `user_id=eq.${user.id}` }, scheduleSilentReload)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, scheduleSilentReload)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_assignments' }, scheduleSilentReload)
+      .subscribe();
+
+    return () => {
+      if (projectsTimerRef.current) clearTimeout(projectsTimerRef.current);
+      supabase.removeChannel(channel);
     };
-    
-    fetchUserProjects();
-  }, [user, fetchData, toast]);
+  }, [user?.id, supabase, loadProjects, scheduleSilentReload]);
 
   // Filtrer les projets selon la recherche
   const filteredProjects = projects.filter(project =>
@@ -159,6 +176,15 @@ const IntervenantProjects: React.FC = () => {
 
   // Ouvrir les détails d'un projet
   const handleViewProject = (projectId: string) => {
+    const role = memberRolesByProjectId[projectId];
+    if (role === 'viewer') {
+      toast({
+        title: "Accès limité",
+        description: "Votre accès aux détails de ce projet est désactivé. Contactez un administrateur.",
+        variant: "destructive",
+      });
+      return;
+    }
     navigate(`/dashboard/intervenant/projets/${projectId}`);
   };
 
@@ -256,9 +282,9 @@ const IntervenantProjects: React.FC = () => {
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {filteredProjects.map((project) => {
-            const progress = getProgress(project.id);
             const stats = taskStats[project.id] || { total: 0, completed: 0 };
-            
+            const progress = getProgress(project.id);
+
             return (
               <Card key={project.id} className="border-0 shadow-md hover:shadow-lg transition-shadow">
                 <CardHeader className="pb-3">
@@ -266,42 +292,52 @@ const IntervenantProjects: React.FC = () => {
                     <CardTitle className="text-lg font-bold text-gray-800 line-clamp-2">
                       {project.name}
                     </CardTitle>
-                    <Badge className={`ml-2 text-xs ${getStatusColor(project.status)}`}>
-                      {getStatusIcon(project.status)}
-                      <span className="ml-1">{getStatusLabel(project.status)}</span>
-                    </Badge>
+                    <div className="flex justify-between items-start">
+                      <Badge className={getStatusColor(project.status)}>
+                        <span className="flex items-center gap-1">
+                          {getStatusIcon(project.status)}
+                          {getStatusLabel(project.status)}
+                        </span>
+                      </Badge>
+
+                      {memberRolesByProjectId[project.id] === 'viewer' && (
+                        <Badge variant="secondary" className="bg-gray-100 text-gray-800">
+                          Accès limité
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {/* Image du projet */}
                   {project.image_url && (
                     <div className="mb-4 rounded overflow-hidden">
-                      <img 
-                        src={project.image_url} 
-                        alt={project.name} 
+                      <img
+                        src={project.image_url}
+                        alt={project.name}
                         className="w-full h-40 object-cover"
                         onError={(e) => {
                           const fallbackText = language === 'en' ? 'Image+unavailable' :
-                                               language === 'es' ? 'Imagen+no+disponible' :
-                                               language === 'ar' ? 'الصورة+غير+متوفرة' :
-                                               'Image+indisponible';
+                            language === 'es' ? 'Imagen+no+disponible' :
+                              language === 'ar' ? 'الصورة+غير+متوفرة' :
+                                'Image+indisponible';
                           e.currentTarget.src = `https://placehold.co/600x400?text=${fallbackText}`;
                         }}
                       />
                     </div>
                   )}
-                  
+
                   <p className="text-sm text-gray-600 line-clamp-3">
                     {project.description}
                   </p>
-                  
+
                   {/* Informations du projet */}
                   <div className="space-y-2">
                     <div className="flex items-center text-sm text-gray-500">
                       <Calendar className="h-4 w-4 mr-2" />
                       {t.card.startDate}: {new Date(project.start_date).toLocaleDateString(language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : language === 'ar' ? 'ar-SA' : 'en-US')}
                     </div>
-                    
+
                     {/* Progression des tâches */}
                     <div className="space-y-1">
                       <div className="flex items-center justify-between text-sm">
@@ -309,8 +345,8 @@ const IntervenantProjects: React.FC = () => {
                         <span className="font-medium">{progress}%</span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div 
-                          className="bg-aps-teal h-2 rounded-full transition-all duration-300" 
+                        <div
+                          className="bg-aps-teal h-2 rounded-full transition-all duration-300"
                           style={{ width: `${progress}%` }}
                         ></div>
                       </div>
@@ -319,15 +355,15 @@ const IntervenantProjects: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                  
+
                   {/* Actions */}
                   <div className="flex items-center justify-between pt-2">
                     <div className="flex items-center text-xs text-gray-500">
                       <Users className="h-3 w-3 mr-1" />
                       {t.card.member}
                     </div>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="sm"
                       onClick={() => handleViewProject(project.id)}
                       className="text-aps-teal border-aps-teal hover:bg-aps-teal hover:text-white"

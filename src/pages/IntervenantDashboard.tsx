@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -41,6 +41,19 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import {
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip as RechartsTooltip,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Legend
+} from 'recharts';
 
 interface IntervenantStats {
   totalTasks: number;
@@ -63,6 +76,17 @@ interface TaskItem {
   priority: 'low' | 'medium' | 'high';
   progress?: number;
 }
+
+type TaskWithMeta = {
+  id: string;
+  task_name?: string;
+  status?: string;
+  deadline?: string;
+  validation_deadline?: string;
+  project_id?: string;
+  assigned_to?: string[];
+  validators?: string[];
+};
 
 
 
@@ -88,6 +112,7 @@ const IntervenantDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [recentTasks, setRecentTasks] = useState<TaskItem[]>([]);
   const [allTasks, setAllTasks] = useState<any[]>([]);
+  const [validationTasks, setValidationTasks] = useState<any[]>([]);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   
   // États pour la personnalisation du tableau de bord
@@ -126,12 +151,11 @@ const IntervenantDashboard: React.FC = () => {
 
 
   // Charger les statistiques
-  const loadStats = async () => {
-    setLoading(true);
+  const loadStats = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!silent) setLoading(true);
     try {
       if (!user?.id) {
-        console.log('Aucun utilisateur connecté');
-        setLoading(false);
+        if (!silent) setLoading(false);
         return;
       }
 
@@ -171,48 +195,63 @@ const IntervenantDashboard: React.FC = () => {
       console.log('Projets récupérés:', projects);
       const projectIdsSet = new Set(projects.map((p: any) => p.id));
 
-      // 2. Récupérer toutes les tâches assignées à l'utilisateur
+      // 2. Récupérer toutes les tâches utiles (assigné ou validateur)
       const { data: rawTasks, error: tasksError } = await supabase
         .from('task_assignments')
-        .select('id, task_name, status, deadline, project_id, assigned_to');
+        .select('id, task_name, status, deadline, validation_deadline, project_id, assigned_to, validators');
       
       if (tasksError) throw tasksError;
 
+      const typedRawTasks = (rawTasks || []) as TaskWithMeta[];
+
       // Filtrer les tâches assignées à l'utilisateur et dont le projet existe
-      const tasks = (rawTasks || []).filter((t: any) => 
-        t.assigned_to && t.assigned_to.includes(user.id) && projectIdsSet.has(t.project_id)
+      const executionTasks = typedRawTasks.filter((t) =>
+        Array.isArray(t.assigned_to) && t.assigned_to.includes(user.id) && !!t.project_id && projectIdsSet.has(t.project_id)
       );
 
-      console.log('Tâches récupérées (filtrées):', tasks);
+      // Filtrer les tâches où l'utilisateur est validateur et dont le projet existe
+      const validatorTasks = typedRawTasks.filter((t) =>
+        Array.isArray(t.validators) && t.validators.includes(user.id) && !!t.project_id && projectIdsSet.has(t.project_id)
+      );
+
+      const projectMap = new Map(projects.map((p: any) => [p.id, p.name]));
+
+      console.log('Tâches exécution (filtrées):', executionTasks);
+      console.log('Tâches validation (filtrées):', validatorTasks);
 
       // 3. Calculer les statistiques
       const now = new Date();
       const newStats: IntervenantStats = {
-        totalTasks: tasks.length,
-        assignedTasks: tasks.filter((t: any) => t.status === 'assigned').length,
-        inProgressTasks: tasks.filter((t: any) => t.status === 'in_progress').length,
-        completedTasks: tasks.filter((t: any) => t.status === 'submitted').length,
-        validatedTasks: tasks.filter((t: any) => t.status === 'validated').length,
-        overdueTasks: tasks.filter((t: any) => 
-          t.deadline && 
-          new Date(t.deadline) < now && 
+        totalTasks: executionTasks.length,
+        assignedTasks: executionTasks.filter((t: any) => t.status === 'assigned').length,
+        inProgressTasks: executionTasks.filter((t: any) => t.status === 'in_progress').length,
+        completedTasks: executionTasks.filter((t: any) => t.status === 'submitted').length,
+        validatedTasks: executionTasks.filter((t: any) => t.status === 'validated').length,
+        overdueTasks: executionTasks.filter((t: any) =>
+          t.deadline &&
+          new Date(t.deadline) < now &&
           t.status !== 'validated'
         ).length,
-        completionRate: tasks.length > 0 ? Math.round((tasks.filter((t: any) => t.status === 'validated').length / tasks.length) * 100) : 0,
+        completionRate: executionTasks.length > 0
+          ? Math.round((executionTasks.filter((t: any) => t.status === 'validated').length / executionTasks.length) * 100)
+          : 0,
         totalProjects: projects.length,
         activeProjects: projects.filter((p: any) => p.status === 'active' || p.status === 'in_progress').length
       };
 
       console.log('Statistiques calculées:', newStats);
       setStats(newStats);
-      setAllTasks(tasks.map((t: any) => ({
+      setAllTasks(executionTasks.map((t: any) => ({
+        ...t,
+        project_name: projectMap.get(t.project_id) || 'Projet inconnu'
+      })));
+      setValidationTasks(validatorTasks.map((t: any) => ({
         ...t,
         project_name: projectMap.get(t.project_id) || 'Projet inconnu'
       })));
 
       // 4. Préparer les tâches récentes avec noms de projets
-      const projectMap = new Map(projects.map((p: any) => [p.id, p.name]));
-      const tasksWithProjects: TaskItem[] = tasks.slice(0, 5).map((task: any) => ({
+      const tasksWithProjects: TaskItem[] = executionTasks.slice(0, 5).map((task: any) => ({
         id: task.id,
         task_name: task.task_name || 'Tâche sans nom',
         project_name: projectMap.get(task.project_id) || 'Projet inconnu',
@@ -231,56 +270,50 @@ const IntervenantDashboard: React.FC = () => {
 
     } catch (error) {
       console.error('Erreur lors du chargement des statistiques:', error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de charger les statistiques",
-        variant: "destructive",
-      });
+      if (!silent) {
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger les statistiques",
+          variant: "destructive",
+        });
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
-  };
+  }, [user?.id, supabase, fetchData, toast]);
+
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleSilentReload = useCallback(() => {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      loadStats({ silent: true });
+    }, 600);
+  }, [loadStats]);
 
   useEffect(() => {
-    if (user?.id) {
-      loadStats();
+    if (!user?.id) return;
+    loadStats();
 
-      // S'abonner aux changements de la table task_assignments
-      const channel = supabase
-        .channel(`intervenant-dashboard-${user.id}`)
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'task_assignments',
-            filter: `assigned_to=cs.{${user.id}}`
-          },
-          () => {
-            console.log('Changement détecté dans vos tâches, actualisation des stats...');
-            loadStats();
-          }
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'membre',
-            filter: `user_id=eq.${user.id}`
-          },
-          () => {
-            console.log('Changement détecté dans vos accès projets, actualisation des stats...');
-            loadStats();
-          }
-        )
-        .subscribe();
+    // S'abonner aux changements (tâches + appartenance aux projets)
+    const channel = supabase
+      .channel(`intervenant-dashboard-${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'task_assignments' },
+        scheduleSilentReload
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'membre', filter: `user_id=eq.${user.id}` },
+        scheduleSilentReload
+      )
+      .subscribe();
 
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
-  }, [user?.id]);
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, supabase, loadStats, scheduleSilentReload]);
 
   // Fonctions utilitaires
   // Fonction pour formater la date
@@ -381,6 +414,9 @@ const IntervenantDashboard: React.FC = () => {
         <div className="max-w-7xl mx-auto">
           <DashboardSkeleton />
         </div>
+
+        {/* Charts KPI (résumé intervenant) */}
+        <IntervenantKpiCharts allTasks={allTasks} validationTasks={validationTasks} />
       </div>
     );
   }
@@ -427,21 +463,20 @@ const IntervenantDashboard: React.FC = () => {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <Button 
-              onClick={() => setIsSettingsOpen(true)} 
-              variant="outline" 
+            <div className="flex items-center gap-2 px-3 py-2 rounded-full bg-green-50 border border-green-100">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+              </span>
+              <span className="text-xs font-semibold text-green-700">Temps réel</span>
+            </div>
+            <Button
+              onClick={() => setIsSettingsOpen(true)}
+              variant="outline"
               className="flex items-center gap-2 border-gray-200 text-gray-600 hover:bg-gray-50 transition-all active:scale-95"
             >
               <Settings2 className="h-4 w-4" />
               Personnaliser
-            </Button>
-            <Button 
-              onClick={loadStats} 
-              variant="outline" 
-              className="flex items-center gap-2 border-black text-black hover:bg-black hover:text-white transition-all font-bold active:scale-95"
-            >
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              {dashboardTranslations.refresh}
             </Button>
           </div>
         </motion.div>
@@ -449,7 +484,10 @@ const IntervenantDashboard: React.FC = () => {
         {/* Statistiques principales */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <motion.div variants={itemVariants}>
-            <Card className="border-0 shadow-xl bg-gray-50 rounded-2xl overflow-hidden hover:shadow-2xl transition-shadow duration-300">
+            <Card
+              className="border-0 shadow-xl bg-gray-50 rounded-2xl overflow-hidden hover:shadow-2xl transition-shadow duration-300 cursor-pointer"
+              onClick={() => navigate('/dashboard/tasks')}
+            >
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-xs font-bold text-gray-400 uppercase tracking-wider">Mes Tâches</CardTitle>
                 <div className="p-2 bg-blue-100 rounded-lg">
@@ -471,7 +509,10 @@ const IntervenantDashboard: React.FC = () => {
           </motion.div>
 
           <motion.div variants={itemVariants}>
-            <Card className="border-0 shadow-xl bg-gray-50 rounded-2xl overflow-hidden hover:shadow-2xl transition-shadow duration-300">
+            <Card
+              className="border-0 shadow-xl bg-gray-50 rounded-2xl overflow-hidden hover:shadow-2xl transition-shadow duration-300 cursor-pointer"
+              onClick={() => navigate('/dashboard/intervenant/projets')}
+            >
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-xs font-bold text-gray-400 uppercase tracking-wider">Projets</CardTitle>
                 <div className="p-2 bg-black/5 rounded-lg">
@@ -842,4 +883,117 @@ const IntervenantDashboard: React.FC = () => {
   );
 };
 
-export default IntervenantDashboard; 
+const statusColors = {
+  assigned: '#3b82f6',
+  in_progress: '#111827',
+  submitted: '#f97316',
+  validated: '#22c55e',
+  rejected: '#ef4444'
+} as const;
+
+function IntervenantKpiCharts({ allTasks, validationTasks }: { allTasks: any[]; validationTasks: any[] }) {
+  const now = useMemo(() => new Date(), []);
+
+  const execOverdue = useMemo(() => {
+    return (allTasks || []).filter((t: any) => {
+      const d = t.deadline ? new Date(t.deadline) : null;
+      return !!d && !isNaN(d.getTime()) && d < now && t.status !== 'validated';
+    }).length;
+  }, [allTasks, now]);
+
+  const valOverdue = useMemo(() => {
+    return (validationTasks || []).filter((t: any) => {
+      const d = t.validation_deadline ? new Date(t.validation_deadline) : null;
+      return !!d && !isNaN(d.getTime()) && d < now && t.status !== 'validated';
+    }).length;
+  }, [validationTasks, now]);
+
+  const execCompletionRate = useMemo(() => {
+    const total = (allTasks || []).length;
+    if (!total) return 0;
+    const done = (allTasks || []).filter((t: any) => t.status === 'validated').length;
+    return Math.round((done / total) * 100);
+  }, [allTasks]);
+
+  const valCompletionRate = useMemo(() => {
+    const total = (validationTasks || []).length;
+    if (!total) return 0;
+    const done = (validationTasks || []).filter((t: any) => t.status === 'validated').length;
+    return Math.round((done / total) * 100);
+  }, [validationTasks]);
+
+  const execStatusPieData = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const t of allTasks || []) {
+      const s = t.status || 'unknown';
+      counts[s] = (counts[s] || 0) + 1;
+    }
+    return Object.entries(counts)
+      .map(([name, value]) => ({ name, value, color: (statusColors as any)[name] || '#6b7280' }))
+      .filter(d => d.value > 0);
+  }, [allTasks]);
+
+  const perfBarData = useMemo(() => {
+    return [
+      { name: 'Exécution', completion: execCompletionRate, overdue: execOverdue },
+      { name: 'Validation', completion: valCompletionRate, overdue: valOverdue }
+    ];
+  }, [execCompletionRate, execOverdue, valCompletionRate, valOverdue]);
+
+  const hasAnyData = (allTasks || []).length > 0 || (validationTasks || []).length > 0;
+  if (!hasAnyData) return null;
+
+  return (
+    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+      <Card className="border border-gray-100 shadow-2xl bg-white rounded-3xl overflow-hidden">
+        <CardHeader className="border-b border-gray-50 pb-6">
+          <CardTitle className="text-xl font-black text-black">Répartition (tâches d’exécution)</CardTitle>
+          <CardDescription className="text-gray-500 font-medium">Statuts des tâches où vous êtes exécuteur</CardDescription>
+        </CardHeader>
+        <CardContent className="pt-6">
+          <div className="h-80">
+            {execStatusPieData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={execStatusPieData} dataKey="value" nameKey="name" innerRadius={70} outerRadius={110} paddingAngle={2}>
+                    {execStatusPieData.map((entry, idx) => (
+                      <Cell key={`cell-${idx}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <RechartsTooltip />
+                  <Legend verticalAlign="bottom" height={36} />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-sm text-gray-500">Aucune donnée</div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border border-gray-100 shadow-2xl bg-white rounded-3xl overflow-hidden">
+        <CardHeader className="border-b border-gray-50 pb-6">
+          <CardTitle className="text-xl font-black text-black">Performance</CardTitle>
+          <CardDescription className="text-gray-500 font-medium">Complétion et retards (exécution / validation)</CardDescription>
+        </CardHeader>
+        <CardContent className="pt-6">
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={perfBarData} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis allowDecimals={false} />
+                <RechartsTooltip />
+                <Legend />
+                <Bar dataKey="completion" name="Complétion (%)" fill="#0f766e" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="overdue" name="Retards" fill="#ef4444" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+export default IntervenantDashboard;

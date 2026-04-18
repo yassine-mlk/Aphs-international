@@ -61,7 +61,20 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { Textarea } from '@/components/ui/textarea';
+import {
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip as RechartsTooltip,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Legend
+} from 'recharts';
 import { useAuth } from '@/contexts/AuthContext';
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -193,18 +206,6 @@ const ProjectDetails: React.FC = () => {
   // État pour la recherche dans le formulaire d'assignation
   const [assignmentSearchQuery, setAssignmentSearchQuery] = useState('');
   
-  // Fonction pour filtrer les intervenants dans le formulaire d'assignation
-  const filteredIntervenantsForAssignment = useMemo(() => {
-    if (!assignmentSearchQuery) return intervenants;
-    
-    return intervenants.filter(intervenant => 
-      intervenant.first_name.toLowerCase().includes(assignmentSearchQuery.toLowerCase()) ||
-      intervenant.last_name.toLowerCase().includes(assignmentSearchQuery.toLowerCase()) ||
-      intervenant.email.toLowerCase().includes(assignmentSearchQuery.toLowerCase()) ||
-      (intervenant.specialty && intervenant.specialty.toLowerCase().includes(assignmentSearchQuery.toLowerCase()))
-    );
-  }, [intervenants, assignmentSearchQuery]);
-  
   // États pour la gestion des détails de tâche et validation admin
   const [isTaskDetailsDialogOpen, setIsTaskDetailsDialogOpen] = useState(false);
   const [selectedTaskDetails, setSelectedTaskDetails] = useState<TaskAssignment | null>(null);
@@ -221,6 +222,26 @@ const ProjectDetails: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isRemoveMemberDialogOpen, setIsRemoveMemberDialogOpen] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<ProjectMember | null>(null);
+  const [selectedMemberDetails, setSelectedMemberDetails] = useState<ProjectMember | null>(null);
+  const [isMemberDetailsDialogOpen, setIsMemberDetailsDialogOpen] = useState(false);
+
+  const projectMemberIntervenantIds = useMemo(() => {
+    return new Set(projectMembers.map(member => member.user_id));
+  }, [projectMembers]);
+
+  // Fonction pour filtrer les intervenants dans le formulaire d'assignation
+  const filteredIntervenantsForAssignment = useMemo(() => {
+    const eligibleIntervenants = intervenants.filter(intervenant => projectMemberIntervenantIds.has(intervenant.id));
+
+    if (!assignmentSearchQuery) return eligibleIntervenants;
+    
+    return eligibleIntervenants.filter(intervenant => 
+      intervenant.first_name.toLowerCase().includes(assignmentSearchQuery.toLowerCase()) ||
+      intervenant.last_name.toLowerCase().includes(assignmentSearchQuery.toLowerCase()) ||
+      intervenant.email.toLowerCase().includes(assignmentSearchQuery.toLowerCase()) ||
+      (intervenant.specialty && intervenant.specialty.toLowerCase().includes(assignmentSearchQuery.toLowerCase()))
+    );
+  }, [intervenants, assignmentSearchQuery, projectMemberIntervenantIds]);
   
   // États pour la gestion de la structure
   const {
@@ -495,6 +516,18 @@ const ProjectDetails: React.FC = () => {
   // Soumettre l'assignation de tâche
   const handleSubmitAssignment = async () => {
     if (!selectedTask || !project) return;
+
+    // Sécurité: seuls les membres du projet peuvent être assignés/validateurs
+    const hasInvalidAssignees = assignmentForm.assigned_to.some(userId => !projectMemberIntervenantIds.has(userId));
+    const hasInvalidValidators = assignmentForm.validators.some(userId => !projectMemberIntervenantIds.has(userId));
+    if (hasInvalidAssignees || hasInvalidValidators) {
+      toast({
+        title: "Erreur",
+        description: "Seuls les intervenants membres du projet peuvent être assignés ou validateurs",
+        variant: "destructive",
+      });
+      return;
+    }
     
     if (!assignmentForm.assigned_to || assignmentForm.assigned_to.length === 0) {
       toast({
@@ -748,15 +781,15 @@ const ProjectDetails: React.FC = () => {
   const getTotalAvailableTasks = () => {
     let total = 0;
     
-    // Compter les tâches de conception
-    projectStructure.forEach(section => {
+    // Compter les tâches de conception (structure personnalisée)
+    customProjectStructure.forEach(section => {
       section.items.forEach(item => {
         total += item.tasks.length;
       });
     });
     
-    // Compter les tâches de réalisation
-    realizationStructure.forEach(section => {
+    // Compter les tâches de réalisation (structure personnalisée)
+    customRealizationStructure.forEach(section => {
       section.items.forEach(item => {
         total += item.tasks.length;
       });
@@ -764,6 +797,44 @@ const ProjectDetails: React.FC = () => {
     
     return total;
   };
+
+  const taskStats = useMemo(() => {
+    const assigned = taskAssignments.filter(t => t.status === 'assigned').length;
+    const inProgress = taskAssignments.filter(t => t.status === 'in_progress').length;
+    const submitted = taskAssignments.filter(t => t.status === 'submitted').length;
+    const validated = taskAssignments.filter(t => t.status === 'validated').length;
+    const rejected = taskAssignments.filter(t => t.status === 'rejected').length;
+    const totalAvailable = getTotalAvailableTasks();
+
+    return {
+      assigned,
+      inProgress,
+      submitted,
+      validated,
+      rejected,
+      totalAvailable
+    };
+  }, [taskAssignments, customProjectStructure, customRealizationStructure]);
+
+  const statusPieData = useMemo(() => {
+    return [
+      { name: 'En attente exécution', value: taskStats.assigned, color: '#f59e0b' },
+      { name: 'En cours', value: taskStats.inProgress, color: '#3b82f6' },
+      { name: 'En attente validation', value: taskStats.submitted, color: '#f97316' },
+      { name: 'Validées', value: taskStats.validated, color: '#22c55e' },
+      { name: 'À revoir', value: taskStats.rejected, color: '#ef4444' }
+    ].filter(d => d.value > 0);
+  }, [taskStats]);
+
+  const pipelineBarData = useMemo(() => {
+    return [
+      { name: 'À exécuter', count: taskStats.assigned },
+      { name: 'En cours', count: taskStats.inProgress },
+      { name: 'À valider', count: taskStats.submitted },
+      { name: 'Validées', count: taskStats.validated },
+      { name: 'À revoir', count: taskStats.rejected }
+    ];
+  }, [taskStats]);
 
   // Calculer la progression globale du projet (corrigée)
   const calculateGlobalProgress = () => {
@@ -1111,6 +1182,46 @@ const ProjectDetails: React.FC = () => {
   const getIntervenantInfo = (userId: string) => {
     return allIntervenants.find(i => i.id === userId);
   };
+
+  const openMemberDetails = (member: ProjectMember) => {
+    setSelectedMemberDetails(member);
+    setIsMemberDetailsDialogOpen(true);
+  };
+
+  const toggleMemberProjectDetailsAccess = async (member: ProjectMember) => {
+    if (!member?.id) return;
+    try {
+      const nextRole = member.role === 'viewer' ? 'membre' : 'viewer';
+      const updated = await updateData('membre', { id: member.id, role: nextRole });
+      if (updated) {
+        setProjectMembers(prev => prev.map(m => (m.id === member.id ? { ...m, role: nextRole } : m)));
+        setSelectedMemberDetails(prev => (prev?.id === member.id ? { ...prev, role: nextRole } : prev));
+        toast({
+          title: 'Succès',
+          description: nextRole === 'viewer'
+            ? 'Accès aux détails du projet désactivé pour cet intervenant'
+            : 'Accès aux détails du projet activé pour cet intervenant',
+        });
+      }
+    } catch (error) {
+      console.error("Erreur lors de la mise à jour de l'accès aux détails:", error);
+      toast({
+        title: 'Erreur',
+        description: "Impossible de mettre à jour l'accès",
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const memberExecutionTasks = useMemo(() => {
+    if (!selectedMemberDetails) return [] as TaskAssignment[];
+    return taskAssignments.filter(t => (t.assigned_to || []).includes(selectedMemberDetails.user_id));
+  }, [selectedMemberDetails, taskAssignments]);
+
+  const memberValidationTasks = useMemo(() => {
+    if (!selectedMemberDetails) return [] as TaskAssignment[];
+    return taskAssignments.filter(t => (t.validators || []).includes(selectedMemberDetails.user_id));
+  }, [selectedMemberDetails, taskAssignments]);
   
   // Obtenir les initiales d'un nom
   const getInitials = (firstName: string, lastName: string) => {
@@ -1358,6 +1469,56 @@ const ProjectDetails: React.FC = () => {
                           <span className="text-2xl font-bold text-gray-900">{projectMembers.length}</span>
                           <span className="text-xs text-gray-500">membre(s) actif(s)</span>
                         </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-6">
+                    <div className="bg-white rounded-lg p-4 shadow-sm">
+                      <Label className="text-sm font-medium text-gray-600">Répartition des tâches</Label>
+                      <div className="h-64 mt-3">
+                        {statusPieData.length > 0 ? (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={statusPieData}
+                                dataKey="value"
+                                nameKey="name"
+                                innerRadius={55}
+                                outerRadius={90}
+                                paddingAngle={2}
+                              >
+                                {statusPieData.map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={entry.color} />
+                                ))}
+                              </Pie>
+                              <RechartsTooltip />
+                              <Legend verticalAlign="bottom" height={36} />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        ) : (
+                          <div className="h-full flex items-center justify-center text-sm text-gray-500">
+                            Aucune tâche assignée pour le moment
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-lg p-4 shadow-sm">
+                      <Label className="text-sm font-medium text-gray-600">Pipeline d’avancement</Label>
+                      <div className="h-64 mt-3">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={pipelineBarData} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                            <YAxis allowDecimals={false} />
+                            <RechartsTooltip />
+                            <Bar dataKey="count" fill="#0f766e" radius={[6, 6, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <div className="text-xs text-gray-500 mt-2">
+                        Total disponible (structure du projet): {taskStats.totalAvailable}
                       </div>
                     </div>
                   </div>
@@ -1620,7 +1781,11 @@ const ProjectDetails: React.FC = () => {
                           {projectMembers.map((member) => {
                             const intervenantInfo = getIntervenantInfo(member.user_id);
                             return (
-                              <div key={member.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                              <div
+                                key={member.id}
+                                className="flex items-center justify-between p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100"
+                                onClick={() => openMemberDetails(member)}
+                              >
                                 <div className="flex items-center space-x-3">
                                   <Avatar className="h-10 w-10">
                                     <AvatarFallback className="bg-aps-teal text-white">
@@ -1654,7 +1819,10 @@ const ProjectDetails: React.FC = () => {
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => handleRemoveMember(member)}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleRemoveMember(member);
+                                    }}
                                     className="text-red-600 hover:text-red-700 hover:bg-red-50"
                                   >
                                     <UserMinus className="h-4 w-4 mr-1" />
@@ -2018,6 +2186,102 @@ const ProjectDetails: React.FC = () => {
               <FileUp className="mr-2 h-4 w-4" />
               Assigner
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isMemberDetailsDialogOpen} onOpenChange={setIsMemberDetailsDialogOpen}>
+        <DialogContent className="sm:max-w-[900px]">
+          <DialogHeader>
+            <DialogTitle>Détails intervenant</DialogTitle>
+            <DialogDescription>
+              Tâches liées à ce projet (exécution / validation)
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedMemberDetails && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <div className="font-medium text-gray-900">
+                    {(() => {
+                      const info = getIntervenantInfo(selectedMemberDetails.user_id);
+                      if (!info) return selectedMemberDetails.user_id;
+                      return `${info.first_name || ''} ${info.last_name || ''}`.trim() || info.email;
+                    })()}
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    {getIntervenantInfo(selectedMemberDetails.user_id)?.email || ''}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">role: {selectedMemberDetails.role}</Badge>
+                  <Button
+                    variant="outline"
+                    onClick={() => toggleMemberProjectDetailsAccess(selectedMemberDetails)}
+                  >
+                    {selectedMemberDetails.role === 'viewer'
+                      ? 'Autoriser détails projet'
+                      : 'Désactiver détails projet'}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <Card className="border shadow-sm">
+                  <CardContent className="p-4">
+                    <div className="font-semibold mb-3">À exécuter ({memberExecutionTasks.length})</div>
+                    <div className="space-y-2">
+                      {memberExecutionTasks.length === 0 ? (
+                        <div className="text-sm text-gray-500">Aucune tâche</div>
+                      ) : (
+                        memberExecutionTasks.map(t => (
+                          <div key={t.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                            <div className="min-w-0">
+                              <div className="text-sm font-medium truncate">{t.task_name}</div>
+                              <div className="text-xs text-gray-500 truncate">{t.phase_id} • {t.section_id} • {t.subsection_id}</div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge className={getStatusColor(t.status)}>{getStatusLabel(t.status)}</Badge>
+                              <Button variant="outline" size="sm" onClick={() => t.id && handleViewTaskDetails(t)}>Ouvrir</Button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border shadow-sm">
+                  <CardContent className="p-4">
+                    <div className="font-semibold mb-3">À valider ({memberValidationTasks.length})</div>
+                    <div className="space-y-2">
+                      {memberValidationTasks.length === 0 ? (
+                        <div className="text-sm text-gray-500">Aucune tâche</div>
+                      ) : (
+                        memberValidationTasks.map(t => (
+                          <div key={t.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                            <div className="min-w-0">
+                              <div className="text-sm font-medium truncate">{t.task_name}</div>
+                              <div className="text-xs text-gray-500 truncate">{t.phase_id} • {t.section_id} • {t.subsection_id}</div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge className={getStatusColor(t.status)}>{getStatusLabel(t.status)}</Badge>
+                              <Button variant="outline" size="sm" onClick={() => t.id && handleViewTaskDetails(t)}>Ouvrir</Button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsMemberDetailsDialogOpen(false)}>Fermer</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
