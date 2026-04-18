@@ -198,6 +198,41 @@ const IntervenantDashboard: React.FC = () => {
   useEffect(() => {
     if (user?.id) {
       loadStats();
+
+      // S'abonner aux changements de la table task_assignments
+      const channel = supabase
+        .channel(`intervenant-dashboard-${user.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'task_assignments',
+            filter: `assigned_to=cs.{${user.id}}`
+          },
+          () => {
+            console.log('Changement détecté dans vos tâches, actualisation des stats...');
+            loadStats();
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'membre',
+            filter: `user_id=eq.${user.id}`
+          },
+          () => {
+            console.log('Changement détecté dans vos accès projets, actualisation des stats...');
+            loadStats();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   }, [user?.id]);
 

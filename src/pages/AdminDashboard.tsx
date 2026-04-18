@@ -36,7 +36,7 @@ interface DashboardStats {
 const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { fetchData } = useSupabase();
+  const { fetchData, supabase } = useSupabase();
   const { user } = useAuth();
 
   const [stats, setStats] = useState<DashboardStats>({
@@ -132,6 +132,39 @@ const AdminDashboard: React.FC = () => {
 
   useEffect(() => {
     loadStats();
+
+    // S'abonner aux changements de la table task_assignments
+    const channel = supabase
+      .channel('admin-dashboard-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'task_assignments'
+        },
+        () => {
+          console.log('Changement détecté dans task_assignments, actualisation des stats...');
+          loadStats();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'projects'
+        },
+        () => {
+          console.log('Changement détecté dans projects, actualisation des stats...');
+          loadStats();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   // Fonction pour formater la date

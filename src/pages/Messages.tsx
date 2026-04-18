@@ -53,6 +53,7 @@ const Messages: React.FC = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const { language } = useLanguage();
+  const { supabase } = useSupabase();
   const t = translations[language as keyof typeof translations].messages;
   const { 
     getAvailableContacts, 
@@ -117,34 +118,88 @@ const Messages: React.FC = () => {
     }
   }, [user, getAvailableContacts]);
   
-  // Configuration du polling automatique
+  // Configuration du temps réel Supabase pour les messages
   useEffect(() => {
     if (!user) return;
     
-    // Fonction pour effectuer le polling
-    const pollForUpdates = async () => {
-      setIsPolling(true);
-      try {
-        // 1. Mettre à jour la liste des conversations
-        await loadConversations(false);
-        
-        // 2. Si une conversation est active, vérifier les nouveaux messages
-        if (activeConversation) {
-          await loadMessages(activeConversation.id, false);
+    console.log('🔌 Configuration du temps réel pour les messages...');
+    
+    // S'abonner aux nouveaux messages
+    const channel = supabase
+      .channel('messages-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages'
+        },
+        async (payload) => {
+          const newMessage = payload.new as any;
+          console.log('📩 Nouveau message reçu en temps réel:', newMessage);
+          
+          // 1. Rafraîchir la liste des conversations pour mettre à jour les derniers messages et compteurs
+          await loadConversations(false);
+          
+          // 2. Si le message appartient à la conversation active, l'ajouter à la liste
+          if (activeConversation && newMessage.conversation_id === activeConversation.id) {
+            // Éviter les doublons si c'est nous qui avons envoyé le message
+            setMessages(prev => {
+              const exists = prev.some(m => m.id === newMessage.id);
+              if (exists) return prev;
+              
+              const formattedMessage: Message = {
+                id: newMessage.id,
+                conversationId: newMessage.conversation_id,
+                senderId: newMessage.sender_id,
+                content: newMessage.content,
+                timestamp: new Date(newMessage.created_at),
+                isRead: newMessage.is_read
+              };
+              
+              return [...prev, formattedMessage];
+            });
+            
+            // Défiler vers le bas
+            setTimeout(() => {
+              if (messageEndRef.current) {
+                messageEndRef.current.scrollIntoView({ behavior: 'smooth' });
+              }
+            }, 100);
+          }
         }
-        
-        setLastPollingTime(new Date());
-      } catch (error) {
-        console.error('Erreur lors du polling:', error);
-      } finally {
-        setIsPolling(false);
+      )
+      .subscribe();
+    
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, activeConversation, supabase]);
+  
+  // Configuration du polling automatique (gardé en fallback mais avec un intervalle plus long)
+  useEffect(() => {
+    if (!user) return;
+    
+    const pollForUpdates = async () => {
+      // Le temps réel devrait déjà tout gérer, mais on garde un polling lent au cas où
+      if (!isPolling) {
+        setIsPolling(true);
+        try {
+          await loadConversations(false);
+          if (activeConversation) {
+            await loadMessages(activeConversation.id, false);
+          }
+          setLastPollingTime(new Date());
+        } catch (error) {
+          console.error('Erreur lors du polling de secours:', error);
+        } finally {
+          setIsPolling(false);
+        }
       }
     };
     
-    // Démarrer l'intervalle de polling
-    const pollingInterval = setInterval(pollForUpdates, POLLING_INTERVAL);
+    const pollingInterval = setInterval(pollForUpdates, 60000); // 1 minute au lieu de 30s
     
-    // Nettoyer l'intervalle lors du démontage du composant
     return () => {
       clearInterval(pollingInterval);
     };

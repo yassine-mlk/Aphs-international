@@ -455,7 +455,44 @@ const TaskDetails: React.FC = () => {
   // Load task details on mount
   useEffect(() => {
     fetchTaskDetails();
-  }, [fetchTaskDetails]);
+
+    if (!id) return;
+
+    // S'abonner aux changements de la tâche en temps réel
+    const channel = supabase
+      .channel(`task-details-${id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'task_assignments',
+          filter: `id=eq.${id}`
+        },
+        (payload) => {
+          console.log('Changement détecté dans la tâche, actualisation...', payload);
+          fetchTaskDetails();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'task_submission_history',
+          filter: `task_assignment_id=eq.${id}`
+        },
+        () => {
+          console.log('Changement détecté dans l\'historique de la tâche, actualisation...');
+          loadSubmissionHistory(id);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [id, fetchTaskDetails, supabase]);
   
   const handleStartTask = async () => {
     if (!task) return;

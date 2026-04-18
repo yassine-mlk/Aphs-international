@@ -319,12 +319,22 @@ export function useNotifications() {
           setHasNewNotification(true);
           
           // Son et toast seulement pour les notifications importantes
-          if (['task_assigned', 'meeting_invitation', 'meeting_started', 'message_received'].includes(newNotification.type)) {
+          const importantTypes: NotificationType[] = [
+            'task_assigned', 
+            'meeting_invitation', 
+            'meeting_started', 
+            'message_received',
+            'task_validated',
+            'task_status_changed',
+            'file_uploaded'
+          ];
+
+          if (importantTypes.includes(newNotification.type)) {
             playNotificationSound();
             toast({
               title: newNotification.title,
               description: newNotification.message,
-              duration: 3000, // Réduire la durée
+              duration: 4000,
             });
           }
 
