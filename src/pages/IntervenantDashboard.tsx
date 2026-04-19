@@ -18,15 +18,18 @@ import {
   RefreshCw,
   Calendar as CalendarIcon,
   LayoutGrid,
-  ChevronRight
+  ChevronRight,
+  Building2
 } from 'lucide-react';
 import { useSupabase } from '@/hooks/useSupabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useTenant } from '@/contexts/TenantContext';
 import { translations } from '@/lib/translations';
 import { useRecentActivities, type RecentActivity } from '@/hooks/useRecentActivities';
 import { ActivityIcon } from '@/components/ActivityIcon';
 import { motion, AnimatePresence } from 'framer-motion';
+import { TenantQuotaDisplay } from '@/components/TenantQuotaGuard';
 import { DashboardSkeleton } from '@/components/Skeletons';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DeadlineCalendar } from '@/components/DeadlineCalendar';
@@ -96,6 +99,7 @@ const IntervenantDashboard: React.FC = () => {
   const { fetchData, supabase } = useSupabase();
   const { user } = useAuth();
   const { language } = useLanguage();
+  const { tenant, isLoading: isTenantLoading } = useTenant();
 
   const [stats, setStats] = useState<IntervenantStats>({
     totalTasks: 0,
@@ -580,6 +584,26 @@ const IntervenantDashboard: React.FC = () => {
             </Card>
           </motion.div>
         </div>
+
+        {/* Quotas du Tenant */}
+        {tenant && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-3"
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <Building2 className="h-5 w-5 text-muted-foreground" />
+                {tenant.name} - Quotas
+              </h2>
+              <Badge variant="outline" className="capitalize">
+                {tenant.plan}
+              </Badge>
+            </div>
+            <TenantQuotaDisplay />
+          </motion.div>
+        )}
 
         {/* Vue Personnalisée ou Vue par Onglets */}
         {preferences.useCustomView ? (

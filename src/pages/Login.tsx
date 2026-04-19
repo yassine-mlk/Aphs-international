@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { supabase } from '@/lib/supabase';
 import { translations } from '@/lib/translations';
 import LanguageSelector from '@/components/LanguageSelector';
 import PasswordInput from '@/components/ui/password-input';
@@ -56,7 +57,14 @@ const Login: React.FC = () => {
         // Store user data in localStorage including the role
         console.log('Login successful - User data:', user);
         
-        let userRole = user.user_metadata?.role || 'intervenant';
+        // Récupérer le rôle depuis la table profiles (source de vérité pour SaaS)
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('role, is_super_admin')
+          .eq('user_id', user.id)
+          .single();
+        
+        let userRole = profileData?.role || user.user_metadata?.role || 'intervenant';
         
         // Force admin role for admin@aps.com
         if (email === 'admin@aps.com') {
@@ -67,8 +75,11 @@ const Login: React.FC = () => {
         const userData = {
           email: user.email,
           role: userRole,
+          isSuperAdmin: profileData?.is_super_admin || false,
           id: user.id
         };
+        
+        console.log('User role from profiles:', userRole, 'SuperAdmin:', profileData?.is_super_admin);
         
         // Définir le localStorage avant la navigation
         localStorage.setItem('user', JSON.stringify(userData));

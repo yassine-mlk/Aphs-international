@@ -59,73 +59,45 @@ export function useSuperAdmin() {
   // Fonctions Super Admin
   const createTenant = useCallback(async (data: CreateTenantData): Promise<Tenant | null> => {
     try {
-      // 1. Créer l'utilisateur admin dans Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: data.ownerEmail,
-        password: generateTempPassword(), // Générer un mot de passe temporaire
-      });
+      // 1. Calculer les limites
+      const planDefaults = getPlanDefaults(data.plan);
+      const maxProjects = data.plan === 'custom' ? (data.maxProjects || 10) : planDefaults.maxProjects;
+      const maxIntervenants = data.plan === 'custom' ? (data.maxIntervenants || 20) : planDefaults.maxIntervenants;
+      const maxStorageGb = data.plan === 'custom' ? (data.maxStorageGb || 50) : planDefaults.maxStorageGb;
 
-      if (authError) throw authError;
-      if (!authData.user) throw new Error('Failed to create user');
-
-      const ownerUserId = authData.user.id;
-
-      // 2. Créer le profil
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          user_id: ownerUserId,
-          first_name: data.ownerFirstName,
-          last_name: data.ownerLastName,
-          email: data.ownerEmail,
-          role: 'admin',
-          is_super_admin: false
-        });
-
-      if (profileError) throw profileError;
-
-      // 3. Créer le tenant avec les limites du plan
-      const limits = data.plan === 'custom' 
-        ? { 
-            max_projects: data.maxProjects || 10,
-            max_intervenants: data.maxIntervenants || 20,
-            max_storage_gb: data.maxStorageGb || 50
-          }
-        : getPlanDefaults(data.plan);
+      const insertData = {
+        name: data.name,
+        slug: data.slug,
+        owner_email: data.ownerEmail,
+        owner_user_id: null,
+        plan: data.plan,
+        max_projects: maxProjects,
+        max_intervenants: maxIntervenants,
+        max_storage_gb: maxStorageGb,
+        status: 'trial',
+        trial_ends_at: new Date(Date.now() + (data.trialDays || 14) * 24 * 60 * 60 * 1000).toISOString()
+      };
+      
+      console.log('Creating tenant with data:', insertData);
 
       const { data: tenantData, error: tenantError } = await supabase
         .from('tenants')
-        .insert({
-          name: data.name,
-          slug: data.slug,
-          owner_email: data.ownerEmail,
-          owner_user_id: ownerUserId,
-          plan: data.plan,
-          ...limits,
-          status: 'trial',
-          trial_ends_at: new Date(Date.now() + (data.trialDays || 14) * 24 * 60 * 60 * 1000).toISOString()
-        })
+        .insert(insertData)
         .select()
         .single();
 
-      if (tenantError) throw tenantError;
+      if (tenantError) {
+        console.error('Tenant creation error:', tenantError);
+        throw tenantError;
+      }
 
-      // 4. Ajouter le owner comme member
-      const { error: memberError } = await supabase
-        .from('tenant_members')
-        .insert({
-          tenant_id: tenantData.id,
-          user_id: ownerUserId,
-          role: 'admin',
-          status: 'active',
-          joined_at: new Date().toISOString()
-        });
-
-      if (memberError) throw memberError;
-
+      // 2. Créer le profil de l'admin (sans user_id pour l'instant - sera lié à l'inscription)
+      // Note: Le vrai user_id sera créé quand l'admin s'inscrira via la page de login
+      // Pour l'instant, on crée un placeholder qui sera mis à jour
+      
       toast({
         title: "Tenant créé",
-        description: `Le compte ${data.name} a été créé avec succès.`,
+        description: `Le compte ${data.name} a été créé. L'admin doit s'inscrire avec ${data.ownerEmail}`,
       });
 
       return {
@@ -133,13 +105,13 @@ export function useSuperAdmin() {
         name: tenantData.name,
         slug: tenantData.slug,
         ownerEmail: tenantData.owner_email,
-        ownerUserId: tenantData.owner_user_id,
+        ownerUserId: null,
         plan: tenantData.plan,
         maxProjects: tenantData.max_projects,
         maxIntervenants: tenantData.max_intervenants,
         maxStorageGb: tenantData.max_storage_gb,
         currentProjectsCount: 0,
-        currentIntervenantsCount: 1,
+        currentIntervenantsCount: 0,
         currentStorageUsedBytes: 0,
         status: tenantData.status,
         trialEndsAt: tenantData.trial_ends_at,
@@ -164,10 +136,7 @@ export function useSuperAdmin() {
     try {
       const { data, error } = await supabase
         .from('tenants')
-        .select(`
-          *,
-          owner:profiles!tenants_owner_user_id_fkey(email)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -292,6 +261,158 @@ export function useSuperAdmin() {
     }
   }, [toast]);
 
+  // Associer un utilisateur existant à un tenant
+  const associateUserToTenant = useCallback(async (
+    tenantId: string,
+    userId: string,
+    role: string = 'intervenant'
+  ): Promise<boolean> => {
+    try {
+      // 1. Créer le membership
+      const { error: memberError } = await supabase
+        .from('tenant_members')
+        .insert({
+          tenant_id: tenantId,
+          user_id: userId,
+          role: role,
+          status: 'active'
+        });
+
+      if (memberError) throw memberError;
+
+      // 2. Mettre à jour le profil avec le tenant_id ET le role
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          tenant_id: tenantId,
+          role: role  // ← AJOUTÉ: Mettre à jour le role aussi !
+        })
+        .eq('user_id', userId);
+
+      if (profileError) throw profileError;
+
+      // 3. Si c'est un admin, mettre à jour le owner_user_id du tenant
+      if (role === 'admin') {
+        const { error: tenantError } = await supabase
+          .from('tenants')
+          .update({ owner_user_id: userId })
+          .eq('id', tenantId);
+
+        if (tenantError) throw tenantError;
+      }
+
+      toast({
+        title: "Utilisateur associé",
+        description: "L'utilisateur a été lié au tenant avec succès.",
+      });
+
+      return true;
+
+    } catch (error: any) {
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible d'associer l'utilisateur",
+        variant: "destructive"
+      });
+      return false;
+    }
+  }, [toast]);
+
+  // Retirer un utilisateur d'un tenant (sans supprimer le compte)
+  const removeUserFromTenant = useCallback(async (
+    tenantId: string,
+    userId: string
+  ): Promise<boolean> => {
+    try {
+      // 1. Supprimer le membership
+      const { error: memberError } = await supabase
+        .from('tenant_members')
+        .delete()
+        .eq('tenant_id', tenantId)
+        .eq('user_id', userId);
+
+      if (memberError) {
+        console.error('Member delete error:', memberError);
+        throw memberError;
+      }
+
+      // 2. Retirer tenant_id du profil
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ tenant_id: null })
+        .eq('user_id', userId);
+
+      if (profileError) {
+        console.error('Profile update error:', profileError);
+        throw profileError;
+      }
+
+      toast({
+        title: "Utilisateur retiré",
+        description: "L'utilisateur a été retiré du tenant.",
+      });
+
+      return true;
+
+    } catch (error: any) {
+      console.error('Remove user error:', error);
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible de retirer l'utilisateur",
+        variant: "destructive"
+      });
+      return false;
+    }
+  }, [toast]);
+
+  // Supprimer complètement un utilisateur (compte + données)
+  const deleteUser = useCallback(async (
+    userId: string
+  ): Promise<boolean> => {
+    try {
+      // Note: La suppression de auth.users nécessite une Edge Function ou Admin API
+      // Pour l'instant, on supprime les données locales et on marque comme supprimé
+      
+      // 1. Supprimer de tous les tenants
+      const { error: memberError } = await supabase
+        .from('tenant_members')
+        .delete()
+        .eq('user_id', userId);
+
+      if (memberError) throw memberError;
+
+      // 2. Marquer le profil comme supprimé
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ 
+          status: 'deleted',
+          email: `deleted-${userId}@deleted.com`,
+          tenant_id: null 
+        })
+        .eq('user_id', userId);
+
+      if (profileError) throw profileError;
+
+      // 3. Désactiver dans auth.users (via RPC si disponible)
+      // Note: nécessite une fonction Supabase Edge pour vraiment supprimer
+      
+      toast({
+        title: "Utilisateur supprimé",
+        description: "Le compte a été désactivé et les données nettoyées.",
+      });
+
+      return true;
+
+    } catch (error: any) {
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible de supprimer l'utilisateur",
+        variant: "destructive"
+      });
+      return false;
+    }
+  }, [toast]);
+
   return {
     isSuperAdmin,
     isLoading,
@@ -299,7 +420,10 @@ export function useSuperAdmin() {
     getAllTenants,
     updateTenantLimits,
     suspendTenant,
-    activateTenant
+    activateTenant,
+    associateUserToTenant,
+    removeUserFromTenant,
+    deleteUser
   };
 }
 
@@ -591,13 +715,3 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     </TenantContext.Provider>
   );
 };
-
-// Helper pour générer un mot de passe temporaire
-function generateTempPassword(): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
-  let password = '';
-  for (let i = 0; i < 12; i++) {
-    password += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return password;
-}

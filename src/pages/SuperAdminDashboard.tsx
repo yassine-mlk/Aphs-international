@@ -17,7 +17,12 @@ import {
   AlertTriangle,
   Edit3,
   Ban,
-  Play
+  Play,
+  UserPlus,
+  Link,
+  Trash2,
+  UserX,
+  Users2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,6 +47,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
 import { useSuperAdmin } from '@/contexts/TenantContext';
+import { supabase } from '@/lib/supabase';
 import type { Tenant, TenantPlan, TenantStatus } from '@/types/tenant';
 import { TENANT_PLANS, formatStorage, formatPercentage } from '@/types/tenant';
 
@@ -55,7 +61,10 @@ const SuperAdminDashboard: React.FC = () => {
     getAllTenants,
     updateTenantLimits,
     suspendTenant,
-    activateTenant
+    activateTenant,
+    associateUserToTenant,
+    removeUserFromTenant,
+    deleteUser
   } = useSuperAdmin();
 
   const [tenants, setTenants] = useState<Tenant[]>([]);
@@ -64,6 +73,14 @@ const SuperAdminDashboard: React.FC = () => {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isAssociateDialogOpen, setIsAssociateDialogOpen] = useState(false);
+  const [associateForm, setAssociateForm] = useState({
+    userId: '',
+    role: 'intervenant' as 'admin' | 'intervenant'
+  });
+  const [isUsersDialogOpen, setIsUsersDialogOpen] = useState(false);
+  const [tenantUsers, setTenantUsers] = useState<any[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
 
   // Stats globales
   const stats = {
@@ -143,12 +160,15 @@ const SuperAdminDashboard: React.FC = () => {
     }
   };
 
-  // Générer slug automatiquement
+  // Générer slug automatiquement avec suffixe unique
   const generateSlug = (name: string) => {
-    return name
+    const base = name
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '');
+    // Ajouter un suffixe aléatoire de 4 caractères pour garantir l'unicité
+    const suffix = Math.random().toString(36).substring(2, 6);
+    return `${base}-${suffix}`;
   };
 
   const handleNameChange = (name: string) => {
@@ -169,9 +189,9 @@ const SuperAdminDashboard: React.FC = () => {
   const openEditDialog = (tenant: Tenant) => {
     setSelectedTenant(tenant);
     setEditLimits({
-      maxProjects: tenant.maxProjects,
-      maxIntervenants: tenant.maxIntervenants,
-      maxStorageGb: tenant.maxStorageGb
+      maxProjects: tenant.maxProjects ?? 5,
+      maxIntervenants: tenant.maxIntervenants ?? 10,
+      maxStorageGb: tenant.maxStorageGb ?? 10
     });
     setIsEditDialogOpen(true);
   };
@@ -201,6 +221,79 @@ const SuperAdminDashboard: React.FC = () => {
         const data = await getAllTenants();
         setTenants(data);
       }
+    }
+  };
+
+  // Associer un utilisateur
+  const openAssociateDialog = (tenant: Tenant) => {
+    setSelectedTenant(tenant);
+    setAssociateForm({ userId: '', role: 'intervenant' });
+    setIsAssociateDialogOpen(true);
+  };
+
+  const handleAssociateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTenant) return;
+
+    const success = await associateUserToTenant(
+      selectedTenant.id,
+      associateForm.userId,
+      associateForm.role
+    );
+
+    if (success) {
+      setIsAssociateDialogOpen(false);
+      const data = await getAllTenants();
+      setTenants(data);
+    }
+  };
+
+  // Charger les utilisateurs d'un tenant
+  const loadTenantUsers = async (tenant: Tenant) => {
+    setSelectedTenant(tenant);
+    setIsLoadingUsers(true);
+    try {
+      const { data, error } = await supabase
+        .from('tenant_members')
+        .select(`
+          *,
+          profiles:user_id(*)
+        `)
+        .eq('tenant_id', tenant.id)
+        .order('joined_at', { ascending: false });
+
+      if (error) throw error;
+      setTenantUsers(data || []);
+      setIsUsersDialogOpen(true);
+    } catch (err) {
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger les utilisateurs",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  };
+
+  // Retirer un utilisateur du tenant
+  const handleRemoveUser = async (userId: string) => {
+    if (!selectedTenant) return;
+    if (!confirm('Retirer cet utilisateur du tenant ? Il ne pourra plus accéder aux données.')) return;
+
+    const success = await removeUserFromTenant(selectedTenant.id, userId);
+    if (success) {
+      setTenantUsers(tenantUsers.filter(u => u.user_id !== userId));
+    }
+  };
+
+  // Supprimer complètement un utilisateur
+  const handleDeleteUser = async (userId: string) => {
+    if (!confirm('SUPPRIMER DÉFINITIVEMENT ce compte ? Cette action est irréversible !')) return;
+
+    const success = await deleteUser(userId);
+    if (success) {
+      setTenantUsers(tenantUsers.filter(u => u.user_id !== userId));
     }
   };
 
@@ -399,7 +492,24 @@ const SuperAdminDashboard: React.FC = () => {
                               <Button 
                                 variant="ghost" 
                                 size="sm"
+                                onClick={() => loadTenantUsers(tenant)}
+                                title="Voir les utilisateurs"
+                              >
+                                <Users2 className="h-4 w-4 text-indigo-500" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => openAssociateDialog(tenant)}
+                                title="Associer un utilisateur"
+                              >
+                                <UserPlus className="h-4 w-4 text-blue-500" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
                                 onClick={() => openEditDialog(tenant)}
+                                title="Modifier les limites"
                               >
                                 <Edit3 className="h-4 w-4" />
                               </Button>
@@ -407,6 +517,7 @@ const SuperAdminDashboard: React.FC = () => {
                                 variant="ghost" 
                                 size="sm"
                                 onClick={() => handleToggleStatus(tenant)}
+                                title={tenant.status === 'suspended' ? "Réactiver" : "Suspendre"}
                               >
                                 {tenant.status === 'suspended' ? (
                                   <Play className="h-4 w-4 text-green-500" />
@@ -588,6 +699,148 @@ const SuperAdminDashboard: React.FC = () => {
               Annuler
             </Button>
             <Button onClick={handleUpdateLimits}>Enregistrer</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog d'association d'utilisateur */}
+      <Dialog open={isAssociateDialogOpen} onOpenChange={setIsAssociateDialogOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Associer un utilisateur</DialogTitle>
+            <DialogDescription>
+              Associer un utilisateur existant au tenant <strong>{selectedTenant?.name}</strong>
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleAssociateUser} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="userId">ID Utilisateur (UUID)</Label>
+              <Input
+                id="userId"
+                value={associateForm.userId}
+                onChange={(e) => setAssociateForm(prev => ({ ...prev, userId: e.target.value }))}
+                placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                required
+              />
+              <p className="text-xs text-muted-foreground">
+                Trouvez l'UUID dans Supabase Auth → Users
+              </p>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="role">Rôle</Label>
+              <Select
+                value={associateForm.role}
+                onValueChange={(value) => setAssociateForm(prev => ({ ...prev, role: value as 'admin' | 'intervenant' }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Administrateur</SelectItem>
+                  <SelectItem value="intervenant">Intervenant</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="bg-muted p-3 rounded-lg text-sm">
+              <p className="font-medium mb-1">⚠️ Important :</p>
+              <ul className="text-muted-foreground space-y-1 list-disc list-inside">
+                <li>L'utilisateur doit déjà exister dans Supabase Auth</li>
+                <li>Si admin : deviendra propriétaire du tenant</li>
+                <li>Si intervenant : rejoindra comme membre</li>
+              </ul>
+            </div>
+
+            <DialogFooter className="pt-4">
+              <Button type="button" variant="outline" onClick={() => setIsAssociateDialogOpen(false)}>
+                Annuler
+              </Button>
+              <Button type="submit">
+                <Link className="h-4 w-4 mr-2" />
+                Associer
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog des utilisateurs du tenant */}
+      <Dialog open={isUsersDialogOpen} onOpenChange={setIsUsersDialogOpen}>
+        <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Utilisateurs de {selectedTenant?.name}</DialogTitle>
+            <DialogDescription>
+              Gérer les membres de ce tenant. Vous pouvez les retirer du tenant ou supprimer définitivement leur compte.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {isLoadingUsers ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+          ) : tenantUsers.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Users className="h-12 w-12 mx-auto mb-3 opacity-30" />
+              <p>Aucun utilisateur associé à ce tenant.</p>
+              <p className="text-sm mt-1">Utilisez le bouton "Associer un utilisateur" pour en ajouter.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {tenantUsers.map((user) => (
+                <div key={user.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <span className="text-sm font-medium">
+                        {user.profiles?.first_name?.[0]}{user.profiles?.last_name?.[0]}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="font-medium">
+                        {user.profiles?.first_name} {user.profiles?.last_name}
+                      </p>
+                      <p className="text-sm text-muted-foreground">{user.profiles?.email}</p>
+                      <div className="flex gap-2 mt-1">
+                        <Badge variant={user.role === 'admin' ? 'default' : 'secondary'} className="text-xs">
+                          {user.role}
+                        </Badge>
+                        <Badge variant="outline" className="text-xs">
+                          {user.status}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRemoveUser(user.user_id)}
+                      title="Retirer du tenant"
+                    >
+                      <UserX className="h-4 w-4 text-orange-500" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteUser(user.user_id)}
+                      title="Supprimer définitivement"
+                    >
+                      <Trash2 className="h-4 w-4 text-red-500" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <DialogFooter className="pt-4">
+            <Button variant="outline" onClick={() => setIsUsersDialogOpen(false)}>
+              Fermer
+            </Button>
+            <Button onClick={() => selectedTenant && openAssociateDialog(selectedTenant)}>
+              <UserPlus className="h-4 w-4 mr-2" />
+              Ajouter un utilisateur
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
