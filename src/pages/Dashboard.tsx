@@ -7,9 +7,10 @@ const Dashboard: React.FC = () => {
   const { user } = useAuth();
   
   // Déterminer si l'utilisateur est un administrateur
-  const isAdmin = user?.user_metadata?.role === 'admin' || 
-                 user?.email === 'admin@aps.com' || 
-                 JSON.parse(localStorage.getItem('user') || '{}')?.role === 'admin';
+  // Le rôle est maintenant stocké dans localStorage par Login.tsx (source de vérité: table profiles)
+  const userData = JSON.parse(localStorage.getItem('user') || '{}');
+  const isAdmin = userData?.role === 'admin' || 
+                 user?.email === 'admin@aps.com';
 
   // Rendu conditionnel selon le rôle
   if (isAdmin) {
