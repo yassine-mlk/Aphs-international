@@ -28,6 +28,7 @@ import TestUpload from "./test-upload";
 import IntervenantProjects from "./pages/IntervenantProjects";
 import IntervenantProjectDetails from "./pages/IntervenantProjectDetails";
 import IntervenantProjectDetailsLangSwitch from "./pages/IntervenantProjectDetailsLangSwitch";
+import Validations from "./pages/Validations";
 import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 import SuperAdminLogin from "./pages/SuperAdminLogin";
 
@@ -308,6 +309,13 @@ const App = () => {
                     <IntervenantRoute>
                       <IntervenantProjectDetailsLangSwitch />
                     </IntervenantRoute>
+                  } />
+                  
+                  {/* Route pour les validations (tous les rôles avec accès validation) */}
+                  <Route path="validations" element={
+                    <SharedRoute>
+                      <Validations />
+                    </SharedRoute>
                   } />
                   
                   {/* Routes spécifiques aux maîtres d'ouvrage */}
