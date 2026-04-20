@@ -86,6 +86,12 @@ export const CircuitList: React.FC<CircuitListProps> = ({
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Nouveau circuit de validation</DialogTitle>
+              <DialogDescription>
+                Créez un circuit en définissant l'ordre des validateurs
+              </DialogDescription>
+            </DialogHeader>
             <CircuitBuilder 
               intervenants={intervenants}
               onSave={handleCreate}
