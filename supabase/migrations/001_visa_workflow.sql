@@ -323,7 +323,7 @@ SELECT
   ts.file_name,
   ts.submitted_by,
   ts.submitted_at,
-  p.title as project_title
+  p.name as project_title
 FROM visa_steps vs
 JOIN visa_instances vi ON vs.instance_id = vi.id
 JOIN visa_circuits vc ON vi.circuit_id = vc.id
