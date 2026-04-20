@@ -14,14 +14,14 @@ interface CircuitBuilderProps {
   onCancel: () => void;
 }
 
-const ROLES_OPTIONS = [
-  { value: 'architecte', label: 'Architecte' },
-  { value: 'controleur_technique', label: 'Contrôleur Technique' },
-  { value: 'be_structure', label: 'Bureau d\'Études Structure' },
-  { value: 'be_mep', label: 'Bureau d\'Études MEP' },
-  { value: 'maitre_oeuvre', label: 'Maître d\'Œuvre' },
-  { value: 'maitre_ouvrage', label: 'Maître d\'Ouvrage' },
-];
+const ROLE_LABELS: Record<string, string> = {
+  architecte: 'Architecte',
+  controleur_technique: 'Contrôleur Technique',
+  be_structure: 'BE Structure',
+  be_mep: 'BE MEP',
+  maitre_oeuvre: 'Maître d\'Œuvre',
+  maitre_ouvrage: 'Maître d\'Ouvrage',
+};
 
 export const CircuitBuilder: React.FC<CircuitBuilderProps> = ({ 
   intervenants, 
@@ -40,6 +40,18 @@ export const CircuitBuilder: React.FC<CircuitBuilderProps> = ({
       order_index: steps.length,
     };
     setSteps([...steps, newStep]);
+  };
+
+  // Lorsqu'on choisit un intervenant, son rôle est automatiquement assigné
+  const handleIntervenantChange = (index: number, userId: string) => {
+    const intervenant = intervenants.find(i => i.id === userId);
+    const updated = [...steps];
+    updated[index] = { 
+      ...updated[index], 
+      user_id: userId,
+      role: intervenant?.role || ''
+    };
+    setSteps(updated);
   };
 
   const updateStep = (index: number, field: keyof VisaCircuitStep, value: any) => {
@@ -72,7 +84,7 @@ export const CircuitBuilder: React.FC<CircuitBuilderProps> = ({
     onSave(name.trim(), documentType, steps);
   };
 
-  const isValid = name.trim() && steps.length > 0 && steps.every(s => s.role && s.user_id);
+  const isValid = name.trim() && steps.length > 0 && steps.every(s => s.user_id);
 
   return (
     <Card className="w-full">
@@ -132,41 +144,35 @@ export const CircuitBuilder: React.FC<CircuitBuilderProps> = ({
                             <GripVertical className="h-5 w-5 text-gray-400" />
                           </div>
                           
-                          <div className="flex-1 grid grid-cols-3 gap-3">
-                            {/* Rôle */}
-                            <Select 
-                              value={step.role} 
-                              onValueChange={(v) => updateStep(index, 'role', v)}
-                            >
-                              <SelectTrigger>
-                                <User className="h-4 w-4 mr-2" />
-                                <SelectValue placeholder="Rôle" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {ROLES_OPTIONS.map(role => (
-                                  <SelectItem key={role.value} value={role.value}>
-                                    {role.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-
-                            {/* Intervenant */}
+                          <div className="flex-1 grid grid-cols-2 gap-3">
+                            {/* Intervenant avec son rôle affiché */}
                             <Select 
                               value={step.user_id} 
-                              onValueChange={(v) => updateStep(index, 'user_id', v)}
+                              onValueChange={(v) => handleIntervenantChange(index, v)}
                             >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Sélectionner" />
+                              <SelectTrigger className="w-full">
+                                <User className="h-4 w-4 mr-2 text-gray-400" />
+                                <SelectValue placeholder="Choisir un intervenant" />
                               </SelectTrigger>
                               <SelectContent>
                                 {intervenants.map(user => (
                                   <SelectItem key={user.id} value={user.id}>
-                                    {user.first_name} {user.last_name}
+                                    <div className="flex flex-col">
+                                      <span>{user.first_name} {user.last_name}</span>
+                                      <span className="text-xs text-gray-500">{ROLE_LABELS[user.role] || user.role}</span>
+                                    </div>
                                   </SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
+                            
+                            {/* Rôle affiché en lecture seule */}
+                            {step.role && (
+                              <div className="flex items-center px-3 py-2 bg-gray-50 rounded-md text-sm text-gray-700">
+                                <span className="text-gray-500 mr-2">Rôle:</span>
+                                {ROLE_LABELS[step.role] || step.role}
+                              </div>
+                            )}
 
                             {/* Délai */}
                             <div className="flex items-center gap-2">
