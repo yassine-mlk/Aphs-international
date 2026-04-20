@@ -31,6 +31,7 @@ import { CardFooter } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useSupabase } from '@/hooks/useSupabase';
+import { supabase as supabaseClient } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useVideoMeetings } from '@/hooks/useVideoMeetings';
 import { SimpleVideoConference } from '@/components/SimpleVideoConference';
@@ -94,7 +95,7 @@ const VideoConference: React.FC = () => {
   const { user } = useAuth();
   const { language } = useLanguage();
   const t = translations[language as keyof typeof translations].videoConference;
-  const { getUsers, supabase } = useSupabase();
+  const { supabase } = useSupabase();
   const [filter, setFilter] = useState("toutes");
   const [copyTooltip, setCopyTooltip] = useState("Copier l'ID");
   const [meetingIdToJoin, setMeetingIdToJoin] = useState("");
@@ -128,22 +129,37 @@ const VideoConference: React.FC = () => {
     clearCompletedMeetings
   } = useVideoMeetings();
   
-  // Charger la liste des intervenants au chargement du composant
+  // Charger la liste des intervenants du même tenant
   useEffect(() => {
+    if (!user?.id) return;
     const loadUsers = async () => {
       try {
-        const userData = await getUsers() as UserData;
-        if (userData && userData.users) {
-          const formattedUsers = userData.users
-            .filter(u => u.user_metadata?.role !== 'admin')
-            .map(u => ({
-              id: u.id,
-              name: `${u.user_metadata?.first_name || ''} ${u.user_metadata?.last_name || ''}`.trim() || u.email || 'Utilisateur sans nom',
-              email: u.email || '',
-              role: u.user_metadata?.role || 'intervenant'
-            }));
-          setUsers(formattedUsers);
+        const { data: myProfile } = await supabaseClient
+          .from('profiles')
+          .select('tenant_id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        let query = supabaseClient
+          .from('profiles')
+          .select('user_id, email, first_name, last_name, role')
+          .neq('role', 'admin')
+          .neq('is_super_admin', true);
+
+        if (myProfile?.tenant_id) {
+          query = query.eq('tenant_id', myProfile.tenant_id);
         }
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        const formattedUsers = (data || []).map(p => ({
+          id: p.user_id,
+          name: `${p.first_name || ''} ${p.last_name || ''}`.trim() || p.email || 'Utilisateur',
+          email: p.email || '',
+          role: p.role || 'intervenant'
+        }));
+        setUsers(formattedUsers);
       } catch (error) {
         console.error('Erreur lors du chargement des utilisateurs:', error);
         toast({
@@ -153,9 +169,8 @@ const VideoConference: React.FC = () => {
         });
       }
     };
-    
     loadUsers();
-  }, [getUsers, toast]);
+  }, [user?.id, toast]);
   
   // Filtrer les réunions
   const filteredMeetings = useMemo(() => {

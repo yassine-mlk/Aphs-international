@@ -62,6 +62,7 @@ import {
   TASK_SUBMISSION_ACTION_COLORS
 } from '@/types/taskSubmissionHistory';
 import { useNotificationTriggers } from '@/hooks/useNotificationTriggers';
+import { useProjectStructure } from '@/hooks/useProjectStructure';
 
 // Interface for project
 interface Project {
@@ -162,6 +163,25 @@ const TaskDetails: React.FC = () => {
   
   const [task, setTask] = useState<TaskAssignment | null>(null);
   const [project, setProject] = useState<Project | null>(null);
+
+  const { customProjectStructure, customRealizationStructure } = useProjectStructure(task?.project_id || '');
+
+  const resolveSectionLabel = (phase: string, sectionId: string): string => {
+    const struct = phase === 'conception' ? customProjectStructure : customRealizationStructure;
+    const idx = struct.findIndex((s: any) => s.id === sectionId);
+    if (idx === -1) return sectionId;
+    return `${String.fromCharCode(65 + idx)} - ${struct[idx].title}`;
+  };
+
+  const resolveItemLabel = (phase: string, sectionId: string, itemId: string): string => {
+    const struct = phase === 'conception' ? customProjectStructure : customRealizationStructure;
+    const sIdx = struct.findIndex((s: any) => s.id === sectionId);
+    if (sIdx === -1) return itemId;
+    const letter = String.fromCharCode(65 + sIdx);
+    const iIdx = struct[sIdx].items.findIndex((it: any) => it.id === itemId);
+    if (iIdx === -1) return itemId;
+    return `${letter}${iIdx + 1} - ${struct[sIdx].items[iIdx].title}`;
+  };
   const [loading, setLoading] = useState(true);
   const [validators, setValidators] = useState<Intervenant[]>([]);
   const [assignedUsers, setAssignedUsers] = useState<Intervenant[]>([]);
@@ -1029,8 +1049,8 @@ const TaskDetails: React.FC = () => {
               </button>
               {' > '}
               {t.details.phase} {task.phase_id === 'conception' ? t.filters.conception : t.filters.realization} {' > '}
-              {t.details.section} {task.section_id} {' > '}
-              {t.details.subsection} {task.subsection_id}
+              {resolveSectionLabel(task.phase_id, task.section_id)} {' > '}
+              {resolveItemLabel(task.phase_id, task.section_id, task.subsection_id)}
             </p>
           </div>
         </div>

@@ -40,6 +40,7 @@ import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translations } from '@/lib/translations';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 import NotificationBell from '@/components/NotificationBell';
 
 
@@ -149,30 +150,32 @@ const DashboardLayout: React.FC = () => {
         return;
       }
       
-      // Ensuite, essayer de récupérer depuis authUser (Supabase)
+      // Récupérer le rôle depuis profiles (source de vérité)
       if (authUser) {
-        setUser({
-          email: authUser.email || '',
-          role: authUser.user_metadata?.role || 'intervenant',
-          id: authUser.id
-        });
-        setLoading(false);
+        supabase
+          .from('profiles')
+          .select('role')
+          .eq('user_id', authUser.id)
+          .maybeSingle()
+          .then(({ data }) => {
+            const role = data?.role || authUser.user_metadata?.role || 'intervenant';
+            const userData = { email: authUser.email || '', role, id: authUser.id };
+            localStorage.setItem('user', JSON.stringify(userData));
+            setUser(userData);
+            setLoading(false);
+          });
         return;
       }
       
-      // Enfin, essayer de récupérer depuis localStorage
+      // Fallback localStorage
       const storedUser = localStorage.getItem('user');
       if (storedUser) {
         try {
           const parsedUser = JSON.parse(storedUser);
-          console.log('DashboardLayout - user from localStorage:', parsedUser);
-          
-          // Force admin role for admin@aps.com
           if (parsedUser.email === 'admin@aps.com') {
             parsedUser.role = 'admin';
             localStorage.setItem('user', JSON.stringify(parsedUser));
           }
-          
           setUser(parsedUser);
           setLoading(false);
         } catch (error) {
@@ -459,7 +462,8 @@ const DashboardLayout: React.FC = () => {
                  location.pathname.startsWith("/dashboard/intervenant/projets/") ? t.projectDetails :
                  location.pathname === "/dashboard/maitre-ouvrage/projets" ? t.myProjects :
                  location.pathname.startsWith("/dashboard/maitre-ouvrage/projets/") ? t.projectDetails :
-                 location.pathname === "/dashboard/parametres" ? t.settings : ""
+                 location.pathname === "/dashboard/parametres" ? t.settings :
+                 location.pathname === "/dashboard/profil" ? t.profile : ""
                 }
               </h2>
             </div>
@@ -503,7 +507,7 @@ const DashboardLayout: React.FC = () => {
                   <DropdownMenuSeparator />
                   <DropdownMenuItem 
                     className="cursor-pointer"
-                    onClick={() => navigate('/dashboard/parametres')}
+                    onClick={() => navigate('/dashboard/profil')}
                   >
                     <User className="mr-2 h-4 w-4" />
                     <span>{t.profile}</span>

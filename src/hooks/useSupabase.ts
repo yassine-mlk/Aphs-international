@@ -565,6 +565,48 @@ export function useSupabase() {
         try {
           console.log('🔄 Création manuelle du profil...');
           
+              // Utiliser tenant_id fourni ou le récupérer depuis l'admin connecté
+          let tenantId: string | null = additionalData.tenant_id || null;
+          if (!tenantId) {
+            const { data: { user: currentUser } } = await supabase.auth.getUser();
+            if (currentUser) {
+              const { data: adminProfile } = await supabase
+                .from('profiles')
+                .select('tenant_id')
+                .eq('user_id', currentUser.id)
+                .maybeSingle();
+              tenantId = adminProfile?.tenant_id || null;
+            }
+          }
+
+          // Vérifier le quota d'intervenants
+          if (tenantId && role !== 'admin') {
+            const { data: tenantData } = await supabase
+              .from('tenants')
+              .select('max_intervenants')
+              .eq('id', tenantId)
+              .maybeSingle();
+
+            const { count: currentCount } = await supabase
+              .from('profiles')
+              .select('user_id', { count: 'exact', head: true })
+              .eq('tenant_id', tenantId)
+              .neq('role', 'admin')
+              .neq('is_super_admin', true);
+
+            const maxIntervenants = tenantData?.max_intervenants ?? null;
+            if (maxIntervenants !== null && (currentCount ?? 0) >= maxIntervenants) {
+              // Supprimer l'utilisateur auth qu'on vient de créer
+              await supabaseAdmin!.auth.admin.deleteUser(data.user.id);
+              toast({
+                title: "Quota atteint",
+                description: "Vous avez atteint votre limite de création d'intervenant. Veuillez contacter le support.",
+                variant: "destructive",
+              });
+              return { success: false, error: new Error(`Quota d'intervenants atteint (${maxIntervenants})`) };
+            }
+          }
+
           // Valider company_id - doit être un UUID valide ou null
           let validCompanyId = null;
           if (additionalData.company_id && 
@@ -575,18 +617,9 @@ export function useSupabase() {
             validCompanyId = additionalData.company_id;
           }
           
-          console.log('📋 Données profil:', {
-            user_id: data.user.id,
-            email: email,
-            first_name: additionalData.first_name || '',
-            last_name: additionalData.last_name || '',
-            role: role,
-            company_id: validCompanyId
-          });
-          
           const { error: profileError } = await supabase
             .from('profiles')
-            .insert({
+            .upsert({
               user_id: data.user.id,
               email: email,
               first_name: additionalData.first_name || '',
@@ -596,6 +629,7 @@ export function useSupabase() {
               company: additionalData.company || 'Indépendant',
               company_id: validCompanyId,
               phone: additionalData.phone || '',
+              tenant_id: tenantId,
               status: 'active',
               theme: 'light',
               language: 'fr',
@@ -603,13 +637,12 @@ export function useSupabase() {
               push_notifications: true,
               message_notifications: true,
               update_notifications: true
-            });
+            }, { onConflict: 'user_id' });
 
           if (profileError) {
             console.warn('⚠️ Erreur profil (non bloquante):', profileError);
-            // Le profil n'est pas critique, on continue
           } else {
-            console.log('✅ Profil créé manuellement avec succès');
+            console.log('✅ Profil upsert avec succès, tenant_id:', tenantId);
           }
         } catch (profileError) {
           console.warn('⚠️ Profil non créé, mais utilisateur auth OK:', profileError);

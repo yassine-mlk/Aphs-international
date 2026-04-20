@@ -28,12 +28,16 @@ const Login: React.FC = () => {
     if (redirectedRef.current || authLoading) return;
     
     if (user) {
-      console.log('Login - User already logged in, redirecting to dashboard');
+      console.log('Login - User already logged in, redirecting...');
       redirectedRef.current = true;
+      
+      // Check if super admin for redirect
+      const userData = JSON.parse(localStorage.getItem('user') || '{}');
+      const redirectPath = userData?.isSuperAdmin ? '/super-admin' : '/dashboard';
       
       // Utiliser un délai minimal pour éviter le throttling
       setTimeout(() => {
-        navigate('/dashboard', { replace: true });
+        navigate(redirectPath, { replace: true });
       }, 100);
     }
   }, [user, navigate, authLoading]);
@@ -58,11 +62,21 @@ const Login: React.FC = () => {
         console.log('Login successful - User data:', user);
         
         // Récupérer le rôle depuis la table profiles (source de vérité pour SaaS)
-        const { data: profileData } = await supabase
+        console.log('🔍 Fetching profile for user.id =', user.id);
+        
+        const { data: profileData, error: profileError } = await supabase
           .from('profiles')
-          .select('role, is_super_admin')
+          .select('role, is_super_admin, user_id, email')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
+        
+        console.log('📋 Profile data:', profileData);
+        console.log('❌ Profile error:', profileError);
+        console.log('🔑 user.user_metadata:', user.user_metadata);
+        
+        if (profileError && profileError.code !== 'PGRST116') {
+          console.error('Error fetching profile:', profileError);
+        }
         
         let userRole = profileData?.role || user.user_metadata?.role || 'intervenant';
         
@@ -99,9 +113,12 @@ const Login: React.FC = () => {
         // Marquer comme redirigé avant de naviguer
         redirectedRef.current = true;
         
+        // Redirection selon le rôle
+        const redirectPath = userData.isSuperAdmin ? '/super-admin' : '/dashboard';
+        
         // Utiliser replace: true et un délai minimal pour éviter le throttling
         setTimeout(() => {
-          navigate('/dashboard', { replace: true });
+          navigate(redirectPath, { replace: true });
         }, 100);
       } else {
         throw new Error("Connexion échouée");

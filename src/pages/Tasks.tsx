@@ -217,7 +217,7 @@ const Tasks: React.FC = () => {
     } finally {
       setAdminLoading(false);
     }
-  }, [adminAssignedToFilter, adminDeadlineFrom, adminDeadlineTo, adminPage, adminSortField, adminSortOrder, adminTasks, fetchData, phaseFilter, projectFilter, statusFilter, t.messages.error, t.messages.errorLoadingTasks, toast, user?.id]);
+  }, [adminAssignedToFilter, adminDeadlineFrom, adminDeadlineTo, adminPage, adminSortField, adminSortOrder, fetchData, phaseFilter, projectFilter, statusFilter, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadTasks = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
     if (!silent) setLoading(true);
@@ -305,7 +305,7 @@ const Tasks: React.FC = () => {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [user?.id, isAdmin, loadAdminTasks, fetchTasksForUser, fetchData, toast, taskMigrationError, t.messages.error, t.messages.errorLoadingTasks, t.messages.warning]);
+  }, [user?.id, isAdmin, loadAdminTasks, fetchTasksForUser, fetchData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     loadTasks();

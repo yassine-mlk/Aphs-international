@@ -120,6 +120,7 @@ export interface CreateTenantData {
   ownerEmail: string;
   ownerFirstName: string;
   ownerLastName: string;
+  ownerPassword: string;  // ← AJOUTÉ: Mot de passe pour l'admin
   plan: TenantPlan;
   maxProjects?: number;
   maxIntervenants?: number;

@@ -23,13 +23,16 @@ import WorkGroups from "./pages/WorkGroups";
 import Messages from "./pages/Messages";
 import VideoConference from "./pages/VideoConference";
 import Settings from "./pages/Settings";
+import ProfilePage from "./pages/ProfilePage";
 import TestUpload from "./test-upload";
 import IntervenantProjects from "./pages/IntervenantProjects";
 import IntervenantProjectDetails from "./pages/IntervenantProjectDetails";
 import IntervenantProjectDetailsLangSwitch from "./pages/IntervenantProjectDetailsLangSwitch";
 import SuperAdminDashboard from "./pages/SuperAdminDashboard";
+import SuperAdminLogin from "./pages/SuperAdminLogin";
 
 import DashboardLayout from "./components/DashboardLayout";
+import SuperAdminRoute from "./components/SuperAdminRoute";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import { UploadProvider } from "./contexts/UploadContext";
 import { TenantProvider } from "./contexts/TenantContext";
@@ -37,6 +40,36 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import { useAuth } from "./contexts/AuthContext";
 import { supabase } from "./lib/supabase";
 import StorageInitializer from "./components/StorageInitializer";
+
+const getRoleFromStorage = () => {
+  try { return JSON.parse(localStorage.getItem('user') || '{}').role as string | undefined; } catch { return undefined; }
+};
+
+const AdminRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user } = useAuth();
+  const role = getRoleFromStorage();
+  const hasAdminRole = role === 'admin' || user?.email === 'admin@aps.com';
+  return hasAdminRole ? <>{children}</> : <Navigate to="/dashboard" replace />;
+};
+
+const IntervenantRoute = ({ children }: { children: React.ReactNode }) => {
+  const role = getRoleFromStorage();
+  const hasAccess = role === 'intervenant' || role === 'maitre_ouvrage';
+  return hasAccess ? <>{children}</> : <Navigate to="/dashboard" replace />;
+};
+
+const MaitreOuvrageRoute = ({ children }: { children: React.ReactNode }) => {
+  const role = getRoleFromStorage();
+  const hasAccess = role === 'maitre_ouvrage';
+  return hasAccess ? <>{children}</> : <Navigate to="/dashboard" replace />;
+};
+
+const SharedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user } = useAuth();
+  const role = getRoleFromStorage();
+  const hasAccess = role === 'admin' || role === 'intervenant' || role === 'maitre_ouvrage' || user?.email === 'admin@aps.com';
+  return hasAccess ? <>{children}</> : <Navigate to="/dashboard" replace />;
+};
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -153,56 +186,25 @@ const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
 const App = () => {
   const { user } = useAuth();
-  const [localUserRole, setLocalUserRole] = useState<string | null>(null);
   const navigate = useNavigate();
 
+  // Sync role dans localStorage quand l'user est disponible
   useEffect(() => {
-    // Check localStorage for user role
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        setLocalUserRole(parsedUser.role);
-      } catch (error) {
-        console.error('Error parsing user data:', error);
-        localStorage.removeItem('user');
-      }
-    }
-  }, [navigate]);
-
-  // Vérifier si l'utilisateur a un rôle admin (check both Supabase user and localStorage)
-  const isAdmin = user?.user_metadata?.role === 'admin' || localUserRole === 'admin' || 
-                  user?.email === 'admin@aps.com';
-
-  // Composant pour les routes accessibles uniquement aux admins
-  const AdminRoute = ({ children }: { children: React.ReactNode }) => {
-    // Also check if the email is admin@aps.com for direct access
-    const userFromStorage = JSON.parse(localStorage.getItem('user') || '{}');
-    const hasAdminRole = isAdmin || userFromStorage?.email === 'admin@aps.com';
-    return hasAdminRole ? <>{children}</> : <Navigate to="/dashboard" replace />;
-  };
-
-  // Composant pour les routes accessibles aux intervenants
-  const IntervenantRoute = ({ children }: { children: React.ReactNode }) => {
-    const hasAccess = user?.user_metadata?.role === 'intervenant' || user?.user_metadata?.role === 'maitre_ouvrage' || 
-                      localUserRole === 'intervenant' || localUserRole === 'maitre_ouvrage';
-    return hasAccess ? <>{children}</> : <Navigate to="/dashboard" replace />;
-  };
-  
-  // Composant pour les routes accessibles aux maîtres d'ouvrage
-  const MaitreOuvrageRoute = ({ children }: { children: React.ReactNode }) => {
-    const hasAccess = user?.user_metadata?.role === 'maitre_ouvrage' || 
-                      localUserRole === 'maitre_ouvrage';
-    return hasAccess ? <>{children}</> : <Navigate to="/dashboard" replace />;
-  };
-  
-  // Composant pour les routes accessibles aux admins et intervenants
-  const SharedRoute = ({ children }: { children: React.ReactNode }) => {
-    const hasAccess = user?.user_metadata?.role === 'admin' || user?.user_metadata?.role === 'intervenant' || user?.user_metadata?.role === 'maitre_ouvrage' || 
-                      localUserRole === 'admin' || localUserRole === 'intervenant' || localUserRole === 'maitre_ouvrage' ||
-                      user?.email === 'admin@aps.com';
-    return hasAccess ? <>{children}</> : <Navigate to="/dashboard" replace />;
-  };
+    if (!user) return;
+    import('@/lib/supabase').then(({ supabase }) => {
+      supabase
+        .from('profiles')
+        .select('role')
+        .eq('user_id', user.id)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data?.role) {
+            const stored = JSON.parse(localStorage.getItem('user') || '{}');
+            localStorage.setItem('user', JSON.stringify({ ...stored, role: data.role }));
+          }
+        });
+    });
+  }, [user?.id]);
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -351,12 +353,20 @@ const App = () => {
                       <Settings />
                     </SharedRoute>
                   } />
+                  <Route path="profil" element={
+                    <SharedRoute>
+                      <ProfilePage />
+                    </SharedRoute>
+                  } />
                   
                   {/* Test upload route - accessible to everyone */}
                   <Route path="test-upload" element={<TestUpload />} />
-                  
-                  {/* Super Admin Route */}
-                  <Route path="super-admin" element={<SuperAdminDashboard />} />
+                </Route>
+                
+                {/* Super Admin Routes - Separate from main dashboard */}
+                <Route path="/super-admin-login" element={<SuperAdminLogin />} />
+                <Route element={<SuperAdminRoute />}>
+                  <Route path="/super-admin" element={<SuperAdminDashboard />} />
                 </Route>
                 
                   <Route path="/404" element={<NotFound />} />
