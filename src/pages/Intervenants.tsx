@@ -21,6 +21,8 @@ import { Badge } from '@/components/ui/badge';
 import CreateUserForm from "@/components/CreateUserForm";
 import EditUserForm from "@/components/EditUserForm";
 import { useSupabase, SPECIALTIES } from '../hooks/useSupabase';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -120,7 +122,8 @@ type SortOrder = 'asc' | 'desc';
 
 const Intervenants: React.FC = () => {
   const { toast } = useToast();
-  const { getUsers, adminDeleteUser, supabase } = useSupabase();
+  const { adminDeleteUser, supabase: supabaseHook } = useSupabase();
+  const { user: authUser } = useAuth();
   const [intervenants, setIntervenants] = useState<Intervenant[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -143,48 +146,53 @@ const Intervenants: React.FC = () => {
   const [specialtyFilter, setSpecialtyFilter] = useState<string>('');
 
   useEffect(() => {
-    fetchIntervenants();
-  }, []);
+    if (authUser?.id) fetchIntervenants();
+  }, [authUser?.id]);
 
   const fetchIntervenants = async () => {
     setLoading(true);
     try {
-      const userData = await getUsers();
-      
-      if (userData && userData.users) {
-        // Transformer les données des utilisateurs en format Intervenant
-        const formattedUsers: Intervenant[] = (userData.users as SupabaseUser[])
-          .filter(user => {
-            // Exclure explicitement admin@aps et tout utilisateur avec le rôle admin
-            const isAdmin = user.user_metadata?.role === 'admin';
-            const isAdminEmail = user.email.toLowerCase() === 'admin@aps.fr' || 
-                                user.email.toLowerCase() === 'admin@aps.com' || 
-                                user.email.toLowerCase() === 'admin@aps';
-            return !isAdmin && !isAdminEmail;
-          })
-          .map(user => {
-            const joinDateRaw = new Date(user.created_at);
-            
-            return {
-              id: user.id,
-              name: user.user_metadata?.name || '',
-              first_name: user.user_metadata?.first_name || '',
-              last_name: user.user_metadata?.last_name || '',
-              email: user.email || '',
-              phone: user.user_metadata?.phone || '',
-              role: user.user_metadata?.role || 'intervenant',
-              specialty: user.user_metadata?.specialty || '',
-              company: user.user_metadata?.company || 'Indépendant',
-              status: user.banned ? 'inactive' as const : 'active' as const,
-              joinDate: joinDateRaw.toLocaleDateString('fr-FR'),
-              joinDateRaw
-            };
-          });
-        
-        setIntervenants(formattedUsers);
-        
+      if (!authUser) return;
 
+      // Récupérer le tenant_id du user connecté
+      const { data: myProfile } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('user_id', authUser.id)
+        .maybeSingle();
+
+      if (!myProfile?.tenant_id) {
+        setIntervenants([]);
+        return;
       }
+
+      // Récupérer uniquement les membres du même tenant, hors admins
+      const { data: profiles, error } = await supabase
+        .from('profiles')
+        .select('user_id, email, first_name, last_name, role, specialty, company, status, created_at')
+        .eq('tenant_id', myProfile.tenant_id)
+        .neq('role', 'admin')
+        .neq('is_super_admin', true);
+
+      if (error) throw error;
+
+      const formattedUsers: Intervenant[] = (profiles || []).map(p => {
+        const joinDateRaw = new Date(p.created_at);
+        return {
+          id: p.user_id,
+          first_name: p.first_name || '',
+          last_name: p.last_name || '',
+          email: p.email || '',
+          role: p.role || 'intervenant',
+          specialty: p.specialty || '',
+          company: p.company || 'Indépendant',
+          status: p.status === 'inactive' ? 'inactive' as const : 'active' as const,
+          joinDate: joinDateRaw.toLocaleDateString('fr-FR'),
+          joinDateRaw
+        };
+      });
+
+      setIntervenants(formattedUsers);
     } catch (error) {
       console.error('Erreur lors de la récupération des utilisateurs:', error);
       toast({
@@ -269,6 +277,7 @@ const Intervenants: React.FC = () => {
   const handleDialogClose = () => {
     setCreateDialogOpen(false);
     setEditDialogOpen(false);
+    fetchIntervenants();
   };
 
   const openIntervenantSummary = (intervenant: Intervenant) => {

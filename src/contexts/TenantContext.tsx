@@ -41,9 +41,11 @@ export function useSuperAdmin() {
           .from('profiles')
           .select('is_super_admin')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();  // ← maybeSingle au lieu de single
 
-        if (error) throw error;
+        if (error && error.code !== 'PGRST116') {
+          console.error('Error checking super admin:', error);
+        }
         setIsSuperAdmin(data?.is_super_admin || false);
       } catch (error) {
         console.error('Error checking super admin:', error);
@@ -57,6 +59,98 @@ export function useSuperAdmin() {
   }, [user?.id]);
 
   // Fonctions Super Admin
+
+  // Supprimer complètement un tenant et TOUTES ses données
+  const deleteTenant = useCallback(async (tenantId: string, deleteUsers: boolean = false): Promise<boolean> => {
+    try {
+      toast({
+        title: "Suppression en cours...",
+        description: "Cette opération peut prendre quelques secondes.",
+      });
+
+      // 1. Récupérer les IDs des utilisateurs du tenant
+      const { data: members } = await supabase
+        .from('tenant_members')
+        .select('user_id')
+        .eq('tenant_id', tenantId);
+
+      const userIds = members?.map(m => m.user_id) || [];
+
+      // 2. Supprimer toutes les données dans l'ordre (enfants d'abord)
+      
+      // Supprimer les messages
+      await supabase.from('messages').delete().eq('tenant_id', tenantId);
+      
+      // Supprimer les conversations
+      await supabase.from('conversations').delete().eq('tenant_id', tenantId);
+      
+      // Supprimer les réunions vidéo
+      await supabase.from('video_meetings').delete().eq('tenant_id', tenantId);
+      
+      // Supprimer les notifications
+      await supabase.from('notifications').delete().eq('tenant_id', tenantId);
+      
+      // Supprimer les tâches
+      await supabase.from('task_assignments').delete().eq('tenant_id', tenantId);
+      
+      // Supprimer les projets
+      await supabase.from('projects').delete().eq('tenant_id', tenantId);
+      
+      // Supprimer les entreprises
+      await supabase.from('companies').delete().eq('tenant_id', tenantId);
+      
+      // Supprimer les membres/intervenants
+      await supabase.from('membre').delete().eq('tenant_id', tenantId);
+      
+      // Supprimer les membres du tenant
+      await supabase.from('tenant_members').delete().eq('tenant_id', tenantId);
+
+      // 3. Mettre à jour les profils (retirer tenant_id)
+      if (userIds.length > 0) {
+        await supabase
+          .from('profiles')
+          .update({ tenant_id: null })
+          .in('user_id', userIds);
+
+        // 4. Optionnellement supprimer les utilisateurs complètement
+        if (deleteUsers) {
+          for (const userId of userIds) {
+            // Supprimer le profil
+            await supabase.from('profiles').delete().eq('user_id', userId);
+            // Essayer de supprimer de auth
+            try {
+              await supabase.rpc('delete_auth_user', { user_id: userId });
+            } catch (e) {
+              console.log('Could not delete auth user:', userId);
+            }
+          }
+        }
+      }
+
+      // 5. Supprimer le tenant
+      const { error } = await supabase.from('tenants').delete().eq('id', tenantId);
+      if (error) throw error;
+
+      toast({
+        title: "Tenant supprimé",
+        description: deleteUsers 
+          ? "Le tenant, tous ses projets, intervenants et utilisateurs ont été supprimés."
+          : "Le tenant et toutes ses données ont été supprimés. Les utilisateurs ont été détachés.",
+      });
+
+      return true;
+
+    } catch (error: any) {
+      console.error('Delete tenant error:', error);
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible de supprimer le tenant",
+        variant: "destructive"
+      });
+      return false;
+    }
+  }, [toast]);
+
   const createTenant = useCallback(async (data: CreateTenantData): Promise<Tenant | null> => {
     try {
       // 1. Calculer les limites
@@ -65,11 +159,34 @@ export function useSuperAdmin() {
       const maxIntervenants = data.plan === 'custom' ? (data.maxIntervenants || 20) : planDefaults.maxIntervenants;
       const maxStorageGb = data.plan === 'custom' ? (data.maxStorageGb || 50) : planDefaults.maxStorageGb;
 
+      // 2. Créer l'admin dans Auth via la fonction SQL (email auto-confirmé)
+      let userId: string;
+      
+      try {
+        const { data: rpcData, error: rpcError } = await supabase
+          .rpc('create_tenant_admin_user', {
+            p_email: data.ownerEmail,
+            p_password: data.ownerPassword,
+            p_first_name: data.ownerFirstName,
+            p_last_name: data.ownerLastName
+          });
+
+        if (rpcError) throw rpcError;
+        if (!rpcData?.success) throw new Error(rpcData?.error || 'Échec de la création utilisateur');
+        
+        userId = rpcData.userId;
+        console.log('Admin créé via SQL RPC (email confirmé):', userId);
+        
+      } catch (authErr: any) {
+        throw new Error(`Erreur création admin: ${authErr.message}`);
+      }
+
+      // 3. Créer le tenant avec owner_user_id
       const insertData = {
         name: data.name,
         slug: data.slug,
         owner_email: data.ownerEmail,
-        owner_user_id: null,
+        owner_user_id: userId,  // ← Maintenant on a l'ID !
         plan: data.plan,
         max_projects: maxProjects,
         max_intervenants: maxIntervenants,
@@ -91,13 +208,45 @@ export function useSuperAdmin() {
         throw tenantError;
       }
 
-      // 2. Créer le profil de l'admin (sans user_id pour l'instant - sera lié à l'inscription)
-      // Note: Le vrai user_id sera créé quand l'admin s'inscrira via la page de login
-      // Pour l'instant, on crée un placeholder qui sera mis à jour
+      // 4. Mettre à jour le profil de l'admin (déjà créé par la Edge Function)
+      //    On upsert pour ajouter tenant_id maintenant qu'on a l'ID du tenant
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert({
+          user_id: userId,
+          email: data.ownerEmail,
+          first_name: data.ownerFirstName,
+          last_name: data.ownerLastName,
+          role: 'admin',
+          tenant_id: tenantData.id,
+          is_super_admin: false,
+          status: 'active'
+        }, { onConflict: 'user_id' });
+
+      if (profileError) {
+        console.error('Profile update error:', profileError);
+        // Non bloquant, on continue
+      }
+
+      // 5. Ajouter comme membre du tenant
+      const { error: memberError } = await supabase
+        .from('tenant_members')
+        .insert({
+          tenant_id: tenantData.id,
+          user_id: userId,
+          role: 'admin',
+          status: 'active',
+          joined_at: new Date().toISOString()
+        });
+
+      if (memberError) {
+        console.error('Member creation error:', memberError);
+        // Non bloquant si duplicate
+      }
       
       toast({
-        title: "Tenant créé",
-        description: `Le compte ${data.name} a été créé. L'admin doit s'inscrire avec ${data.ownerEmail}`,
+        title: "Client créé avec succès",
+        description: `${data.name} créé. L'admin ${data.ownerEmail} peut se connecter immédiatement.`,
       });
 
       return {
@@ -141,6 +290,33 @@ export function useSuperAdmin() {
 
       if (error) throw error;
 
+      // Compter les intervenants et projets réels par tenant
+      const tenantIds = (data || []).map(t => t.id);
+
+      const [profilesRes, projectsRes] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('tenant_id, role')
+          .in('tenant_id', tenantIds)
+          .neq('role', 'admin')
+          .neq('is_super_admin', true),
+        supabase
+          .from('projects')
+          .select('tenant_id')
+          .in('tenant_id', tenantIds)
+      ]);
+
+      // Construire les maps de comptage
+      const intervenantCountMap: Record<string, number> = {};
+      const projectCountMap: Record<string, number> = {};
+
+      (profilesRes.data || []).forEach(p => {
+        if (p.tenant_id) intervenantCountMap[p.tenant_id] = (intervenantCountMap[p.tenant_id] || 0) + 1;
+      });
+      (projectsRes.data || []).forEach(p => {
+        if (p.tenant_id) projectCountMap[p.tenant_id] = (projectCountMap[p.tenant_id] || 0) + 1;
+      });
+
       return (data || []).map(t => ({
         id: t.id,
         name: t.name,
@@ -151,8 +327,8 @@ export function useSuperAdmin() {
         maxProjects: t.max_projects,
         maxIntervenants: t.max_intervenants,
         maxStorageGb: t.max_storage_gb,
-        currentProjectsCount: t.current_projects_count || 0,
-        currentIntervenantsCount: t.current_intervenants_count || 0,
+        currentProjectsCount: projectCountMap[t.id] || 0,
+        currentIntervenantsCount: intervenantCountMap[t.id] || 0,
         currentStorageUsedBytes: t.current_storage_used_bytes || 0,
         status: t.status,
         trialEndsAt: t.trial_ends_at,
@@ -365,45 +541,218 @@ export function useSuperAdmin() {
     }
   }, [toast]);
 
-  // Supprimer complètement un utilisateur (compte + données)
+  // Créer un administrateur de tenant directement (avec création auth)
+  const createTenantAdmin = useCallback(async (
+    tenantId: string,
+    userData: {
+      email: string;
+      password: string;
+      firstName: string;
+      lastName: string;
+    }
+  ): Promise<{ userId: string | null; error: string | null }> => {
+    try {
+      // 0. Vérifier si l'utilisateur existe déjà dans profiles
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('user_id, email')
+        .eq('email', userData.email)
+        .maybeSingle();
+
+      if (existingProfile) {
+        // L'utilisateur existe dans profiles - on l'associe juste au tenant
+        console.log('User exists in profiles, associating:', existingProfile.user_id);
+        
+        const userId = existingProfile.user_id;
+
+        // Mettre à jour le profil
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({
+            tenant_id: tenantId,
+            role: 'admin'
+          })
+          .eq('user_id', userId);
+
+        if (profileError) throw profileError;
+
+        // Ajouter comme membre (ignorer si déjà membre)
+        const { error: memberError } = await supabase
+          .from('tenant_members')
+          .insert({
+            tenant_id: tenantId,
+            user_id: userId,
+            role: 'admin',
+            status: 'active',
+            joined_at: new Date().toISOString()
+          });
+
+        if (memberError && !memberError.message.includes('duplicate')) throw memberError;
+
+        // Mettre à jour le tenant
+        await supabase
+          .from('tenants')
+          .update({ owner_user_id: userId })
+          .eq('id', tenantId);
+
+        toast({
+          title: "Administrateur associé",
+          description: `${userData.email} existe déjà et est maintenant admin de ce tenant.`,
+        });
+
+        return { userId, error: null };
+      }
+
+      // 1. Essayer de créer l'utilisateur dans Auth
+      let userId: string;
+      
+      try {
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email: userData.email,
+          password: userData.password,
+          options: {
+            data: {
+              first_name: userData.firstName,
+              last_name: userData.lastName,
+              role: 'admin'
+            }
+          }
+        });
+
+        if (authError) {
+          // Si l'utilisateur existe déjà dans auth
+          if (authError.status === 409 || authError.message?.includes('already registered')) {
+            // Récupérer l'UUID depuis auth.users via la liste des users
+            const { data: authUsers } = await supabase.auth.admin.listUsers();
+            const existingUser = authUsers?.users?.find(u => u.email === userData.email);
+            
+            if (existingUser) {
+              userId = existingUser.id;
+              console.log('User exists in auth, using ID:', userId);
+            } else {
+              throw new Error('Email déjà utilisé mais utilisateur introuvable. Utilisez "Associer un utilisateur existant".');
+            }
+          } else {
+            throw authError;
+          }
+        } else if (authData.user) {
+          userId = authData.user.id;
+        } else {
+          throw new Error('Échec de la création utilisateur');
+        }
+      } catch (authErr: any) {
+        // Fallback: demander à l'utilisateur d'utiliser l'association
+        throw new Error(`Cet email existe déjà. Utilisez "Associer un utilisateur existant" et entrez l'email: ${userData.email}`);
+      }
+
+      // 2. Créer ou mettre à jour le profil
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert({
+          user_id: userId,
+          email: userData.email,
+          first_name: userData.firstName,
+          last_name: userData.lastName,
+          role: 'admin',
+          tenant_id: tenantId,
+          is_super_admin: false,
+          status: 'active'
+        }, { onConflict: 'user_id' });
+
+      if (profileError) throw profileError;
+
+      // 3. Ajouter comme membre du tenant
+      const { error: memberError } = await supabase
+        .from('tenant_members')
+        .insert({
+          tenant_id: tenantId,
+          user_id: userId,
+          role: 'admin',
+          status: 'active',
+          joined_at: new Date().toISOString()
+        });
+
+      if (memberError && !memberError.message.includes('duplicate')) throw memberError;
+
+      // 4. Mettre à jour le tenant
+      const { error: tenantError } = await supabase
+        .from('tenants')
+        .update({ owner_user_id: userId })
+        .eq('id', tenantId);
+
+      if (tenantError) throw tenantError;
+
+      toast({
+        title: "Administrateur créé",
+        description: `${userData.email} est maintenant admin du tenant.`,
+      });
+
+      return { userId, error: null };
+
+    } catch (error: any) {
+      console.error('Create tenant admin error:', error);
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible de créer l'administrateur",
+        variant: "destructive"
+      });
+      return { userId: null, error: error.message };
+    }
+  }, [toast]);
+
+  // Supprimer complètement un utilisateur (compte + données + projets)
   const deleteUser = useCallback(async (
-    userId: string
+    userId: string,
+    tenantId?: string
   ): Promise<boolean> => {
     try {
-      // Note: La suppression de auth.users nécessite une Edge Function ou Admin API
-      // Pour l'instant, on supprime les données locales et on marque comme supprimé
-      
+      // Si tenantId fourni, supprimer les projets et données du tenant associés à cet utilisateur
+      if (tenantId) {
+        // Supprimer les tâches assignées à cet utilisateur dans ce tenant
+        await supabase
+          .from('task_assignments')
+          .delete()
+          .eq('tenant_id', tenantId)
+          .eq('assigned_to', userId);
+
+        // Supprimer les projets créés par cet utilisateur dans ce tenant
+        // Note: On pourrait aussi transférer les projets à un autre admin
+        await supabase
+          .from('projects')
+          .delete()
+          .eq('tenant_id', tenantId)
+          .eq('created_by', userId);
+      }
+
       // 1. Supprimer de tous les tenants
-      const { error: memberError } = await supabase
+      await supabase
         .from('tenant_members')
         .delete()
         .eq('user_id', userId);
 
-      if (memberError) throw memberError;
-
-      // 2. Marquer le profil comme supprimé
-      const { error: profileError } = await supabase
+      // 2. Supprimer le profil (pas juste marquer)
+      await supabase
         .from('profiles')
-        .update({ 
-          status: 'deleted',
-          email: `deleted-${userId}@deleted.com`,
-          tenant_id: null 
-        })
+        .delete()
         .eq('user_id', userId);
 
-      if (profileError) throw profileError;
+      // 3. Supprimer de auth.users (nécessite une Edge Function)
+      // Pour l'instant, on appelle une fonction RPC si disponible
+      try {
+        await supabase.rpc('delete_auth_user', { user_id: userId });
+      } catch (e) {
+        console.log('Note: delete_auth_user RPC not available, user marked for deletion');
+      }
 
-      // 3. Désactiver dans auth.users (via RPC si disponible)
-      // Note: nécessite une fonction Supabase Edge pour vraiment supprimer
-      
       toast({
         title: "Utilisateur supprimé",
-        description: "Le compte a été désactivé et les données nettoyées.",
+        description: "Le compte et toutes ses données ont été supprimés.",
       });
 
       return true;
 
     } catch (error: any) {
+      console.error('Delete user error:', error);
       toast({
         title: "Erreur",
         description: error.message || "Impossible de supprimer l'utilisateur",
@@ -417,13 +766,15 @@ export function useSuperAdmin() {
     isSuperAdmin,
     isLoading,
     createTenant,
+    deleteTenant,
     getAllTenants,
     updateTenantLimits,
     suspendTenant,
     activateTenant,
     associateUserToTenant,
     removeUserFromTenant,
-    deleteUser
+    deleteUser,
+    createTenantAdmin
   };
 }
 

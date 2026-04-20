@@ -46,18 +46,25 @@ serve(async (req) => {
     console.log('✅ Utilisateur auth créé:', authData.user?.id)
 
     // Create profile manually
+    const profileData: Record<string, unknown> = {
+      user_id: authData.user?.id,
+      email: email,
+      first_name: userData.first_name || '',
+      last_name: userData.last_name || '',
+      role: userData.role || 'intervenant',
+      specialty: userData.specialty || '',
+      company: userData.company || 'Indépendant',
+      status: 'active'
+    }
+
+    // Ajouter tenant_id si fourni (pour les admins créés par le Super Admin)
+    if (userData.tenant_id) {
+      profileData.tenant_id = userData.tenant_id
+    }
+
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
-      .insert({
-        user_id: authData.user?.id,
-        email: email,
-        first_name: userData.first_name || '',
-        last_name: userData.last_name || '',
-        role: userData.role || 'intervenant',
-        specialty: userData.specialty || '',
-        company: userData.company || 'Indépendant',
-        status: 'active'
-      })
+      .insert(profileData)
 
     if (profileError) {
       console.warn('⚠️ Erreur profil (non bloquante):', profileError)

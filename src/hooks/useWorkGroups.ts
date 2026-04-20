@@ -76,16 +76,30 @@ export function useWorkGroups() {
   const { toast } = useToast();
   const [loading, setLoading] = useState<boolean>(false);
 
-  // Récupérer les utilisateurs disponibles directement depuis profiles
+  // Récupérer les utilisateurs disponibles directement depuis profiles (filtrés par tenant)
   const getAvailableUsers = useCallback(async (): Promise<AvailableUser[]> => {
     try {
-      console.log('🔍 Récupération des utilisateurs depuis la table profiles...');
-      
-      const { data: profilesData, error } = await supabase
+      if (!user?.id) return [];
+
+      // Récupérer le tenant_id de l'utilisateur connecté
+      const { data: myProfile } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      let query = supabase
         .from('profiles')
         .select('user_id, email, first_name, last_name, role, specialty, status')
         .eq('status', 'active')
-        .neq('role', 'admin');
+        .neq('role', 'admin')
+        .neq('is_super_admin', true);
+
+      if (myProfile?.tenant_id) {
+        query = query.eq('tenant_id', myProfile.tenant_id);
+      }
+
+      const { data: profilesData, error } = await query;
 
       if (error) {
         console.error('❌ Erreur profiles:', error);
@@ -105,14 +119,13 @@ export function useWorkGroups() {
         status: profile.status
       }));
 
-      console.log('✅ Utilisateurs disponibles:', availableUsers.length, availableUsers);
       return availableUsers;
       
     } catch (error) {
       console.error('❌ Erreur lors de la récupération des utilisateurs:', error);
       return [];
     }
-  }, [supabase]);
+  }, [supabase, user?.id]);
 
   // Récupérer tous les groupes de travail (version simple)
   const getWorkGroupsWithMessaging = useCallback(async (): Promise<WorkGroupWithMessaging[]> => {

@@ -376,88 +376,47 @@ const ProjectDetails: React.FC = () => {
     };
   }, [id, fetchData, toast]);
   
-    // Charger les intervenants disponibles
+  // Charger les intervenants disponibles (filtrés par tenant)
   const fetchIntervenants = async () => {
     setLoadingIntervenants(true);
     try {
-      console.log('Début du chargement des intervenants...');
-      
-      // Utiliser la même méthode que dans la page Intervenants - récupérer depuis auth.users
-      const userData = await getUsers();
-      
-      if (userData && userData.users) {
-        console.log('Données utilisateurs récupérées:', userData.users);
-        
-        // Transformer les données des utilisateurs en format Intervenant
-        const formattedUsers = userData.users
-          .filter((user: any) => {
-            // Exclure explicitement admin@aps et tout utilisateur avec le rôle admin
-            const isAdmin = user.user_metadata?.role === 'admin';
-            const isAdminEmail = user.email?.toLowerCase() === 'admin@aps.fr' || 
-                                user.email?.toLowerCase() === 'admin@aps.com' || 
-                                user.email?.toLowerCase() === 'admin@aps';
-            return !isAdmin && !isAdminEmail && !user.banned;
-          })
-          .map((user: any) => ({
-            id: user.id,
-            email: user.email || '',
-            first_name: user.user_metadata?.first_name || user.user_metadata?.name?.split(' ')[0] || 'Prénom',
-            last_name: user.user_metadata?.last_name || user.user_metadata?.name?.split(' ').slice(1).join(' ') || 'Nom',
-            role: user.user_metadata?.role || 'intervenant',
-            specialty: user.user_metadata?.specialty || 'Non spécifié'
-          }));
-        
-        console.log('Intervenants transformés:', formattedUsers);
-        setIntervenants(formattedUsers);
-        
-        if (formattedUsers.length === 0) {
-          console.warn('Aucun intervenant trouvé');
-          toast({
-            title: "Information",
-            description: "Aucun intervenant actif trouvé dans la base de données",
-            variant: "default",
-          });
-        } else {
-          console.log(`${formattedUsers.length} intervenants chargés avec succès`);
-        }
-      } else {
-        console.warn('Aucune donnée utilisateur récupérée');
-        toast({
-          title: "Information",
-          description: "Aucun utilisateur trouvé dans la base de données",
-          variant: "default",
-        });
+      // Récupérer le tenant_id de l'admin connecté
+      const { data: myProfile } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('user_id', user?.id)
+        .maybeSingle();
+
+      let query = supabase
+        .from('profiles')
+        .select('user_id, email, first_name, last_name, role, specialty')
+        .neq('role', 'admin')
+        .neq('is_super_admin', true);
+
+      if (myProfile?.tenant_id) {
+        query = query.eq('tenant_id', myProfile.tenant_id);
       }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      const formattedUsers = (data || []).map(p => ({
+        id: p.user_id,
+        email: p.email || '',
+        first_name: p.first_name || 'Prénom',
+        last_name: p.last_name || 'Nom',
+        role: p.role || 'intervenant',
+        specialty: p.specialty || 'Non spécifié'
+      }));
+
+      setIntervenants(formattedUsers);
     } catch (error) {
       console.error('Erreur lors de la récupération des intervenants:', error);
-      
-      // Essayer une requête de fallback avec la table profiles
-      try {
-        console.log('Tentative de fallback avec la table profiles...');
-        const fallbackData = await fetchData<any>('profiles', {
-          columns: 'user_id,first_name,last_name,email,role,specialty',
-          filters: [{ column: 'role', operator: 'neq', value: 'admin' }]
-        });
-        
-        const fallbackTransformed = fallbackData?.map(profile => ({
-          id: profile.user_id,
-          email: profile.email || '',
-          first_name: profile.first_name || 'Prénom',
-          last_name: profile.last_name || 'Nom',
-          role: profile.role || 'intervenant',
-          specialty: profile.specialty || 'Non spécifié'
-        })) || [];
-        
-        setIntervenants(fallbackTransformed);
-        console.log('Fallback réussi:', fallbackTransformed);
-      } catch (fallbackError) {
-        console.error('Erreur de fallback aussi:', fallbackError);
-        toast({
-          title: "Erreur",
-          description: "Impossible de charger la liste des intervenants. Vérifiez les permissions de la base de données.",
-          variant: "destructive",
-        });
-      }
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger la liste des intervenants.",
+        variant: "destructive",
+      });
     } finally {
       setLoadingIntervenants(false);
     }
@@ -845,6 +804,25 @@ const ProjectDetails: React.FC = () => {
     return Math.round((completedTasks / totalTasks) * 100);
   };
   
+  // Résoudre un section_id/subsection_id en label lisible "A - TITRE" ou "A1 - TITRE"
+  const resolveSectionLabel = (phase: 'conception' | 'realisation', sectionId: string): string => {
+    const struct = phase === 'conception' ? customProjectStructure : customRealizationStructure;
+    const idx = struct.findIndex(s => s.id === sectionId);
+    if (idx === -1) return sectionId;
+    const letter = String.fromCharCode(65 + idx);
+    return `${letter} - ${struct[idx].title}`;
+  };
+
+  const resolveItemLabel = (phase: 'conception' | 'realisation', sectionId: string, itemId: string): string => {
+    const struct = phase === 'conception' ? customProjectStructure : customRealizationStructure;
+    const sIdx = struct.findIndex(s => s.id === sectionId);
+    if (sIdx === -1) return itemId;
+    const letter = String.fromCharCode(65 + sIdx);
+    const iIdx = struct[sIdx].items.findIndex((it: any) => it.id === itemId);
+    if (iIdx === -1) return itemId;
+    return `${letter}${iIdx + 1} - ${struct[sIdx].items[iIdx].title}`;
+  };
+
   // Obtenir la couleur pour un statut
   const getStatusColor = (status: string) => {
     const statusMap: Record<string, string> = {
@@ -1016,33 +994,39 @@ const ProjectDetails: React.FC = () => {
     }
   }, [id, fetchData, toast]);
   
-  // Charger tous les intervenants disponibles
+  // Charger tous les intervenants disponibles (filtrés par tenant)
   const fetchAllIntervenants = async () => {
     setLoadingAllIntervenants(true);
     try {
-      const userData = await getUsers();
-      
-      if (userData && userData.users) {
-        const formattedUsers: IntervenantWithDetails[] = userData.users
-          .filter((user: any) => {
-            // Exclure explicitement admin@aps et tout utilisateur avec le rôle admin
-            const isAdmin = user.user_metadata?.role === 'admin';
-            const isAdminEmail = user.email?.toLowerCase() === 'admin@aps.fr' || 
-                                user.email?.toLowerCase() === 'admin@aps.com' || 
-                                user.email?.toLowerCase() === 'admin@aps';
-            return !isAdmin && !isAdminEmail && !user.banned;
-          })
-          .map((user: any) => ({
-            id: user.id,
-            email: user.email || '',
-            first_name: user.user_metadata?.first_name || user.user_metadata?.name?.split(' ')[0] || '',
-            last_name: user.user_metadata?.last_name || user.user_metadata?.name?.split(' ').slice(1).join(' ') || '',
-            role: user.user_metadata?.role || 'intervenant',
-            specialty: user.user_metadata?.specialty || ''
-          }));
-        
-        setAllIntervenants(formattedUsers);
+      const { data: myProfile } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('user_id', user?.id)
+        .maybeSingle();
+
+      let query = supabase
+        .from('profiles')
+        .select('user_id, email, first_name, last_name, role, specialty')
+        .neq('role', 'admin')
+        .neq('is_super_admin', true);
+
+      if (myProfile?.tenant_id) {
+        query = query.eq('tenant_id', myProfile.tenant_id);
       }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      const formattedUsers: IntervenantWithDetails[] = (data || []).map(p => ({
+        id: p.user_id,
+        email: p.email || '',
+        first_name: p.first_name || '',
+        last_name: p.last_name || '',
+        role: p.role || 'intervenant',
+        specialty: p.specialty || ''
+      }));
+
+      setAllIntervenants(formattedUsers);
     } catch (error) {
       console.error('Erreur lors de la récupération des intervenants:', error);
       toast({
@@ -1598,12 +1582,14 @@ const ProjectDetails: React.FC = () => {
               
               <div className="space-y-4">
                 <Accordion type="multiple" className="w-full">
-                  {(phaseStructure === 'conception' ? customProjectStructure : customRealizationStructure).map((section) => (
+                  {(phaseStructure === 'conception' ? customProjectStructure : customRealizationStructure).map((section, sIdx) => {
+                    const sLabel = String.fromCharCode(65 + sIdx);
+                    return (
                     <AccordionItem key={section.id} value={section.id} className="border rounded-md mb-4 overflow-hidden">
                       <AccordionTrigger className="bg-gray-50 px-4 py-3 hover:bg-gray-100 transition-colors">
                         <div className="flex items-center justify-between w-full pr-6">
                           <div className="flex items-center">
-                            <span className="font-bold text-gray-700 mr-2">{section.id} -</span>
+                            <span className="font-bold text-gray-700 mr-2">{sLabel} -</span>
                             <span className="font-medium">{section.title}</span>
                           </div>
                           {isAdmin && (
@@ -1623,12 +1609,14 @@ const ProjectDetails: React.FC = () => {
                       </AccordionTrigger>
                       <AccordionContent className="p-0">
                         <div className="space-y-1 p-2">
-                          {section.items.map((item) => (
+                          {section.items.map((item, iIdx) => {
+                            const iLabel = `${sLabel}${iIdx + 1}`;
+                            return (
                             <Accordion type="multiple" key={item.id}>
                               <AccordionItem value={item.id} className="border rounded-md mb-2 overflow-hidden">
                                 <AccordionTrigger className="bg-white px-4 py-2 hover:bg-gray-50 transition-colors">
                                   <div className="flex items-center text-sm">
-                                    <span className="font-semibold text-gray-700 mr-2">{item.id}</span>
+                                    <span className="font-semibold text-gray-700 mr-2">{iLabel}</span>
                                     <span>{item.title}</span>
                                   </div>
                                 </AccordionTrigger>
@@ -1725,11 +1713,13 @@ const ProjectDetails: React.FC = () => {
                                 </AccordionContent>
                               </AccordionItem>
                             </Accordion>
-                          ))}
+                            );
+                          })}
                         </div>
                       </AccordionContent>
                     </AccordionItem>
-                  ))}
+                    );
+                  })}
                 </Accordion>
               </div>
             </CardContent>
@@ -1889,12 +1879,14 @@ const ProjectDetails: React.FC = () => {
 
                 <div className="space-y-4">
                   <Accordion type="multiple" className="w-full">
-                    {(phaseStructure === 'conception' ? customProjectStructure : customRealizationStructure).map((section) => (
+                    {(phaseStructure === 'conception' ? customProjectStructure : customRealizationStructure).map((section, sIdx) => {
+                      const sLabel = String.fromCharCode(65 + sIdx);
+                      return (
                       <AccordionItem key={section.id} value={section.id} className="border rounded-md mb-4 overflow-hidden">
                         <AccordionTrigger className="bg-gray-50 px-4 py-3 hover:bg-gray-100 transition-colors">
                           <div className="flex items-center justify-between w-full pr-6">
                             <div className="flex items-center">
-                              <span className="font-bold text-gray-700 mr-2">{section.id} -</span>
+                              <span className="font-bold text-gray-700 mr-2">{sLabel} -</span>
                               <span className="font-medium">{section.title}</span>
                             </div>
                             <div className="flex items-center gap-2">
@@ -1913,11 +1905,13 @@ const ProjectDetails: React.FC = () => {
                         </AccordionTrigger>
                         <AccordionContent className="bg-white px-4 py-3">
                           <div className="space-y-3">
-                            {section.items.map((item) => (
+                            {section.items.map((item, iIdx) => {
+                              const iLabel = `${sLabel}${iIdx + 1}`;
+                              return (
                               <div key={item.id} className="flex items-center justify-between bg-gray-50 p-3 rounded-md">
                                 <div className="flex-1">
                                   <div className="flex items-center">
-                                    <span className="font-medium text-gray-700 mr-2">{item.id} -</span>
+                                    <span className="font-medium text-gray-700 mr-2">{iLabel} -</span>
                                     <span className="text-gray-900">{item.title}</span>
                                   </div>
                                   {item.tasks && item.tasks.length > 0 && (
@@ -1936,11 +1930,13 @@ const ProjectDetails: React.FC = () => {
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                               </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </AccordionContent>
                       </AccordionItem>
-                    ))}
+                      );
+                    })}
                   </Accordion>
                 </div>
 
@@ -1982,7 +1978,7 @@ const ProjectDetails: React.FC = () => {
               {selectedTask && (
                 <span className="mt-2 block">
                   <span className="font-medium">
-                    {phaseStructure === 'conception' ? 'Phase Conception' : 'Phase Réalisation'} &gt; {selectedTask?.section} &gt; {selectedTask?.subsection} &gt; {selectedTask?.taskName}
+                    {phaseStructure === 'conception' ? 'Phase Conception' : 'Phase Réalisation'} &gt; {resolveSectionLabel(phaseStructure, selectedTask.section)} &gt; {resolveItemLabel(phaseStructure, selectedTask.section, selectedTask.subsection)} &gt; {selectedTask?.taskName}
                   </span>
                 </span>
               )}
@@ -2295,7 +2291,7 @@ const ProjectDetails: React.FC = () => {
               {selectedTaskDetails && (
                 <span className="mt-2 block">
                   <span className="font-medium">
-                    {selectedTaskDetails.phase_id === 'conception' ? 'Phase Conception' : 'Phase Réalisation'} &gt; {selectedTaskDetails.section_id} &gt; {selectedTaskDetails.subsection_id} &gt; {selectedTaskDetails.task_name}
+                    {selectedTaskDetails.phase_id === 'conception' ? 'Phase Conception' : 'Phase Réalisation'} &gt; {resolveSectionLabel(selectedTaskDetails.phase_id as 'conception' | 'realisation', selectedTaskDetails.section_id)} &gt; {resolveItemLabel(selectedTaskDetails.phase_id as 'conception' | 'realisation', selectedTaskDetails.section_id, selectedTaskDetails.subsection_id)} &gt; {selectedTaskDetails.task_name}
                   </span>
                 </span>
               )}

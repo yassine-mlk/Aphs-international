@@ -24,6 +24,8 @@ import {
   SelectValue 
 } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabase";
+import { ProjectStructureTab } from "@/components/settings/ProjectStructureTab";
 
 // Import structures de projet depuis ProjectDetails
 import { projectStructure, realizationStructure } from "@/data/project-structure";
@@ -69,6 +71,8 @@ const Settings: React.FC = () => {
   const [infoSheetText, setInfoSheetText] = useState('');
   const [selectedInfoSheetLanguage, setSelectedInfoSheetLanguage] = useState<Language>('fr'); // Langue sélectionnée pour la fiche
   
+  const [tenantId, setTenantId] = useState<string | null>(null);
+
   const [profileForm, setProfileForm] = useState({
     firstName: "",
     lastName: "",
@@ -146,6 +150,17 @@ const Settings: React.FC = () => {
     
     loadUserData();
   }, [getUserSettings, toast]);
+
+  // Charger le tenantId de l'admin connecté
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    supabase
+      .from('profiles')
+      .select('tenant_id')
+      .eq('user_id', currentUser.id)
+      .maybeSingle()
+      .then(({ data }) => { if (data?.tenant_id) setTenantId(data.tenant_id); });
+  }, [currentUser?.id]);
 
   // Gérer la sélection de fichier avatar
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -614,6 +629,12 @@ const Settings: React.FC = () => {
             <TabsTrigger value="project-settings" className="data-[state=active]:bg-white">
               <ClipboardList className="h-4 w-4 mr-2" />
               Paramètres des projets
+            </TabsTrigger>
+          )}
+          {isAdmin && tenantId && (
+            <TabsTrigger value="project-structure" className="data-[state=active]:bg-white">
+              <SettingsIcon className="h-4 w-4 mr-2" />
+              Structure des projets
             </TabsTrigger>
           )}
         </TabsList>
@@ -1131,6 +1152,13 @@ const Settings: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+        )}
+
+        {/* Onglet Structure des projets */}
+        {isAdmin && tenantId && (
+          <TabsContent value="project-structure">
+            <ProjectStructureTab tenantId={tenantId} />
           </TabsContent>
         )}
       </Tabs>

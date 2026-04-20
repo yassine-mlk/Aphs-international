@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useSupabase } from '@/hooks/useSupabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 import {
   Dialog,
   DialogContent,
@@ -68,6 +69,8 @@ const Projects: React.FC = () => {
   const { user } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [tenantId, setTenantId] = useState<string | null>(null);
+  const [maxProjects, setMaxProjects] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [projectStats, setProjectStats] = useState<Record<string, ProjectStatItem>>({});
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -85,20 +88,49 @@ const Projects: React.FC = () => {
     show_info_sheets: true
   });
   
+  // Charger tenant_id de l'admin connecté
+  useEffect(() => {
+    if (!user?.id) return;
+    supabase
+      .from('profiles')
+      .select('tenant_id')
+      .eq('user_id', user.id)
+      .maybeSingle()
+      .then(({ data: profile }) => {
+        if (!profile?.tenant_id) return;
+        setTenantId(profile.tenant_id);
+        supabase
+          .from('tenants')
+          .select('max_projects')
+          .eq('id', profile.tenant_id)
+          .maybeSingle()
+          .then(({ data: tenant }) => {
+            if (tenant?.max_projects) setMaxProjects(tenant.max_projects);
+          });
+      });
+  }, [user?.id]);
+
   // Charger les projets au chargement de la page
   useEffect(() => {
-    fetchProjects();
-  }, []);
+    if (user?.id) fetchProjects();
+  }, [tenantId, user?.id]);
 
   // Récupérer les projets depuis Supabase
   const fetchProjects = async () => {
     setLoading(true);
     try {
-      const data = await fetchData<Project>('projects', {
-        columns: '*',
-        order: { column: 'created_at', ascending: false }
-      });
-      setProjects(data);
+      let query = supabase
+        .from('projects')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (tenantId) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      setProjects(data || []);
       
       // Récupérer les statistiques pour chaque projet
       await fetchProjectStats(data);
@@ -118,17 +150,58 @@ const Projects: React.FC = () => {
   const fetchProjectStats = async (projectList: Project[]) => {
     const stats: Record<string, ProjectStatItem> = {};
 
-    const computeTotalTasksFromStructure = (deletions: CustomStructureItem[]): number => {
-      const isDeletedSection = (phase: 'conception' | 'realisation', sectionId: string) => {
-        return deletions.some(d => d.is_deleted && d.phase_id === phase && d.section_id === sectionId && d.subsection_id === null);
-      };
-      const isDeletedSubsection = (phase: 'conception' | 'realisation', sectionId: string, subsectionId: string) => {
-        return deletions.some(d => d.is_deleted && d.phase_id === phase && d.section_id === sectionId && d.subsection_id === subsectionId);
-      };
+    // Cache tenant structures to avoid redundant queries
+    const tenantStructureCache: Record<string, { conception: any[]; realisation: any[] }> = {};
 
-      const countPhase = (phase: 'conception' | 'realisation') => {
+    const loadTenantStructureForProject = async (tid: string) => {
+      if (tenantStructureCache[tid]) return tenantStructureCache[tid];
+      const buildPhase = async (phase: 'conception' | 'realisation') => {
+        const { data: sections } = await supabase
+          .from('tenant_project_sections').select('id').eq('tenant_id', tid).eq('phase', phase).order('order_index');
+        if (!sections || sections.length === 0) return [];
+        const result: { id: string; items: { id: string; tasks: string[] }[] }[] = [];
+        for (const sec of sections) {
+          const { data: items } = await supabase
+            .from('tenant_project_items').select('id').eq('section_id', sec.id).order('order_index');
+          const builtItems: { id: string; tasks: string[] }[] = [];
+          for (const item of (items || [])) {
+            const { data: tasks } = await supabase
+              .from('tenant_project_tasks').select('id').eq('item_id', item.id);
+            builtItems.push({ id: item.id, tasks: (tasks || []).map(() => '') });
+          }
+          result.push({ id: sec.id, items: builtItems });
+        }
+        return result;
+      };
+      const res = { conception: await buildPhase('conception'), realisation: await buildPhase('realisation') };
+      tenantStructureCache[tid] = res;
+      return res;
+    };
+
+    const computeTotalTasks = async (project: Project, deletions: CustomStructureItem[]): Promise<number> => {
+      const tid = (project as any).tenant_id;
+      if (tid) {
+        const ts = await loadTenantStructureForProject(tid);
+        if (ts.conception.length > 0 || ts.realisation.length > 0) {
+          let count = 0;
+          for (const phase of ['conception', 'realisation'] as const) {
+            for (const section of ts[phase]) {
+              for (const item of section.items) {
+                count += item.tasks.length;
+              }
+            }
+          }
+          return count;
+        }
+      }
+      // Fallback: static structure minus deletions
+      const isDeletedSection = (phase: 'conception' | 'realisation', sectionId: string) =>
+        deletions.some(d => d.is_deleted && d.phase_id === phase && d.section_id === sectionId && d.subsection_id === null);
+      const isDeletedSubsection = (phase: 'conception' | 'realisation', sectionId: string, subsectionId: string) =>
+        deletions.some(d => d.is_deleted && d.phase_id === phase && d.section_id === sectionId && d.subsection_id === subsectionId);
+      let count = 0;
+      for (const phase of ['conception', 'realisation'] as const) {
         const structure = phase === 'conception' ? projectStructure : realizationStructure;
-        let count = 0;
         for (const section of structure) {
           if (isDeletedSection(phase, section.id)) continue;
           for (const item of section.items) {
@@ -136,12 +209,10 @@ const Projects: React.FC = () => {
             count += item.tasks.length;
           }
         }
-        return count;
-      };
-
-      return countPhase('conception') + countPhase('realisation');
+      }
+      return count;
     };
-    
+
     for (const project of projectList) {
       try {
         // Récupérer le nombre de membres
@@ -150,7 +221,7 @@ const Projects: React.FC = () => {
           filters: [{ column: 'project_id', operator: 'eq', value: project.id }]
         });
 
-        // Récupérer les suppressions (structure personnalisée) pour calculer le total de tâches réel du projet
+        // Récupérer les suppressions (ancien système, utilisé comme fallback)
         const deletions = await fetchData<CustomStructureItem>('custom_project_structures', {
           columns: 'phase_id,section_id,subsection_id,is_deleted',
           filters: [
@@ -172,7 +243,7 @@ const Projects: React.FC = () => {
         const tasksValidated = tasks ? tasks.filter((task: any) => task.status === 'validated').length : 0;
         const tasksRejected = tasks ? tasks.filter((task: any) => task.status === 'rejected').length : 0;
 
-        const totalTasks = computeTotalTasksFromStructure(deletions || []);
+        const totalTasks = await computeTotalTasks(project, deletions || []);
         const taskProgress = totalTasks > 0 ? Math.round((tasksValidated / totalTasks) * 100) : 0;
         
         stats[project.id] = {
@@ -256,12 +327,29 @@ const Projects: React.FC = () => {
     // Validation des champs de base uniquement
 
     try {
+      // Vérifier le quota de projets
+      if (tenantId && maxProjects !== null) {
+        const { count } = await supabase
+          .from('projects')
+          .select('id', { count: 'exact', head: true })
+          .eq('tenant_id', tenantId);
+        if ((count ?? 0) >= maxProjects) {
+          toast({
+            title: "Quota atteint",
+            description: "Vous avez atteint votre limite de création de projets. Veuillez contacter le support.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
       // Préparer les données en convertissant les chaînes vides en null pour les champs UUID
       const projectData = {
         ...newProject,
         company_id: newProject.company_id || null,
         end_date: newProject.end_date || null,
         created_by: user?.id || null,
+        tenant_id: tenantId || null,
         created_at: new Date().toISOString()
       };
       

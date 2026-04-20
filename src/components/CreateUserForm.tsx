@@ -5,6 +5,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { useSupabase, UserRole, Company } from '../hooks/useSupabase';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 import PasswordInput from '@/components/ui/password-input';
 
 // Spécialités par catégorie
@@ -76,6 +78,7 @@ export default function CreateUserForm({ onSuccess }: CreateUserFormProps) {
   
   const { toast } = useToast();
   const { adminCreateUser, getCompanies } = useSupabase();
+  const { user: authUser } = useAuth();
 
   // Obtenir les spécialités selon la catégorie sélectionnée
   const getSpecialtiesByCategory = (selectedCategory: string) => {
@@ -135,11 +138,23 @@ export default function CreateUserForm({ onSuccess }: CreateUserFormProps) {
     setLoading(true);
     
     try {
+      // Récupérer le tenant_id de l'admin connecté
+      let tenantId: string | null = null;
+      if (authUser) {
+        const { data: adminProfile } = await supabase
+          .from('profiles')
+          .select('tenant_id')
+          .eq('user_id', authUser.id)
+          .maybeSingle();
+        tenantId = adminProfile?.tenant_id || null;
+      }
+
       const additionalData: Record<string, any> = {
         first_name: firstName,
         last_name: lastName,
         name: `${firstName} ${lastName}`,
-        specialty
+        specialty,
+        tenant_id: tenantId
       };
       
       // Ajouter l'information sur l'entreprise

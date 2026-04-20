@@ -862,7 +862,8 @@ const IntervenantProjectDetails: React.FC = () => {
                   <AccordionTrigger>{translations.conception}</AccordionTrigger>
                   <AccordionContent>
                     <div className="space-y-4">
-                      {customProjectStructure.map((section) => {
+                      {customProjectStructure.map((section, sIdx) => {
+                        const sLabel = String.fromCharCode(65 + sIdx);
                         const sectionKey = section.id as keyof typeof translations.sections;
                         const sectionTranslation: any = (translations.sections as any)[sectionKey];
                         const sectionExpansionKey = `conception-${section.id}`;
@@ -876,7 +877,7 @@ const IntervenantProjectDetails: React.FC = () => {
                               className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors"
                             >
                               <h4 className="font-semibold text-gray-800">
-                                Section {section.id}: {sectionTranslation?.title || section.title}
+                                {sLabel} - {sectionTranslation?.title || section.title}
                               </h4>
                               <Badge variant="outline" className="bg-blue-50 text-blue-700">
                                 {section.items.length} étapes
@@ -886,7 +887,8 @@ const IntervenantProjectDetails: React.FC = () => {
                             {/* Contenu de la section (étapes) */}
                             {isSectionExpanded && (
                               <div className="border-t border-gray-200 p-4 space-y-3">
-                                {section.items.map((subsection) => {
+                                {section.items.map((subsection, iIdx) => {
+                                  const iLabel = `${sLabel}${iIdx + 1}`;
                                   const subsectionKey = subsection.id as keyof typeof sectionTranslation.items;
                                   const subsectionTranslation: any = sectionTranslation?.items?.[subsectionKey];
                                   const subsectionExpansionKey = `conception-${section.id}-${subsection.id}`;
@@ -900,7 +902,7 @@ const IntervenantProjectDetails: React.FC = () => {
                                         className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-25 transition-colors"
                                       >
                                         <h5 className="font-medium text-gray-700">
-                                          Étape {subsection.id}: {subsectionTranslation?.title || subsection.title}
+                                          {iLabel} - {subsectionTranslation?.title || subsection.title}
                                         </h5>
                                         <Badge variant="outline" className="bg-green-50 text-green-700">
                                           {subsection.tasks.length} tâches
@@ -1037,7 +1039,8 @@ const IntervenantProjectDetails: React.FC = () => {
                   <AccordionTrigger>{translations.realization}</AccordionTrigger>
                   <AccordionContent>
                     <div className="space-y-4">
-                      {customRealizationStructure.map((section) => {
+                      {customRealizationStructure.map((section, sIdx) => {
+                        const sLabel = String.fromCharCode(65 + sIdx);
                         const sectionKey = section.id as keyof typeof translations.sections;
                         const sectionTranslation: any = (translations.sections as any)[sectionKey];
                         const sectionExpansionKey = `realisation-${section.id}`;
@@ -1051,7 +1054,7 @@ const IntervenantProjectDetails: React.FC = () => {
                               className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors"
                             >
                               <h4 className="font-semibold text-gray-800">
-                                Section {section.id}: {sectionTranslation?.title || section.title}
+                                {sLabel} - {sectionTranslation?.title || section.title}
                               </h4>
                               <Badge variant="outline" className="bg-orange-50 text-orange-700">
                                 {section.items.length} étapes
@@ -1061,7 +1064,8 @@ const IntervenantProjectDetails: React.FC = () => {
                             {/* Contenu de la section (étapes) */}
                             {isSectionExpanded && (
                               <div className="border-t border-gray-200 p-4 space-y-3">
-                                {section.items.map((subsection) => {
+                                {section.items.map((subsection, iIdx) => {
+                                  const iLabel = `${sLabel}${iIdx + 1}`;
                                   const subsectionKey = subsection.id as keyof typeof sectionTranslation.items;
                                   const subsectionTranslation: any = sectionTranslation?.items?.[subsectionKey];
                                   const subsectionExpansionKey = `realisation-${section.id}-${subsection.id}`;
@@ -1075,7 +1079,7 @@ const IntervenantProjectDetails: React.FC = () => {
                                         className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-25 transition-colors"
                                       >
                                         <h5 className="font-medium text-gray-700">
-                                          Étape {subsection.id}: {subsectionTranslation?.title || subsection.title}
+                                          {iLabel} - {subsectionTranslation?.title || subsection.title}
                                         </h5>
                                         <Badge variant="outline" className="bg-green-50 text-green-700">
                                           {subsection.tasks.length} tâches

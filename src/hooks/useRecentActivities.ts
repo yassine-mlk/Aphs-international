@@ -258,9 +258,11 @@ export function useRecentActivities() {
         .from('profiles')
         .select('role')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();  // ← maybeSingle au lieu de single
 
-      if (error) throw error;
+      if (error && error.code !== 'PGRST116') {
+        console.error('Erreur lors de la vérification du rôle:', error);
+      }
       return profile?.role === 'admin';
     } catch (error) {
       console.error('Erreur lors de la vérification du rôle:', error);
