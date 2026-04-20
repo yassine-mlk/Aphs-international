@@ -4,3 +4,5 @@ export { TaskAssignmentEnhanced, type AssignmentFormData } from './TaskAssignmen
 export { SubmissionUploader } from './SubmissionUploader';
 export { VersionTimeline } from './VersionTimeline';
 export { VisaStatusBadge, ValidatorQueueBadge } from './VisaStatusBadge';
+export { ValidationQueue } from './ValidationQueue';
+export { OpinionForm } from './OpinionForm';
