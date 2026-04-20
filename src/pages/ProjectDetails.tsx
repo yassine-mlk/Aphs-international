@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
 import { Label } from '@/components/ui/label';
@@ -29,7 +29,8 @@ import {
 import { useSupabase } from '@/hooks/useSupabase';
 import { useProjectStructure } from '@/hooks/useProjectStructure';
 import { useVisaCircuits } from '@/hooks/useVisaCircuits';
-import { CircuitList } from '@/components/visa';
+import { useVisaInstances } from '@/hooks/useVisaInstances';
+import { CircuitList, VisaAdminDashboard } from '@/components/visa';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -177,10 +178,10 @@ const ProjectDetails: React.FC = () => {
   const { 
     circuits, 
     loading: circuitsLoading, 
-    fetchCircuits, 
     createCircuit, 
     deleteCircuit 
   } = useVisaCircuits(id || '');
+  const { instances, loading: instancesLoading, refresh: refreshInstances } = useVisaInstances(id || '');
   
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1978,10 +1979,27 @@ const ProjectDetails: React.FC = () => {
           </TabsContent>
         )}
         
-        {/* Onglet Circuits de Visa */}
+        {/* Onglet Circuits de Visa - Tableau de synthèse Admin */}
         {isAdmin && (
           <TabsContent value="visa-circuits" className="space-y-6">
+            <VisaAdminDashboard
+              instances={instances}
+              circuits={circuits}
+              projects={[{ id: id || '', name: project?.name || 'Projet' }]}
+              onRefresh={refreshInstances}
+              onViewInstance={(instanceId) => {
+                console.log('View instance:', instanceId);
+              }}
+              onGenerateReport={(instanceId) => {
+                console.log('Generate report:', instanceId);
+              }}
+            />
+            
+            {/* Section Gestion des circuits */}
             <Card className="border-0 shadow-md">
+              <CardHeader>
+                <CardTitle>Gestion des circuits de validation</CardTitle>
+              </CardHeader>
               <CardContent className="p-6">
                 <CircuitList
                   circuits={circuits}
