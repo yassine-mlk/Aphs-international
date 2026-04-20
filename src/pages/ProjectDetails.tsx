@@ -23,10 +23,13 @@ import {
   XCircle,
   Download,
   Users,
-  Search
+  Search,
+  GitBranch
 } from 'lucide-react';
 import { useSupabase } from '@/hooks/useSupabase';
 import { useProjectStructure } from '@/hooks/useProjectStructure';
+import { useVisaCircuits } from '@/hooks/useVisaCircuits';
+import { CircuitList } from '@/components/visa';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -169,6 +172,15 @@ const ProjectDetails: React.FC = () => {
   const { fetchData, deleteData, insertData, updateData, getUsers, supabase } = useSupabase();
   const { user } = useAuth();
   const { notifyTaskAssigned, notifyProjectAdded } = useNotificationTriggers();
+  
+  // Hook pour les circuits de visa
+  const { 
+    circuits, 
+    loading: circuitsLoading, 
+    fetchCircuits, 
+    createCircuit, 
+    deleteCircuit 
+  } = useVisaCircuits(id || '');
   
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
@@ -674,6 +686,16 @@ const ProjectDetails: React.FC = () => {
   // Revenir à la liste des projets
   const handleBackToProjects = () => {
     navigate('/dashboard/projets');
+  };
+  
+  // Gestion des circuits de visa
+  const handleCreateCircuit = async (name: string, documentType: string, steps: any[]) => {
+    if (!user?.id) return;
+    await createCircuit(name, documentType, steps, user.id);
+  };
+  
+  const handleDeleteCircuit = async (id: string) => {
+    await deleteCircuit(id);
   };
   
   // Formatter le nom de l'intervenant
@@ -1373,6 +1395,12 @@ const ProjectDetails: React.FC = () => {
               Gestion Structure
             </TabsTrigger>
           )}
+          {isAdmin && (
+            <TabsTrigger value="visa-circuits" className="data-[state=active]:bg-white">
+              <GitBranch className="h-4 w-4 mr-2" />
+              Circuits Visa
+            </TabsTrigger>
+          )}
         </TabsList>
         
         {/* Onglet Informations */}
@@ -1945,6 +1973,26 @@ const ProjectDetails: React.FC = () => {
                     Structure personnalisée pour ce projet. Les modifications n'affectent que ce projet.
                   </p>
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+        
+        {/* Onglet Circuits de Visa */}
+        {isAdmin && (
+          <TabsContent value="visa-circuits" className="space-y-6">
+            <Card className="border-0 shadow-md">
+              <CardContent className="p-6">
+                <CircuitList
+                  circuits={circuits}
+                  intervenants={allIntervenants.filter(i => 
+                    projectMembers.some(m => m.user_id === i.id)
+                  )}
+                  onCreate={handleCreateCircuit}
+                  onDelete={handleDeleteCircuit}
+                  loading={circuitsLoading}
+                  currentUserId={user?.id}
+                />
               </CardContent>
             </Card>
           </TabsContent>

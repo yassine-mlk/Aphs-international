@@ -28,9 +28,10 @@ import { CircuitBuilder } from "./CircuitBuilder";
 interface CircuitListProps {
   circuits: VisaCircuit[];
   intervenants: Array<{ id: string; first_name: string; last_name: string; role: string }>;
-  onCreate: (name: string, documentType: string, steps: VisaCircuitStep[]) => void;
+  onCreate: (name: string, documentType: string, steps: VisaCircuitStep[], userId: string) => void;
   onDelete: (id: string) => void;
   loading?: boolean;
+  currentUserId?: string;
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -55,7 +56,8 @@ export const CircuitList: React.FC<CircuitListProps> = ({
   intervenants, 
   onCreate, 
   onDelete,
-  loading 
+  loading,
+  currentUserId 
 }) => {
   const [isCreating, setIsCreating] = useState(false);
   const [expandedCircuit, setExpandedCircuit] = useState<string | null>(null);
@@ -66,7 +68,8 @@ export const CircuitList: React.FC<CircuitListProps> = ({
   };
 
   const handleCreate = (name: string, documentType: string, steps: VisaCircuitStep[]) => {
-    onCreate(name, documentType, steps);
+    if (!currentUserId) return;
+    onCreate(name, documentType, steps, currentUserId);
     setIsCreating(false);
   };
 
