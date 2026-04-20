@@ -6,3 +6,4 @@ export { VersionTimeline } from './VersionTimeline';
 export { VisaStatusBadge, ValidatorQueueBadge } from './VisaStatusBadge';
 export { ValidationQueue } from './ValidationQueue';
 export { OpinionForm } from './OpinionForm';
+export { VisaDashboard } from './VisaDashboard';
