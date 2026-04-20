@@ -50,6 +50,7 @@ interface CustomStructureItem {
   section_id: string;
   subsection_id: string | null;
   is_deleted: boolean;
+  project_id: string;
 }
 
 type ProjectStatItem = {
@@ -146,108 +147,111 @@ const Projects: React.FC = () => {
     }
   };
 
-  // Récupérer les statistiques des projets (membres et progression)
+  // Récupérer les statistiques des projets (membres et progression) - VERSION OPTIMISÉE
   const fetchProjectStats = async (projectList: Project[]) => {
+    if (!projectList || projectList.length === 0) {
+      setProjectStats({});
+      return;
+    }
+
+    const projectIds = projectList.map(p => p.id);
     const stats: Record<string, ProjectStatItem> = {};
 
-    // Cache tenant structures to avoid redundant queries
-    const tenantStructureCache: Record<string, { conception: any[]; realisation: any[] }> = {};
+    try {
+      // Récupérer TOUTES les données en parallèle par batch de 100 projets
+      const batchSize = 100;
+      const batches = [];
+      for (let i = 0; i < projectIds.length; i += batchSize) {
+        batches.push(projectIds.slice(i, i + batchSize));
+      }
 
-    const loadTenantStructureForProject = async (tid: string) => {
-      if (tenantStructureCache[tid]) return tenantStructureCache[tid];
-      const buildPhase = async (phase: 'conception' | 'realisation') => {
-        const { data: sections } = await supabase
-          .from('tenant_project_sections').select('id').eq('tenant_id', tid).eq('phase', phase).order('order_index');
-        if (!sections || sections.length === 0) return [];
-        const result: { id: string; items: { id: string; tasks: string[] }[] }[] = [];
-        for (const sec of sections) {
-          const { data: items } = await supabase
-            .from('tenant_project_items').select('id').eq('section_id', sec.id).order('order_index');
-          const builtItems: { id: string; tasks: string[] }[] = [];
-          for (const item of (items || [])) {
-            const { data: tasks } = await supabase
-              .from('tenant_project_tasks').select('id').eq('item_id', item.id);
-            builtItems.push({ id: item.id, tasks: (tasks || []).map(() => '') });
-          }
-          result.push({ id: sec.id, items: builtItems });
-        }
-        return result;
-      };
-      const res = { conception: await buildPhase('conception'), realisation: await buildPhase('realisation') };
-      tenantStructureCache[tid] = res;
-      return res;
-    };
+      // Accumulateurs pour tous les projets
+      const allMembers: any[] = [];
+      const allDeletions: CustomStructureItem[] = [];
+      const allTasks: any[] = [];
 
-    const computeTotalTasks = async (project: Project, deletions: CustomStructureItem[]): Promise<number> => {
-      const tid = (project as any).tenant_id;
-      if (tid) {
-        const ts = await loadTenantStructureForProject(tid);
-        if (ts.conception.length > 0 || ts.realisation.length > 0) {
-          let count = 0;
-          for (const phase of ['conception', 'realisation'] as const) {
-            for (const section of ts[phase]) {
-              for (const item of section.items) {
-                count += item.tasks.length;
-              }
+      // Traiter chaque batch
+      for (const batch of batches) {
+        const [membersBatch, deletionsBatch, tasksBatch] = await Promise.all([
+          // Membres pour ce batch
+          supabase
+            .from('membre')
+            .select('id, project_id')
+            .in('project_id', batch)
+            .then(({ data }) => data || []),
+          
+          // Suppressions pour ce batch
+          supabase
+            .from('custom_project_structures')
+            .select('phase_id, section_id, subsection_id, is_deleted, project_id')
+            .in('project_id', batch)
+            .eq('is_deleted', true)
+            .then(({ data }) => data || []),
+          
+          // Tâches pour ce batch
+          supabase
+            .from('task_assignments')
+            .select('status, project_id')
+            .in('project_id', batch)
+            .then(({ data }) => data || [])
+        ]);
+
+        allMembers.push(...membersBatch);
+        allDeletions.push(...deletionsBatch);
+        allTasks.push(...tasksBatch);
+      }
+
+      // Grouper les données par projet_id
+      const membersByProject = allMembers.reduce((acc, m) => {
+        acc[m.project_id] = (acc[m.project_id] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      const deletionsByProject = allDeletions.reduce((acc, d) => {
+        if (!acc[d.project_id]) acc[d.project_id] = [];
+        acc[d.project_id].push(d);
+        return acc;
+      }, {} as Record<string, CustomStructureItem[]>);
+
+      const tasksByProject = allTasks.reduce((acc, t) => {
+        if (!acc[t.project_id]) acc[t.project_id] = [];
+        acc[t.project_id].push(t);
+        return acc;
+      }, {} as Record<string, any[]>);
+
+      // Calculer les stats pour chaque projet
+      for (const project of projectList) {
+        const members = membersByProject[project.id] || 0;
+        const deletions = deletionsByProject[project.id] || [];
+        const tasks = tasksByProject[project.id] || [];
+
+        const tasksAssigned = tasks.filter((t: any) => t.status === 'assigned').length;
+        const tasksSubmitted = tasks.filter((t: any) => t.status === 'submitted').length;
+        const tasksValidated = tasks.filter((t: any) => t.status === 'validated').length;
+        const tasksRejected = tasks.filter((t: any) => t.status === 'rejected').length;
+
+        // Calcul du total des tâches (structure statique sans requêtes supplémentaires)
+        const isDeletedSection = (phase: 'conception' | 'realisation', sectionId: string) =>
+          deletions.some(d => d.is_deleted && d.phase_id === phase && d.section_id === sectionId && d.subsection_id === null);
+        const isDeletedSubsection = (phase: 'conception' | 'realisation', sectionId: string, subsectionId: string) =>
+          deletions.some(d => d.is_deleted && d.phase_id === phase && d.section_id === sectionId && d.subsection_id === subsectionId);
+        
+        let totalTasks = 0;
+        for (const phase of ['conception', 'realisation'] as const) {
+          const structure = phase === 'conception' ? projectStructure : realizationStructure;
+          for (const section of structure) {
+            if (isDeletedSection(phase, section.id)) continue;
+            for (const item of section.items) {
+              if (isDeletedSubsection(phase, section.id, item.id)) continue;
+              totalTasks += item.tasks.length;
             }
           }
-          return count;
         }
-      }
-      // Fallback: static structure minus deletions
-      const isDeletedSection = (phase: 'conception' | 'realisation', sectionId: string) =>
-        deletions.some(d => d.is_deleted && d.phase_id === phase && d.section_id === sectionId && d.subsection_id === null);
-      const isDeletedSubsection = (phase: 'conception' | 'realisation', sectionId: string, subsectionId: string) =>
-        deletions.some(d => d.is_deleted && d.phase_id === phase && d.section_id === sectionId && d.subsection_id === subsectionId);
-      let count = 0;
-      for (const phase of ['conception', 'realisation'] as const) {
-        const structure = phase === 'conception' ? projectStructure : realizationStructure;
-        for (const section of structure) {
-          if (isDeletedSection(phase, section.id)) continue;
-          for (const item of section.items) {
-            if (isDeletedSubsection(phase, section.id, item.id)) continue;
-            count += item.tasks.length;
-          }
-        }
-      }
-      return count;
-    };
 
-    for (const project of projectList) {
-      try {
-        // Récupérer le nombre de membres
-        const members = await fetchData<any>('membre', {
-          columns: 'id',
-          filters: [{ column: 'project_id', operator: 'eq', value: project.id }]
-        });
-
-        // Récupérer les suppressions (ancien système, utilisé comme fallback)
-        const deletions = await fetchData<CustomStructureItem>('custom_project_structures', {
-          columns: 'phase_id,section_id,subsection_id,is_deleted',
-          filters: [
-            { column: 'project_id', operator: 'eq', value: project.id },
-            { column: 'is_deleted', operator: 'eq', value: true }
-          ]
-        });
-        
-        // Récupérer les tâches et leurs statuts
-        const tasks = await fetchData<any>('task_assignments', {
-          columns: 'status',
-          filters: [{ column: 'project_id', operator: 'eq', value: project.id }]
-        });
-        
-        const memberCount = members ? members.length : 0;
-
-        const tasksAssigned = tasks ? tasks.filter((task: any) => task.status === 'assigned').length : 0;
-        const tasksSubmitted = tasks ? tasks.filter((task: any) => task.status === 'submitted').length : 0;
-        const tasksValidated = tasks ? tasks.filter((task: any) => task.status === 'validated').length : 0;
-        const tasksRejected = tasks ? tasks.filter((task: any) => task.status === 'rejected').length : 0;
-
-        const totalTasks = await computeTotalTasks(project, deletions || []);
         const taskProgress = totalTasks > 0 ? Math.round((tasksValidated / totalTasks) * 100) : 0;
-        
+
         stats[project.id] = {
-          memberCount,
+          memberCount: members,
           taskProgress,
           totalTasks,
           tasksAssigned,
@@ -255,8 +259,13 @@ const Projects: React.FC = () => {
           tasksValidated,
           tasksRejected
         };
-      } catch (error) {
-        console.error(`Erreur lors de la récupération des stats pour le projet ${project.id}:`, error);
+      }
+
+      setProjectStats(stats);
+    } catch (error) {
+      console.error('Erreur lors de la récupération des statistiques:', error);
+      // Fallback: stats vides
+      for (const project of projectList) {
         stats[project.id] = {
           memberCount: 0,
           taskProgress: 0,
@@ -267,9 +276,8 @@ const Projects: React.FC = () => {
           tasksRejected: 0
         };
       }
+      setProjectStats(stats);
     }
-    
-    setProjectStats(stats);
   };
 
   // Filtrer les projets selon la recherche
