@@ -7,27 +7,49 @@ import { Badge } from "@/components/ui/badge";
 import { Upload, File, X, AlertCircle, CheckCircle } from "lucide-react";
 import { useSupabase } from '@/hooks/useSupabase';
 
+interface TaskAssignment {
+  id: string;
+  task_name: string;
+  section: string;
+  phase: string;
+  status: string;
+}
+
 interface SubmissionUploaderProps {
-  assignmentId: string;
-  occurrenceNumber: number;
-  expectedFormat: string;
-  previousVersions: Array<{ version_index: string; file_name: string; submitted_at: string }>;
-  onUploadComplete: (fileUrl: string, fileName: string) => void;
-  onCancel: () => void;
+  // Mode 1: Single assignment (legacy)
+  assignmentId?: string;
+  occurrenceNumber?: number;
+  expectedFormat?: string;
+  previousVersions?: Array<{ version_index: string; file_name: string; submitted_at: string }>;
+  onUploadComplete?: (fileUrl: string, fileName: string) => void;
+  onCancel?: () => void;
+  
+  // Mode 2: Task list (for intervenant space)
+  taskAssignments?: TaskAssignment[];
+  onSubmit?: (assignmentId: string, file: File, fileName: string) => Promise<void>;
+  loading?: boolean;
 }
 
 export const SubmissionUploader: React.FC<SubmissionUploaderProps> = ({
-  assignmentId,
+  assignmentId: singleAssignmentId,
   occurrenceNumber,
   expectedFormat,
   previousVersions,
   onUploadComplete,
   onCancel,
+  taskAssignments,
+  onSubmit,
+  loading: externalLoading,
 }) => {
   const { supabase } = useSupabase();
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [selectedAssignmentId, setSelectedAssignmentId] = useState<string>(singleAssignmentId || '');
+  
+  // Determine mode
+  const isTaskListMode = !!taskAssignments && !!onSubmit;
+  const loading = externalLoading || uploading;
   const [error, setError] = useState<string | null>(null);
 
   const nextVersionIndex = previousVersions.length > 0

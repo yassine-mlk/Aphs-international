@@ -10,11 +10,12 @@ import { TaskSubmission, VisaInstance, VisaStep } from "@/types/visa";
 
 interface VersionTimelineProps {
   submissions: TaskSubmission[];
-  instances: Record<string, VisaInstance>;
-  steps: Record<string, VisaStep[]>;
-  onResubmit?: (submissionId: string, instanceId: string) => void;
+  instances?: Record<string, VisaInstance>;
+  steps?: Record<string, VisaStep[]>;
+  onResubmit?: (submissionId: string, instanceId?: string) => void;
   expandedSubmission?: string | null;
   onToggleExpand?: (submissionId: string) => void;
+  loading?: boolean;
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }> = {

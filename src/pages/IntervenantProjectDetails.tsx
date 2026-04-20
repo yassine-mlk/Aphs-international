@@ -22,13 +22,17 @@ import {
   FileText,
   Circle,
   CheckCircle2,
-  ClipboardCheck
+  ClipboardCheck,
+  GitBranch
 } from "lucide-react";
 import { useSupabase } from "../hooks/useSupabase";
 import { useAuth } from "../contexts/AuthContext";
 import { useProjectStructure } from "../hooks/useProjectStructure";
 import { projectStructure, realizationStructure } from "../data/project-structure";
 import { projectStructureTranslations } from "../data/project-structure-translations";
+import { useTaskSubmissions } from "../hooks/useTaskSubmissions";
+import { useVisaWorkflow } from "../hooks/useVisaWorkflow";
+import { SubmissionUploader, VersionTimeline } from "../components/visa";
 
 import {
   Dialog,
@@ -102,6 +106,15 @@ const IntervenantProjectDetails: React.FC = () => {
   const { toast } = useToast();
   const { fetchData, getUsers } = useSupabase();
   const { user } = useAuth();
+
+  // Hooks pour le workflow visa
+  const { 
+    submissions, 
+    loading: submissionsLoading, 
+    submitFile,
+    fetchSubmissions 
+  } = useTaskSubmissions(id || '');
+  const { resubmitDocument } = useVisaWorkflow();
 
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
@@ -544,6 +557,14 @@ const IntervenantProjectDetails: React.FC = () => {
             <Layers className="h-4 w-4 mr-2" />
             Structure
           </TabsTrigger>
+          
+          {/* Onglet Visa Workflow - visible pour les membres */}
+          {isMember && !isViewerRole && (
+            <TabsTrigger value="documents" className="data-[state=active]:bg-white">
+              <GitBranch className="h-4 w-4 mr-2" />
+              Mes documents
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* Onglet Informations */}
@@ -1210,14 +1231,54 @@ const IntervenantProjectDetails: React.FC = () => {
                     </div>
                   </AccordionContent>
                 </AccordionItem>
-              </Accordion>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
 
-    </div>
-  );
+                {/* Onglet Mes Documents - Workflow Visa */}
+                {isMember && !isViewerRole && (
+                  <TabsContent value="documents" className="space-y-6">
+                    <Card className="border-0 shadow-md">
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <GitBranch className="h-5 w-5" />
+                          Mes documents à valider
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-6 space-y-6">
+                        {/* Timeline des versions et soumissions */}
+                        <VersionTimeline
+                          submissions={submissions}
+                          onResubmit={async (submissionId) => {
+                            if (!user) return;
+                            const result = await resubmitDocument(submissionId, user.id);
+                            if (result.success) {
+                              fetchSubmissions();
+                            }
+                          }}
+                          loading={submissionsLoading}
+                        />
+                        
+                        {/* Uploader pour nouvelle soumission */}
+                        <div className="border-t pt-6 mt-6">
+                          <h3 className="text-lg font-medium mb-4">Nouvelle soumission</h3>
+                          <SubmissionUploader
+                            taskAssignments={taskAssignments}
+                            onSubmit={async (assignmentId, file, fileName) => {
+                              if (!user) return;
+                              const result = await submitFile(assignmentId, file, fileName, user.id);
+                              if (result.success) {
+                                fetchSubmissions();
+                              }
+                            }}
+                            loading={submissionsLoading}
+                          />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                )}
+              </Tabs>
+              
+            </div>
+          );
 };
 
-export default IntervenantProjectDetails; 
+export default IntervenantProjectDetails;
