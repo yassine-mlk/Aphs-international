@@ -1,0 +1,3 @@
+Initialising login role...
+unexpected login role status 403: {"message":"Your account does not have the necessary privileges to access this endpoint. For more details, refer to our documentation https://supabase.com/docs/guides/platform/access-control"}
+Connect to your database by setting the env var: SUPABASE_DB_PASSWORD
