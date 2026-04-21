@@ -25,6 +25,8 @@ import IntervenantProjects from "./pages/IntervenantProjects";
 import IntervenantProjectDetails from "./pages/IntervenantProjectDetails";
 import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 import SuperAdminLogin from "./pages/SuperAdminLogin";
+import Features from "./pages/Features";
+import Solutions from "./pages/Solutions";
 
 import DashboardLayout from "./components/DashboardLayout";
 import SuperAdminRoute from "./components/SuperAdminRoute";
@@ -215,6 +217,9 @@ const App = () => {
                 <Routes>
                   <Route path="/" element={<Index />} />
                   <Route path="/login" element={<Login />} />
+                  <Route path="/fonctionnalites" element={<Features />} />
+                  <Route path="/fonctionnalites/:featureId" element={<Features />} />
+                  <Route path="/solutions" element={<Solutions />} />
                 
                 {/* Routes du dashboard protégées */}
                 <Route path="/dashboard" element={

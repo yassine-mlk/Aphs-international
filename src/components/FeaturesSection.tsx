@@ -1,239 +1,197 @@
 import React, { useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
-import { 
-  Database, 
-  Building, 
-  Smartphone, 
-  Bell, 
-  Clock, 
-  FileCheck,
-  Users,
-  PenTool,
-  FileText,
-  Shield,
-  ChevronRight
-} from 'lucide-react';
+import { cn } from '@/lib/utils';
 
-interface FeatureProps {
-  icon: React.ElementType;
+interface FeatureCardProps {
   title: string;
   description: string;
-  delay: number;
+  icon: React.ReactNode;
+  delay?: number;
 }
 
-const FeatureCard: React.FC<FeatureProps> = ({ icon: Icon, title, description, delay }) => {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 30 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ delay, duration: 0.6 }}
-      whileHover={{ y: -8, scale: 1.02 }}
-      className="group relative bg-[#1a1a1a] border border-gray-800 rounded-2xl p-8 hover:border-[#FFC107]/50 transition-all duration-500"
-    >
-      <div className="absolute inset-0 bg-gradient-to-br from-[#FFC107]/5 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
-      <div className="relative">
-        <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#FFC107] to-[#FF8F00] flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-lg shadow-[#FFC107]/20">
-          <Icon className="w-7 h-7 text-black" />
-        </div>
-        <h3 className="text-xl font-bold text-white mb-3 group-hover:text-[#FFC107] transition-colors">
-          {title}
-        </h3>
-        <p className="text-gray-400 text-sm leading-relaxed">
-          {description}
-        </p>
-      </div>
-    </motion.div>
-  );
-};
+const FeatureCard: React.FC<FeatureCardProps> = ({ title, description, icon, delay = 0 }) => {
+  const cardRef = useRef<HTMLDivElement>(null);
 
-const HighlightCard: React.FC<{ 
-  title: string; 
-  subtitle: string; 
-  description: string;
-  icon: React.ElementType;
-  reversed?: boolean;
-}> = ({ title, subtitle, description, icon: Icon, reversed }) => {
-  return (
-    <motion.div
-      initial={{ opacity: 0, x: reversed ? 50 : -50 }}
-      whileInView={{ opacity: 1, x: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.8 }}
-      className={`flex flex-col ${reversed ? 'lg:flex-row-reverse' : 'lg:flex-row'} gap-12 items-center`}
-    >
-      <div className="flex-1">
-        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#FFC107]/10 border border-[#FFC107]/30 mb-4">
-          <Icon className="w-4 h-4 text-[#FFC107]" />
-          <span className="text-[#FFC107] text-sm font-medium">{subtitle}</span>
-        </div>
-        <h3 className="text-3xl md:text-4xl font-bold text-white mb-4">{title}</h3>
-        <p className="text-gray-400 text-lg leading-relaxed mb-6">{description}</p>
-        <button className="flex items-center text-[#FFC107] font-medium hover:translate-x-2 transition-transform">
-          En savoir plus <ChevronRight className="w-5 h-5 ml-1" />
-        </button>
-      </div>
-      <div className="flex-1">
-        <div className="relative">
-          <div className="absolute inset-0 bg-gradient-to-br from-[#FFC107]/20 to-transparent rounded-2xl blur-2xl"></div>
-          <div className="relative bg-[#0a0a0a] border border-gray-800 rounded-2xl p-8 aspect-square flex items-center justify-center">
-            <Icon className="w-32 h-32 text-[#FFC107]/30" />
-          </div>
-        </div>
-      </div>
-    </motion.div>
-  );
-};
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setTimeout(() => {
+              entry.target.classList.add('opacity-100', 'translate-y-0');
+            }, delay);
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.1 }
+    );
 
-const FeaturesSection: React.FC = () => {
-  const sectionRef = useRef<HTMLDivElement>(null);
-
-  const features = [
-    {
-      icon: Database,
-      title: "Information centralisée",
-      description: "Toutes les données de vos projets, centralisées et accessibles en temps réel depuis un seul espace sécurisé. Fini la dispersion des informations."
-    },
-    {
-      icon: Building,
-      title: "Gestion de projets",
-      description: "Des fonctionnalités de gestion de projets conçues avec des professionnels du secteur et validées par leur expertise terrain."
-    },
-    {
-      icon: Smartphone,
-      title: "Suivi mobile",
-      description: "Vos projets sur tablette ou téléphone, avec des outils de prise de vue et de localisation opérationnels, même sans accès à Internet."
-    },
-    {
-      icon: Bell,
-      title: "Communications & alertes",
-      description: "Des alertes et notifications ciblées, tenant chaque utilisateur informé des évolutions de vos projets de construction."
-    },
-    {
-      icon: Clock,
-      title: "Gain de temps",
-      description: "Automatisez vos processus récurrents et concentrez-vous sur l'essentiel. Réduisez les délais de validation et d'échange."
-    },
-    {
-      icon: FileCheck,
-      title: "DOE sur mesure",
-      description: "Générez vos dossiers des ouvrages exécutés rapidement et efficacement. Des dossiers exhaustifs et conformes en un seul clic."
+    if (cardRef.current) {
+      observer.observe(cardRef.current);
     }
-  ];
 
-  const highlights = [
-    {
-      icon: Shield,
-      subtitle: "Sécurité maximale",
-      title: "Votre meilleur allié",
-      description: "APS est la solution logicielle en ligne incontournable pour transformer la gestion de vos projets de A à Z. Nos outils et fonctionnalités, plébiscités par les professionnels du secteur, sont conçus pour optimiser chaque étape de votre travail."
-    },
-    {
-      icon: Users,
-      subtitle: "Collaboration fluide",
-      title: "Tous vos acteurs connectés",
-      description: "Maîtres d'œuvre, maîtres d'ouvrage, entreprises générales, bureaux d'études... Tous les intervenants de votre projet collaborent sur une même plateforme avec des droits d'accès adaptés à chaque rôle."
-    },
-    {
-      icon: PenTool,
-      subtitle: "Outils avancés",
-      title: "Annotation & validation",
-      description: "Outils d'annotation directement sur PDF et images pour un retour précis. Module de compte rendu sur-mesure et système de visa intégré pour une validation sécurisée de vos documents."
-    }
-  ];
+    return () => observer.disconnect();
+  }, [delay]);
 
   return (
-    <section id="features" className="relative py-24 bg-[#0a0a0a] overflow-hidden">
-      {/* Background Pattern */}
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,193,7,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,193,7,0.02)_1px,transparent_1px)] bg-[size:40px_40px]"></div>
+    <div
+      ref={cardRef}
+      classNimport React, { useEffect, useRef } from 'react';
+import { cn } from '@/lib/utils';
+
+interfatiimport { cn } from '@/lib/utils';
+
+interface Fea0 
+interface FeatureCardProps {
+  had  title: string;
+  descr-1"
+      )}
+    >
+     icon: React.Rme="w-12  delay?: number;
+}
+
+cod-}
+
+const Featurenter   const cardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const observer = newfo
+  useEffect(() => {
+    const observer = new        const observerxt      (entries) => {
+        entries.fo
+  );
+};        entries.forti          if (entry.isIntersecting)io            setTimeout(()ent>(null);
+
+              entry.target.cl o            }, delay);
+            observer.unobserve(entry.target);
+   .f            observer.            }
+        });
+      },
+      { thr   entry.targe     ssList.add('opac    );
+
+    if (cardRef0'
+             observer.observe(ca(e    }
+
+    return () => observer.discon  
+  },
+   }, [delay]);
+
+  retur
+    );
+
+    if (
+  return (
+ rrent) {
+        server      classNimportf.import { cn } from '@/lib/utils';
+
+interfatiimport { cn }  }, 
+interfatiimport { cn } from   {
+  
+interface Fea0 
+interface FeatureCardProscrinterface Featfi  had  title: string;
+  desoj  dese construction en    ps réel avec de  outi}
+
+cod-}
+
+const Featurenter   const cardRe xmlns="http
+  useEffect(() => {
+    const observer = newfo
+  useEffect(()x="0     const observerur  useEffect(() => {
+    cth    const observerun        entries.fo
+  );
+};        entries.forti          if (ent-2H5a  );
+};        en2 0 002
+              entry.target.cl o            }, delay);
+            observer.unobserve(entry.tar 01            observer.unobserve(entry.target);
+   .f />   .f            observer.            }
+    ti        });
+      },
+   el",
+      description: "Suivez l'ava
+    if (cardRef0'
+             observer.observe(catemps réel.",
       
-      {/* Floating elements */}
-      <motion.div
-        className="absolute top-40 left-10 w-64 h-64 bg-[#FFC107]/5 rounded-full blur-3xl"
-        animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
-        transition={{ duration: 8, repeat: Infinity }}
-      />
-      <motion.div
-        className="absolute bottom-40 right-10 w-96 h-96 bg-[#8B4513]/10 rounded-full blur-3xl"
-        animate={{ scale: [1, 1.3, 1], opacity: [0.2, 0.4, 0.2] }}
-        transition={{ duration: 10, repeat: Infinity, delay: 2 }}
-      />
+    return () => observer.discon  
+  .w3  },
+   }, [delay]);
 
-      <div ref={sectionRef} className="container mx-auto px-4 relative z-10">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="text-center max-w-3xl mx-auto mb-20"
-        >
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#FFC107]/10 border border-[#FFC107]/30 mb-6">
-            <FileText className="w-4 h-4 text-[#FFC107]" />
-            <span className="text-[#FFC107] text-sm font-medium">Fonctionnalités riches et sur-mesure</span>
-          </div>
-          <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
-            Une solution <span className="text-[#FFC107]">globale</span>
-          </h2>
-          <p className="text-xl text-gray-400">
-            APS simplifie et sécurise vos projets avec des outils pensés pour les professionnels du BTP
-          </p>
-        </motion.div>
+  retur
+   " fill="none" viewBox="0    );24" stroke "currentColor">
+           pa
+interfatiimport { cn }  }, 
+interfatiimport { cn } from   {
+  
+in"M1interfatiimport { c 11-18 0   
+interface Fea0 
+interf </svg>i  interface Feat    desoj  dese construction en    ps réel avec de  outi}
 
-        {/* Features Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-32">
-          {features.map((feature, index) => (
-            <FeatureCard
-              key={feature.title}
-              icon={feature.icon}
-              title={feature.title}
-              description={feature.description}
-              delay={index * 0.1}
-            />
-          ))}
-        </div>
+codlez 
+cod-}
 
-        {/* Highlight Sections */}
-        <div className="space-y-32">
-          {highlights.map((highlight, index) => (
-            <HighlightCard
-              key={highlight.title}
-              {...highlight}
-              reversed={index % 2 === 1}
-            />
-          ))}
-        </div>
-
-        {/* Bottom CTA */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="mt-32 text-center"
-        >
-          <div className="max-w-2xl mx-auto bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] border border-gray-800 rounded-3xl p-12 relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-r from-[#FFC107]/10 via-transparent to-[#8B4513]/10"></div>
-            <div className="relative">
-              <h3 className="text-3xl font-bold text-white mb-4">
-                Prêt à transformer votre gestion de projet ?
-              </h3>
-              <p className="text-gray-400 mb-8">
-                Rejoignez les professionnels qui ont déjà adopté APS pour leurs projets de construction.
-              </p>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="bg-gradient-to-r from-[#FFC107] to-[#FF8F00] text-black font-bold px-8 py-4 rounded-xl hover:shadow-lg hover:shadow-[#FFC107]/30 transition-all"
-              >
-                Démarrer gratuitement
-              </motion.button>
-            </div>
-          </div>
-        </motion.div>
-      </div>
-    </section>
+const Featurenter   const cardRe xmlns="http
+  e c
+conali  useEffect(() => {
+    const observer = nett   /www.w3.org/2000/  useEffect(()x="0     cofi    cth    const observerun        entries.fo
   );
-};
+};        );
+};        entries.forti          if ejoin}; ou};        en2 0 002
+              entry.target.c6-   57M17 20H7m10 0v-            observer.unobserve(entry.tar 01       .356   .f />   .f            observer.            }
+    ti        });
+      },
+   el",
+-6 0 3    ti        });
+      },
+   el",
+      descra2   0 11-4 0 2 2 0     0z" /            if (cardRef0'
+      
+    {
+      title: "Sécur      
+    return () => observer.discon  
+  .do   ?es   .w3  },
+   }, [delay])formes aux normes du 
+  retur
+   " con   " fio           pa
+interfatiimport { cn }  }, 
+interfatiimport2000/svg" classNainterfatiimport { cn } froie  
+in"M1interfatiimport="currentiolinterface Fea0 
+interf </svg>i  in="inted" strokeLin
+codlez 
+cod-}
 
-export default FeaturesSection;
+const Featurenter   const cardRe xmlns="http
+  e c
+conali  useEffe944a11.9cod11.95
+co 01-  e c
+conali  useEffect(() => {
+    const o4 con29     const observer = net.0  );
+};        );
+};        entries.forti          if ejoin}; ou};        en2 0 002
+              entry.target.c6- ure}; cl};   me="py-2              entry.target.c6-   57M17 20H7m10 0v-           er mx    ti        });
+      },
+   el",
+-6 0 3    ti        });
+      },
+   el",
+      descra2   0 11-4 0 2 2 0     0z" /            if (cardRef0'
+      
+ 00   -4">
+            Fonctionnalité      },
+   s
+             el",         <      
+    {
+      title: "Sécur      
+    return () => observous avez b    n     return () => obsets de   .do   ?es   .w3  },
+   }, [d        }, [delay])formesv   retur
+   " con   " fio          d- ols-2 linterfatiimport { cn }  },    interfatiimport2000/svg" cinin"M1interfatiimport="currentiolinterface Fea0 
+interf </ture.tinterf </svg>i  in="inted" strokeLin
+codlez 
+c  codlez 
+cod-}
+
+const Featurentercriptcod}
+   
+con     e c
+conali  useEffe944a11.9cod11.95
+delay={index co 01-  e c
+conali  useEff      conal           const o4 con29     c</};        );
+};        entries.forti      ection;
