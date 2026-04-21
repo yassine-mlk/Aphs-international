@@ -10,11 +10,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Intervenants from "./pages/Intervenants";
 import Projects from "./pages/Projects";
-import ProjectsEn from "./pages/ProjectsEn";
-import ProjectsEs from "./pages/ProjectsEs";
-import ProjectsAr from "./pages/ProjectsAr";
 import ProjectDetails from "./pages/ProjectDetails";
-import ProjectDetailsEn from "./pages/ProjectDetailsEn";
 import EditProject from "./pages/EditProject";
 import Tasks from "./pages/Tasks";
 import TaskDetails from "./pages/TaskDetails";
@@ -27,8 +23,6 @@ import ProfilePage from "./pages/ProfilePage";
 import TestUpload from "./test-upload";
 import IntervenantProjects from "./pages/IntervenantProjects";
 import IntervenantProjectDetails from "./pages/IntervenantProjectDetails";
-import IntervenantProjectDetailsLangSwitch from "./pages/IntervenantProjectDetailsLangSwitch";
-import Validations from "./pages/Validations";
 import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 import SuperAdminLogin from "./pages/SuperAdminLogin";
 
@@ -237,23 +231,6 @@ const App = () => {
                     </AdminRoute>
                   } />
                   
-                  {/* Language-specific Project pages */}
-                  <Route path="projets/en" element={
-                    <AdminRoute>
-                      <ProjectsEn />
-                    </AdminRoute>
-                  } />
-                  <Route path="projets/es" element={
-                    <AdminRoute>
-                      <ProjectsEs />
-                    </AdminRoute>
-                  } />
-                  <Route path="projets/ar" element={
-                    <AdminRoute>
-                      <ProjectsAr />
-                    </AdminRoute>
-                  } />
-                  
                   <Route path="projets/:id" element={
                     <AdminRoute>
                       <ProjectDetails />
@@ -262,23 +239,6 @@ const App = () => {
                   <Route path="projets/:id/edit" element={
                     <AdminRoute>
                       <EditProject />
-                    </AdminRoute>
-                  } />
-                  
-                  {/* Language-specific project details routes */}
-                  <Route path="projets/:id/en" element={
-                    <AdminRoute>
-                      <ProjectDetailsEn />
-                    </AdminRoute>
-                  } />
-                  <Route path="projets/:id/es" element={
-                    <AdminRoute>
-                      <ProjectDetails />
-                    </AdminRoute>
-                  } />
-                  <Route path="projets/:id/ar" element={
-                    <AdminRoute>
-                      <ProjectDetails />
                     </AdminRoute>
                   } />
                   
@@ -305,18 +265,6 @@ const App = () => {
                       <IntervenantProjectDetails />
                     </IntervenantRoute>
                   } />
-                  <Route path="intervenant/projets/:id/:lang" element={
-                    <IntervenantRoute>
-                      <IntervenantProjectDetailsLangSwitch />
-                    </IntervenantRoute>
-                  } />
-                  
-                  {/* Route pour les validations (tous les rôles avec accès validation) */}
-                  <Route path="validations" element={
-                    <SharedRoute>
-                      <Validations />
-                    </SharedRoute>
-                  } />
                   
                   {/* Routes spécifiques aux maîtres d'ouvrage */}
                   <Route path="maitre-ouvrage/projets" element={
@@ -326,7 +274,7 @@ const App = () => {
                   } />
                   <Route path="maitre-ouvrage/projets/:id" element={
                     <MaitreOuvrageRoute>
-                      <IntervenantProjectDetailsLangSwitch />
+                      <IntervenantProjectDetails />
                     </MaitreOuvrageRoute>
                   } />
                   
