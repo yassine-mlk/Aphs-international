@@ -6,23 +6,12 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User, Lock, Bell, Globe, Moon, Sun, Smartphone, ClipboardList, Settings as SettingsIcon, Loader2, Upload, Camera } from "lucide-react";
+import { User, Lock, Bell, Globe, Smartphone, ClipboardList, Loader2, Upload, Camera, Settings as SettingsIcon } from "lucide-react";
 import { useToast } from '@/components/ui/use-toast';
 import { useSupabase, UserSettings as UserSettingsType } from '../hooks/useSupabase';
-import { useLanguage } from '@/contexts/LanguageContext';
-import { Language } from '@/components/LanguageSelector';
 import { useTheme } from '../App';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Textarea } from "@/components/ui/textarea";
-import { 
-  Select, 
-  SelectContent, 
-  SelectGroup, 
-  SelectItem, 
-  SelectLabel, 
-  SelectTrigger, 
-  SelectValue 
-} from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { ProjectStructureTab } from "@/components/settings/ProjectStructureTab";
@@ -47,9 +36,7 @@ interface TaskInfoSheet {
 const Settings: React.FC = () => {
   const { toast } = useToast();
   const { getUserSettings, updateUserSettings, updateUserPassword, fetchData, insertData, updateData, uploadFile, getFileUrl } = useSupabase();
-  const { language, setLanguage } = useLanguage();
-  const { theme, setTheme, resolvedTheme } = useTheme();
-  type ThemeOption = 'light' | 'dark' | 'system';
+  const { setTheme } = useTheme();
   const { user: currentUser } = useAuth();
   const [user, setUser] = useState<{ email: string, role: string, id: string } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -69,7 +56,7 @@ const Settings: React.FC = () => {
   const [selectedSubsection, setSelectedSubsection] = useState<string>('');
   const [selectedTask, setSelectedTask] = useState<string>('');
   const [infoSheetText, setInfoSheetText] = useState('');
-  const [selectedInfoSheetLanguage, setSelectedInfoSheetLanguage] = useState<Language>('fr'); // Langue sélectionnée pour la fiche
+  const [selectedInfoSheetLanguage, setSelectedInfoSheetLanguage] = useState<string>('fr'); // Langue fixée à FR
   
   const [tenantId, setTenantId] = useState<string | null>(null);
 
@@ -93,9 +80,6 @@ const Settings: React.FC = () => {
     messages: false,
     updates: true
   });
-  
-  const [selectedTheme, setSelectedTheme] = useState<ThemeOption>('system');
-  const [selectedLanguage, setSelectedLanguage] = useState<Language>('fr');
 
   // Vérifier si l'utilisateur est admin
   const isAdmin = user?.role === 'admin' || currentUser?.user_metadata?.role === 'admin';
@@ -132,8 +116,6 @@ const Settings: React.FC = () => {
             }
             
             setNotifications(settings.notifications);
-            setSelectedTheme((settings.theme as ThemeOption) || 'system');
-            setSelectedLanguage(settings.language);
           }
         }
       } catch (error) {
@@ -355,52 +337,6 @@ const Settings: React.FC = () => {
     }
   };
 
-  // Mettre à jour le thème
-  const handleThemeChange = async (newTheme: ThemeOption) => {
-    if (!user?.id || !userSettings) return;
-
-    setSelectedTheme(newTheme);
-    try {
-      await updateUserSettings(user.id, {
-        theme: newTheme
-      });
-
-      // Mettre à jour le state local
-      setUserSettings({
-        ...userSettings,
-        theme: newTheme
-      });
-
-      // Appliquer le thème à l'application via le contexte
-      setTheme(newTheme);
-    } catch (error) {
-      console.error('Error updating theme:', error);
-    }
-  };
-
-  // Mettre à jour la langue
-  const handleLanguageChange = async (lang: Language) => {
-    if (!user?.id || !userSettings) return;
-    
-    setSelectedLanguage(lang);
-    try {
-      await updateUserSettings(user.id, {
-        language: lang
-      });
-      
-      // Mettre à jour le state local
-      setUserSettings({
-        ...userSettings,
-        language: lang
-      });
-      
-      // Mettre à jour la langue dans l'application
-      setLanguage(lang);
-    } catch (error) {
-      console.error('Error updating language:', error);
-    }
-  };
-
   // Fonction pour charger les fiches informatives
   const loadTaskInfoSheets = async () => {
     if (!isAdmin) {
@@ -471,7 +407,7 @@ const Settings: React.FC = () => {
     }
   };
   
-  const handleInfoSheetLanguageChange = (lang: Language) => {
+  const handleInfoSheetLanguageChange = (lang: string) => {
     setSelectedInfoSheetLanguage(lang);
     
     // Mettre à jour le contenu avec la fiche dans la langue sélectionnée
@@ -620,10 +556,6 @@ const Settings: React.FC = () => {
           <TabsTrigger value="notifications" className="data-[state=active]:bg-white">
             <Bell className="h-4 w-4 mr-2" />
             Notifications
-          </TabsTrigger>
-          <TabsTrigger value="appearance" className="data-[state=active]:bg-white">
-            <Sun className="h-4 w-4 mr-2" />
-            Apparence
           </TabsTrigger>
           {isAdmin && (
             <TabsTrigger value="project-settings" className="data-[state=active]:bg-white">
@@ -865,96 +797,6 @@ const Settings: React.FC = () => {
                 {saving ? 'Enregistrement...' : 'Enregistrer les préférences'}
               </Button>
             </CardFooter>
-          </Card>
-        </TabsContent>
-
-        {/* Onglet Apparence */}
-        <TabsContent value="appearance">
-          <Card className="border-0 shadow-md">
-            <CardHeader>
-              <CardTitle>Apparence</CardTitle>
-              <CardDescription>
-                Personnalisez l'apparence de l'application.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Thème</Label>
-                  <p className="text-muted-foreground text-sm">
-                    Choisissez le thème de l'application. Le mode Système suit vos préférences OS.
-                  </p>
-                </div>
-                <Select value={selectedTheme} onValueChange={(value) => handleThemeChange(value as ThemeOption)}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="light">
-                      <span className="flex items-center gap-2">
-                        <Sun className="h-4 w-4" /> Clair
-                      </span>
-                    </SelectItem>
-                    <SelectItem value="dark">
-                      <span className="flex items-center gap-2">
-                        <Moon className="h-4 w-4" /> Sombre
-                      </span>
-                    </SelectItem>
-                    <SelectItem value="system">
-                      <span className="flex items-center gap-2">
-                        <SettingsIcon className="h-4 w-4" /> Système
-                      </span>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="text-sm text-muted-foreground">
-                Thème actuel: {resolvedTheme === 'dark' ? 'Sombre' : 'Clair'} {selectedTheme === 'system' && '(détecté du système)'}
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Langue</Label>
-                  <p className="text-muted-foreground text-sm">
-                    Choisissez la langue de l'interface.
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Button 
-                    variant={selectedLanguage === 'fr' ? 'default' : 'outline'} 
-                    size="sm" 
-                    onClick={() => handleLanguageChange('fr')}
-                    className="flex items-center gap-1"
-                  >
-                    🇫🇷 Français
-                  </Button>
-                  <Button 
-                    variant={selectedLanguage === 'en' ? 'default' : 'outline'} 
-                    size="sm" 
-                    onClick={() => handleLanguageChange('en')}
-                    className="flex items-center gap-1"
-                  >
-                    🇬🇧 English
-                  </Button>
-                  <Button 
-                    variant={selectedLanguage === 'es' ? 'default' : 'outline'} 
-                    size="sm" 
-                    onClick={() => handleLanguageChange('es')}
-                    className="flex items-center gap-1"
-                  >
-                    🇪🇸 Español
-                  </Button>
-                  <Button 
-                    variant={selectedLanguage === 'ar' ? 'default' : 'outline'} 
-                    size="sm" 
-                    onClick={() => handleLanguageChange('ar')}
-                    className="flex items-center gap-1"
-                  >
-                    🇸🇦 العربية
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
           </Card>
         </TabsContent>
 
