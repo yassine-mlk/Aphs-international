@@ -21,14 +21,33 @@ export const useVisaInstances = (projectId?: string) => {
     setError(null);
     
     try {
-      // Requête simple sans jointures complexes
+      let circuitIdsForProject: string[] = [];
+      
+      // Si un projet est spécifié, récupérer d'abord les circuits de ce projet
+      if (projectId) {
+        const { data: projectCircuits } = await supabase
+          .from('visa_circuits')
+          .select('id')
+          .eq('project_id', projectId);
+        
+        circuitIdsForProject = projectCircuits?.map(c => c.id) || [];
+        
+        // Si pas de circuits pour ce projet, retourner vide
+        if (circuitIdsForProject.length === 0) {
+          setInstances([]);
+          setLoading(false);
+          return;
+        }
+      }
+      
+      // Requête instances
       let query = supabase
         .from('visa_instances')
         .select('*');
       
-      // Filtrer par projet si spécifié
-      if (projectId) {
-        query = query.eq('project_id', projectId);
+      // Filtrer par circuits du projet si spécifié
+      if (projectId && circuitIdsForProject.length > 0) {
+        query = query.in('circuit_id', circuitIdsForProject);
       }
       
       const { data: instancesData, error: instancesError } = await query
@@ -38,15 +57,17 @@ export const useVisaInstances = (projectId?: string) => {
       
       // Récupérer les infos des circuits et projets séparément
       const circuitIds = [...new Set(instancesData?.map(i => i.circuit_id) || [])];
-      const projectIds = [...new Set(instancesData?.map(i => i.project_id) || [])];
       const submissionIds = [...new Set(instancesData?.map(i => i.submission_id).filter(Boolean) || [])];
       const emitterIds = [...new Set(instancesData?.map(i => i.emitted_by).filter(Boolean) || [])];
       
-      // Fetch circuits
+      // Fetch circuits (avec project_id pour enrichir)
       const { data: circuitsData } = await supabase
         .from('visa_circuits')
-        .select('id, name')
+        .select('id, name, project_id')
         .in('id', circuitIds);
+      
+      // Récupérer les IDs de projets depuis les circuits
+      const projectIds = [...new Set(circuitsData?.map(c => c.project_id) || [])];
       
       // Fetch projects
       const { data: projectsData } = await supabase
@@ -96,8 +117,8 @@ export const useVisaInstances = (projectId?: string) => {
       
       // Enrichir les données
       const enriched: EnrichedInstance[] = (instancesData || []).map(instance => {
-        const circuit = circuitsMap.get(instance.circuit_id) as { name: string } | undefined;
-        const project = projectsMap.get(instance.project_id) as { name: string } | undefined;
+        const circuit = circuitsMap.get(instance.circuit_id) as { name: string; project_id: string } | undefined;
+        const project = circuit ? projectsMap.get(circuit.project_id) as { name: string } | undefined : undefined;
         const submission = instance.submission_id ? submissionsMap.get(instance.submission_id) as { file_name: string } | undefined : null;
         const emitter = instance.emitted_by ? emittersMap.get(instance.emitted_by) as { first_name: string; last_name: string } | undefined : null;
         
