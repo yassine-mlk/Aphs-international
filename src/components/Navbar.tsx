@@ -1,256 +1,217 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { cn } from '@/lib/utils';
-import { translations } from '@/lib/translations';
-import {
-  NavigationMenu,
-  NavigationMenuContent,
-  NavigationMenuItem,
-  NavigationMenuLink,
-  NavigationMenuList,
-  NavigationMenuTrigger,
-  navigationMenuTriggerStyle,
-} from "@/components/ui/navigation-menu";
+import { HardHat, Menu, X, ChevronDown } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const Navbar: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const language: 'fr' = 'fr';
+  const [isSolutionsOpen, setIsSolutionsOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const isHomePage = location.pathname === '/';
 
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 10);
+      setIsScrolled(window.scrollY > 50);
     };
 
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  const scrollToSection = (id: string) => {
+    if (isHomePage) {
+      const element = document.getElementById(id);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth' });
+      }
+    } else {
+      navigate('/');
+      setTimeout(() => {
+        const element = document.getElementById(id);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 100);
+    }
+    setIsMobileMenuOpen(false);
+  };
+
   const navigateToLogin = () => {
-    localStorage.setItem('preferredLanguage', language);
     navigate('/login');
   };
 
-  const t = translations[language].navbar;
-  const textDirection = 'ltr';
+  const navigateToRegister = () => {
+    navigate('/register');
+  };
+
+  const scrollToFeatures = () => scrollToSection('features');
+  const scrollToBenefits = () => scrollToSection('benefits');
+  const scrollToContact = () => scrollToSection('contact');
 
   return (
-    <header 
-      className={cn(
-        "fixed top-0 left-0 right-0 z-50 py-4 transition-all duration-300",
-        isScrolled ? "bg-white shadow-md py-2" : "bg-transparent"
-      )}
-      dir={textDirection}
+    <nav
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        isScrolled 
+          ? 'bg-[#0a0a0a]/95 backdrop-blur-md border-b border-gray-800 shadow-lg' 
+          : 'bg-transparent'
+      }`}
     >
-      <div className="container mx-auto px-4 md:px-6">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center">
-            <a href="/" className="flex items-center">
-              <img src="/aps-logo.svg" alt="APS" className="h-14" />
-            </a>
-          </div>
+      <div className="container mx-auto px-4">
+        <div className="flex items-center justify-between h-20">
+          {/* Logo */}
+          <motion.div 
+            className="flex items-center gap-3 cursor-pointer"
+            onClick={() => navigate('/')}
+            whileHover={{ scale: 1.02 }}
+          >
+            <div className="w-10 h-10 bg-gradient-to-br from-[#FFC107] to-[#FF8F00] rounded-lg flex items-center justify-center shadow-lg shadow-[#FFC107]/20">
+              <HardHat className="w-6 h-6 text-black" />
+            </div>
+            <span className="text-xl font-bold text-white">APS</span>
+          </motion.div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-4">
-            <NavigationMenu>
-              <NavigationMenuList>
-                <NavigationMenuItem>
-                  <NavigationMenuTrigger>{t.accompagnement}</NavigationMenuTrigger>
-                  <NavigationMenuContent>
-                    <ul className="grid gap-3 p-4 w-[400px] md:w-[500px] lg:w-[600px] grid-cols-2">
-                      {[
-                        {
-                          title: "Conseil en management",
-                          description: "Services de conseil pour optimiser votre organisation",
-                        },
-                        {
-                          title: "Gestion de projet",
-                          description: "Pilotage de projets complexes de bout en bout",
-                          description: language === 'fr' ? "Pilotage de projets complexes de bout en bout" :
-                                       language === 'en' ? "End-to-end management of complex projects" : 
-                                       language === 'es' ? "Gestión de proyectos complejos de principio a fin" :
-                                                         "إدارة المشاريع المعقدة من البداية إلى النهاية",
-                        },
-                        {
-                          title: language === 'fr' ? "Formation professionnelle" :
-                                 language === 'en' ? "Professional Training" :
-                                 language === 'es' ? "Formación profesional" :
-                                                   "التدريب المهني",
-                          description: language === 'fr' ? "Programmes de formation personnalisés" :
-                                       language === 'en' ? "Customized training programs" : 
-                                       language === 'es' ? "Programas de formación personalizados" :
-                                                         "برامج تدريب مخصصة",
-                        },
-                        {
-                          title: language === 'fr' ? "Audit & Diagnostic" :
-                                 language === 'en' ? "Audit & Diagnostics" :
-                                 language === 'es' ? "Auditoría y diagnóstico" :
-                                                   "التدقيق والتشخيص",
-                          description: language === 'fr' ? "Évaluation complète de vos processus" :
-                                       language === 'en' ? "Comprehensive evaluation of your processes" : 
-                                       language === 'es' ? "Evaluación completa de sus procesos" :
-                                                         "تقييم شامل للعمليات الخاصة بك",
-                        },
-                      ].map((service) => (
-                        <li key={service.title} className="row-span-1">
-                          <NavigationMenuLink asChild>
-                            <a
-                              href="#"
-                              className="flex flex-col justify-between p-4 h-full rounded-md hover:bg-gray-100"
-                            >
-                              <div>
-                                <div className="text-sm font-medium text-slate-900 mb-1">{service.title}</div>
-                                <p className="text-sm text-gray-600">{service.description}</p>
-                              </div>
-                            </a>
-                          </NavigationMenuLink>
-                        </li>
-                      ))}
-                    </ul>
-                  </NavigationMenuContent>
-                </NavigationMenuItem>
-                <NavigationMenuItem>
-                  <NavigationMenuTrigger>{t.about}</NavigationMenuTrigger>
-                  <NavigationMenuContent>
-                    <ul className="grid gap-3 p-4 w-[400px] md:grid-cols-2">
-                      <li className="row-span-3">
-                        <NavigationMenuLink asChild>
-                          <a
-                            className="flex flex-col justify-between h-full rounded-md bg-gradient-to-b from-gray-50 to-blue-50 p-4 no-underline"
-                            href="#about"
-                          >
-                            <div className="mb-2 mt-4 text-lg font-medium text-black">
-                              <img src="/aps-logo.svg" alt="APS" className="h-12" />
-                            </div>
-                            <p className="text-sm text-gray-600">
-                              {language === 'fr' ? "Notre mission est d'accompagner les entreprises dans leur transformation digitale et organisationnelle." :
-                               language === 'en' ? "Our mission is to support companies in their digital and organizational transformation." :
-                               language === 'es' ? "Nuestra misión es apoyar a las empresas en su transformación digital y organizativa." :
-                                                 "مهمتنا هي دعم الشركات في تحولها الرقمي والتنظيمي."}
-                            </p>
-                            <div className="mt-2 text-blue-600 font-semibold">
-                              {language === 'fr' ? "En savoir plus →" : 
-                               language === 'en' ? "Learn more →" :
-                               language === 'es' ? "Saber más →" :
-                                                 "معرفة المزيد →"}
-                            </div>
-                          </a>
-                        </NavigationMenuLink>
-                      </li>
-                      <li>
-                        <NavigationMenuLink asChild>
-                          <a href="#team" className="block p-3 rounded-md hover:bg-gray-100">
-                            <div className="text-sm font-medium text-slate-900 mb-1">
-                              {language === 'fr' ? "Notre équipe" :
-                               language === 'en' ? "Our team" :
-                               language === 'es' ? "Nuestro equipo" :
-                                                 "فريقنا"}
-                            </div>
-                            <p className="text-sm text-gray-600">
-                              {language === 'fr' ? "Des experts dédiés à votre réussite" :
-                               language === 'en' ? "Experts dedicated to your success" :
-                               language === 'es' ? "Expertos dedicados a su éxito" :
-                                                 "خبراء مكرسون لنجاحك"}
-                            </p>
-                          </a>
-                        </NavigationMenuLink>
-                      </li>
-                      <li>
-                        <NavigationMenuLink asChild>
-                          <a href="#history" className="block p-3 rounded-md hover:bg-gray-100">
-                            <div className="text-sm font-medium text-slate-900 mb-1">
-                              {language === 'fr' ? "Notre histoire" :
-                               language === 'en' ? "Our history" :
-                               language === 'es' ? "Nuestra historia" :
-                                                 "تاريخنا"}
-                            </div>
-                            <p className="text-sm text-gray-600">
-                              {language === 'fr' ? "Plus de 15 ans d'expérience" :
-                               language === 'en' ? "More than 15 years of experience" :
-                               language === 'es' ? "Más de 15 años de experiencia" :
-                                                 "أكثر من 15 عامًا من الخبرة"}
-                            </p>
-                          </a>
-                        </NavigationMenuLink>
-                      </li>
-                    </ul>
-                  </NavigationMenuContent>
-                </NavigationMenuItem>
-              </NavigationMenuList>
-            </NavigationMenu>
-            
-            <a href="#features" className="text-black font-medium hover:text-blue-600 transition-colors">
-              {t.support}
-            </a>
-            <a href="#testimonials" className="text-black font-medium hover:text-blue-600 transition-colors">
-              {t.testimonials}
-            </a>
-            <Button 
-              variant="default" 
-              className="bg-black hover:bg-blue-600 text-white transition-colors"
-              onClick={navigateToLogin}
+          <div className="hidden md:flex items-center gap-8">
+            {/* Solutions Dropdown */}
+            <div 
+              className="relative"
+              onMouseEnter={() => setIsSolutionsOpen(true)}
+              onMouseLeave={() => setIsSolutionsOpen(false)}
             >
-              "Connexion"
-            </Button>
-          </nav>
-
-          {/* Mobile menu button */}
-          <div className="md:hidden flex items-center gap-2">
-            <Button 
-              variant="outline"
-              size="sm"
-              className="mr-2"
-              onClick={navigateToLogin}
-            >
-              "Connexion"
-            </Button>
-            <button
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="text-slate-900 focus:outline-none"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                {isMobileMenuOpen ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              <button className="flex items-center gap-1 text-gray-300 hover:text-[#FFC107] transition-colors font-medium">
+                Solutions
+                <ChevronDown className={`w-4 h-4 transition-transform ${isSolutionsOpen ? 'rotate-180' : ''}`} />
+              </button>
+              
+              <AnimatePresence>
+                {isSolutionsOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute top-full left-0 mt-2 w-64 bg-[#1a1a1a] border border-gray-800 rounded-xl shadow-xl py-2"
+                  >
+                    <button 
+                      onClick={scrollToFeatures}
+                      className="w-full text-left px-4 py-3 text-gray-300 hover:text-[#FFC107] hover:bg-[#FFC107]/5 transition-colors"
+                    >
+                      <div className="font-medium">Fonctionnalités</div>
+                      <div className="text-xs text-gray-500">Découvrez nos outils</div>
+                    </button>
+                    <button 
+                      onClick={scrollToBenefits}
+                      className="w-full text-left px-4 py-3 text-gray-300 hover:text-[#FFC107] hover:bg-[#FFC107]/5 transition-colors"
+                    >
+                      <div className="font-medium">Avantages</div>
+                      <div className="text-xs text-gray-500">Pourquoi choisir APS</div>
+                    </button>
+                  </motion.div>
                 )}
-              </svg>
+              </AnimatePresence>
+            </div>
+
+            <button 
+              onClick={scrollToFeatures}
+              className="text-gray-300 hover:text-[#FFC107] transition-colors font-medium"
+            >
+              Fonctionnalités
+            </button>
+            <button 
+              onClick={scrollToBenefits}
+              className="text-gray-300 hover:text-[#FFC107] transition-colors font-medium"
+            >
+              Avantages
+            </button>
+            <button 
+              onClick={scrollToContact}
+              className="text-gray-300 hover:text-[#FFC107] transition-colors font-medium"
+            >
+              Contact
             </button>
           </div>
+
+          {/* Desktop CTA */}
+          <div className="hidden md:flex items-center gap-4">
+            <Button 
+              variant="ghost" 
+              className="text-gray-300 hover:text-[#FFC107] hover:bg-[#FFC107]/10"
+              onClick={navigateToLogin}
+            >
+              Connexion
+            </Button>
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button 
+                className="bg-gradient-to-r from-[#FFC107] to-[#FF8F00] hover:from-[#FFB300] hover:to-[#F57C00] text-black font-bold shadow-lg shadow-[#FFC107]/20"
+                onClick={navigateToRegister}
+              >
+                Essai gratuit
+              </Button>
+            </motion.div>
+          </div>
+
+          {/* Mobile Menu Button */}
+          <button 
+            className="md:hidden p-2 text-gray-300 hover:text-[#FFC107] transition-colors"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          >
+            {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
         </div>
 
-        {/* Mobile Navigation */}
-        {isMobileMenuOpen && (
-          <nav className="md:hidden mt-4 py-4 bg-white rounded-lg shadow-lg">
-            <div className="flex flex-col space-y-3 px-4">
-              <a 
-                href="#about" 
-                className="text-black font-medium py-2 hover:text-blue-600 transition-colors"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                {t.about}
-              </a>
-              <a 
-                href="#features" 
-                className="text-black font-medium py-2 hover:text-blue-600 transition-colors"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                {t.support}
-              </a>
-              <a 
-                href="#testimonials" 
-                className="text-black font-medium py-2 hover:text-blue-600 transition-colors"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                {t.testimonials}
-              </a>
-            </div>
-          </nav>
-        )}
+        {/* Mobile Menu */}
+        <AnimatePresence>
+          {isMobileMenuOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3 }}
+              className="md:hidden bg-[#0a0a0a] border-t border-gray-800 overflow-hidden"
+            >
+              <div className="py-4 space-y-2">
+                <button 
+                  onClick={scrollToFeatures}
+                  className="w-full text-left px-4 py-3 text-gray-300 hover:text-[#FFC107] hover:bg-[#FFC107]/5 rounded-lg transition-colors"
+                >
+                  Fonctionnalités
+                </button>
+                <button 
+                  onClick={scrollToBenefits}
+                  className="w-full text-left px-4 py-3 text-gray-300 hover:text-[#FFC107] hover:bg-[#FFC107]/5 rounded-lg transition-colors"
+                >
+                  Avantages
+                </button>
+                <button 
+                  onClick={scrollToContact}
+                  className="w-full text-left px-4 py-3 text-gray-300 hover:text-[#FFC107] hover:bg-[#FFC107]/5 rounded-lg transition-colors"
+                >
+                  Contact
+                </button>
+                <div className="pt-4 px-4 space-y-3">
+                  <Button 
+                    variant="outline"
+                    className="w-full border-gray-700 text-gray-300 hover:border-[#FFC107] hover:text-[#FFC107]"
+                    onClick={navigateToLogin}
+                  >
+                    Connexion
+                  </Button>
+                  <Button 
+                    className="w-full bg-gradient-to-r from-[#FFC107] to-[#FF8F00] text-black font-bold"
+                    onClick={navigateToRegister}
+                  >
+                    Essai gratuit
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
-    </header>
+    </nav>
   );
 };
 

@@ -1,16 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { translations } from '@/lib/translations';
-import { useLanguage } from '@/contexts/LanguageContext';
-import { X, Play } from 'lucide-react';
+import { HardHat, Building2, FileText, ChevronRight, Play, X, ArrowRight } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 const HeroSection: React.FC = () => {
   const sectionRef = useRef<HTMLDivElement>(null);
-  const { language } = useLanguage();
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
+  const [activeCard, setActiveCard] = useState(0);
   const navigate = useNavigate();
-  
+
   useEffect(() => {
     const observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
@@ -20,240 +19,242 @@ const HeroSection: React.FC = () => {
         }
       });
     }, { threshold: 0.1 });
-    
+
     if (sectionRef.current) {
       observer.observe(sectionRef.current);
     }
-    
+
+    const interval = setInterval(() => {
+      setActiveCard((prev) => (prev + 1) % 3);
+    }, 4000);
+
     return () => {
       if (sectionRef.current) {
         observer.unobserve(sectionRef.current);
       }
+      clearInterval(interval);
     };
   }, []);
 
-  // Fermer le modal vidéo avec Escape
-  useEffect(() => {
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setIsVideoModalOpen(false);
-      }
-    };
+  const navigateToLogin = () => navigate('/login');
+  const scrollToFeatures = () => {
+    document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' });
+  };
 
-    if (isVideoModalOpen) {
-      document.addEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'hidden'; // Empêcher le scroll
-    } else {
-      document.body.style.overflow = 'unset';
+  const roles = [
+    {
+      icon: Building2,
+      title: "Maître d'œuvre",
+      description: "Centralisez votre GED et votre suivi de chantier pour une gestion de projet plus fluide et performante !",
+      color: "from-[#FFC107] to-[#FF8F00]"
+    },
+    {
+      icon: HardHat,
+      title: "Maître d'ouvrage",
+      description: "Une solution complète pour une transparence totale et une supervision simplifiée de vos projets.",
+      color: "from-[#4A4A4A] to-[#1a1a1a]"
+    },
+    {
+      icon: FileText,
+      title: "Entreprise générale",
+      description: "Un outil centralisé pour une maîtrise complète et un suivi en temps réel de vos chantiers.",
+      color: "from-[#8B4513] to-[#5D3A1A]"
     }
-
-    return () => {
-      document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'unset';
-    };
-  }, [isVideoModalOpen]);
-
-  const t = translations[language].heroSection;
-  const textDirection = language === 'ar' ? 'rtl' : 'ltr';
-
-  const navigateToLogin = () => {
-    // Assurer que la langue est sauvegardée avant navigation
-    localStorage.setItem('preferredLanguage', language);
-    navigate('/login');
-  };
-
-  const openVideoModal = () => {
-    setIsVideoModalOpen(true);
-  };
-
-  const closeVideoModal = () => {
-    setIsVideoModalOpen(false);
-  };
-
-  // Définir les chemins des vidéos selon la langue
-  const getVideoPath = () => {
-    switch (language) {
-      case 'fr':
-        return '/videos/demo-fr.mp4';
-      case 'en':
-        return '/videos/demo-en.mp4';
-      case 'es':
-        return '/videos/demo-es.mp4';
-      case 'ar':
-        return '/videos/demo-ar.mp4';
-      default:
-        return '/videos/demo-fr.mp4';
-    }
-  };
+  ];
 
   return (
-    <>
-      <section 
-        ref={sectionRef}
-        className="relative min-h-[90vh] lg:min-h-[85vh] bg-white flex items-center px-4 pt-24 pb-16 opacity-0 translate-y-10 transition-all duration-1000 ease-out"
-        dir={textDirection}
-      >
-        <div className="container mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <div className="text-center lg:text-left order-2 lg:order-1">
-              <div className="mb-6">
-                <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
-                  {language === 'ar' ? (
-                    <span dir="rtl" className="block">
-                      <span className="text-black">{translations[language].heroSection.title.split(' ')[0]}</span>{' '}
-                      <span className="text-blue-600">
-                        {translations[language].heroSection.title.split(' ').slice(1).join(' ')}
-                      </span>
-                    </span>
-                  ) : (
-                    <span>
-                      <span className="text-black">{translations[language].heroSection.title.split(' ')[0]}</span>{' '}
-                      <span className="text-blue-600">
-                        {translations[language].heroSection.title.split(' ').slice(1).join(' ')}
-                      </span>
-                    </span>
-                  )}
-                </h1>
-              </div>
-              <p className="text-lg md:text-xl text-gray-600 max-w-lg">
-                {t.subtitle}
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 pt-4">
-                <Button 
-                  className="bg-black hover:bg-blue-600 text-white font-medium transition-colors"
+    <section
+      ref={sectionRef}
+      id="hero"
+      className="relative min-h-screen flex items-center justify-center overflow-hidden bg-[#0a0a0a] transition-all duration-1000 opacity-0 translate-y-10"
+    >
+      {/* Animated Construction Background */}
+      <div className="absolute inset-0">
+        {/* Grid pattern */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,193,7,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,193,7,0.03)_1px,transparent_1px)] bg-[size:60px_60px]"></div>
+        
+        {/* Radial gradient */}
+        <div className="absolute inset-0 bg-gradient-radial from-transparent via-transparent to-black"></div>
+        
+        {/* Animated lines */}
+        <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="lineGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#FFC107" stopOpacity="0" />
+              <stop offset="50%" stopColor="#FFC107" stopOpacity="0.3" />
+              <stop offset="100%" stopColor="#FFC107" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <motion.path
+            d="M0,400 L200,200 L400,350 L600,150 L800,300 L1000,100 L1200,250 L1400,50"
+            stroke="url(#lineGrad)"
+            strokeWidth="2"
+            fill="none"
+            initial={{ pathLength: 0 }}
+            animate={{ pathLength: 1 }}
+            transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+          />
+          <motion.path
+            d="M0,600 L150,450 L350,550 L550,400 L750,500 L950,350 L1150,450 L1400,300"
+            stroke="url(#lineGrad)"
+            strokeWidth="2"
+            fill="none"
+            initial={{ pathLength: 0 }}
+            animate={{ pathLength: 1 }}
+            transition={{ duration: 4, repeat: Infinity, ease: "linear", delay: 0.5 }}
+          />
+        </svg>
+
+        {/* Floating construction elements */}
+        <motion.div
+          className="absolute top-20 left-[10%] w-2 h-32 bg-gradient-to-b from-[#FFC107] to-transparent rounded-full"
+          animate={{ y: [0, 20, 0], opacity: [0.3, 0.6, 0.3] }}
+          transition={{ duration: 4, repeat: Infinity }}
+        />
+        <motion.div
+          className="absolute top-40 right-[15%] w-2 h-24 bg-gradient-to-b from-[#FFC107] to-transparent rounded-full"
+          animate={{ y: [0, -15, 0], opacity: [0.2, 0.5, 0.2] }}
+          transition={{ duration: 3.5, repeat: Infinity, delay: 1 }}
+        />
+      </div>
+
+      {/* Main Content */}
+      <div className="container mx-auto px-4 relative z-10 py-20">
+        <div className="max-w-6xl mx-auto">
+          {/* Main Tagline */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="text-center mb-16"
+          >
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: 0.2, type: "spring" }}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#FFC107]/10 border border-[#FFC107]/30 mb-6"
+            >
+              <HardHat className="w-5 h-5 text-[#FFC107]" />
+              <span className="text-[#FFC107] font-medium">La plateforme des professionnels du BTP</span>
+            </motion.div>
+            
+            <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 text-white leading-tight">
+              Embarquez tous les acteurs
+              <br />
+              <span className="bg-gradient-to-r from-[#FFC107] via-[#FF8F00] to-[#FFC107] bg-clip-text text-transparent">
+                de vos projets
+              </span>
+            </h1>
+            
+            <p className="text-xl md:text-2xl text-gray-400 mb-10 max-w-3xl mx-auto">
+              APS est votre centrale d'informations, la plateforme d'échanges et de supervision pour tous vos projets de construction
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Button
                   size="lg"
+                  className="bg-gradient-to-r from-[#FFC107] to-[#FF8F00] hover:from-[#FFB300] hover:to-[#F57C00] text-black font-bold px-8 py-6 text-lg rounded-xl shadow-lg shadow-[#FFC107]/30"
                   onClick={navigateToLogin}
                 >
-                  {t.cta.primary}
+                  Démarrer gratuitement
+                  <ArrowRight className="ml-2 w-5 h-5" />
                 </Button>
-              </div>
+              </motion.div>
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="border-[#FFC107]/50 text-[#FFC107] hover:bg-[#FFC107]/10 px-8 py-6 text-lg rounded-xl"
+                  onClick={() => setIsVideoModalOpen(true)}
+                >
+                  <Play className="mr-2 w-5 h-5" />
+                  Voir la démo
+                </Button>
+              </motion.div>
             </div>
-            
-            <div className="order-1 lg:order-2">
-              <div className="relative">
-                {/* Image du tableau de bord */}
-                <div className="relative bg-white rounded-2xl shadow-2xl overflow-hidden">
-                  <img 
-                    src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80" 
-                    alt={language === 'fr' ? "Tableau de bord APS" :
-                         language === 'en' ? "APS Dashboard" :
-                         language === 'es' ? "Panel de Control APS" :
-                                           "لوحة تحكم APS"}
-                    className="w-full h-auto rounded-2xl"
-                  />
-                  
-                  {/* Overlay avec logo et info */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent"></div>
-                  
-                  {/* Badge flottant */}
-                  <div className="absolute top-4 left-4 bg-white/95 backdrop-blur-sm rounded-lg px-3 py-2 shadow-lg border border-gray-100">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
-                      <span className="text-sm font-medium text-gray-800">
-                        {language === 'fr' ? 'En ligne' :
-                         language === 'en' ? 'Online' :
-                         language === 'es' ? 'En línea' :
-                                           'متصل'}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  {/* Statistiques flottantes */}
-                  <div className="absolute bottom-4 right-4 bg-white/95 backdrop-blur-sm rounded-lg p-3 shadow-lg border border-gray-100">
-                    <div className="text-sm">
-                      <div className="flex items-center gap-2 text-blue-600 font-bold">
-                        <span>📈</span>
-                        <span>+23%</span>
-                      </div>
-                      <div className="text-xs text-gray-600 mt-1">
-                        {language === 'fr' ? 'Productivité' :
-                         language === 'en' ? 'Productivity' :
-                         language === 'es' ? 'Productividad' :
-                                           'الإنتاجية'}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Éléments décoratifs */}
-                <div className="absolute -top-4 -right-4 w-24 h-24 bg-blue-600/10 rounded-full animate-pulse"></div>
-                <div className="absolute -bottom-4 -left-4 w-32 h-32 bg-black/5 rounded-full animate-pulse delay-1000"></div>
-                
-                {/* Petites cartes flottantes */}
-                <div className="absolute -left-6 top-1/2 transform -translate-y-1/2 bg-white rounded-xl shadow-xl p-4 hidden lg:block border border-gray-50">
-                  <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center mb-2">
-                    <span className="text-sm">👥</span>
-                  </div>
-                  <div className="text-xs font-medium text-gray-800">
-                    {language === 'fr' ? 'Équipes' :
-                     language === 'en' ? 'Teams' :
-                     language === 'es' ? 'Equipos' :
-                                       'الفرق'}
-                  </div>
-                  <div className="text-xs text-blue-600 font-bold">127</div>
-                </div>
-                
-                <div className="absolute -right-6 top-1/3 bg-white rounded-xl shadow-xl p-4 hidden lg:block border border-gray-50">
-                  <div className="w-8 h-8 bg-gray-50 rounded-lg flex items-center justify-center mb-2">
-                    <span className="text-sm">📋</span>
-                  </div>
-                  <div className="text-xs font-medium text-gray-800">
-                    {language === 'fr' ? 'Projets' :
-                     language === 'en' ? 'Projects' :
-                     language === 'es' ? 'Proyectos' :
-                                       'المشاريع'}
-                  </div>
-                  <div className="text-xs text-black font-bold">43</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        
+          </motion.div>
 
-      </section>
-
-      {/* Modal Vidéo */}
-      {isVideoModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80">
-          <div className="relative w-full max-w-4xl mx-4">
-            <button
-              onClick={closeVideoModal}
-              className="absolute -top-12 right-0 text-white hover:text-gray-300 transition-colors z-10"
-              aria-label="Fermer la vidéo"
-            >
-              <X className="w-8 h-8" />
-            </button>
-            
-            <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
-              <video
-                controls
-                autoPlay
-                className="w-full h-full"
-                onEnded={closeVideoModal}
+          {/* Role Cards */}
+          <div className="grid md:grid-cols-3 gap-6 mt-16">
+            {roles.map((role, index) => (
+              <motion.div
+                key={role.title}
+                initial={{ opacity: 0, y: 50 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 + index * 0.2, duration: 0.6 }}
+                whileHover={{ y: -10, scale: 1.02 }}
+                onMouseEnter={() => setActiveCard(index)}
+                className={`relative group cursor-pointer ${activeCard === index ? 'ring-2 ring-[#FFC107]' : ''}`}
               >
-                <source src={getVideoPath()} type="video/mp4" />
-                <p className="text-white p-4">
-                  {language === 'fr' ? "Votre navigateur ne supporte pas les vidéos HTML5." :
-                   language === 'en' ? "Your browser does not support HTML5 video." :
-                   language === 'es' ? "Su navegador no admite video HTML5." :
-                                     "متصفحك لا يدعم فيديو HTML5."}
-                </p>
-              </video>
-            </div>
-            
-            <div className="mt-4 text-center">
-              <p className="text-white text-sm">
-                {language === 'fr' ? "Vidéo de démonstration - APS" :
-                 language === 'en' ? "Demo Video - APS" :
-                 language === 'es' ? "Video de Demostración - APS" :
-                                   "فيديو توضيحي - APS"}
-              </p>
-            </div>
+                <div className={`absolute inset-0 bg-gradient-to-br ${role.color} opacity-0 group-hover:opacity-10 rounded-2xl transition-opacity duration-500`}></div>
+                <div className="relative bg-[#1a1a1a]/80 backdrop-blur-sm border border-gray-800 rounded-2xl p-8 h-full hover:border-[#FFC107]/30 transition-colors">
+                  <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${role.color} flex items-center justify-center mb-6 group-hover:scale-110 transition-transform`}>
+                    <role.icon className="w-7 h-7 text-white" />
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-3">{role.title}</h3>
+                  <p className="text-gray-400 text-sm leading-relaxed mb-4">{role.description}</p>
+                  <div className="flex items-center text-[#FFC107] text-sm font-medium group-hover:translate-x-2 transition-transform">
+                    En savoir plus <ChevronRight className="w-4 h-4 ml-1" />
+                  </div>
+                </div>
+              </motion.div>
+            ))}
           </div>
+
+          {/* Stats Row */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 1, duration: 0.6 }}
+            className="flex flex-wrap justify-center gap-8 mt-16 pt-8 border-t border-gray-800"
+          >
+            {[
+              { value: "500+", label: "Projets gérés" },
+              { value: "50+", label: "Entreprises" },
+              { value: "10K+", label: "Utilisateurs" },
+              { value: "99.9%", label: "Disponibilité" }
+            ].map((stat, i) => (
+              <motion.div
+                key={stat.label}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 1.2 + i * 0.1 }}
+                className="text-center"
+              >
+                <div className="text-3xl font-bold text-[#FFC107]">{stat.value}</div>
+                <div className="text-sm text-gray-500">{stat.label}</div>
+              </motion.div>
+            ))}
+          </motion.div>
+        </div>
+      </div>
+
+      {/* Video Modal */}
+      {isVideoModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-sm p-4"
+          onClick={() => setIsVideoModalOpen(false)}
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="relative w-full max-w-4xl aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-gray-800"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setIsVideoModalOpen(false)}
+              className="absolute top-4 right-4 z-10 p-2 bg-black/50 hover:bg-[#FFC107] rounded-full transition-colors group"
+            >
+              <X className="w-6 h-6 text-white group-hover:text-black" />
+            </button>
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a]">
+              <p className="text-gray-500">Vidéo de démonstration à venir</p>
+            </div>
+          </motion.div>
         </div>
       )}
-    </>
+    </section>
   );
 };
 
