@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { cn } from '@/lib/utils';
-import LanguageSelector, { Language } from '@/components/LanguageSelector';
-import { useLanguage } from '@/contexts/LanguageContext';
 import { translations } from '@/lib/translations';
 import {
   NavigationMenu,
@@ -18,7 +16,7 @@ import {
 const Navbar: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const { language, setLanguage } = useLanguage();
+  const language: 'fr' = 'fr';
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -36,7 +34,7 @@ const Navbar: React.FC = () => {
   };
 
   const t = translations[language].navbar;
-  const textDirection = language === 'ar' ? 'rtl' : 'ltr';
+  const textDirection = 'ltr';
 
   return (
     <header 
@@ -64,20 +62,12 @@ const Navbar: React.FC = () => {
                     <ul className="grid gap-3 p-4 w-[400px] md:w-[500px] lg:w-[600px] grid-cols-2">
                       {[
                         {
-                          title: language === 'fr' ? "Conseil en management" :
-                                 language === 'en' ? "Management Consulting" :
-                                 language === 'es' ? "Consultoría de gestión" :
-                                                   "استشارات إدارية",
-                          description: language === 'fr' ? "Services de conseil pour optimiser votre organisation" :
-                                       language === 'en' ? "Advisory services to optimize your organization" : 
-                                       language === 'es' ? "Servicios de asesoramiento para optimizar su organización" :
-                                                         "خدمات استشارية لتحسين مؤسستك",
+                          title: "Conseil en management",
+                          description: "Services de conseil pour optimiser votre organisation",
                         },
                         {
-                          title: language === 'fr' ? "Gestion de projet" :
-                                 language === 'en' ? "Project Management" :
-                                 language === 'es' ? "Gestión de proyectos" :
-                                                   "إدارة المشاريع",
+                          title: "Gestion de projet",
+                          description: "Pilotage de projets complexes de bout en bout",
                           description: language === 'fr' ? "Pilotage de projets complexes de bout en bout" :
                                        language === 'en' ? "End-to-end management of complex projects" : 
                                        language === 'es' ? "Gestión de proyectos complejos de principio a fin" :
@@ -197,38 +187,24 @@ const Navbar: React.FC = () => {
             <a href="#testimonials" className="text-black font-medium hover:text-blue-600 transition-colors">
               {t.testimonials}
             </a>
-            <LanguageSelector 
-              currentLanguage={language}
-              onLanguageChange={setLanguage}
-            />
             <Button 
               variant="default" 
               className="bg-black hover:bg-blue-600 text-white transition-colors"
               onClick={navigateToLogin}
             >
-              {language === 'fr' ? "Connexion" : 
-               language === 'en' ? "Login" :
-               language === 'es' ? "Iniciar sesión" :
-                                 "تسجيل الدخول"}
+              "Connexion"
             </Button>
           </nav>
 
           {/* Mobile menu button */}
           <div className="md:hidden flex items-center gap-2">
-            <LanguageSelector 
-              currentLanguage={language}
-              onLanguageChange={setLanguage}
-            />
             <Button 
               variant="outline"
               size="sm"
               className="mr-2"
               onClick={navigateToLogin}
             >
-              {language === 'fr' ? "Connexion" : 
-               language === 'en' ? "Login" :
-               language === 'es' ? "Iniciar sesión" :
-                                 "تسجيل الدخول"}
+              "Connexion"
             </Button>
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
