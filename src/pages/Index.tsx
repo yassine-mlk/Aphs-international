@@ -4,14 +4,10 @@ import Navbar from '@/components/Navbar';
 import HeroSection from '@/components/HeroSection';
 import FeaturesSection from '@/components/FeaturesSection';
 import BenefitsSection from '@/components/BenefitsSection';
-import TestimonialsSection from '@/components/TestimonialsSection';
 import CtaSection from '@/components/CtaSection';
 import Footer from '@/components/Footer';
-import AboutSection from '@/components/AboutSection';
-import { useLanguage } from '@/contexts/LanguageContext';
 
 const Index: React.FC = () => {
-  const { language } = useLanguage();
   const sectionRefs = useRef<(HTMLElement | null)[]>([]);
 
   useEffect(() => {
@@ -43,14 +39,12 @@ const Index: React.FC = () => {
   }, []);
 
   return (
-    <div className={`min-h-screen overflow-x-hidden bg-white ${language === 'ar' ? 'rtl' : 'ltr'}`}>
+    <div className="min-h-screen overflow-x-hidden bg-[#1a1a1a]">
       <Navbar />
       <main>
         <HeroSection />
         <FeaturesSection />
         <BenefitsSection />
-        <AboutSection language={language} />
-        <TestimonialsSection />
         <CtaSection />
       </main>
       <Footer />
