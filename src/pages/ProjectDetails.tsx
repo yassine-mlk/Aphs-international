@@ -1951,6 +1951,7 @@ const ProjectDetails: React.FC = () => {
             </Card>
           </TabsContent>
         )}
+      </Tabs>
         
         {/* Boîte de dialogue pour confirmer la suppression */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
