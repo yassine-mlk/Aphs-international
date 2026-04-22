@@ -367,7 +367,7 @@ export const VisaWorkflowPanel: React.FC<VisaWorkflowPanelProps> = ({
                       : 'Version actuelle'}
                   </p>
                   <div className="flex items-center gap-2">
-                    <p className="text-lg font-bold text-gray-900">v{displayVersion}</p>
+                    <p className="text-lg font-bold text-gray-900">v{displayVersion || 1}</p>
                     {viewingVersion && viewingVersion !== workflow.current_version && (
                       <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-300">
                         Archive
@@ -642,7 +642,7 @@ export const VisaWorkflowPanel: React.FC<VisaWorkflowPanelProps> = ({
               {workflow.status === 'revision_required' ? 'Resoumettre le document' : 'Soumettre un document'}
             </DialogTitle>
             <DialogDescription>
-              Version {workflow.current_version + 1} du workflow VISA
+              Version {workflow.current_version || 1} du workflow VISA
             </DialogDescription>
           </DialogHeader>
           
