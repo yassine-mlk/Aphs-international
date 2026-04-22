@@ -77,26 +77,9 @@ export function useVideoMeetingsImproved() {
   const [loading, setLoading] = useState(false);
   const [meetings, setMeetings] = useState<VideoMeeting[]>([]);
   const [loadingMeetings, setLoadingMeetings] = useState(false);
-  const [projects, setProjects] = useState<Project[]>([]);
 
   // Vérifier si l'utilisateur est admin
   const isAdmin = user?.user_metadata?.role === 'admin' || user?.email === 'admin@aps.com';
-
-  // Charger les projets accessibles
-  const loadUserProjects = useCallback(async () => {
-    if (!user) return;
-    
-    try {
-      const { data, error } = await supabase.rpc('get_user_accessible_projects', {
-        p_user_id: user.id
-      });
-      
-      if (error) throw error;
-      setProjects(data || []);
-    } catch (error) {
-      console.error('Erreur lors du chargement des projets:', error);
-    }
-  }, [user, supabase]);
 
   // Récupérer toutes les réunions pour un admin
   const getAllMeetings = useCallback(async (): Promise<VideoMeeting[]> => {
@@ -183,9 +166,8 @@ export function useVideoMeetingsImproved() {
         .select(`
           id, user_id, meeting_id, role, status, joined_at, left_at,
           meeting:video_meetings!inner(
-            id, title, room_id, description, project_id, scheduled_time,
-            is_instant, status, created_by, created_at, ended_at, recording_available,
-            projects(name)
+            id, title, room_id, description, scheduled_time,
+            is_instant, status, created_by, created_at, ended_at, recording_available
           )
         `)
         .eq('user_id', user.id)
@@ -200,8 +182,6 @@ export function useVideoMeetingsImproved() {
           title: meeting.title,
           roomId: meeting.room_id,
           description: meeting.description,
-          projectId: meeting.project_id,
-          projectName: meeting.projects?.name,
           scheduledTime: meeting.scheduled_time ? new Date(meeting.scheduled_time) : undefined,
           isInstant: meeting.is_instant,
           status: meeting.status,
@@ -628,29 +608,19 @@ export function useVideoMeetingsImproved() {
     }
   }, [user, isAdmin, supabase, toast]);
 
-  // Charger les projets au montage
-  useEffect(() => {
-    if (user) {
-      loadUserProjects();
-    }
-  }, [user, loadUserProjects]);
-
   return {
     loading,
     loadingMeetings,
     meetings,
-    projects,
     isAdmin,
     getAllMeetings,
     getUserMeetings,
     createMeeting,
-    deleteMeeting,
-    clearCompletedMeetings,
+    joinMeeting,
     leaveMeeting,
     endMeeting,
-    joinMeeting,
+    deleteMeeting,
     getMeetingRecordings,
-    requestMeeting,
-    loadUserProjects
+    requestMeeting
   };
-} 
+}
