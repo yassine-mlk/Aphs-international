@@ -168,16 +168,30 @@ export const useTaskAssignments = () => {
           description: "Tâche assignée avec succès",
         });
 
-        // Envoyer une notification à tous les intervenants assignés
+        // Envoyer une notification à tous les intervenants assignés et validateurs
         try {
+          // Notification aux intervenants assignés
           if (assignmentData.assigned_to && assignmentData.assigned_to.length > 0) {
             for (const userId of assignmentData.assigned_to) {
               await notifyTaskAssigned({
                 userId: userId,
                 taskName: assignmentData.task_name,
-                projectName: 'Projet', // On pourrait récupérer le vrai nom si besoin
+                projectName: 'Projet',
                 assignedByName: 'Administrateur',
                 dueDate: assignmentData.deadline,
+              });
+            }
+          }
+          
+          // Notification aux validateurs (pour les tâches workflow)
+          if (assignmentData.validators && assignmentData.validators.length > 0) {
+            for (const userId of assignmentData.validators) {
+              await notifyTaskAssigned({
+                userId: userId,
+                taskName: `${assignmentData.task_name} (Workflow VISA)`,
+                projectName: 'Projet',
+                assignedByName: 'Administrateur',
+                dueDate: assignmentData.validation_deadline || assignmentData.deadline,
               });
             }
           }
