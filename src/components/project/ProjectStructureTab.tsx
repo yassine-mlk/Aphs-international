@@ -677,18 +677,18 @@ const ProjectStructureTab: React.FC<ProjectStructureTabProps> = ({
                         key={intervenant.user_id}
                         className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer"
                       >
-                        <Checkbox
-                          checked={assignmentForm.assigned_to.includes(intervenant.user_id)}
+                        <Radio
+                          checked={assignmentForm.assigned_to === intervenant.user_id}
                           onCheckedChange={(checked) => {
                             if (checked) {
                               setAssignmentForm(prev => ({
                                 ...prev,
-                                assigned_to: [...prev.assigned_to, intervenant.user_id]
+                                assigned_to: intervenant.user_id
                               }));
                             } else {
                               setAssignmentForm(prev => ({
                                 ...prev,
-                                assigned_to: prev.assigned_to.filter(id => id !== intervenant.user_id)
+                                assigned_to: null
                               }));
                             }
                           }}
@@ -777,15 +777,16 @@ const ProjectStructureTab: React.FC<ProjectStructureTabProps> = ({
                           <Checkbox
                             checked={assignmentForm.validators.includes(intervenant.user_id)}
                             onCheckedChange={(checked) => {
+                              // Single selection - replace instead of add
                               if (checked) {
                                 setAssignmentForm(prev => ({
                                   ...prev,
-                                  validators: [...prev.validators, intervenant.user_id]
+                                  validators: [intervenant.user_id]
                                 }));
                               } else {
                                 setAssignmentForm(prev => ({
                                   ...prev,
-                                  validators: prev.validators.filter(id => id !== intervenant.user_id)
+                                  validators: []
                                 }));
                               }
                             }}
@@ -876,7 +877,7 @@ const ProjectStructureTab: React.FC<ProjectStructureTabProps> = ({
                 <div className="flex items-center gap-2">
                   <FileCheck className="h-5 w-5 text-blue-600" />
                   <Label htmlFor="use_visa_workflow" className="font-medium text-blue-900 cursor-pointer">
-                    Workflow VISA (signature électronique)
+                    Workflow VISA
                   </Label>
                 </div>
                 <Checkbox
