@@ -677,18 +677,18 @@ const ProjectStructureTab: React.FC<ProjectStructureTabProps> = ({
                         key={intervenant.user_id}
                         className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer"
                       >
-                        <Radio
-                          checked={assignmentForm.assigned_to === intervenant.user_id}
+                        <Checkbox
+                          checked={assignmentForm.assigned_to.includes(intervenant.user_id)}
                           onCheckedChange={(checked) => {
                             if (checked) {
                               setAssignmentForm(prev => ({
                                 ...prev,
-                                assigned_to: intervenant.user_id
+                                assigned_to: [intervenant.user_id]
                               }));
                             } else {
                               setAssignmentForm(prev => ({
                                 ...prev,
-                                assigned_to: null
+                                assigned_to: []
                               }));
                             }
                           }}
