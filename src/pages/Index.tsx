@@ -156,17 +156,10 @@ const Index: React.FC = () => {
 
             <div className="hidden md:flex items-center gap-4">
               <Button 
-                variant="ghost" 
                 onClick={() => navigate('/login')}
-                className="text-sm font-medium"
-              >
-                Connexion
-              </Button>
-              <Button 
-                onClick={() => navigate('/register')}
                 className="bg-black text-white hover:bg-gray-800 rounded-full px-6 text-sm font-medium"
               >
-                Essai gratuit
+                Connexion
               </Button>
             </div>
 
@@ -196,9 +189,9 @@ const Index: React.FC = () => {
             ))}
             <Button 
               className="w-full bg-black text-white rounded-full"
-              onClick={() => navigate('/register')}
+              onClick={() => navigate('/login')}
             >
-              Essai gratuit
+              Connexion
             </Button>
           </div>
         </div>
@@ -261,23 +254,14 @@ const Index: React.FC = () => {
               <div className="flex flex-col sm:flex-row gap-4">
                 <Button 
                   size="lg"
-                  onClick={() => navigate('/register')}
+                  onClick={() => navigate('/contact')}
                   className="bg-black text-white hover:bg-gray-800 rounded-full px-8 h-14 text-base font-medium group relative overflow-hidden"
                 >
                   <span className="relative z-10 flex items-center">
-                    Démarrer gratuitement
+                    Demander une démo
                     <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
                   </span>
                   <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-blue-700 opacity-0 group-hover:opacity-100 transition-opacity" />
-                </Button>
-                <Button 
-                  size="lg"
-                  variant="outline"
-                  onClick={() => navigate('/login')}
-                  className="rounded-full px-8 h-14 text-base font-medium border-2 border-black hover:bg-black hover:text-white transition-all"
-                >
-                  <Play className="mr-2 h-5 w-5" />
-                  Se connecter
                 </Button>
               </div>
 
