@@ -266,7 +266,15 @@ export const useVisaWorkflow = () => {
 
       if (updateError) throw updateError;
 
-      // 6. Ajouter à l'historique
+      // 6. Mettre à jour le statut de la tâche parente si le workflow est validé
+      if (nextStatus === 'validated' && workflow.task_assignment_id) {
+        await supabase
+          .from('task_assignments')
+          .update({ status: 'validated', updated_at: new Date().toISOString() })
+          .eq('id', workflow.task_assignment_id);
+      }
+
+      // 7. Ajouter à l'historique
       const action = data.opinion === 'F' ? 'validated' : 
                     data.opinion === 'D' ? 'rejected' :
                     data.opinion === 'S' ? 'suspended' : 'out_of_scope';
