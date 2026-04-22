@@ -171,17 +171,17 @@ const TaskDetails: React.FC = () => {
   const resolveSectionLabel = (phase: string, sectionId: string): string => {
     const struct = phase === 'conception' ? customProjectStructure : customRealizationStructure;
     const idx = struct.findIndex((s: any) => s.id === sectionId);
-    if (idx === -1) return sectionId;
+    if (idx === -1) return `Étape ${sectionId.slice(0, 8)}...`;
     return `${String.fromCharCode(65 + idx)} - ${struct[idx].title}`;
   };
 
   const resolveItemLabel = (phase: string, sectionId: string, itemId: string): string => {
     const struct = phase === 'conception' ? customProjectStructure : customRealizationStructure;
     const sIdx = struct.findIndex((s: any) => s.id === sectionId);
-    if (sIdx === -1) return itemId;
+    if (sIdx === -1) return `Sous-étape ${itemId.slice(0, 8)}...`;
     const letter = String.fromCharCode(65 + sIdx);
     const iIdx = struct[sIdx].items.findIndex((it: any) => it.id === itemId);
-    if (iIdx === -1) return itemId;
+    if (iIdx === -1) return `Sous-étape ${itemId.slice(0, 8)}...`;
     return `${letter}${iIdx + 1} - ${struct[sIdx].items[iIdx].title}`;
   };
   const [loading, setLoading] = useState(true);
