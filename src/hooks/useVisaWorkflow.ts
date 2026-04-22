@@ -219,8 +219,39 @@ export const useVisaWorkflow = () => {
           version: workflow.current_version,
           opinion: data.opinion,
           comment: data.comment
-        nextStatus = 'out_of_scope';
-        message = 'Document hors mission.';
+        });
+
+      if (validationError) throw validationError;
+
+      // 4. Déterminer le prochain statut
+      const validatorCount = workflow.validator_order.length;
+      const currentIdx = workflow.current_validator_idx;
+      const isLastValidator = currentIdx >= validatorCount - 1;
+      
+      let nextStatus: VisaWorkflowStatus;
+      let nextValidatorIdx: number = currentIdx;
+      let message: string;
+
+      if (data.opinion === 'F') {
+        // Favorable - passe au validateur suivant ou valide définitivement
+        if (isLastValidator) {
+          nextStatus = 'validated';
+          message = 'Validation terminée - Document validé définitivement';
+        } else {
+          nextStatus = 'pending_validation';
+          nextValidatorIdx = currentIdx + 1;
+          message = `Avis favorable enregistré - Passage au validateur suivant`;
+        }
+      } else if (data.opinion === 'D') {
+        // Défavorable - retourne à l'exécutant
+        nextStatus = 'revision_required';
+        nextValidatorIdx = 0;
+        message = 'Avis défavorable - Retour à l\'exécutant pour correction';
+      } else {
+        // Hors champ ou autre - retourne à l'exécutant aussi
+        nextStatus = 'revision_required';
+        nextValidatorIdx = 0;
+        message = 'Avis enregistré - Retour à l\'exécutant';
       }
 
       // 5. Mettre à jour le workflow
@@ -282,6 +313,7 @@ export const useVisaWorkflow = () => {
         description: message
       });
 
+      const allValidated = nextStatus === 'validated';
       return { success: true, nextStatus, nextValidatorIdx, allValidated, message };
     } catch (error) {
       console.error('Erreur submitValidation:', error);
