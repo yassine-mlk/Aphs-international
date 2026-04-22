@@ -17,7 +17,7 @@ import TaskDetails from "./pages/TaskDetails";
 import Companies from "./pages/Companies";
 import WorkGroups from "./pages/WorkGroups";
 import Messages from "./pages/Messages";
-import VideoConference from "./pages/VideoConference";
+import VideoConference from "./pages/VideoConferenceImproved";
 import Settings from "./pages/Settings";
 import ProfilePage from "./pages/ProfilePage";
 import TestUpload from "./test-upload";
