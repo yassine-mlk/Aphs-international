@@ -25,7 +25,8 @@ import {
   Globe,
   CheckSquare,
   BarChart3,
-  FileText
+  FileText,
+  FileCheck
 } from 'lucide-react';
 import { Language } from '@/components/LanguageSelector';
 import {
@@ -42,6 +43,7 @@ import { translations } from '@/lib/translations';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import NotificationBell from '@/components/NotificationBell';
+import { usePendingDocuments } from '@/hooks/usePendingDocuments';
 
 
 // Type pour l'utilisateur du dashboard
@@ -140,6 +142,7 @@ const DashboardLayout: React.FC = () => {
   const { user: authUser, signOut } = useAuth();
   const [loading, setLoading] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const { count: pendingDocsCount } = usePendingDocuments();
 
   useEffect(() => {
     // Fonction pour charger les données utilisateur
@@ -327,6 +330,25 @@ const DashboardLayout: React.FC = () => {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
+              
+              {/* Mes Signatures - Visible pour tous */}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  tooltip="Mes signatures"
+                  isActive={isLinkActive("/dashboard/mes-signatures")}
+                >
+                  <Link to="/dashboard/mes-signatures">
+                    <FileCheck />
+                    <span>Mes signatures</span>
+                    {pendingDocsCount > 0 && (
+                      <span className="ml-auto bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                        {pendingDocsCount > 9 ? '9+' : pendingDocsCount}
+                      </span>
+                    )}
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
               
               {/* Tasks Menu Item - Only for non-admin users */}
               {!isAdmin && (

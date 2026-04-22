@@ -27,6 +27,11 @@ import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 import SuperAdminLogin from "./pages/SuperAdminLogin";
 import Features from "./pages/Features";
 import Solutions from "./pages/Solutions";
+import Validations from "./pages/Validations";
+import MesSignatures from "./pages/MesSignatures";
+import DocumentDetail from "./pages/DocumentDetail";
+import WorkflowTemplates from "./pages/WorkflowTemplates";
+import PublicSignature from "./pages/PublicSignature";
 
 import DashboardLayout from "./components/DashboardLayout";
 import SuperAdminRoute from "./components/SuperAdminRoute";
@@ -220,7 +225,8 @@ const App = () => {
                   <Route path="/fonctionnalites" element={<Features />} />
                   <Route path="/fonctionnalites/:featureId" element={<Features />} />
                   <Route path="/solutions" element={<Solutions />} />
-                
+                  <Route path="/signer/:token" element={<PublicSignature />} />
+
                 {/* Routes du dashboard protégées */}
                 <Route path="/dashboard" element={
                   <ProtectedRoute>
@@ -318,6 +324,16 @@ const App = () => {
                     <SharedRoute>
                       <ProfilePage />
                     </SharedRoute>
+                  } />
+                  
+                  {/* Routes Workflow VISA */}
+                  <Route path="validations" element={<Validations />} />
+                  <Route path="mes-signatures" element={<MesSignatures />} />
+                  <Route path="documents/:documentId" element={<DocumentDetail />} />
+                  <Route path="workflow-templates" element={
+                    <AdminRoute>
+                      <WorkflowTemplates />
+                    </AdminRoute>
                   } />
                   
                   {/* Test upload route - accessible to everyone */}

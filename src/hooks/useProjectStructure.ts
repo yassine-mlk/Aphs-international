@@ -45,8 +45,9 @@ export const useProjectStructure = (projectId: string) => {
   
   const [customStructures, setCustomStructures] = useState<CustomStructureItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [customProjectStructure, setCustomProjectStructure] = useState(projectStructure);
-  const [customRealizationStructure, setCustomRealizationStructure] = useState(realizationStructure);
+  // Initialiser avec des tableaux vides - on ne charge que le snapshot du projet
+  const [customProjectStructure, setCustomProjectStructure] = useState<ProjectSection[]>([]);
+  const [customRealizationStructure, setCustomRealizationStructure] = useState<ProjectSection[]>([]);
 
   // ── Charger la structure tenant en 3 requêtes plates (toutes phases confondues) ──
   const loadTenantStructure = useCallback(async (tenantId: string): Promise<{ hasTenantStructure: boolean }> => {
@@ -122,61 +123,206 @@ export const useProjectStructure = (projectId: string) => {
     return { hasTenantStructure: false };
   }, [supabase]);
 
-  // ── Charger les suppressions projet (ancien système) ──
+  // ── Charger la structure snapshot du projet (figée à la création) ──
+  const loadSnapshotStructure = useCallback(async (): Promise<boolean> => {
+    try {
+      const { data: sections, error } = await supabase
+        .from('project_sections_snapshot')
+        .select('id, title, phase, order_index')
+        .eq('project_id', projectId)
+        .order('order_index');
+
+      if (error || !sections || sections.length === 0) return false;
+
+      const sectionIds = sections.map((s: any) => s.id);
+      const { data: items } = await supabase
+        .from('project_items_snapshot')
+        .select('id, title, section_id, order_index')
+        .in('section_id', sectionIds)
+        .order('order_index');
+
+      const itemIds = (items || []).map((i: any) => i.id);
+      let tasks: any[] = [];
+      if (itemIds.length > 0) {
+        const { data: t } = await supabase
+          .from('project_tasks_snapshot')
+          .select('id, title, item_id, order_index, info_sheet')
+          .in('item_id', itemIds)
+          .order('order_index');
+        tasks = t || [];
+      }
+
+      const buildPhase = (phase: 'conception' | 'realisation'): ProjectSection[] =>
+        sections
+          .filter((s: any) => s.phase === phase)
+          .sort((a: any, b: any) => a.order_index - b.order_index)
+          .map((sec: any) => ({
+            id: sec.id,
+            title: sec.title,
+            items: (items || [])
+              .filter((i: any) => i.section_id === sec.id)
+              .sort((a: any, b: any) => a.order_index - b.order_index)
+              .map((item: any) => ({
+                id: item.id,
+                title: item.title,
+                tasks: tasks
+                  .filter((t: any) => t.item_id === item.id)
+                  .sort((a: any, b: any) => a.order_index - b.order_index)
+                  .map((t: any) => t.title),
+              })),
+          }));
+
+      const conception = buildPhase('conception');
+      const realisation = buildPhase('realisation');
+      if (conception.length > 0) setCustomProjectStructure(conception);
+      if (realisation.length > 0) setCustomRealizationStructure(realisation);
+      return conception.length > 0 || realisation.length > 0;
+    } catch {
+      return false;
+    }
+  }, [projectId, supabase]);
+
+  // ── Créer un snapshot pour un projet existant sans snapshot ──
+  const createSnapshotForExistingProject = useCallback(async (tenantId: string) => {
+    try {
+      // 1. Récupérer la structure tenant actuelle
+      const { data: sections } = await supabase
+        .from('tenant_project_sections')
+        .select('id, title, phase, order_index')
+        .eq('tenant_id', tenantId)
+        .order('order_index');
+
+      if (!sections || sections.length === 0) return false;
+
+      // 2. Créer les sections snapshot
+      const sectionIdMap = new Map<string, string>(); // old_id -> new_id
+      for (const sec of sections) {
+        const { data: newSec } = await supabase
+          .from('project_sections_snapshot')
+          .insert({
+            project_id: projectId,
+            title: sec.title,
+            phase: sec.phase,
+            order_index: sec.order_index,
+            tenant_section_id: sec.id
+          })
+          .select('id')
+          .single();
+        if (newSec) sectionIdMap.set(sec.id, newSec.id);
+      }
+
+      // 3. Récupérer et créer les items
+      const { data: items } = await supabase
+        .from('tenant_project_items')
+        .select('id, title, section_id, order_index')
+        .in('section_id', sections.map((s: any) => s.id))
+        .order('order_index');
+
+      const itemIdMap = new Map<string, string>();
+      for (const item of (items || [])) {
+        const newSectionId = sectionIdMap.get(item.section_id);
+        if (!newSectionId) continue;
+
+        const { data: newItem } = await supabase
+          .from('project_items_snapshot')
+          .insert({
+            project_id: projectId,
+            section_id: newSectionId,
+            title: item.title,
+            order_index: item.order_index,
+            tenant_item_id: item.id
+          })
+          .select('id')
+          .single();
+        if (newItem) itemIdMap.set(item.id, newItem.id);
+      }
+
+      // 4. Récupérer et créer les tasks avec leurs fiches
+      const { data: tasks } = await supabase
+        .from('tenant_project_tasks')
+        .select('id, title, item_id, order_index')
+        .in('item_id', (items || []).map((i: any) => i.id))
+        .order('order_index');
+
+      // Récupérer les fiches informatives
+      const { data: infoSheets } = await supabase
+        .from('tenant_task_info_sheets')
+        .select('tenant_task_id, info_sheet')
+        .in('tenant_task_id', (tasks || []).map((t: any) => t.id));
+
+      const infoSheetMap = new Map((infoSheets || []).map((is: any) => [is.tenant_task_id, is.info_sheet]));
+
+      for (const task of (tasks || [])) {
+        const newItemId = itemIdMap.get(task.item_id);
+        if (!newItemId) continue;
+
+        await supabase
+          .from('project_tasks_snapshot')
+          .insert({
+            project_id: projectId,
+            item_id: newItemId,
+            title: task.title,
+            order_index: task.order_index,
+            tenant_task_id: task.id,
+            info_sheet: infoSheetMap.get(task.id) || ''
+          });
+      }
+
+      return true;
+    } catch (e) {
+      console.error('Erreur création snapshot projet existant:', e);
+      return false;
+    }
+  }, [projectId, supabase]);
+
+  // ── Charger la structure du projet (snapshot figé uniquement) ──
   const loadCustomStructures = useCallback(async () => {
     if (!projectId) return;
     
     try {
       setLoading(true);
 
-      // 1. Récupérer le tenant_id du projet (avec cache)
-      let tenantId: string | null | undefined = projectTenantCache[projectId];
-      if (tenantId === undefined) {
-        const { data: projectRow } = await supabase
-          .from('projects')
-          .select('tenant_id')
-          .eq('id', projectId)
-          .maybeSingle();
-        tenantId = projectRow?.tenant_id ?? null;
-        projectTenantCache[projectId] = tenantId;
-      }
-
-      // 2. Si le tenant a une structure custom, l'utiliser en priorité
-      if (tenantId) {
-        const { hasTenantStructure } = await loadTenantStructure(tenantId);
-        if (hasTenantStructure) {
-          setCustomStructures([]);
-          setLoading(false);
-          return;
-        }
-      }
-
-      // 3. Fallback : ancien système de suppressions par projet
-      const { data, error } = await supabase
-        .from('custom_project_structures')
-        .select('*')
-        .eq('project_id', projectId)
-        .eq('is_deleted', true);
-
-      if (error) {
-        if (error.code === '42501' || error.code === '42P01') {
-          setCustomStructures([]);
-          applyCustomizations([]);
-        }
+      // 1. Charger le snapshot du projet
+      const hasSnapshot = await loadSnapshotStructure();
+      
+      if (hasSnapshot) {
+        setLoading(false);
         return;
       }
 
-      setCustomStructures(data || []);
-      applyCustomizations(data || []);
+      // 2. PAS DE SNAPSHOT : Créer un snapshot pour ce projet existant
+      console.log(`[useProjectStructure] Création snapshot pour projet ${projectId}`);
+      const { data: projectRow } = await supabase
+        .from('projects')
+        .select('tenant_id')
+        .eq('id', projectId)
+        .maybeSingle();
+      
+      if (projectRow?.tenant_id) {
+        const snapshotCreated = await createSnapshotForExistingProject(projectRow.tenant_id);
+        if (snapshotCreated) {
+          // Recharger avec le nouveau snapshot
+          const hasNewSnapshot = await loadSnapshotStructure();
+          if (hasNewSnapshot) {
+            setLoading(false);
+            return;
+          }
+        }
+      }
+
+      // 3. Si vraiment rien ne marche, structure vide
+      console.warn(`[useProjectStructure] Pas de snapshot pour le projet ${projectId}`);
+      setCustomProjectStructure([]);
+      setCustomRealizationStructure([]);
       
     } catch (error) {
       console.error('Erreur lors du chargement des structures:', error);
-      setCustomStructures([]);
-      applyCustomizations([]);
+      setCustomProjectStructure([]);
+      setCustomRealizationStructure([]);
     } finally {
       setLoading(false);
     }
-  }, [projectId, supabase, loadTenantStructure]);
+  }, [projectId, supabase, loadSnapshotStructure, createSnapshotForExistingProject]);
 
   // Appliquer les personnalisations (suppressions) aux structures
   const applyCustomizations = useCallback((deletions: CustomStructureItem[]) => {

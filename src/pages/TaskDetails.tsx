@@ -17,7 +17,8 @@ import {
   Download,
   Send,
   MessageSquare,
-  AlertTriangle
+  AlertTriangle,
+  FileCheck
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSupabase } from '@/hooks/useSupabase';
@@ -63,6 +64,7 @@ import {
 } from '@/types/taskSubmissionHistory';
 import { useNotificationTriggers } from '@/hooks/useNotificationTriggers';
 import { useProjectStructure } from '@/hooks/useProjectStructure';
+import { VisaWorkflowPanel } from '@/components/project/VisaWorkflowPanel';
 
 // Interface for project
 interface Project {
@@ -189,6 +191,7 @@ const TaskDetails: React.FC = () => {
   const [submissionHistory, setSubmissionHistory] = useState<TaskSubmissionHistoryWithUser[]>([]);
   const [hasAnyPendingSubmission, setHasAnyPendingSubmission] = useState<boolean>(false);
   const [hasCurrentUserPendingSubmission, setHasCurrentUserPendingSubmission] = useState<boolean>(false);
+  const [hasVisaWorkflow, setHasVisaWorkflow] = useState<boolean>(false);
   
   const [isSubmitDialogOpen, setIsSubmitDialogOpen] = useState(false);
   const [isValidateDialogOpen, setIsValidateDialogOpen] = useState(false);
@@ -369,6 +372,14 @@ const TaskDetails: React.FC = () => {
       
       if (data && data.length > 0) {
         setTask(data[0]);
+        
+        // Check if visa workflow exists for this task
+        const { data: visaWorkflow } = await supabase
+          .from('task_visa_workflows')
+          .select('id')
+          .eq('task_assignment_id', data[0].id)
+          .maybeSingle();
+        setHasVisaWorkflow(!!visaWorkflow);
         
         // Fetch project details
         const projectData = await fetchData<Project>('projects', {
@@ -958,7 +969,12 @@ const TaskDetails: React.FC = () => {
   };
   
   const handleBackToTasks = () => {
-    navigate('/dashboard/tasks');
+    // Rediriger vers l'onglet structure du projet
+    if (task?.project_id) {
+      navigate(`/dashboard/projets/${task.project_id}?tab=structure`);
+    } else {
+      navigate('/dashboard/tasks');
+    }
   };
   
   const handleNavigateToProject = () => {
@@ -1039,7 +1055,19 @@ const TaskDetails: React.FC = () => {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">{task.task_name}</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold tracking-tight">{task.task_name}</h1>
+              {hasVisaWorkflow ? (
+                <Badge className="bg-blue-100 text-blue-800 border-blue-300 px-2 py-0.5">
+                  <FileCheck className="h-3 w-3 mr-1" />
+                  Workflow VISA
+                </Badge>
+              ) : (
+                <Badge className="bg-gray-100 text-gray-700 border-gray-300 px-2 py-0.5">
+                  Mode Standard
+                </Badge>
+              )}
+            </div>
             <p className="text-muted-foreground">
               <button 
                 onClick={handleNavigateToProject}
@@ -1064,7 +1092,7 @@ const TaskDetails: React.FC = () => {
       </div>
       
       {/* Fiche informative repositionnée après le titre - maintenant déroulable */}
-      {infoSheet && project.show_info_sheets !== false && (
+      {infoSheet && (project?.show_info_sheets === undefined || project?.show_info_sheets === true) && (
         <Accordion
           type="single" 
           collapsible 
@@ -1101,8 +1129,9 @@ const TaskDetails: React.FC = () => {
       )}
       
       {/* Task content */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Task info */}
+      <div className={`grid gap-6 ${hasVisaWorkflow ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-3'}`}>
+        {/* Task info - hidden when visa workflow active */}
+        {!hasVisaWorkflow && (
         <Card className="md:col-span-2 border-0 shadow-md">
           <CardHeader>
             <CardTitle>{t.details.title}</CardTitle>
@@ -1204,7 +1233,8 @@ const TaskDetails: React.FC = () => {
               </div>
             )}
             
-            {task.file_url && (
+            {/* Old system submitted file - hidden when visa workflow active */}
+            {!hasVisaWorkflow && task.file_url && (
               <div>
                 <Label className="text-md font-medium mb-2 block">{t.details.submittedFile}</Label>
                 <div className="flex items-center justify-between p-3 bg-gray-50 rounded-md">
@@ -1224,7 +1254,8 @@ const TaskDetails: React.FC = () => {
               </div>
             )}
             
-            {task.validation_comment && (
+            {/* Old system validation comment - hidden when visa workflow active */}
+            {!hasVisaWorkflow && task.validation_comment && (
               <div>
                 <Label className="text-md font-medium mb-2 block">{t.details.validationComment}</Label>
                 <div className="p-3 bg-gray-50 rounded-md whitespace-pre-line">
@@ -1235,8 +1266,8 @@ const TaskDetails: React.FC = () => {
           </CardContent>
           
           <CardFooter className="flex justify-between">
-            {/* Actions for assigned user */}
-            {isAssignedUser && task.status === 'assigned' && (
+            {/* Actions for assigned user - OLD SYSTEM (hidden when visa workflow active) */}
+            {!hasVisaWorkflow && isAssignedUser && task.status === 'assigned' && (
               <Button 
                 onClick={handleStartTask}
                 className="bg-blue-600 hover:bg-blue-700"
@@ -1245,7 +1276,7 @@ const TaskDetails: React.FC = () => {
               </Button>
             )}
             
-            {isAssignedUser && (task.status === 'assigned' || task.status === 'in_progress' || task.status === 'rejected' || task.status === 'submitted') && !hasCurrentUserPendingSubmission && (
+            {!hasVisaWorkflow && isAssignedUser && (task.status === 'assigned' || task.status === 'in_progress' || task.status === 'rejected' || task.status === 'submitted') && !hasCurrentUserPendingSubmission && (
               <Button 
                 onClick={handleOpenSubmitDialog}
                 className="bg-green-600 hover:bg-green-700"
@@ -1256,22 +1287,22 @@ const TaskDetails: React.FC = () => {
             )}
             
             {/* Message when submission is pending for current user */}
-            {isAssignedUser && hasCurrentUserPendingSubmission && task.status === 'submitted' && (
+            {!hasVisaWorkflow && isAssignedUser && hasCurrentUserPendingSubmission && task.status === 'submitted' && (
               <div className="text-sm text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
                 {t.details.pendingValidation}
               </div>
             )}
             
             {/* Message when task is finalized */}
-            {task.status === 'finalized' && (
+            {!hasVisaWorkflow && task.status === 'finalized' && (
               <div className="text-sm text-purple-600 bg-purple-50 p-2 rounded border border-purple-200">
                 <CheckCircle2 className="h-4 w-4 inline mr-2" />
                 {t.details.taskFinalized}
               </div>
             )}
             
-            {/* Actions for validators */}
-            {(isValidator || isAdmin) && (task.status === 'submitted' || hasAnyPendingSubmission) && task.status !== 'finalized' && task.status !== 'validated' && (
+            {/* Actions for validators - OLD SYSTEM (hidden when visa workflow active) */}
+            {!hasVisaWorkflow && (isValidator || isAdmin) && (task.status === 'submitted' || hasAnyPendingSubmission) && task.status !== 'finalized' && task.status !== 'validated' && (
               <div className="flex gap-2">
                 <Button 
                   onClick={handleOpenValidateDialog}
@@ -1302,8 +1333,22 @@ const TaskDetails: React.FC = () => {
             )}
           </CardFooter>
         </Card>
+        )}
         
-        {/* Timeline */}
+        {/* Workflow VISA Panel - only show when visa workflow exists */}
+        {hasVisaWorkflow && task.id && (
+          <VisaWorkflowPanel
+            taskAssignmentId={task.id}
+            currentUserId={user?.id || ''}
+            isAssignedUser={isAssignedUser}
+            isValidator={isValidator}
+            isAdmin={isAdmin}
+            fileExtension={task.file_extension}
+          />
+        )}
+        
+        {/* Timeline - hidden when visa workflow active */}
+        {!hasVisaWorkflow && (
         <Card className="border-0 shadow-md">
           <CardHeader>
             <CardTitle>{t.details.history}</CardTitle>
@@ -1383,6 +1428,7 @@ const TaskDetails: React.FC = () => {
             </div>
           </CardContent>
         </Card>
+        )}
       </div>
       
       {/* Submit dialog */}

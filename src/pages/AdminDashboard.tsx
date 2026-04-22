@@ -14,11 +14,13 @@ import {
   Clock,
   MessageSquare,
   Video,
-  RefreshCw
+  RefreshCw,
+  PenTool
 } from 'lucide-react';
 import { useSupabase } from '@/hooks/useSupabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRecentActivities, type RecentActivity } from '@/hooks/useRecentActivities';
+import { useAdminDocuments } from '@/hooks/useAdminDocuments';
 import { ActivityIcon } from '@/components/ActivityIcon';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DashboardSkeleton } from '@/components/Skeletons';
@@ -88,6 +90,9 @@ const AdminDashboard: React.FC = () => {
   
   // Utiliser le hook pour les activités récentes
   const { activities: recentActivities, loading: activitiesLoading } = useRecentActivities();
+  
+  // Hook pour les documents en attente (admin)
+  const { pendingCount: adminPendingDocsCount, loading: adminPendingDocsLoading } = useAdminDocuments();
 
 
 
@@ -661,6 +666,33 @@ const AdminDashboard: React.FC = () => {
                   className="w-full"
                 >
                   Ouvrir la visio
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 shadow-2xl bg-white rounded-2xl overflow-hidden">
+              <CardHeader className="border-b border-gray-50 pb-4">
+                <CardTitle className="flex items-center gap-2 text-black font-bold">
+                  <PenTool className="h-5 w-5 text-yellow-600" />
+                  Signatures
+                </CardTitle>
+                <CardDescription className="text-gray-500">
+                  Documents en attente de signature
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-6 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600">En attente</span>
+                  <Badge variant="secondary" className="bg-yellow-600 text-white">
+                    {adminPendingDocsLoading ? '-' : adminPendingDocsCount}
+                  </Badge>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => navigate('/dashboard/projets')}
+                  className="w-full"
+                >
+                  Voir les projets
                 </Button>
               </CardContent>
             </Card>
