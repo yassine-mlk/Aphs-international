@@ -49,14 +49,27 @@ export async function sendNotification({
     // 2. Envoyer l'email si demandé
     if (sendEmail && emailData) {
       try {
-        await supabase.functions.invoke('send-notification-email', {
-          body: {
-            to: emailData.to,
-            subject: emailData.subject,
-            template: emailData.template,
-            variables: emailData.variables
-          }
-        });
+        // Récupérer l'email automatiquement si non fourni
+        let userEmail = emailData.to;
+        if (!userEmail) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('email')
+            .eq('id', userId)
+            .single();
+          userEmail = profile?.email;
+        }
+
+        if (userEmail) {
+          await supabase.functions.invoke('send-notification-email', {
+            body: {
+              to: userEmail,
+              subject: emailData.subject,
+              template: emailData.template,
+              variables: emailData.variables
+            }
+          });
+        }
       } catch (emailError) {
         console.error('Error sending email notification:', emailError);
         // On continue même si l'email échoue
@@ -112,14 +125,12 @@ export async function notifyWorkflowStatusChange({
   projectName,
   status,
   actorName,
-  userEmail,
 }: {
   userId: string;
   taskName: string;
   projectName: string;
   status: 'validated' | 'rejected' | 'pending';
   actorName: string;
-  userEmail?: string;
 }) {
   const statusText = status === 'validated' ? 'validée' : status === 'rejected' ? 'refusée' : 'en attente';
   const type: NotificationType = status === 'validated' ? 'task_validated' : 'task_validation_request';
@@ -130,9 +141,9 @@ export async function notifyWorkflowStatusChange({
     title: `Tâche ${statusText}`,
     message: `La tâche "${taskName}" du projet "${projectName}" a été ${statusText} par ${actorName}`,
     data: { taskName, projectName, status, actorName },
-    sendEmail: !!userEmail,
-    emailData: userEmail ? {
-      to: userEmail,
+    sendEmail: true,
+    emailData: {
+      to: '', // Sera récupéré automatiquement
       subject: `Tâche ${statusText} - ${taskName}`,
       template: 'workflow_status_changed',
       variables: {
@@ -141,7 +152,7 @@ export async function notifyWorkflowStatusChange({
         status: statusText,
         actorName
       }
-    } : undefined
+    }
   });
 }
 
@@ -153,13 +164,11 @@ export async function notifyMemberAdded({
   projectName,
   addedByName,
   role,
-  userEmail,
 }: {
   userId: string;
   projectName: string;
   addedByName: string;
   role: string;
-  userEmail?: string;
 }) {
   return sendNotification({
     userId,
@@ -167,9 +176,9 @@ export async function notifyMemberAdded({
     title: 'Ajouté à un projet',
     message: `Vous avez été ajouté au projet "${projectName}" par ${addedByName} en tant que ${role}`,
     data: { projectName, addedByName, role },
-    sendEmail: !!userEmail,
-    emailData: userEmail ? {
-      to: userEmail,
+    sendEmail: true,
+    emailData: {
+      to: '', // Sera récupéré automatiquement
       subject: `Vous êtes membre du projet ${projectName}`,
       template: 'member_added',
       variables: {
@@ -177,7 +186,7 @@ export async function notifyMemberAdded({
         addedByName,
         role
       }
-    } : undefined
+    }
   });
 }
 
@@ -189,13 +198,11 @@ export async function notifyNewMessage({
   senderName,
   messagePreview,
   conversationId,
-  userEmail,
 }: {
   userId: string;
   senderName: string;
   messagePreview: string;
   conversationId: string;
-  userEmail?: string;
 }) {
   return sendNotification({
     userId,
@@ -203,16 +210,16 @@ export async function notifyNewMessage({
     title: 'Nouveau message',
     message: `${senderName}: "${messagePreview.substring(0, 50)}${messagePreview.length > 50 ? '...' : ''}"`,
     data: { senderName, conversationId },
-    sendEmail: !!userEmail,
-    emailData: userEmail ? {
-      to: userEmail,
+    sendEmail: true,
+    emailData: {
+      to: '', // Sera récupéré automatiquement
       subject: `Nouveau message de ${senderName}`,
       template: 'message_received',
       variables: {
         senderName,
         messagePreview: messagePreview.substring(0, 100)
       }
-    } : undefined
+    }
   });
 }
 
@@ -225,14 +232,12 @@ export async function notifyTaskAssigned({
   projectName,
   assignedByName,
   dueDate,
-  userEmail,
 }: {
   userId: string;
   taskName: string;
   projectName: string;
   assignedByName: string;
   dueDate?: string;
-  userEmail?: string;
 }) {
   const dueText = dueDate ? ` (Échéance: ${new Date(dueDate).toLocaleDateString('fr-FR')})` : '';
   
@@ -242,9 +247,9 @@ export async function notifyTaskAssigned({
     title: 'Nouvelle tâche assignée',
     message: `La tâche "${taskName}" du projet "${projectName}" vous a été assignée par ${assignedByName}${dueText}`,
     data: { taskName, projectName, assignedByName, dueDate },
-    sendEmail: !!userEmail,
-    emailData: userEmail ? {
-      to: userEmail,
+    sendEmail: true,
+    emailData: {
+      to: '', // Sera récupéré automatiquement
       subject: `Nouvelle tâche: ${taskName}`,
       template: 'task_assigned',
       variables: {
@@ -253,7 +258,7 @@ export async function notifyTaskAssigned({
         assignedByName,
         dueDate: dueDate || 'Non définie'
       }
-    } : undefined
+    }
   });
 }
 
@@ -265,13 +270,11 @@ export async function notifyDocumentSigned({
   documentName,
   signerName,
   projectName,
-  userEmail,
 }: {
   userId: string;
   documentName: string;
   signerName: string;
   projectName: string;
-  userEmail?: string;
 }) {
   return sendNotification({
     userId,
@@ -279,9 +282,9 @@ export async function notifyDocumentSigned({
     title: 'Document signé',
     message: `${signerName} a signé le document "${documentName}" du projet "${projectName}"`,
     data: { documentName, signerName, projectName },
-    sendEmail: !!userEmail,
-    emailData: userEmail ? {
-      to: userEmail,
+    sendEmail: true,
+    emailData: {
+      to: '', // Sera récupéré automatiquement
       subject: `Document signé: ${documentName}`,
       template: 'signature_confirmed',
       variables: {
@@ -289,6 +292,6 @@ export async function notifyDocumentSigned({
         signerName,
         projectName
       }
-    } : undefined
+    }
   });
 }
