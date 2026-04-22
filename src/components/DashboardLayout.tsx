@@ -331,25 +331,6 @@ const DashboardLayout: React.FC = () => {
                 </SidebarMenuItem>
               )}
               
-              {/* Mes Signatures - Visible pour tous */}
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  tooltip="Mes signatures"
-                  isActive={isLinkActive("/dashboard/mes-signatures")}
-                >
-                  <Link to="/dashboard/mes-signatures">
-                    <FileCheck />
-                    <span>Mes signatures</span>
-                    {pendingDocsCount > 0 && (
-                      <span className="ml-auto bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                        {pendingDocsCount > 9 ? '9+' : pendingDocsCount}
-                      </span>
-                    )}
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              
               {/* Tasks Menu Item - Only for non-admin users */}
               {!isAdmin && (
                 <SidebarMenuItem>
@@ -361,6 +342,27 @@ const DashboardLayout: React.FC = () => {
                     <Link to="/dashboard/tasks">
                       <CheckSquare />
                       <span>{t.tasks}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+              
+              {/* Mes Signatures - Only for non-admin users */}
+              {!isAdmin && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip="Mes signatures"
+                    isActive={isLinkActive("/dashboard/mes-signatures")}
+                  >
+                    <Link to="/dashboard/mes-signatures">
+                      <FileCheck />
+                      <span>Mes signatures</span>
+                      {pendingDocsCount > 0 && (
+                        <span className="ml-auto bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                          {pendingDocsCount > 9 ? '9+' : pendingDocsCount}
+                        </span>
+                      )}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
