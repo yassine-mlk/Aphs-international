@@ -5,8 +5,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
 import { 
   Info, 
+  Layers, 
   ArrowLeft, 
-  ClipboardList,
   Users,
   FileCheck,
   Loader2
@@ -25,7 +25,6 @@ import ProjectDocumentsTab from '@/components/project/ProjectDocumentsTab';
 import ProjectInfoTab from '@/components/project/ProjectInfoTab';
 import ProjectStructureTab from '@/components/project/ProjectStructureTab';
 import ProjectMembersTab from '@/components/project/ProjectMembersTab';
-import { ProjectStructureTab as TenantProjectStructureTab } from '@/components/settings/ProjectStructureTab';
 import { useSupabase } from '@/hooks/useSupabase';
 import { useProjectStructure } from '@/hooks/useProjectStructure';
 
@@ -269,16 +268,14 @@ const ProjectDetails: React.FC = () => {
             <Info className="h-4 w-4 mr-2" />
             Informations
           </TabsTrigger>
+          <TabsTrigger value="structure" className="data-[state=active]:bg-white">
+            <Layers className="h-4 w-4 mr-2" />
+            Assignement des tâches
+          </TabsTrigger>
           {isAdmin && (
             <TabsTrigger value="members" className="data-[state=active]:bg-white">
               <Users className="h-4 w-4 mr-2" />
               Membres
-            </TabsTrigger>
-          )}
-          {isAdmin && (
-            <TabsTrigger value="manage-structure" className="data-[state=active]:bg-white">
-              <ClipboardList className="h-4 w-4 mr-2" />
-              Gestion structure du projet
             </TabsTrigger>
           )}
           <TabsTrigger value="documents" className="data-[state=active]:bg-white">
@@ -296,6 +293,15 @@ const ProjectDetails: React.FC = () => {
           />
         </TabsContent>
 
+        <TabsContent value="structure">
+          <ProjectStructureTab 
+            conceptionStructure={customProjectStructure}
+            realizationStructure={customRealizationStructure}
+            projectId={id || ''}
+            isAdmin={isAdmin}
+          />
+        </TabsContent>
+
         {isAdmin && (
           <TabsContent value="members">
             <ProjectMembersTab 
@@ -305,19 +311,6 @@ const ProjectDetails: React.FC = () => {
               tenantId={tenantId}
               onMembersChanged={handleMembersChanged}
             />
-          </TabsContent>
-        )}
-
-        {isAdmin && (
-          <TabsContent value="manage-structure">
-            {tenantId ? (
-              <TenantProjectStructureTab tenantId={tenantId} />
-            ) : (
-              <div className="flex items-center justify-center py-12 text-gray-500">
-                <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                Chargement de la structure...
-              </div>
-            )}
           </TabsContent>
         )}
 
