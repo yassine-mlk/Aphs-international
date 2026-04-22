@@ -16,7 +16,8 @@ import {
   CheckCircle2,
   XCircle,
   Building2,
-  ArrowLeft
+  ArrowLeft,
+  Mail
 } from 'lucide-react';
 import { usePendingDocuments } from '@/hooks/usePendingDocuments';
 import { format } from 'date-fns';
@@ -178,17 +179,10 @@ const MesSignatures: React.FC = () => {
           
           {isPending && (
             <>
-              <Button
-                size="sm"
-                className="bg-green-600 hover:bg-green-700"
-                onClick={() => {
-                  setSelectedDoc(doc);
-                  setIsSignDialogOpen(true);
-                }}
-              >
-                <PenTool className="h-4 w-4 mr-2" />
-                Signer
-              </Button>
+              <div className="text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-md">
+                <Mail className="h-4 w-4 inline mr-1" />
+                Signature par email uniquement
+              </div>
               <Button
                 size="sm"
                 variant="destructive"

@@ -286,7 +286,7 @@ const ProjectDocumentsTab: React.FC<ProjectDocumentsTabProps> = ({ projectId, is
     setUploading(true);
     try {
       // Upload file to Cloudflare R2
-      const filePath = `documents/${projectId}/${Date.now()}_${selectedFile.name.replace(/\s+/g, '_')}`;
+      const filePath = `project-documents/${projectId}/${Date.now()}_${selectedFile.name.replace(/\s+/g, '_')}`;
       
       console.log('Uploading to Cloudflare R2:', filePath);
       const fileUrl = await uploadToR2(selectedFile, filePath);
