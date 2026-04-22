@@ -5,7 +5,6 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
 import { 
   Info, 
-  Layers, 
   ArrowLeft, 
   ClipboardList,
   Users,
@@ -270,10 +269,6 @@ const ProjectDetails: React.FC = () => {
             <Info className="h-4 w-4 mr-2" />
             Informations
           </TabsTrigger>
-          <TabsTrigger value="structure" className="data-[state=active]:bg-white">
-            <Layers className="h-4 w-4 mr-2" />
-            Assignement des tâches
-          </TabsTrigger>
           {isAdmin && (
             <TabsTrigger value="members" className="data-[state=active]:bg-white">
               <Users className="h-4 w-4 mr-2" />
@@ -298,15 +293,6 @@ const ProjectDetails: React.FC = () => {
             isAdmin={isAdmin}
             onEdit={() => {}}
             onDelete={() => setIsDeleteDialogOpen(true)}
-          />
-        </TabsContent>
-
-        <TabsContent value="structure">
-          <ProjectStructureTab 
-            conceptionStructure={customProjectStructure}
-            realizationStructure={customRealizationStructure}
-            projectId={id || ''}
-            isAdmin={isAdmin}
           />
         </TabsContent>
 
