@@ -17,7 +17,6 @@ import {
   StopCircle,
   Trash2,
   FileVideo,
-  FolderOpen,
   Settings,
   AlertCircle
 } from 'lucide-react';
@@ -69,7 +68,6 @@ const VideoConferenceImproved: React.FC = () => {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    projectId: '',
     scheduledTime: '',
     selectedParticipants: [] as string[],
     isInstant: false
@@ -79,7 +77,6 @@ const VideoConferenceImproved: React.FC = () => {
     loading, 
     loadingMeetings,
     meetings,
-    projects,
     isAdmin,
     getAllMeetings, 
     getUserMeetings, 
@@ -241,21 +238,11 @@ const VideoConferenceImproved: React.FC = () => {
       return;
     }
 
-    if (!formData.projectId) {
-      toast({
-        title: "Projet manquant",
-        description: "Veuillez sélectionner un projet pour cette réunion",
-        variant: "destructive"
-      });
-      return;
-    }
-    
     const meetingId = await createMeeting(
       formData.title,
       formData.selectedParticipants,
       {
         description: formData.description,
-        projectId: formData.projectId,
         scheduledTime: formData.isInstant ? undefined : new Date(formData.scheduledTime),
         isInstant: formData.isInstant
       }
@@ -266,7 +253,6 @@ const VideoConferenceImproved: React.FC = () => {
       setFormData({
         title: '',
         description: '',
-        projectId: '',
         scheduledTime: '',
         selectedParticipants: [],
         isInstant: false
@@ -483,12 +469,6 @@ const VideoConferenceImproved: React.FC = () => {
                           <Copy className="h-4 w-4" />
                           ID: {activeMeeting.roomId}
                         </span>
-                        {activeMeeting.projectName && (
-                          <span className="flex items-center gap-1">
-                            <FolderOpen className="h-4 w-4" />
-                            {activeMeeting.projectName}
-                          </span>
-                        )}
                       </div>
                     </div>
                     <div className="flex gap-2">
@@ -617,12 +597,6 @@ const VideoConferenceImproved: React.FC = () => {
                                   <Copy className="h-4 w-4" />
                                   {meeting.roomId}
                                 </span>
-                                {meeting.projectName && (
-                                  <span className="flex items-center gap-1">
-                                    <FolderOpen className="h-4 w-4" />
-                                    {meeting.projectName}
-                                  </span>
-                                )}
                                 {meeting.recordingAvailable && (
                                   <span className="flex items-center gap-1 text-blue-600">
                                     <FileVideo className="h-4 w-4" />
@@ -735,32 +709,6 @@ const VideoConferenceImproved: React.FC = () => {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="meeting-project">Projet associé *</Label>
-              <Select
-                value={formData.projectId}
-                onValueChange={(value) => setFormData({...formData, projectId: value})}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionnez un projet" />
-                </SelectTrigger>
-                <SelectContent>
-                  {projects.map((project) => (
-                    <SelectItem key={project.id} value={project.id}>
-                      <div className="flex items-center gap-2">
-                        <FolderOpen className="h-4 w-4 text-gray-500" />
-                        <div>
-                          <div className="font-medium">{project.name}</div>
-                          <div className="text-xs text-gray-500 truncate max-w-[200px]">
-                            {project.description}
-                          </div>
-                        </div>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
             
             <div className="space-y-2">
               <Label htmlFor="meeting-description">Description</Label>
@@ -814,7 +762,7 @@ const VideoConferenceImproved: React.FC = () => {
             </Button>
             <Button 
               onClick={handleSubmitNewMeeting} 
-              disabled={loading || projects.length === 0}
+              disabled={loading}
               className="bg-aps-teal hover:bg-aps-navy"
             >
               {loading ? "Création..." : formData.isInstant ? "Créer et rejoindre" : "Créer la réunion"}
