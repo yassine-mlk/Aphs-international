@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/use-toast';
+import { notifyWorkflowStatusChange } from '@/lib/notifications';
 import {
   VisaWorkflow,
   VisaWorkflowFull,

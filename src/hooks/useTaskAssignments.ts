@@ -4,6 +4,7 @@
 import { useState, useCallback } from 'react';
 import { useSupabase } from './useSupabase';
 import { useToast } from '@/hooks/use-toast';
+import { notifyTaskAssigned } from '@/lib/notifications';
 import {
   TaskAssignment,
   CreateTaskAssignmentData,
@@ -166,7 +167,25 @@ export const useTaskAssignments = () => {
           title: "Succès",
           description: "Tâche assignée avec succès",
         });
-        
+
+        // Envoyer une notification à tous les intervenants assignés
+        try {
+          if (assignmentData.assigned_to && assignmentData.assigned_to.length > 0) {
+            for (const userId of assignmentData.assigned_to) {
+              await notifyTaskAssigned({
+                userId: userId,
+                taskName: assignmentData.task_name,
+                projectName: 'Projet', // On pourrait récupérer le vrai nom si besoin
+                assignedByName: 'Administrateur',
+                dueDate: assignmentData.deadline,
+              });
+            }
+          }
+        } catch (notifError) {
+          console.error('Error sending task assignment notification:', notifError);
+          // On continue même si la notification échoue
+        }
+
         // Actualiser la liste locale
         await fetchAllTaskAssignments();
         return result;

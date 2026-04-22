@@ -24,6 +24,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/components/ui/use-toast';
+import { notifyMemberAdded } from '@/lib/notifications';
 import { 
   Users, 
   UserPlus,
@@ -247,6 +248,21 @@ const ProjectMembersTab: React.FC<ProjectMembersTabProps> = ({
         title: 'Succès',
         description: `${selectedIntervenants.length} membre${selectedIntervenants.length > 1 ? 's' : ''} ajouté${selectedIntervenants.length > 1 ? 's' : ''} au projet`
       });
+
+      // Envoyer une notification à chaque nouveau membre
+      try {
+        const addedMembers = tenantIntervenants.filter(i => selectedIntervenants.includes(i.user_id));
+        for (const member of addedMembers) {
+          await notifyMemberAdded({
+            userId: member.user_id,
+            projectName: 'Projet',
+            addedByName: 'Administrateur',
+            role: 'Intervenant',
+          });
+        }
+      } catch (notifError) {
+        console.error('Error sending member added notifications:', notifError);
+      }
 
       setIsAddDialogOpen(false);
       setSelectedIntervenants([]);
