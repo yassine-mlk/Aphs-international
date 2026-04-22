@@ -790,7 +790,7 @@ const Index: React.FC = () => {
                   </svg>
                 </div>
                 <h3 className="text-lg font-bold mb-2">Téléphone</h3>
-                <p className="text-gray-600">+33 1 23 45 67 89</p>
+                <p className="text-gray-600">+33640164997</p>
               </div>
 
               <div className="bg-white rounded-2xl p-6 shadow-lg">
@@ -801,7 +801,7 @@ const Index: React.FC = () => {
                   </svg>
                 </div>
                 <h3 className="text-lg font-bold mb-2">Adresse</h3>
-                <p className="text-gray-600">Paris, France</p>
+                <p className="text-gray-600">Bordeaux, France</p>
               </div>
             </div>
           </div>
@@ -870,13 +870,13 @@ const Index: React.FC = () => {
                 </li>
                 <li className="flex items-start gap-2">
                   <Phone className="h-4 w-4 mt-1 flex-shrink-0" />
-                  <span>+33 1 23 45 67 89</span>
+                  <span>+33640164997</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <svg className="h-4 w-4 mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                   </svg>
-                  <span>Paris, France</span>
+                  <span>Bordeaux, France</span>
                 </li>
               </ul>
             </div>
