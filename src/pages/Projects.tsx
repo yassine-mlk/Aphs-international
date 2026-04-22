@@ -796,18 +796,6 @@ const Projects: React.FC = () => {
                   ))}
                 </select>
               </div>
-              <div className="flex items-center space-x-2 py-2">
-                <input
-                  type="checkbox"
-                  id="show_info_sheets"
-                  checked={newProject.show_info_sheets}
-                  onChange={(e) => setNewProject({...newProject, show_info_sheets: e.target.checked})}
-                  className="h-4 w-4 rounded border-gray-300 text-aps-teal focus:ring-aps-teal"
-                />
-                <Label htmlFor="show_info_sheets" className="text-sm font-medium leading-none cursor-pointer">
-                  Afficher les fiches informatives pour ce projet
-                </Label>
-              </div>
               <ImageUpload
                 currentImageUrl={newProject.image_url}
                 onImageUploaded={(imageUrl) => setNewProject({...newProject, image_url: imageUrl})}
@@ -896,18 +884,6 @@ const Projects: React.FC = () => {
                     </option>
                   ))}
                 </select>
-              </div>
-              <div className="flex items-center space-x-2 py-2">
-                <input
-                  type="checkbox"
-                  id="edit-show_info_sheets"
-                  checked={selectedProject?.show_info_sheets ?? true}
-                  onChange={(e) => setSelectedProject(prev => prev ? {...prev, show_info_sheets: e.target.checked} : null)}
-                  className="h-4 w-4 rounded border-gray-300 text-aps-teal focus:ring-aps-teal"
-                />
-                <Label htmlFor="edit-show_info_sheets" className="text-sm font-medium leading-none cursor-pointer">
-                  Afficher les fiches informatives pour ce projet
-                </Label>
               </div>
               <ImageUpload
                 currentImageUrl={selectedProject?.image_url || ''}
