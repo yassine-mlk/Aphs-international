@@ -205,6 +205,14 @@ export const translations = {
           title: "Meeting request",
           message: "{requesterName} requested a meeting: \"{meetingTitle}\" scheduled for {scheduledDate}"
         },
+        document_signed: {
+          title: "Document signed",
+          message: "{signerName} signed the document \"{documentName}\"{projectName, select, undefined {} other { for project {projectName}}}"
+        },
+        document_rejected: {
+          title: "Document refused",
+          message: "{signerName} refused to sign the document \"{documentName}\"{projectName, select, undefined {} other { for project {projectName}}}{reason, select, undefined {} other {. Reason: {reason}}}"
+        },
         task_assigned: {
           title: "New task assigned",
           message: "A new task \"{taskName}\" has been assigned to you{projectName, select, undefined {} other { for project {projectName}}}{assignerName, select, undefined {} other { by {assignerName}}}"
@@ -1803,6 +1811,14 @@ export const translations = {
         meeting_request: {
           title: "Solicitud de reunión",
           message: "{requesterName} solicitó una reunión: \"{meetingTitle}\" programada para {scheduledDate}"
+        },
+        document_signed: {
+          title: "Documento firmado",
+          message: "{signerName} firmó el documento \"{documentName}\"{projectName, select, undefined {} other { para el proyecto {projectName}}}"
+        },
+        document_rejected: {
+          title: "Documento rechazado",
+          message: "{signerName} rechazó firmar el documento \"{documentName}\"{projectName, select, undefined {} other { para el proyecto {projectName}}}{reason, select, undefined {} other {. Motivo: {reason}}}"
         },
         task_assigned: {
           title: "Nueva tarea asignada",

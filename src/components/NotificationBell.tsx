@@ -25,7 +25,9 @@ const IMPORTANT_NOTIFICATION_TYPES: NotificationType[] = [
   'meeting_request',
   'file_validation_request',
   'message_received',
-  'project_added'
+  'project_added',
+  'document_signed',
+  'document_rejected'
 ];
 
 // Limite du nombre de notifications à afficher
@@ -51,6 +53,10 @@ const getNotificationIcon = (type: NotificationType) => {
       return <Video className="h-4 w-4 text-orange-500" />;
     case 'project_added':
       return <UserPlus className="h-4 w-4 text-teal-500" />;
+    case 'document_signed':
+      return <FileText className="h-4 w-4 text-green-500" />;
+    case 'document_rejected':
+      return <FileText className="h-4 w-4 text-red-500" />;
     default:
       return <Clock className="h-4 w-4 text-gray-500" />;
   }

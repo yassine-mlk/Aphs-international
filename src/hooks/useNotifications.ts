@@ -28,6 +28,8 @@ export type NotificationType =
   | 'task_validated'
   | 'new_message'
   | 'meeting_request'
+  | 'document_signed'
+  | 'document_rejected'
   // Pour les intervenants
   | 'task_assigned'
   | 'project_added'

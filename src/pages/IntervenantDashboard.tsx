@@ -19,7 +19,9 @@ import {
   Calendar as CalendarIcon,
   LayoutGrid,
   ChevronRight,
-  Building2
+  Building2,
+  FileCheck,
+  PenTool
 } from 'lucide-react';
 import { useSupabase } from '@/hooks/useSupabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -27,6 +29,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useTenant } from '@/contexts/TenantContext';
 import { translations } from '@/lib/translations';
 import { useRecentActivities, type RecentActivity } from '@/hooks/useRecentActivities';
+import { usePendingDocuments } from '@/hooks/usePendingDocuments';
 import { ActivityIcon } from '@/components/ActivityIcon';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TenantQuotaDisplay } from '@/components/TenantQuotaGuard';
@@ -166,6 +169,9 @@ const IntervenantDashboard: React.FC = () => {
   
   // Utiliser le hook pour les activités récentes
   const { activities: recentActivities, loading: activitiesLoading } = useRecentActivities();
+  
+  // Hook pour les documents en attente
+  const { count: pendingDocsCount, loading: pendingDocsLoading } = usePendingDocuments();
 
   // Déterminer le rôle de l'utilisateur pour l'affichage
   const userRole = user?.user_metadata?.role || JSON.parse(localStorage.getItem('user') || '{}')?.role;
@@ -504,7 +510,7 @@ const IntervenantDashboard: React.FC = () => {
         </motion.div>
 
         {/* Statistiques principales */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
           <motion.div variants={itemVariants}>
             <Card
               className="border shadow-xl bg-card rounded-2xl overflow-hidden hover:shadow-2xl transition-shadow duration-300 cursor-pointer"
@@ -579,6 +585,30 @@ const IntervenantDashboard: React.FC = () => {
                 <div className="text-4xl font-black text-red-500">{stats.overdueTasks}</div>
                 <p className="text-sm text-red-500 mt-2 font-bold">
                   {dashboardTranslations.stats.overdueTasks}
+                </p>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div variants={itemVariants}>
+            <Card 
+              className="border shadow-xl bg-card rounded-2xl overflow-hidden hover:shadow-2xl transition-shadow duration-300 cursor-pointer"
+              onClick={() => navigate('/dashboard/mes-signatures')}
+            >
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Signatures</CardTitle>
+                <div className="p-2 bg-yellow-500/20 rounded-lg">
+                  <PenTool className="h-5 w-5 text-yellow-600" />
+                </div>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <div className="text-4xl font-black text-foreground">
+                  {pendingDocsLoading ? '-' : pendingDocsCount}
+                </div>
+                <p className="text-sm text-muted-foreground mt-2 font-medium">
+                  {pendingDocsCount === 0 ? 'Aucun document en attente' : 
+                   pendingDocsCount === 1 ? '1 document à signer' : 
+                   `${pendingDocsCount} documents à signer`}
                 </p>
               </CardContent>
             </Card>

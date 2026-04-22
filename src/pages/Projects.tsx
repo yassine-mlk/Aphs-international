@@ -15,6 +15,7 @@ import {
 import { useSupabase } from '@/hooks/useSupabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
+import { useProjects } from '@/hooks/useProjects';
 import {
   Dialog,
   DialogContent,
@@ -66,8 +67,9 @@ type ProjectStatItem = {
 const Projects: React.FC = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { fetchData, insertData, updateData, deleteData } = useSupabase();
   const { user } = useAuth();
+  const { deleteData, updateData } = useSupabase();
+  const { createProject } = useProjects();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [tenantId, setTenantId] = useState<string | null>(null);
@@ -169,10 +171,11 @@ const Projects: React.FC = () => {
       const allMembers: any[] = [];
       const allDeletions: CustomStructureItem[] = [];
       const allTasks: any[] = [];
+      const allSnapshotTasks: any[] = [];
 
       // Traiter chaque batch
       for (const batch of batches) {
-        const [membersBatch, deletionsBatch, tasksBatch] = await Promise.all([
+        const [membersBatch, deletionsBatch, tasksBatch, snapshotTasksBatch] = await Promise.all([
           // Membres pour ce batch
           supabase
             .from('membre')
@@ -180,7 +183,7 @@ const Projects: React.FC = () => {
             .in('project_id', batch)
             .then(({ data }) => data || []),
           
-          // Suppressions pour ce batch
+          // Suppressions pour ce batch (ancien système)
           supabase
             .from('custom_project_structures')
             .select('phase_id, section_id, subsection_id, is_deleted, project_id')
@@ -188,10 +191,17 @@ const Projects: React.FC = () => {
             .eq('is_deleted', true)
             .then(({ data }) => data || []),
           
-          // Tâches pour ce batch
+          // Tâches assignées pour ce batch
           supabase
             .from('task_assignments')
             .select('status, project_id')
+            .in('project_id', batch)
+            .then(({ data }) => data || []),
+
+          // Tâches snapshot (structure figée) pour ce batch
+          supabase
+            .from('project_tasks_snapshot')
+            .select('id, project_id')
             .in('project_id', batch)
             .then(({ data }) => data || [])
         ]);
@@ -199,6 +209,7 @@ const Projects: React.FC = () => {
         allMembers.push(...membersBatch);
         allDeletions.push(...deletionsBatch);
         allTasks.push(...tasksBatch);
+        allSnapshotTasks.push(...snapshotTasksBatch);
       }
 
       // Grouper les données par projet_id
@@ -219,10 +230,15 @@ const Projects: React.FC = () => {
         return acc;
       }, {} as Record<string, any[]>);
 
+      // Compter les tâches snapshot par projet (structure figée)
+      const snapshotTasksByProject = allSnapshotTasks.reduce((acc, t) => {
+        acc[t.project_id] = (acc[t.project_id] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
       // Calculer les stats pour chaque projet
       for (const project of projectList) {
         const members = membersByProject[project.id] || 0;
-        const deletions = deletionsByProject[project.id] || [];
         const tasks = tasksByProject[project.id] || [];
 
         const tasksAssigned = tasks.filter((t: any) => t.status === 'assigned').length;
@@ -230,22 +246,12 @@ const Projects: React.FC = () => {
         const tasksValidated = tasks.filter((t: any) => t.status === 'validated').length;
         const tasksRejected = tasks.filter((t: any) => t.status === 'rejected').length;
 
-        // Calcul du total des tâches (structure statique sans requêtes supplémentaires)
-        const isDeletedSection = (phase: 'conception' | 'realisation', sectionId: string) =>
-          deletions.some(d => d.is_deleted && d.phase_id === phase && d.section_id === sectionId && d.subsection_id === null);
-        const isDeletedSubsection = (phase: 'conception' | 'realisation', sectionId: string, subsectionId: string) =>
-          deletions.some(d => d.is_deleted && d.phase_id === phase && d.section_id === sectionId && d.subsection_id === subsectionId);
+        // Nombre total de tâches = tâches dans le snapshot (structure figée)
+        let totalTasks = snapshotTasksByProject[project.id] || 0;
         
-        let totalTasks = 0;
-        for (const phase of ['conception', 'realisation'] as const) {
-          const structure = phase === 'conception' ? projectStructure : realizationStructure;
-          for (const section of structure) {
-            if (isDeletedSection(phase, section.id)) continue;
-            for (const item of section.items) {
-              if (isDeletedSubsection(phase, section.id, item.id)) continue;
-              totalTasks += item.tasks.length;
-            }
-          }
+        // Fallback: si pas de snapshot, utiliser les tâches assignées comme approximation
+        if (totalTasks === 0) {
+          totalTasks = tasks.length;
         }
 
         const taskProgress = totalTasks > 0 ? Math.round((tasksValidated / totalTasks) * 100) : 0;
@@ -356,12 +362,11 @@ const Projects: React.FC = () => {
         ...newProject,
         company_id: newProject.company_id || null,
         end_date: newProject.end_date || null,
-        created_by: user?.id || null,
         tenant_id: tenantId || null,
-        created_at: new Date().toISOString()
       };
       
-      const result = await insertData<Project>('projects', projectData);
+      // Utiliser createProject qui crée aussi le snapshot de structure
+      const result = await createProject(projectData, user?.id || '');
       
       if (result) {
         toast({
@@ -531,7 +536,6 @@ const Projects: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-bold tracking-tight">Projets</h1>
-            <ProjectsLanguageSelector currentLanguage="fr" />
             <p className="text-muted-foreground">
               Gérez et suivez tous vos projets
             </p>

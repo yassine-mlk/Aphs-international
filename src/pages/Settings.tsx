@@ -6,36 +6,17 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User, Lock, Bell, Globe, Smartphone, ClipboardList, Loader2, Upload, Camera, Settings as SettingsIcon } from "lucide-react";
+import { User, Lock, Bell, ClipboardList, Loader2, Camera } from "lucide-react";
 import { useToast } from '@/components/ui/use-toast';
 import { useSupabase, UserSettings as UserSettingsType } from '../hooks/useSupabase';
 import { useTheme } from '../App';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { ProjectStructureTab } from "@/components/settings/ProjectStructureTab";
 
-// Import structures de projet depuis ProjectDetails
-import { projectStructure, realizationStructure } from "@/data/project-structure";
-
-// Interface pour les fiches informatives des tâches
-interface TaskInfoSheet {
-  id?: string;
-  phase_id: 'conception' | 'realisation';
-  section_id: string;
-  subsection_id: string;
-  task_name: string;
-  info_sheet: string;
-  language: string; // 'fr', 'en', 'es', 'ar'
-  created_at?: string;
-  updated_at?: string;
-  created_by?: string;
-}
-
 const Settings: React.FC = () => {
   const { toast } = useToast();
-  const { getUserSettings, updateUserSettings, updateUserPassword, fetchData, insertData, updateData, uploadFile, getFileUrl } = useSupabase();
+  const { getUserSettings, updateUserSettings, updateUserPassword, uploadFile, getFileUrl } = useSupabase();
   const { setTheme } = useTheme();
   const { user: currentUser } = useAuth();
   const [user, setUser] = useState<{ email: string, role: string, id: string } | null>(null);
@@ -47,16 +28,6 @@ const Settings: React.FC = () => {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  
-  // State pour les paramètres des projets
-  const [infoSheetLoading, setInfoSheetLoading] = useState(false);
-  const [taskInfoSheets, setTaskInfoSheets] = useState<TaskInfoSheet[]>([]);
-  const [selectedPhase, setSelectedPhase] = useState<'conception' | 'realisation'>('conception');
-  const [selectedSection, setSelectedSection] = useState<string>('');
-  const [selectedSubsection, setSelectedSubsection] = useState<string>('');
-  const [selectedTask, setSelectedTask] = useState<string>('');
-  const [infoSheetText, setInfoSheetText] = useState('');
-  const [selectedInfoSheetLanguage, setSelectedInfoSheetLanguage] = useState<string>('fr'); // Langue fixée à FR
   
   const [tenantId, setTenantId] = useState<string | null>(null);
 
@@ -337,192 +308,6 @@ const Settings: React.FC = () => {
     }
   };
 
-  // Fonction pour charger les fiches informatives
-  const loadTaskInfoSheets = async () => {
-    if (!isAdmin) {
-      console.log('Non autorisé à charger les fiches informatives (non admin)');
-      return;
-    }
-    
-    console.log('Tentative de chargement des fiches informatives');
-    setInfoSheetLoading(true);
-    try {
-      console.log('Appel API: fetchData sur task_info_sheets');
-      const data = await fetchData<TaskInfoSheet>('task_info_sheets', {
-        columns: '*',
-      });
-      
-      console.log('Résultat de la requête task_info_sheets:', data);
-      
-      if (data) {
-        setTaskInfoSheets(data);
-        console.log(`${data.length} fiches informatives chargées`);
-      } else {
-        console.log('Aucune fiche informative trouvée ou erreur de chargement');
-      }
-    } catch (error) {
-      console.error('Erreur détaillée lors du chargement des fiches informatives:', error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de charger les fiches informatives",
-        variant: "destructive",
-      });
-    } finally {
-      setInfoSheetLoading(false);
-    }
-  };
-  
-  // Charger les fiches informatives au démarrage
-  useEffect(() => {
-    if (isAdmin) {
-      loadTaskInfoSheets();
-    }
-  }, [isAdmin, user]);
-  
-  // Obtenir la fiche informative pour une tâche
-  const getInfoSheet = (phase: string, section: string, subsection: string, task: string, lang: string = 'fr') => {
-    return taskInfoSheets.find(
-      sheet => 
-        sheet.phase_id === phase && 
-        sheet.section_id === section && 
-        sheet.subsection_id === subsection && 
-        sheet.task_name === task &&
-        sheet.language === lang
-    );
-  };
-  
-  // Manipuler les changements de sélection de tâche
-  const handleTaskSelection = (phase: 'conception' | 'realisation', section: string, subsection: string, task: string) => {
-    setSelectedPhase(phase);
-    setSelectedSection(section);
-    setSelectedSubsection(subsection);
-    setSelectedTask(task);
-    
-    // Afficher le contenu de la fiche dans la langue sélectionnée
-    const infoSheet = getInfoSheet(phase, section, subsection, task, selectedInfoSheetLanguage);
-    if (infoSheet) {
-      setInfoSheetText(infoSheet.info_sheet);
-    } else {
-      setInfoSheetText('');
-    }
-  };
-  
-  const handleInfoSheetLanguageChange = (lang: string) => {
-    setSelectedInfoSheetLanguage(lang);
-    
-    // Mettre à jour le contenu avec la fiche dans la langue sélectionnée
-    if (selectedTask) {
-      const infoSheet = getInfoSheet(selectedPhase, selectedSection, selectedSubsection, selectedTask, lang);
-      if (infoSheet) {
-        setInfoSheetText(infoSheet.info_sheet);
-      } else {
-        setInfoSheetText('');
-      }
-    }
-  };
-  
-  // Sauvegarder la fiche informative
-  const handleSaveInfoSheet = async () => {
-    if (!selectedTask || !user || !user.id) {
-      console.error('Impossible de sauvegarder: tâche non sélectionnée ou utilisateur non défini');
-      return;
-    }
-    
-    setInfoSheetLoading(true);
-    
-    try {
-      console.log('Tentative de sauvegarde pour:', {
-        phase: selectedPhase,
-        section: selectedSection,
-        subsection: selectedSubsection,
-        task: selectedTask,
-        language: selectedInfoSheetLanguage,
-        userId: user.id
-      });
-      
-      const existingInfoSheet = getInfoSheet(selectedPhase, selectedSection, selectedSubsection, selectedTask, selectedInfoSheetLanguage);
-      
-      if (existingInfoSheet) {
-        console.log('Mise à jour de la fiche existante:', existingInfoSheet.id);
-        // Mettre à jour la fiche existante
-        const result = await updateData('task_info_sheets', {
-          id: existingInfoSheet.id,
-          info_sheet: infoSheetText
-        });
-        
-        console.log('Résultat de la mise à jour:', result);
-        
-        if (result) {
-          // Mettre à jour la liste locale
-          setTaskInfoSheets(prev => 
-            prev.map(sheet => 
-              sheet.id === existingInfoSheet.id 
-                ? { ...sheet, info_sheet: infoSheetText, updated_at: new Date().toISOString() }
-                : sheet
-            )
-          );
-          
-          toast({
-            title: "Succès",
-            description: "Fiche informative mise à jour avec succès"
-          });
-        } else {
-          console.error('Erreur lors de la mise à jour:', result);
-          toast({
-            title: "Erreur",
-            description: "Impossible de mettre à jour la fiche informative",
-            variant: "destructive",
-          });
-        }
-      } else {
-        console.log('Création d\'une nouvelle fiche informative');
-        // Créer une nouvelle fiche
-        const newInfoSheet: TaskInfoSheet = {
-          phase_id: selectedPhase,
-          section_id: selectedSection,
-          subsection_id: selectedSubsection,
-          task_name: selectedTask,
-          info_sheet: infoSheetText,
-          language: selectedInfoSheetLanguage,
-          created_by: user.id
-        };
-        
-        const result = await insertData('task_info_sheets', newInfoSheet);
-        console.log('Résultat de l\'insertion:', result);
-        
-        if (result && result.id) {
-          // Ajouter la nouvelle fiche à la liste locale
-          setTaskInfoSheets(prev => [...prev, { 
-            ...newInfoSheet, 
-            id: result.id, 
-            created_at: result.created_at || new Date().toISOString(), 
-            updated_at: result.updated_at || new Date().toISOString() 
-          }]);
-          
-          toast({
-            title: "Succès",
-            description: "Fiche informative créée avec succès"
-          });
-        } else {
-          console.error('Erreur: Résultat d\'insertion invalide ou ID manquant:', result);
-          toast({
-            title: "Erreur",
-            description: "La fiche a été créée mais il y a eu un problème avec l'ID retourné",
-            variant: "destructive",
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Erreur lors de la sauvegarde de la fiche informative:', error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de sauvegarder la fiche informative",
-        variant: "destructive",
-      });
-    } finally {
-      setInfoSheetLoading(false);
-    }
-  };
 
   if (loading) {
     return (
@@ -558,15 +343,9 @@ const Settings: React.FC = () => {
             Notifications
           </TabsTrigger>
           {isAdmin && (
-            <TabsTrigger value="project-settings" className="data-[state=active]:bg-white">
+            <TabsTrigger value="project-management" className="data-[state=active]:bg-white">
               <ClipboardList className="h-4 w-4 mr-2" />
-              Paramètres des projets
-            </TabsTrigger>
-          )}
-          {isAdmin && tenantId && (
-            <TabsTrigger value="project-structure" className="data-[state=active]:bg-white">
-              <SettingsIcon className="h-4 w-4 mr-2" />
-              Structure des projets
+              Gestion structure des projets
             </TabsTrigger>
           )}
         </TabsList>
@@ -800,207 +579,29 @@ const Settings: React.FC = () => {
           </Card>
         </TabsContent>
 
-        {/* Onglet Paramètres des projets (admin seulement) */}
+        {/* Onglet Gestion structure des projets (admin seulement) */}
         {isAdmin && (
-          <TabsContent value="project-settings">
+          <TabsContent value="project-management">
             <Card className="border-0 shadow-md">
               <CardHeader>
-                <CardTitle>Fiches informatives des tâches</CardTitle>
+                <CardTitle>Gestion structure des projets</CardTitle>
                 <CardDescription>
-                  Définissez les instructions détaillées pour chaque tâche de la structure des projets.
-                  Ces fiches seront visibles par les intervenants lors de l'exécution des tâches.
+                  Personnalisez la structure par défaut des projets et définissez les fiches informatives pour chaque tâche.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex justify-between items-center mb-4">
-                  <div>
-                    <h3 className="text-lg font-semibold">Structure des projets</h3>
-                    <p className="text-sm text-gray-500">
-                      Sélectionnez une tâche pour définir sa fiche informative
+                {tenantId && (
+                  <div className="mb-8">
+                    <h3 className="text-lg font-semibold mb-1">Structure par défaut des projets</h3>
+                    <p className="text-sm text-gray-500 mb-4">
+                      Modifiez ici la structure appliquée à tous les nouveaux projets de votre espace.
                     </p>
+                    <ProjectStructureTab tenantId={tenantId} />
                   </div>
-                  
-                  <div className="flex gap-2">
-                    <Button 
-                      variant={selectedPhase === 'conception' ? 'default' : 'outline'} 
-                      onClick={() => setSelectedPhase('conception')}
-                      size="sm"
-                    >
-                      Phase Conception
-                    </Button>
-                    <Button 
-                      variant={selectedPhase === 'realisation' ? 'default' : 'outline'} 
-                      onClick={() => setSelectedPhase('realisation')}
-                      size="sm"
-                    >
-                      Phase Réalisation
-                    </Button>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="border rounded-md overflow-hidden">
-                    <div className="bg-gray-50 p-3 border-b font-medium">
-                      Structure des tâches
-                    </div>
-                    <div className="max-h-[500px] overflow-y-auto p-2">
-                      <Accordion type="multiple" className="w-full">
-                        {(selectedPhase === 'conception' ? projectStructure : realizationStructure).map((section) => (
-                          <AccordionItem key={section.id} value={section.id} className="border rounded-md mb-4">
-                            <AccordionTrigger className="px-3 py-2 hover:bg-gray-50">
-                              <div className="flex items-center">
-                                <span className="font-bold text-gray-700 mr-2">{section.id} -</span>
-                                <span className="font-medium">{section.title}</span>
-                              </div>
-                            </AccordionTrigger>
-                            <AccordionContent className="p-0">
-                              <div className="space-y-1 p-2">
-                                {section.items.map((item) => (
-                                  <Accordion type="multiple" key={item.id}>
-                                    <AccordionItem value={item.id} className="border rounded-md mb-2">
-                                      <AccordionTrigger className="px-3 py-2 hover:bg-gray-50">
-                                        <div className="flex items-center text-sm">
-                                          <span className="font-semibold text-gray-700 mr-2">{item.id}</span>
-                                          <span>{item.title}</span>
-                                        </div>
-                                      </AccordionTrigger>
-                                      <AccordionContent className="p-0">
-                                        <ul className="p-3 bg-gray-50">
-                                          {item.tasks.map((task, index) => {
-                                            const infoSheet = getInfoSheet(selectedPhase, section.id, item.id, task, selectedInfoSheetLanguage);
-                                            return (
-                                              <li key={index} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-                                                <div className="flex items-center">
-                                                  <span className="text-sm">{task}</span>
-                                                </div>
-                                                <div>
-                                                  <Button 
-                                                    variant={
-                                                      (selectedTask === task && 
-                                                       selectedSection === section.id && 
-                                                       selectedSubsection === item.id && 
-                                                       selectedPhase === selectedPhase) 
-                                                        ? 'default' 
-                                                        : 'outline'
-                                                    } 
-                                                    size="sm"
-                                                    onClick={() => handleTaskSelection(selectedPhase, section.id, item.id, task)}
-                                                    className="h-7 text-xs"
-                                                  >
-                                                    {infoSheet ? 'Modifier' : 'Définir'} la fiche
-                                                  </Button>
-                                                </div>
-                                              </li>
-                                            );
-                                          })}
-                                        </ul>
-                                      </AccordionContent>
-                                    </AccordionItem>
-                                  </Accordion>
-                                ))}
-                              </div>
-                            </AccordionContent>
-                          </AccordionItem>
-                        ))}
-                      </Accordion>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <div className="bg-gray-50 p-3 border rounded-md font-medium">
-                      Contenu de la fiche informative
-                    </div>
-                    {selectedTask ? (
-                      <div className="space-y-3">
-                        <div className="bg-white border rounded-md p-3">
-                          <p className="text-gray-800 mb-2 font-medium">
-                            {selectedPhase === 'conception' ? 'Phase Conception' : 'Phase Réalisation'} &gt; {selectedSection} &gt; {selectedSubsection} &gt; {selectedTask}
-                          </p>
-                          <div className="border-t pt-2">
-                            <p className="text-sm text-gray-500 mb-1">
-                              Cette fiche informative s'affichera à tous les intervenants assignés à cette tâche.
-                            </p>
-                          </div>
-                        </div>
-                        
-                        {/* Sélection de la langue pour la fiche */}
-                        <div className="bg-white border rounded-md p-3">
-                          <div className="flex justify-between items-center">
-                            <Label className="text-sm font-medium">Langue de la fiche informative</Label>
-                            <div className="flex gap-2">
-                              <Button 
-                                variant={selectedInfoSheetLanguage === 'fr' ? 'default' : 'outline'} 
-                                size="sm" 
-                                onClick={() => handleInfoSheetLanguageChange('fr')}
-                                className="flex items-center gap-1"
-                              >
-                                🇫🇷 Français
-                              </Button>
-                              <Button 
-                                variant={selectedInfoSheetLanguage === 'en' ? 'default' : 'outline'} 
-                                size="sm" 
-                                onClick={() => handleInfoSheetLanguageChange('en')}
-                                className="flex items-center gap-1"
-                              >
-                                🇬🇧 English
-                              </Button>
-                              <Button 
-                                variant={selectedInfoSheetLanguage === 'es' ? 'default' : 'outline'} 
-                                size="sm" 
-                                onClick={() => handleInfoSheetLanguageChange('es')}
-                                className="flex items-center gap-1"
-                              >
-                                🇪🇸 Español
-                              </Button>
-                              <Button 
-                                variant={selectedInfoSheetLanguage === 'ar' ? 'default' : 'outline'} 
-                                size="sm" 
-                                onClick={() => handleInfoSheetLanguageChange('ar')}
-                                className="flex items-center gap-1"
-                              >
-                                🇸🇦 العربية
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <Textarea
-                          placeholder="Décrivez en détail ce qui est attendu pour cette tâche (objectifs, méthodologie, livrables précis...)"
-                          value={infoSheetText}
-                          onChange={(e) => setInfoSheetText(e.target.value)}
-                          rows={10}
-                          className="font-mono text-sm"
-                        />
-                        
-                        <div className="flex justify-end">
-                          <Button 
-                            onClick={handleSaveInfoSheet}
-                            disabled={infoSheetLoading || !infoSheetText}
-                            className="flex items-center gap-2"
-                          >
-                            {infoSheetLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-                            Enregistrer la fiche en {selectedInfoSheetLanguage === 'fr' ? 'français' : 
-                                                   selectedInfoSheetLanguage === 'en' ? 'anglais' : 
-                                                   selectedInfoSheetLanguage === 'es' ? 'espagnol' : 'arabe'}
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="bg-gray-50 p-6 rounded-md text-center text-gray-500">
-                        Sélectionnez une tâche dans l'arborescence pour définir sa fiche informative
-                      </div>
-                    )}
-                  </div>
-                </div>
+                )}
+
               </CardContent>
             </Card>
-          </TabsContent>
-        )}
-
-        {/* Onglet Structure des projets */}
-        {isAdmin && tenantId && (
-          <TabsContent value="project-structure">
-            <ProjectStructureTab tenantId={tenantId} />
           </TabsContent>
         )}
       </Tabs>

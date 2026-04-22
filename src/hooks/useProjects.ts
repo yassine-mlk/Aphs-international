@@ -77,6 +77,97 @@ export function useProjects() {
     }
   }, [fetchData, toast]);
 
+  // Snapshot la structure tenant + fiches dans les tables projet (version optimisée parallèle)
+  const snapshotTenantStructure = async (projectId: string, tenantId: string) => {
+    try {
+      // 1. Charger toute la structure tenant en parallèle
+      const [{ data: sections }, { data: allItems }, { data: allTasks }] = await Promise.all([
+        supabase.from('tenant_project_sections').select('*').eq('tenant_id', tenantId).order('order_index'),
+        supabase.from('tenant_project_items').select('*').order('order_index'),
+        supabase.from('tenant_project_tasks').select('*').order('order_index')
+      ]);
+
+      if (!sections || sections.length === 0) return;
+
+      // Filtrer les items et tâches pour ce tenant
+      const sectionIds = sections.map((s: any) => s.id);
+      const items = (allItems || []).filter((i: any) => sectionIds.includes(i.section_id));
+      const itemIds = items.map((i: any) => i.id);
+      const tasks = (allTasks || []).filter((t: any) => itemIds.includes(t.item_id));
+
+      // 2. Charger les fiches informatives
+      const taskIds = tasks.map((t: any) => t.id);
+      let infoSheets: any[] = [];
+      if (taskIds.length > 0) {
+        const { data: s } = await supabase
+          .from('tenant_task_info_sheets').select('*').in('tenant_task_id', taskIds);
+        infoSheets = s || [];
+      }
+      const infoSheetMap: Record<string, string> = {};
+      infoSheets.forEach((s: any) => { infoSheetMap[s.tenant_task_id] = s.info_sheet; });
+
+      // 3. Insérer toutes les sections en UNE SEULE REQUÊTE
+      const { data: newSections } = await supabase
+        .from('project_sections_snapshot')
+        .insert(sections.map((sec: any) => ({
+          project_id: projectId,
+          title: sec.title,
+          phase: sec.phase,
+          order_index: sec.order_index,
+          tenant_section_id: sec.id
+        })))
+        .select();
+
+      if (!newSections || newSections.length === 0) return;
+
+      // Map: old_section_id -> new_section_id
+      const sectionIdMap = new Map(newSections.map((s: any) => [s.tenant_section_id, s.id]));
+
+      // 4. Préparer et insérer tous les items en UNE SEULE REQUÊTE
+      const itemsToInsert = items
+        .filter((item: any) => sectionIdMap.has(item.section_id))
+        .map((item: any) => ({
+          project_id: projectId,
+          section_id: sectionIdMap.get(item.section_id),
+          title: item.title,
+          order_index: item.order_index,
+          tenant_item_id: item.id
+        }));
+
+      if (itemsToInsert.length === 0) return;
+
+      const { data: newItems } = await supabase
+        .from('project_items_snapshot')
+        .insert(itemsToInsert)
+        .select();
+
+      if (!newItems || newItems.length === 0) return;
+
+      // Map: old_item_id -> new_item_id
+      const itemIdMap = new Map(newItems.map((i: any) => [i.tenant_item_id, i.id]));
+
+      // 5. Préparer et insérer toutes les tâches en UNE SEULE REQUÊTE
+      const tasksToInsert = tasks
+        .filter((task: any) => itemIdMap.has(task.item_id))
+        .map((task: any) => ({
+          project_id: projectId,
+          item_id: itemIdMap.get(task.item_id),
+          title: task.title,
+          order_index: task.order_index,
+          tenant_task_id: task.id,
+          info_sheet: infoSheetMap[task.id] || ''
+        }));
+
+      if (tasksToInsert.length > 0) {
+        await supabase.from('project_tasks_snapshot').insert(tasksToInsert);
+      }
+
+      console.log(`[snapshotTenantStructure] Snapshot créé: ${newSections.length} sections, ${newItems.length} items, ${tasksToInsert.length} tâches`);
+    } catch (e) {
+      console.error('Erreur snapshot structure projet:', e);
+    }
+  };
+
   // Créer un nouveau projet
   const createProject = useCallback(async (
     projectData: ProjectFormData,
@@ -119,6 +210,11 @@ export function useProjects() {
       });
 
       if (newProject) {
+        // Snapshot de la structure et fiches tenant vers le projet
+        const tenantId = (projectData as any).tenant_id;
+        if (tenantId && newProject.id) {
+          await snapshotTenantStructure(newProject.id, tenantId);
+        }
         toast({
           title: "Succès",
           description: "Projet créé avec succès",

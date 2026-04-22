@@ -1,0 +1,146 @@
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/components/ui/use-toast';
+
+export interface AdminPendingDocument {
+  id: string;
+  document_id: string;
+  document_name: string;
+  document_description?: string;
+  file_url: string;
+  file_name: string;
+  project_id: string;
+  project_name: string;
+  recipient_id: string;
+  recipient_name: string;
+  recipient_email: string;
+  uploaded_by_name: string;
+  uploaded_at: string;
+  status: 'pending' | 'signed' | 'rejected';
+  signed_at?: string;
+}
+
+export function useAdminDocuments() {
+  const [pendingDocs, setPendingDocs] = useState<AdminPendingDocument[]>([]);
+  const [signedDocs, setSignedDocs] = useState<AdminPendingDocument[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  const fetchDocuments = useCallback(async () => {
+    if (!user?.id) return;
+
+    try {
+      setLoading(true);
+      
+      // Récupérer tous les documents avec leurs destinataires
+      const { data: recipients, error: recipientsError } = await supabase
+        .from('document_recipients')
+        .select(`
+          id,
+          document_id,
+          user_id,
+          user_name,
+          user_email,
+          status,
+          signed_at,
+          project_documents!inner(
+            id,
+            name,
+            description,
+            file_url,
+            file_name,
+            project_id,
+            uploaded_by_name,
+            created_at
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (recipientsError) throw recipientsError;
+
+      if (!recipients || recipients.length === 0) {
+        setPendingDocs([]);
+        setSignedDocs([]);
+        return;
+      }
+
+      // Récupérer les noms des projets
+      const projectIds = [...new Set(recipients.map(r => r.project_documents.project_id))];
+      const { data: projects, error: projectsError } = await supabase
+        .from('projects')
+        .select('id, name')
+        .in('id', projectIds);
+
+      if (projectsError) throw projectsError;
+
+      const projectMap = new Map(projects?.map(p => [p.id, p.name]) || []);
+
+      // Formatter les données
+      const formattedDocs: AdminPendingDocument[] = recipients.map(r => ({
+        id: r.id,
+        document_id: r.document_id,
+        document_name: r.project_documents.name,
+        document_description: r.project_documents.description,
+        file_url: r.project_documents.file_url,
+        file_name: r.project_documents.file_name,
+        project_id: r.project_documents.project_id,
+        project_name: projectMap.get(r.project_documents.project_id) || 'Projet inconnu',
+        recipient_id: r.user_id,
+        recipient_name: r.user_name,
+        recipient_email: r.user_email,
+        uploaded_by_name: r.project_documents.uploaded_by_name,
+        uploaded_at: r.project_documents.created_at,
+        status: r.status,
+        signed_at: r.signed_at
+      }));
+
+      setPendingDocs(formattedDocs.filter(d => d.status === 'pending'));
+      setSignedDocs(formattedDocs.filter(d => d.status !== 'pending'));
+    } catch (error) {
+      console.error('Error fetching admin documents:', error);
+      toast({
+        title: 'Erreur',
+        description: 'Impossible de charger les documents',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id, toast]);
+
+  // Souscription temps réel
+  useEffect(() => {
+    if (!user?.id) return;
+
+    fetchDocuments();
+
+    const channel = supabase
+      .channel('admin-documents')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'document_recipients'
+        },
+        () => {
+          fetchDocuments();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, fetchDocuments]);
+
+  return {
+    pendingDocs,
+    signedDocs,
+    loading,
+    pendingCount: pendingDocs.length,
+    fetchDocuments
+  };
+}
