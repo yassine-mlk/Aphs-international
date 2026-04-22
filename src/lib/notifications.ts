@@ -125,31 +125,26 @@ export async function notifyWorkflowStatusChange({
   projectName,
   status,
   actorName,
-  deadlineDays,
 }: {
   userId: string;
   taskName: string;
   projectName: string;
   status: 'validated' | 'rejected' | 'pending';
   actorName: string;
-  deadlineDays?: number;
 }) {
   const statusText = status === 'validated' ? 'validée' : status === 'rejected' ? 'refusée' : 'en attente';
   const type: NotificationType = status === 'validated' ? 'task_validated' : 'task_validation_request';
-  
-  const deadlineText = status === 'pending' && deadlineDays ? 
-    ` (Délai: ${deadlineDays} jour${deadlineDays > 1 ? 's' : ''})` : '';
 
   return sendNotification({
     userId,
     type,
     title: `Tâche ${statusText}`,
-    message: `La tâche "${taskName}" du projet "${projectName}" a été ${statusText} par ${actorName}${deadlineText}`,
-    data: { taskName, projectName, status, actorName, deadlineDays },
+    message: `La tâche "${taskName}" du projet "${projectName}" a été ${statusText} par ${actorName}`,
+    data: { taskName, projectName, status, actorName },
     sendEmail: true,
     emailData: {
       to: '', // Sera récupéré automatiquement
-      subject: `Tâche ${statusText} - ${taskName}${deadlineText}`,
+      subject: `Tâche ${statusText} - ${taskName}`,
       template: 'workflow_status_changed',
       variables: {
         taskName,
