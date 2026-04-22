@@ -22,13 +22,11 @@ import {
   LogOut,
   Settings,
   User,
-  Globe,
   CheckSquare,
   BarChart3,
   FileText,
   FileCheck
 } from 'lucide-react';
-import { Language } from '@/components/LanguageSelector';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -138,7 +136,6 @@ const DashboardLayout: React.FC = () => {
   const location = useLocation();
   const { toast } = useToast();
   const [user, setUser] = useState<DashboardUser | null>(null);
-  const { language, setLanguage } = useLanguage();
   const { user: authUser, signOut } = useAuth();
   const [loading, setLoading] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -214,14 +211,8 @@ const DashboardLayout: React.FC = () => {
       
       // Notifier l'utilisateur
       toast({
-        title: language === 'fr' ? "Déconnexion réussie" : 
-               language === 'en' ? "Successfully logged out" :
-               language === 'es' ? "Desconexión exitosa" : 
-               "تم تسجيل الخروج بنجاح",
-        description: language === 'fr' ? "À bientôt !" : 
-                     language === 'en' ? "See you soon!" :
-                     language === 'es' ? "¡Hasta pronto!" : 
-                     "نراك قريبا!",
+        title: "Déconnexion réussie",
+        description: "À bientôt !",
         duration: 3000,
       });
       
@@ -241,9 +232,6 @@ const DashboardLayout: React.FC = () => {
     }
   };
 
-  const handleLanguageChange = (lang: Language) => {
-    setLanguage(lang);
-  };
 
   // Si l'utilisateur n'est pas défini ou si on est en cours de chargement, on affiche un loader
   if (loading) {
@@ -259,26 +247,19 @@ const DashboardLayout: React.FC = () => {
   const isAdmin = user?.role === 'admin' || user?.email === 'admin@aps.com';
   const isMaitreOuvrage = user?.role === 'maitre_ouvrage';
   
-  const t = dashboardTranslations[language];
-
-  const languages = {
-    en: { name: 'English', flag: '🇬🇧' },
-    fr: { name: 'Français', flag: '🇫🇷' },
-    es: { name: 'Español', flag: '🇪🇸' },
-    ar: { name: 'العربية', flag: '🇸🇦' },
-  };
+  const t = dashboardTranslations.fr;
 
   // Fonction pour vérifier si un lien est actif
   const isLinkActive = (path: string) => {
     return location.pathname === path;
   };
 
-  const textDirection = language === 'ar' ? 'rtl' : 'ltr';
+  const textDirection = 'ltr';
 
   return (
     <SidebarProvider>
       <div className="flex w-full min-h-screen bg-gray-50" dir={textDirection}>
-        <Sidebar side={language === 'ar' ? 'right' : 'left'}>
+        <Sidebar side="left">
           <SidebarHeader className="flex items-center justify-center py-5 border-b">
             <img src="/aps-logo.svg" alt="APS" className="h-12" />
           </SidebarHeader>
@@ -492,30 +473,6 @@ const DashboardLayout: React.FC = () => {
               </h2>
             </div>
             <div className="flex items-center gap-4">
-              {/* Sélecteur de langue */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="flex items-center gap-2">
-                    <Globe className="h-4 w-4" />
-                    <span>{languages[language].flag}</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-white">
-                  {Object.entries(languages).map(([code, { name, flag }]) => (
-                    <DropdownMenuItem 
-                      key={code}
-                      onClick={() => handleLanguageChange(code as Language)}
-                      className={`flex items-center gap-2 ${language === code ? 'font-bold bg-gray-100' : ''}`}
-                    >
-                      <span>{flag}</span>
-                      <span>{name}</span>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-              
-
-              
               {/* Notifications */}
               <NotificationBell />
               
