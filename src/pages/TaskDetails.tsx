@@ -166,7 +166,7 @@ const TaskDetails: React.FC = () => {
   const [task, setTask] = useState<TaskAssignment | null>(null);
   const [project, setProject] = useState<Project | null>(null);
 
-  const { customProjectStructure, customRealizationStructure } = useProjectStructure(task?.project_id || '');
+  const { customProjectStructure, customRealizationStructure } = useProjectStructure(project?.id || '');
 
   const resolveSectionLabel = (phase: string, sectionId: string): string => {
     const struct = phase === 'conception' ? customProjectStructure : customRealizationStructure;

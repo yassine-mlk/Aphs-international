@@ -282,6 +282,34 @@ export const useVisaWorkflow = () => {
         comment: `${VISA_OPINION_LABELS[data.opinion].label}: ${data.comment}`
       });
 
+      // 7. Envoyer notification au créateur du workflow
+      try {
+        const status: 'validated' | 'rejected' | 'pending' = 
+          data.opinion === 'F' ? 'validated' : 
+          data.opinion === 'D' ? 'rejected' : 'pending';
+        
+        // Récupérer le nom du validateur
+        const { data: validatorProfile } = await supabase
+          .from('profiles')
+          .select('first_name, last_name')
+          .eq('id', validatorId)
+          .single();
+        
+        const actorName = validatorProfile 
+          ? `${validatorProfile.first_name} ${validatorProfile.last_name}`
+          : 'Validateur';
+        
+        await notifyWorkflowStatusChange({
+          userId: workflow.submitter_id,
+          taskName: workflow.task?.title || 'Tâche workflow',
+          projectName: workflow.task?.projects?.name || 'Projet',
+          status,
+          actorName
+        });
+      } catch (notifError) {
+        console.error('Error sending workflow notification:', notifError);
+      }
+
       toast({
         title: 'Avis enregistré',
         description: message
