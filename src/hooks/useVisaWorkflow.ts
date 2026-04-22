@@ -117,14 +117,28 @@ export const useVisaWorkflow = () => {
     executorId: string
   ): Promise<boolean> => {
     try {
-      // 1. Récupérer le workflow pour connaître la version
+      // 1. Récupérer le workflow avec les validateurs
       const { data: workflow } = await supabase
         .from('task_visa_workflows')
-        .select('current_version, status')
+        .select(`
+          current_version, 
+          status, 
+          validator_order, 
+          task_id,
+          circuit:circuit_id(id, name, steps),
+          project:project_assignments!inner(project_id, project:projects!inner(name))
+        `)
         .eq('id', workflowId)
         .single();
 
       if (!workflow) return false;
+
+      // Récupérer le nom de la tâche
+      const { data: task } = await supabase
+        .from('project_tasks')
+        .select('name')
+        .eq('id', workflow.task_id)
+        .single();
 
       const newVersion = workflow.current_version + 1;
 
@@ -173,6 +187,40 @@ export const useVisaWorkflow = () => {
           'Document resoumis pour validation' : 
           'Document soumis pour validation'
       });
+
+      // 5. Notifier le premier validateur avec le délai
+      try {
+        const firstValidatorId = workflow.validator_order?.[0];
+        if (firstValidatorId) {
+          // Récupérer le nom de l'exécutant pour la notification
+          const { data: executor } = await supabase
+            .from('profiles')
+            .select('first_name, last_name')
+            .eq('id', executorId)
+            .single();
+          
+          const executorName = executor ? 
+            `${executor.first_name || ''} ${executor.last_name || ''}`.trim() : 
+            'Un intervenant';
+
+          // Calculer le délai en jours (depuis le premier step du circuit)
+          const projectName = workflow.project?.project?.name || 'Projet';
+          const steps = workflow.circuit?.steps || [];
+          const firstStep = steps.find((s: any) => s.order_index === 0);
+          const deadlineDays = firstStep?.deadline_days || 3; // Défaut: 3 jours
+          
+          await notifyWorkflowStatusChange({
+            userId: firstValidatorId,
+            taskName: task?.name || 'Document à valider',
+            projectName: projectName,
+            status: 'pending',
+            actorName: executorName,
+            deadlineDays,
+          });
+        }
+      } catch (notifError) {
+        console.error('Error sending workflow notification:', notifError);
+      }
 
       return true;
     } catch (error) {
@@ -275,24 +323,14 @@ export const useVisaWorkflow = () => {
 
       await supabase.from('task_visa_history').insert({
         workflow_id: workflowId,
-        version: workflow.current_version,
-        action,
-        actor_id: validatorId,
-        actor_role: 'validator',
-        comment: `${VISA_OPINION_LABELS[data.opinion].label}: ${data.comment}`
+        variant: 'destructive'
       });
-
-      toast({
-        title: 'Avis enregistré',
-        description: message
-      });
-
-      return { success: true, nextStatus, nextValidatorIdx, allValidated, message };
+      return { success: false, nextStatus: 'pending_validation', nextValidatorIdx: 0, allValidated: false, message: 'Erreur technique' };
     } catch (error) {
-      console.error('Erreur submitValidation:', error);
+      console.error('Error in submitValidation:', error);
       toast({
         title: 'Erreur',
-        description: 'Impossible d\'enregistrer l\'avis',
+        description: 'Une erreur est survenue lors de la validation',
         variant: 'destructive'
       });
       return { success: false, nextStatus: 'pending_validation', nextValidatorIdx: 0, allValidated: false, message: 'Erreur technique' };
