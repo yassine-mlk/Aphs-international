@@ -868,7 +868,7 @@ const Tasks: React.FC = () => {
                             <div className="flex flex-col">
                               <span>{task.task_name}</span>
                               <span className="text-xs text-gray-500">
-                                {task.phase_id} &gt; {task.section_id} &gt; {task.subsection_id}
+                                {task.phase_id === 'conception' ? 'Conception' : 'Réalisation'} &gt; {(task.section_id || '').slice(0,8)}... &gt; {(task.subsection_id || '').slice(0,8)}...
                               </span>
                             </div>
                           </TableCell>
@@ -961,7 +961,7 @@ const Tasks: React.FC = () => {
                   <div className="flex flex-col">
                     <span>{task.task_name}</span>
                     <span className="text-xs text-gray-500">
-                      {task.phase_id === 'conception' ? t.filters.conception : t.filters.realization} &gt; {task.section_id} &gt; {task.subsection_id}
+                      {task.phase_id === 'conception' ? 'Conception' : 'Réalisation'} &gt; {(task.section_id || '').slice(0,8)}... &gt; {(task.subsection_id || '').slice(0,8)}...
                     </span>
                   </div>
                 </TableCell>
