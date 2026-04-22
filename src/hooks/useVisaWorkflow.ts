@@ -219,39 +219,6 @@ export const useVisaWorkflow = () => {
           version: workflow.current_version,
           opinion: data.opinion,
           comment: data.comment
-        });
-
-      if (validationError) throw validationError;
-
-      // 4. Déterminer le prochain statut
-      let nextStatus: VisaWorkflowStatus = workflow.status;
-      let nextValidatorIdx = workflow.current_validator_idx;
-      let allValidated = false;
-      let message = '';
-
-      // Si Favorable : passer au validateur suivant ou valider complètement
-      if (data.opinion === 'F') {
-        if (workflow.current_validator_idx < workflow.validator_order.length - 1) {
-          // Passer au validateur suivant
-          nextValidatorIdx = workflow.current_validator_idx + 1;
-          nextStatus = 'pending_validation';
-          message = 'Avis favorable enregistré. Passage au validateur suivant.';
-        } else {
-          // Tous les validateurs ont approuvé
-          nextStatus = 'validated';
-          allValidated = true;
-          message = 'Document validé par tous les validateurs !';
-        }
-      } else if (data.opinion === 'D') {
-        // Défavorable : retour à l'exécutant
-        nextStatus = 'revision_required';
-        message = 'Avis défavorable : l\'exécutant doit corriger et resoumettre.';
-      } else if (data.opinion === 'S') {
-        // Suspendu
-        nextStatus = 'suspended';
-        message = 'Document suspendu en attendant des éléments complémentaires.';
-      } else if (data.opinion === 'HM') {
-        // Hors mission
         nextStatus = 'out_of_scope';
         message = 'Document hors mission.';
       }
