@@ -234,6 +234,17 @@ const IntervenantDashboard: React.FC = () => {
       
       if (tasksError) throw tasksError;
 
+      // 2b. Récupérer aussi les tâches workflow (visa)
+      const { data: workflowTasks, error: workflowError } = await supabase
+        .from('task_visa_workflows')
+        .select('*, task:task_assignment_id(id, task_name, project_id, status, deadline, validation_deadline)')
+        .eq('submitter_id', user.id)
+        .in('status', ['pending_validation', 'revision_required']);
+
+      if (workflowError) {
+        console.error('Error loading workflow tasks:', workflowError);
+      }
+
       const typedRawTasks = (rawTasks || []) as TaskWithMeta[];
 
       // Filtrer les tâches assignées à l'utilisateur et dont le projet existe
@@ -246,26 +257,45 @@ const IntervenantDashboard: React.FC = () => {
         Array.isArray(t.validators) && t.validators.includes(user.id) && !!t.project_id && projectIdsSet.has(t.project_id)
       );
 
+      // Ajouter les tâches workflow aux tâches d'exécution
+      const workflowExecutionTasks = (workflowTasks || [])
+        .filter((wt: any) => wt.task && projectIdsSet.has(wt.task.project_id))
+        .map((wt: any) => ({
+          id: wt.task_assignment_id,
+          task_name: wt.task?.task_name || `Workflow VISA #${wt.id.slice(0, 8)}`,
+          status: wt.task?.status || 'in_progress',
+          deadline: wt.task?.deadline,
+          validation_deadline: wt.task?.validation_deadline,
+          project_id: wt.task?.project_id,
+          workflow_status: wt.status,
+          current_version: wt.current_version,
+          isWorkflow: true
+        })) as TaskWithMeta[];
+
       const projectMap = new Map(projects.map((p: any) => [p.id, p.name]));
 
+      // Fusionner les tâches standards et workflow
+      const allExecutionTasks = [...executionTasks, ...workflowExecutionTasks];
+
       console.log('Tâches exécution (filtrées):', executionTasks);
+      console.log('Tâches workflow (filtrées):', workflowExecutionTasks);
       console.log('Tâches validation (filtrées):', validatorTasks);
 
       // 3. Calculer les statistiques
       const now = new Date();
       const newStats: IntervenantStats = {
-        totalTasks: executionTasks.length,
-        assignedTasks: executionTasks.filter((t: any) => t.status === 'assigned').length,
-        inProgressTasks: executionTasks.filter((t: any) => t.status === 'in_progress').length,
-        completedTasks: executionTasks.filter((t: any) => t.status === 'submitted').length,
-        validatedTasks: executionTasks.filter((t: any) => t.status === 'validated').length,
-        overdueTasks: executionTasks.filter((t: any) =>
+        totalTasks: allExecutionTasks.length,
+        assignedTasks: allExecutionTasks.filter((t: any) => t.status === 'assigned').length,
+        inProgressTasks: allExecutionTasks.filter((t: any) => t.status === 'in_progress' || t.isWorkflow).length,
+        completedTasks: allExecutionTasks.filter((t: any) => t.status === 'submitted').length,
+        validatedTasks: allExecutionTasks.filter((t: any) => t.status === 'validated').length,
+        overdueTasks: allExecutionTasks.filter((t: any) =>
           t.deadline &&
           new Date(t.deadline) < now &&
           t.status !== 'validated'
         ).length,
-        completionRate: executionTasks.length > 0
-          ? Math.round((executionTasks.filter((t: any) => t.status === 'validated').length / executionTasks.length) * 100)
+        completionRate: allExecutionTasks.length > 0
+          ? Math.round((allExecutionTasks.filter((t: any) => t.status === 'validated').length / allExecutionTasks.length) * 100)
           : 0,
         totalProjects: projects.length,
         activeProjects: projects.filter((p: any) => p.status === 'active' || p.status === 'in_progress').length
@@ -273,7 +303,7 @@ const IntervenantDashboard: React.FC = () => {
 
       console.log('Statistiques calculées:', newStats);
       setStats(newStats);
-      setAllTasks(executionTasks.map((t: any) => ({
+      setAllTasks(allExecutionTasks.map((t: any) => ({
         ...t,
         project_name: projectMap.get(t.project_id) || 'Projet inconnu'
       })));
@@ -283,7 +313,7 @@ const IntervenantDashboard: React.FC = () => {
       })));
 
       // 4. Préparer les tâches récentes avec noms de projets
-      const tasksWithProjects: TaskItem[] = executionTasks.slice(0, 5).map((task: any) => ({
+      const tasksWithProjects: TaskItem[] = allExecutionTasks.slice(0, 5).map((task: any) => ({
         id: task.id,
         task_name: task.task_name || 'Tâche sans nom',
         project_name: projectMap.get(task.project_id) || 'Projet inconnu',

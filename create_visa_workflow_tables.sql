@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS public.task_visa_workflows (
     'suspended',          -- Suspendu (attente éléments complémentaires)
     'out_of_scope'        -- Hors mission
   )),
-  current_version       INTEGER DEFAULT 1, -- Version actuelle du document (incrémentée à chaque resoumission)
+  current_version       INTEGER DEFAULT 0, -- Version actuelle du document (incrémentée à chaque resoumission)
   created_at            TIMESTAMPTZ DEFAULT NOW(),
   updated_at            TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE (task_assignment_id)
@@ -104,7 +104,7 @@ BEGIN
     NEW.validators,
     0,
     'pending_execution',
-    1
+    0
   );
   RETURN NEW;
 END;
