@@ -680,6 +680,7 @@ const ProjectStructureTab: React.FC<ProjectStructureTabProps> = ({
                         <Checkbox
                           checked={assignmentForm.assigned_to.includes(intervenant.user_id)}
                           onCheckedChange={(checked) => {
+                            // Single selection for executor (always)
                             if (checked) {
                               setAssignmentForm(prev => ({
                                 ...prev,
@@ -777,16 +778,24 @@ const ProjectStructureTab: React.FC<ProjectStructureTabProps> = ({
                           <Checkbox
                             checked={assignmentForm.validators.includes(intervenant.user_id)}
                             onCheckedChange={(checked) => {
-                              // Single selection - replace instead of add
                               if (checked) {
-                                setAssignmentForm(prev => ({
-                                  ...prev,
-                                  validators: [intervenant.user_id]
-                                }));
+                                // If workflow is checked: multiple validators allowed
+                                // If workflow is unchecked: single validator only
+                                if (assignmentForm.use_visa_workflow) {
+                                  setAssignmentForm(prev => ({
+                                    ...prev,
+                                    validators: [...prev.validators, intervenant.user_id]
+                                  }));
+                                } else {
+                                  setAssignmentForm(prev => ({
+                                    ...prev,
+                                    validators: [intervenant.user_id]
+                                  }));
+                                }
                               } else {
                                 setAssignmentForm(prev => ({
                                   ...prev,
-                                  validators: []
+                                  validators: prev.validators.filter(id => id !== intervenant.user_id)
                                 }));
                               }
                             }}
