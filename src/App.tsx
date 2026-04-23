@@ -35,7 +35,6 @@ const PublicSignature = lazy(() => import("./pages/PublicSignature"));
 
 import DashboardLayout from "./components/DashboardLayout";
 import SuperAdminRoute from "./components/SuperAdminRoute";
-import { LanguageProvider } from "./contexts/LanguageContext";
 import { UploadProvider } from "./contexts/UploadContext";
 import { TenantProvider } from "./contexts/TenantContext";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -213,8 +212,7 @@ const App = () => {
       <ThemeProvider>
         <TenantProvider>
           <TooltipProvider>
-            <LanguageProvider>
-              <UploadProvider>
+            <UploadProvider>
                 <Toaster />
                 <Sonner />
                 {/* Initialisation du stockage Supabase */}
@@ -348,7 +346,6 @@ const App = () => {
                   <Route path="*" element={<Navigate to="/404" replace />} />
               </Routes>
               </UploadProvider>
-            </LanguageProvider>
           </TooltipProvider>
         </TenantProvider>
       </ThemeProvider>
