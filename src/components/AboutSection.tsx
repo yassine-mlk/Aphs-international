@@ -2,7 +2,6 @@ import React, { useEffect, useRef } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { translations } from '@/lib/translations';
 import { Language } from './LanguageSelector';
-import { useLanguage } from '@/contexts/LanguageContext';
 
 interface TeamMember {
   name: string;

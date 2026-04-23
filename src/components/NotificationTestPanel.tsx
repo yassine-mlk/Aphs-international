@@ -7,13 +7,11 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useNotificationTriggers } from '@/hooks/useNotificationTriggers';
 import { useAuth } from '@/contexts/AuthContext';
-import { useLanguage } from '@/contexts/LanguageContext';
 import { useToast } from '@/components/ui/use-toast';
 import { Bell, Send, TestTube, Languages, Users, File, Video, MessageSquare } from 'lucide-react';
 
 const NotificationTestPanel: React.FC = () => {
   const { user } = useAuth();
-  const { language, setLanguage } = useLanguage();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   

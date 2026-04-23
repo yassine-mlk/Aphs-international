@@ -25,7 +25,6 @@ import { useToast } from "@/components/ui/use-toast";
 import { useSupabase } from '../hooks/useSupabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useMessages, User, Conversation, Message, Contact } from '../hooks/useMessages';
-import { useLanguage } from '../contexts/LanguageContext';
 import { translations } from '../lib/translations';
 import {
   Dialog,
@@ -52,8 +51,7 @@ const POLLING_INTERVAL = 30000;
 const Messages: React.FC = () => {
   const { toast } = useToast();
   const { user } = useAuth();
-  const { language } = useLanguage();
-  const { supabase } = useSupabase();
+    const { supabase } = useSupabase();
   const t = translations[language as keyof typeof translations].messages;
   const { 
     getAvailableContacts, 
