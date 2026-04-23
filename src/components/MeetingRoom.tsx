@@ -217,15 +217,26 @@ export default function MeetingRoom({ roomId, onLeave, isAdmin }: Props) {
           const state = channel.presenceState();
           Object.keys(state).forEach(id => {
             if (id !== user?.id && !peersRef.current.has(id)) {
-              const peer = createPeer(id, true, stream!);
-              peersRef.current.set(id, peer);
-              setParticipants(prev => new Map(prev).set(id, { userId: id, userName: state[id][0]?.userName || 'Utilisateur', peer }));
+              // Règle déterministe : l'ID le plus petit appelle l'ID le plus grand
+              const shouldInitiate = user?.id! < id;
+              
+              if (shouldInitiate) {
+                console.log(`[WebRTC] Initiation de la connexion vers ${id}`);
+                const peer = createPeer(id, true, stream!);
+                peersRef.current.set(id, peer);
+                setParticipants(prev => new Map(prev).set(id, { 
+                  userId: id, 
+                  userName: state[id][0]?.userName || 'Utilisateur', 
+                  peer 
+                }));
+              }
             }
           });
         })
         .on('presence', { event: 'leave' }, ({ leftPresences }) => {
           leftPresences.forEach(p => {
             const userId = p.userId;
+            console.log(`[WebRTC] Participant quitté: ${userId}`);
             peersRef.current.get(userId)?.destroy();
             peersRef.current.delete(userId);
             setParticipants(prev => { const nm = new Map(prev); nm.delete(userId); return nm; });
@@ -235,9 +246,14 @@ export default function MeetingRoom({ roomId, onLeave, isAdmin }: Props) {
           if (payload.to === user?.id) {
             let peer = peersRef.current.get(payload.from);
             if (!peer) {
+              console.log(`[WebRTC] Signal reçu de ${payload.from}, création du peer récepteur`);
               peer = createPeer(payload.from, false, stream!);
               peersRef.current.set(payload.from, peer);
-              setParticipants(prev => new Map(prev).set(payload.from, { userId: payload.from, userName: 'Participant', peer }));
+              setParticipants(prev => new Map(prev).set(payload.from, { 
+                userId: payload.from, 
+                userName: 'Participant...', // Sera mis à jour par sync
+                peer 
+              }));
             }
             peer.signal(payload.signal);
           }
