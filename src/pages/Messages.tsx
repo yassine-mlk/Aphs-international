@@ -25,7 +25,6 @@ import { useToast } from "@/components/ui/use-toast";
 import { useSupabase } from '../hooks/useSupabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useMessages, User, Conversation, Message, Contact } from '../hooks/useMessages';
-import { translations } from '../lib/translations';
 import {
   Dialog,
   DialogContent,
@@ -52,8 +51,7 @@ const Messages: React.FC = () => {
   const { toast } = useToast();
   const { user } = useAuth();
     const { supabase } = useSupabase();
-  const t = translations[language as keyof typeof translations].messages;
-  const { 
+    const { 
     getAvailableContacts, 
     getConversations, 
     getMessages, 
@@ -511,9 +509,9 @@ const Messages: React.FC = () => {
     <div className="h-[calc(100vh-160px)] w-full max-w-full flex flex-col overflow-hidden">
       <div className="mb-4 flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">{t.title}</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Messages</h1>
           <p className="text-muted-foreground">
-            {t.subtitle}
+            Communiquez avec vos collègues
           </p>
         </div>
         
@@ -586,7 +584,7 @@ const Messages: React.FC = () => {
                                 e.stopPropagation();
                                 handleDeleteConversation(conv);
                               }}
-                              title={t.admin.deleteConversation}
+                              title="Supprimer la conversation"
                             >
                               <Trash2 className="h-3 w-3" />
                             </Button>
@@ -793,10 +791,10 @@ const Messages: React.FC = () => {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-red-600">
-              {t.admin.deleteConfirmTitle}
+              Confirmer la suppression
             </DialogTitle>
             <DialogDescription>
-              {t.admin.deleteConfirmMessage}
+              Êtes-vous sûr de vouloir supprimer cette conversation ? Cette action est irréversible.
             </DialogDescription>
           </DialogHeader>
           
@@ -839,7 +837,7 @@ const Messages: React.FC = () => {
               disabled={messagesLoading}
             >
               <Trash2 className="h-4 w-4 mr-2" />
-              {t.admin.deleteConversation}
+              Supprimer
             </Button>
             <Button 
               type="button" 
@@ -849,7 +847,7 @@ const Messages: React.FC = () => {
                 setConversationToDelete(null);
               }}
             >
-              {t.cancel}
+              Annuler
             </Button>
           </DialogFooter>
         </DialogContent>
