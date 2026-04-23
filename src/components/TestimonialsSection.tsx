@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { translations } from '@/lib/translations';
-import { useLanguage } from '@/contexts/LanguageContext';
 
 interface Testimonial {
   name: string;
@@ -110,8 +109,7 @@ const TestimonialsSection: React.FC = () => {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const sectionRef = useRef<HTMLDivElement>(null);
-  const { language } = useLanguage();
-  
+    
   const changeTestimonial = (newIndex: number) => {
     if (newIndex === activeIndex || isTransitioning) return;
     

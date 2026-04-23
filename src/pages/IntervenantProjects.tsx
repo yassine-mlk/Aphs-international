@@ -19,7 +19,6 @@ import {
 import { useSupabase } from "../hooks/useSupabase";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
-import { useLanguage } from '@/contexts/LanguageContext';
 import { translations } from '@/lib/translations';
 
 // Types
@@ -55,8 +54,7 @@ const IntervenantProjects: React.FC = () => {
   const { toast } = useToast();
   const { fetchData } = useSupabase();
   const { user } = useAuth();
-  const { language } = useLanguage();
-
+  
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');

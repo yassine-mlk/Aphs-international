@@ -35,7 +35,6 @@ import { supabase as supabaseClient } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useVideoMeetings } from '@/hooks/useVideoMeetings';
 import { SimpleVideoConference } from '@/components/SimpleVideoConference';
-import { useLanguage } from '../contexts/LanguageContext';
 import { translations } from '../lib/translations';
 import { MeetingRequestFormImproved } from '@/components/MeetingRequestFormImproved';
 import { MeetingRequestsManagerImproved } from '@/components/MeetingRequestsManagerImproved';
@@ -93,8 +92,7 @@ const getJoinErrorMessage = (meeting: any) => {
 const VideoConference: React.FC = () => {
   const { toast } = useToast();
   const { user } = useAuth();
-  const { language } = useLanguage();
-  const t = translations[language as keyof typeof translations].videoConference;
+    const t = translations[language as keyof typeof translations].videoConference;
   const { supabase } = useSupabase();
   const [filter, setFilter] = useState("toutes");
   const [copyTooltip, setCopyTooltip] = useState("Copier l'ID");

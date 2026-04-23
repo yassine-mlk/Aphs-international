@@ -1,6 +1,5 @@
 import { useCallback } from 'react';
 import { useToast } from '@/components/ui/use-toast';
-import { useLanguage } from '@/contexts/LanguageContext';
 import { translations } from '@/lib/translations';
 import { NotificationType } from '@/hooks/useNotifications';
 
@@ -13,8 +12,7 @@ interface ToastParams {
 
 export function useTranslatedNotifications() {
   const { toast } = useToast();
-  const { language } = useLanguage();
-  
+    
   // Récupérer les traductions pour la langue actuelle
   const t = translations[language as keyof typeof translations].notifications;
 

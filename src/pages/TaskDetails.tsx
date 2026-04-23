@@ -50,7 +50,6 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { useLanguage } from '@/contexts/LanguageContext';
 import { translations } from '@/lib/translations';
 import { uploadToR2 } from '@/lib/r2';
 import { useUpload } from '@/contexts/UploadContext';
@@ -152,8 +151,7 @@ const TaskDetails: React.FC = () => {
   const { toast } = useToast();
   const { fetchData, updateData, uploadFile, getFileUrl, supabase, insertData } = useSupabase();
   const { user } = useAuth();
-  const { language } = useLanguage();
-  const { startUpload, getUpload, clearUpload } = useUpload();
+    const { startUpload, getUpload, clearUpload } = useUpload();
   const {
     notifyFileValidationRequest,
     createAdminNotification,

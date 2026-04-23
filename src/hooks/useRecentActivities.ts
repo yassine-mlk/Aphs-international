@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { useLanguage } from '@/contexts/LanguageContext';
 import { useToast } from '@/components/ui/use-toast';
 import { translations } from '@/lib/translations';
 import { 
@@ -41,8 +40,7 @@ export function useRecentActivities() {
   const [error, setError] = useState<string | null>(null);
   
   const { user } = useAuth();
-  const { language } = useLanguage();
-  const { toast } = useToast();
+    const { toast } = useToast();
 
   // Obtenir les traductions pour la langue actuelle
   const getTranslations = useCallback(() => {
