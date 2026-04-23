@@ -13,8 +13,6 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { useNotifications, Notification, NotificationType } from '@/hooks/useNotifications';
-import { useLanguage } from '@/contexts/LanguageContext';
-import { translations } from '@/lib/translations';
 
 // Types de notifications importantes à afficher dans la barre
 const IMPORTANT_NOTIFICATION_TYPES: NotificationType[] = [
@@ -188,17 +186,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
 };
 
 const NotificationBell: React.FC = () => {
-  const {
-    notifications,
-    unreadCount,
-    loading,
-    markAsRead,
-    markAllAsRead,
-    deleteNotification
-  } = useNotifications();
-
-  const { language } = useLanguage();
-  const t = translations[language as keyof typeof translations];
+  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
 
   // Filtrer les notifications pour n'afficher que les importantes
   const filteredNotifications = notifications
@@ -246,7 +234,7 @@ const NotificationBell: React.FC = () => {
       >
         <div className="flex items-center justify-between p-4 border-b">
           <DropdownMenuLabel className="p-0 font-semibold">
-            {t.notifications?.common?.notifications || 'Notifications'}
+            Notifications
             {importantUnreadCount > 0 && (
               <Badge variant="secondary" className="ml-2">
                 {importantUnreadCount}
@@ -270,20 +258,16 @@ const NotificationBell: React.FC = () => {
                 onClick={markAllAsRead}
               >
                 <CheckCheck className="h-3 w-3 mr-1" />
-                {t.notifications?.common?.markAllRead || 'Tout marquer'}
+                Tout marquer comme lu
               </Button>
             )}
           </div>
         </div>
         
-        {loading ? (
-          <div className="p-4 text-center text-sm text-gray-500">
-            {t.notifications?.common?.loading || t.common?.loading || 'Chargement...'}
-          </div>
-        ) : filteredNotifications.length === 0 ? (
+        {filteredNotifications.length === 0 ? (
           <div className="p-4 text-center text-sm text-gray-500">
             <Bell className="h-8 w-8 mx-auto mb-2 text-gray-300" />
-            <p>{t.notifications?.common?.noNotifications || 'Aucune notification importante'}</p>
+            <p>Aucune notification</p>
             {hasMoreNotifications && (
               <p className="text-xs text-gray-400 mt-1">
                 {hiddenNotificationsCount} autres notifications masquées
@@ -298,7 +282,7 @@ const NotificationBell: React.FC = () => {
                   key={notification.id}
                   notification={notification}
                   onMarkAsRead={markAsRead}
-                  onDelete={deleteNotification}
+                  onDelete={() => {}}
                 />
               ))}
               
@@ -325,7 +309,7 @@ const NotificationBell: React.FC = () => {
                 className="w-full text-xs h-8"
                 onClick={() => {/* Navigate to notifications page */}}
               >
-                {t.notifications?.common?.viewAll || 'Voir l\'activité récente'}
+                Voir tout
               </Button>
             </div>
           </>
