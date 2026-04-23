@@ -226,7 +226,7 @@ const IntervenantDashboard: React.FC = () => {
       // 2b. Récupérer aussi les tâches workflow (visa)
       const { data: workflowTasks, error: workflowError } = await supabase
         .from('task_visa_workflows')
-        .select('*, task:task_assignment_id(id, task_name, project_id, status, deadline, validation_deadline)')
+        .select('*, task:task_assignments(id, task_name, project_id, status, deadline, validation_deadline)')
         .eq('submitter_id', user.id)
         .in('status', ['pending_validation', 'revision_required']);
 

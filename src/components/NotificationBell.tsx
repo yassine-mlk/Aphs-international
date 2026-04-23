@@ -18,9 +18,6 @@ import { useNotifications, Notification, NotificationType } from '@/hooks/useNot
 const IMPORTANT_NOTIFICATION_TYPES: NotificationType[] = [
   'task_assigned',
   'task_validation_request',
-  'meeting_invitation',
-  'meeting_started',
-  'meeting_request',
   'file_validation_request',
   'message_received',
   'project_added',
@@ -43,12 +40,6 @@ const getNotificationIcon = (type: NotificationType) => {
     case 'new_message':
     case 'message_received':
       return <MessageSquare className="h-4 w-4 text-purple-500" />;
-    case 'meeting_request':
-    case 'meeting_invitation':
-    case 'meeting_started':
-    case 'meeting_accepted':
-    case 'meeting_declined':
-      return <Video className="h-4 w-4 text-orange-500" />;
     case 'project_added':
       return <UserPlus className="h-4 w-4 text-teal-500" />;
     case 'document_signed':
@@ -74,12 +65,6 @@ const getNotificationColor = (type: NotificationType, read: boolean) => {
     case 'new_message':
     case 'message_received':
       return 'text-purple-600';
-    case 'meeting_request':
-    case 'meeting_invitation':
-    case 'meeting_started':
-    case 'meeting_accepted':
-    case 'meeting_declined':
-      return 'text-orange-600';
     case 'project_added':
       return 'text-teal-600';
     default:

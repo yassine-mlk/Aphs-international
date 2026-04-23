@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useNavigate, Outlet, Link, useLocation } from 'react-router-dom';
 import {
   SidebarProvider,
@@ -18,14 +18,14 @@ import {
   Users, 
   Briefcase, 
   MessageSquare, 
-  Video, 
   LogOut,
   Settings,
   User,
   CheckSquare,
   BarChart3,
   FileText,
-  FileCheck
+  FileCheck,
+  Video
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -40,6 +40,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import NotificationBell from '@/components/NotificationBell';
 import { usePendingDocuments } from '@/hooks/usePendingDocuments';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 
 // Type pour l'utilisateur du dashboard
@@ -60,7 +61,7 @@ const dashboardTranslations = {
     companies: "Entreprises",
     workgroups: "Groupes de travail",
     messages: "Messages",
-    videoconference: "Vidéoconférence",
+    videoconference: "Visioconférence",
     settings: "Paramètres",
     tasks: "Tâches",
     logout: "Déconnexion",
@@ -300,14 +301,14 @@ const DashboardLayout: React.FC = () => {
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-              
+
               <SidebarMenuItem>
                 <SidebarMenuButton
                   asChild
                   tooltip={t.videoconference}
-                  isActive={isLinkActive("/dashboard/visio")}
+                  isActive={isLinkActive("/dashboard/videoconference")}
                 >
-                  <Link to="/dashboard/visio">
+                  <Link to="/dashboard/videoconference">
                     <Video />
                     <span>{t.videoconference}</span>
                   </Link>
@@ -400,7 +401,6 @@ const DashboardLayout: React.FC = () => {
                  location.pathname === "/dashboard/entreprises" ? t.companies :
                  location.pathname === "/dashboard/groupes-travail" ? t.workgroups :
                  location.pathname === "/dashboard/messages" ? t.messages :
-                 location.pathname === "/dashboard/visio" ? t.videoconference :
                  location.pathname === "/dashboard/tasks" ? t.tasks :
                  location.pathname === "/dashboard/intervenant/projets" ? t.myProjects :
                  location.pathname.startsWith("/dashboard/intervenant/projets/") ? t.projectDetails :
@@ -453,8 +453,9 @@ const DashboardLayout: React.FC = () => {
             </div>
           </div>
           <div className="p-6 bg-gray-50 min-h-[calc(100vh-64px)]">
-
-            <Outlet />
+            <Suspense fallback={<LoadingSpinner />}>
+              <Outlet />
+            </Suspense>
           </div>
         </SidebarInset>
       </div>

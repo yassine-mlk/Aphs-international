@@ -27,11 +27,15 @@
     <script>
       // Polyfill global pour SimplePeer
       if (typeof global === 'undefined') {
-        var global = globalThis;
+        window.global = window;
       }
       // Polyfill process pour les modules Node.js
       if (typeof process === 'undefined') {
-        var process = { env: {} };
+        window.process = { 
+          env: { NODE_DEBUG: false },
+          nextTick: function(fn) { setTimeout(fn, 0); },
+          browser: true
+        };
       }
     </script>
   </head>

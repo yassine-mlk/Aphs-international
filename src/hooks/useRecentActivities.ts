@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
-import { translations } from '@/lib/translations';
+import { NOTIFICATIONS, DASHBOARD } from '@/lib/constants';
 import { 
   Briefcase, 
   CheckCircle, 
@@ -27,11 +27,6 @@ export interface RecentActivity {
   project_name?: string;
   user_name?: string;
   read?: boolean;
-  // Nouveaux champs pour les traductions
-  title_key?: string;
-  message_key?: string;
-  title_params?: Record<string, any>;
-  message_params?: Record<string, any>;
 }
 
 export function useRecentActivities() {
@@ -40,12 +35,7 @@ export function useRecentActivities() {
   const [error, setError] = useState<string | null>(null);
   
   const { user } = useAuth();
-    const { toast } = useToast();
-
-  // Obtenir les traductions pour la langue actuelle
-  const getTranslations = useCallback(() => {
-    return translations[language as keyof typeof translations];
-  }, [language]);
+  const { toast } = useToast();
 
   // Fonction pour formater les messages avec paramètres
   const formatMessage = useCallback((template: string, params: Record<string, any> = {}): string => {
@@ -59,24 +49,14 @@ export function useRecentActivities() {
       }
     });
 
-    // Gérer les conditions select {param, select, undefined {} other {text}}
-    const selectRegex = /{(\w+),\s*select,\s*undefined\s*{}\s*other\s*{\s*([^}]+)\s*}}/g;
-    result = result.replace(selectRegex, (match, paramName, otherText) => {
-      const value = params[paramName];
-      return value !== undefined && value !== null && value !== '' ? otherText : '';
-    });
-
     return result;
   }, []);
 
-  // Traduire une notification selon la langue actuelle
+  // Traduire une notification en utilisant les constantes
   const translateActivity = useCallback((activity: any): RecentActivity => {
-    const t = getTranslations();
+    const notificationConfig = (NOTIFICATIONS.types as any)[activity.type];
     
-    // Si l'activité a des clés de traduction, les utiliser
-    if (activity.title_key && activity.message_key && t.notifications?.types?.[activity.type]) {
-      const notificationConfig = t.notifications.types[activity.type];
-      
+    if (notificationConfig && typeof notificationConfig !== 'string') {
       return {
         ...activity,
         title: formatMessage(notificationConfig.title, activity.title_params || {}),
@@ -86,7 +66,7 @@ export function useRecentActivities() {
     }
     
     // Sinon, utiliser les textes existants ou générer des traductions basiques
-    const basicTranslation = getBasicTranslation(activity.type, activity, t);
+    const basicTranslation = getBasicTranslation(activity.type, activity);
     
     return {
       ...activity,
@@ -94,7 +74,7 @@ export function useRecentActivities() {
       description: basicTranslation.description,
       iconType: getIconType(activity.type)
     };
-  }, [getTranslations, formatMessage]);
+  }, [formatMessage]);
 
   // Obtenir le type d'icône selon le type de notification
   const getIconType = useCallback((type: string): string => {
@@ -105,11 +85,6 @@ export function useRecentActivities() {
       'task_validated': 'check',
       'task_validation_request': 'task',
       'project_added': 'project',
-      'meeting_invitation': 'meeting',
-      'meeting_started': 'meeting',
-      'meeting_request': 'meeting',
-      'meeting_request_approved': 'meeting',
-      'meeting_request_rejected': 'meeting',
       'message_received': 'message',
       'new_message': 'message',
       'user_joined': 'user',
@@ -121,44 +96,32 @@ export function useRecentActivities() {
     return iconMap[type] || 'clock';
   }, []);
 
-  // Traductions basiques pour les activités sans clés de traduction
-  const getBasicTranslation = useCallback((type: string, activity: any, t: any) => {
-    const activityTranslations = t.dashboard?.specialist?.recentActivities || t.dashboard?.masterOwner?.recentActivities;
-    
+  // Traductions basiques pour les activités
+  const getBasicTranslation = useCallback((type: string, activity: any) => {
     switch (type) {
       case 'task_assigned':
         return {
-          title: activityTranslations?.taskAssigned || 'Nouvelle tâche assignée',
+          title: 'Nouvelle tâche assignée',
           description: `${activity.task_name || 'Tâche'} - ${activity.project_name || 'Projet'}`
         };
       case 'task_validated':
         return {
-          title: activityTranslations?.taskValidated || 'Tâche validée',
+          title: 'Tâche validée',
           description: `${activity.task_name || 'Tâche'} a été validée`
         };
       case 'project_added':
         return {
-          title: activityTranslations?.projectAdded || 'Ajouté au projet',
+          title: 'Ajouté au projet',
           description: `Vous avez été ajouté au projet ${activity.project_name || 'Projet'}`
-        };
-      case 'meeting_invitation':
-        return {
-          title: activityTranslations?.meetingInvitation || 'Invitation à une réunion',
-          description: `Réunion: ${activity.meeting_title || 'Réunion'}`
-        };
-      case 'meeting_started':
-        return {
-          title: activityTranslations?.meetingStarted || 'Réunion démarrée',
-          description: `La réunion ${activity.meeting_title || 'Réunion'} a commencé`
         };
       case 'file_uploaded':
         return {
-          title: activityTranslations?.fileUploaded || 'Fichier uploadé',
+          title: 'Fichier uploadé',
           description: `${activity.file_name || 'Fichier'} a été uploadé`
         };
       case 'message_received':
         return {
-          title: activityTranslations?.messageReceived || 'Nouveau message',
+          title: 'Nouveau message',
           description: `Message de ${activity.sender_name || 'Utilisateur'}`
         };
       default:
@@ -190,7 +153,6 @@ export function useRecentActivities() {
               project_name: data.projectName,
               task_name: data.taskName,
               file_name: data.fileName,
-              meeting_title: data.meetingTitle,
               sender_name: data.senderName,
               user_name: data.userName
             };
@@ -215,7 +177,7 @@ export function useRecentActivities() {
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(15); // Augmenter la limite pour plus d'activités
+        .limit(15);
 
       if (error) throw error;
 
@@ -233,7 +195,7 @@ export function useRecentActivities() {
         .from('notifications')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(20); // Plus d'activités pour les admins
+        .limit(20);
 
       if (error) throw error;
 
@@ -253,7 +215,7 @@ export function useRecentActivities() {
         .from('profiles')
         .select('role')
         .eq('user_id', user.id)
-        .maybeSingle();  // ← maybeSingle au lieu de single
+        .maybeSingle();
 
       if (error && error.code !== 'PGRST116') {
       }
@@ -320,15 +282,6 @@ export function useRecentActivities() {
   useEffect(() => {
     fetchActivities();
   }, [fetchActivities]);
-
-  // Recharger les activités quand la langue change
-  useEffect(() => {
-    if (activities.length > 0) {
-      // Re-traduire les activités existantes
-      const retranslatedActivities = activities.map(activity => translateActivity(activity));
-      setActivities(retranslatedActivities);
-    }
-  }, [language]);
 
   return {
     activities,

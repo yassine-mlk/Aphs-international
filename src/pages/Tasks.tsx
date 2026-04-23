@@ -11,6 +11,7 @@ import {
   Calendar,
   ArrowRight
 } from 'lucide-react';
+import { TaskListSkeleton } from '@/components/Skeletons';
 import { useSupabase } from '@/hooks/useSupabase';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -41,8 +42,9 @@ const Tasks: React.FC = () => {
     
     try {
       setLoading(true);
-      const { data, error } = await fetchData('task_assignments');
-      if (error) throw error;
+      const result = await fetchData('task_assignments');
+      const data = result as any;
+      if (data?.error) throw data.error;
       
       // Filtrer les tâches assignées à l'utilisateur
       const userTasks = (data || []).filter((t: any) => 
@@ -86,83 +88,94 @@ const Tasks: React.FC = () => {
     return matchesSearch && matchesStatus;
   });
 
-  if (loading) {
-    return (
-      <div className="p-8">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
-          <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-          <div className="grid gap-4">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="h-24 bg-gray-200 rounded"></div>
-            ))}
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-aps-navy text-white rounded-lg">
+            <ClipboardCheck className="h-6 w-6" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Mes Tâches</h1>
+            <p className="text-muted-foreground">
+              Suivez et gérez vos assignations sur tous les projets
+            </p>
           </div>
         </div>
       </div>
-    );
-  }
 
-  return (
-    <div className="p-8 max-w-7xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-black mb-2">Mes Tâches</h1>
-        <p className="text-gray-600">Gérez vos tâches assignées</p>
-      </div>
-
-      {/* Filtres */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-6">
+      <div className="flex flex-col md:flex-row gap-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
           <Input
-            placeholder="Rechercher une tâche..."
+            placeholder="Rechercher une tâche ou un projet..."
+            className="pl-8"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
           />
         </div>
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="all">Tous les statuts</option>
-          <option value="assigned">Assignées</option>
-          <option value="in_progress">En cours</option>
-          <option value="submitted">Soumises</option>
-          <option value="validated">Validées</option>
-          <option value="rejected">Rejetées</option>
-        </select>
+        <div className="flex items-center gap-2">
+          <Filter className="h-4 w-4 text-gray-500" />
+          <select 
+            className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <option value="all">Tous les statuts</option>
+            <option value="assigned">Assignée</option>
+            <option value="in_progress">En cours</option>
+            <option value="submitted">Soumise</option>
+            <option value="validated">Validée</option>
+            <option value="rejected">Rejetée</option>
+          </select>
+        </div>
       </div>
 
-      {/* Liste des tâches */}
-      {filteredTasks.length > 0 ? (
+      {loading ? (
+        <TaskListSkeleton />
+      ) : filteredTasks.length > 0 ? (
         <div className="grid gap-4">
           {filteredTasks.map((task) => (
             <Card 
               key={task.id} 
-              className="hover:shadow-lg transition-shadow cursor-pointer"
-              onClick={() => navigate(`/dashboard/intervenant/tasks/${task.id}`)}
+              className="border-0 shadow-md hover:shadow-lg transition-all cursor-pointer overflow-hidden group"
+              onClick={() => navigate(`/dashboard/tasks/${task.id}`)}
             >
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="p-2 bg-blue-100 rounded-lg">
-                      <ClipboardCheck className="h-5 w-5 text-blue-600" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-lg">{task.task_name}</h3>
-                      <p className="text-sm text-gray-600">Projet: {task.project_name}</p>
-                      <div className="flex items-center gap-2 mt-1 text-sm text-gray-500">
-                        <Calendar className="h-4 w-4" />
-                        <span>Échéance: {new Date(task.deadline).toLocaleDateString('fr-FR')}</span>
+              <CardContent className="p-0">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center">
+                  <div className={`w-2 sm:self-stretch ${
+                    task.status === 'validated' ? 'bg-green-500' :
+                    task.status === 'submitted' ? 'bg-blue-500' :
+                    task.status === 'in_progress' ? 'bg-yellow-500' :
+                    task.status === 'rejected' ? 'bg-red-500' : 'bg-gray-400'
+                  }`} />
+                  
+                  <div className="flex-1 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-lg">{task.task_name}</h3>
+                        <Badge className={getStatusColor(task.status)}>
+                          {getStatusLabel(task.status)}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-gray-500">
+                        <span className="font-medium text-aps-navy">{task.project_name}</span>
+                        <span>•</span>
+                        <span>{task.phase}</span>
                       </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <Badge className={getStatusColor(task.status)}>
-                      {getStatusLabel(task.status)}
-                    </Badge>
-                    <ArrowRight className="h-5 w-5 text-gray-400" />
+
+                    <div className="flex items-center justify-between sm:justify-end gap-6">
+                      <div className="flex flex-col items-end">
+                        <div className="flex items-center gap-1.5 text-sm text-gray-500">
+                          <Calendar className="h-4 w-4" />
+                          <span>Échéance: {task.deadline ? new Date(task.deadline).toLocaleDateString('fr-FR') : 'Non définie'}</span>
+                        </div>
+                      </div>
+                      <div className="p-2 rounded-full bg-gray-50 group-hover:bg-aps-teal group-hover:text-white transition-colors">
+                        <ArrowRight className="h-5 w-5" />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -170,11 +183,11 @@ const Tasks: React.FC = () => {
           ))}
         </div>
       ) : (
-        <div className="text-center py-12">
-          <ClipboardCheck className="h-16 w-16 mx-auto text-gray-300 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Aucune tâche trouvée</h3>
-          <p className="text-gray-500">Vous n'avez pas de tâches correspondant à vos critères.</p>
-        </div>
+        <Card className="border-dashed py-12 text-center">
+          <CardContent>
+            <p className="text-muted-foreground italic">Aucune tâche trouvée</p>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

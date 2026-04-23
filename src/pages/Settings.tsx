@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User, Lock, Bell, ClipboardList, Loader2, Camera } from "lucide-react";
 import { useToast } from '@/components/ui/use-toast';
 import { useSupabase, UserSettings as UserSettingsType } from '../hooks/useSupabase';
-import { useTheme } from '../App';
+import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { ProjectStructureTab } from "@/components/settings/ProjectStructureTab";

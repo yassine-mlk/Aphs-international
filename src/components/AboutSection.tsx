@@ -1,57 +1,32 @@
 import React, { useEffect, useRef } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { translations } from '@/lib/translations';
-import { Language } from './LanguageSelector';
+import { NAV } from '@/lib/constants';
 
 interface TeamMember {
   name: string;
-  title: {
-    en: string;
-    fr: string;
-    es: string;
-    ar: string;
-  };
+  title: string;
   image: string;
 }
 
 const teamMembers: TeamMember[] = [
   {
     name: "Said Kharrat",
-    title: {
-      en: "Chief Executive Officer",
-      fr: "Président-directeur général",
-      es: "Director Ejecutivo",
-      ar: "الرئيس التنفيذي"
-    },
+    title: "Président-directeur général",
     image: "/team/person1.jpg"
   },
   {
     name: "Agnes Barokel",
-    title: {
-      en: "Chief Operations Officer",
-      fr: "Directrice des opérations",
-      es: "Directora de Operaciones",
-      ar: "مدير العمليات"
-    },
+    title: "Directrice des opérations",
     image: "/team/person2.jpg"
   },
   {
     name: "Fernando Passareli",
-    title: {
-      en: "Chief Technology Officer",
-      fr: "Directeur technique",
-      es: "Director de Tecnología",
-      ar: "المدير التقني"
-    },
+    title: "Directeur technique",
     image: "/team/person3.jpg"
   }
 ];
 
-interface AboutSectionProps {
-  language: Language;
-}
-
-const AboutSection: React.FC<AboutSectionProps> = ({ language }) => {
+const AboutSection: React.FC = () => {
   const sectionRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
@@ -84,22 +59,18 @@ const AboutSection: React.FC<AboutSectionProps> = ({ language }) => {
     };
   }, []);
 
-  const t = translations[language].aboutSection;
-  const textDirection = language === 'ar' ? 'rtl' : 'ltr';
-
   return (
     <section id="about" className="py-20 px-4 bg-white">
       <div 
         ref={sectionRef}
         className="container mx-auto opacity-0 translate-y-10 transition-all duration-1000"
-        dir={textDirection}
       >
         <div className="text-center max-w-3xl mx-auto mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold text-aps-navy mb-4">
-            {t.title}
+          <h2 className="text-3xl md:text-4xl font-bold text-black mb-4">
+            {NAV.about}
           </h2>
-          <p className="text-aps-gray text-lg">
-            {t.subtitle}
+          <p className="text-gray-600 text-lg">
+            En savoir plus sur APS International
           </p>
         </div>
         
@@ -129,7 +100,7 @@ const AboutSection: React.FC<AboutSectionProps> = ({ language }) => {
                 <div className="absolute -bottom-3 -right-3 w-8 h-8 bg-blue-600 rounded-full opacity-80 animate-pulse"></div>
               </div>
               <h3 className="text-2xl font-bold text-black mb-2 group-hover:text-blue-600 transition-colors duration-300">{member.name}</h3>
-              <p className="text-blue-600 font-medium text-lg">{member.title[language]}</p>
+              <p className="text-blue-600 font-medium text-lg">{member.title}</p>
             </div>
           ))}
         </div>
@@ -137,14 +108,14 @@ const AboutSection: React.FC<AboutSectionProps> = ({ language }) => {
         <div className="bg-black p-8 md:p-12 rounded-xl text-white">
           <div className="md:flex items-center">
             <div className="md:w-2/3 mb-6 md:mb-0 md:pr-8">
-              <h3 className="text-2xl font-bold mb-4">{t.mission.title}</h3>
-              <p className="mb-4 text-gray-300">{t.mission.content}</p>
-              <p className="text-gray-300">{t.mission.vision}</p>
+              <h3 className="text-2xl font-bold mb-4">Notre Mission</h3>
+              <p className="mb-4 text-gray-300">Fournir des solutions innovantes pour la gestion de projets de construction complexes, en garantissant transparence, efficacité et respect des délais.</p>
+              <p className="text-gray-300">Notre vision est de devenir le leader mondial de la technologie appliquée au secteur du bâtiment et des travaux publics.</p>
             </div>
             <div className="md:w-1/3 bg-white/10 p-6 rounded-lg backdrop-blur-sm border border-white/10">
-              <h4 className="font-bold mb-3 text-xl">{t.values.title}</h4>
+              <h4 className="font-bold mb-3 text-xl">Nos Valeurs</h4>
               <ul className="space-y-2">
-                {t.values.list.map((value, index) => (
+                {["Innovation", "Transparence", "Excellence", "Collaboration"].map((value, index) => (
                   <li key={index} className="flex items-center gap-2">
                     <span className="bg-blue-600 text-white rounded-full h-6 w-6 flex items-center justify-center text-sm font-bold">
                       {index + 1}

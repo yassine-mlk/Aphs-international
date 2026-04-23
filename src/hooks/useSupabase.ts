@@ -1,90 +1,24 @@
 import { useCallback } from 'react';
 import { supabase, supabaseAdmin } from '../lib/supabase';
 import { useToast } from '@/components/ui/use-toast';
+import { UserRole, SPECIALTIES, Profile } from '../types/profile';
+import { Company } from '../types/company';
+import { Workgroup as WorkGroup, WorkgroupMember as WorkGroupMember } from '../types/workgroup';
 
-// Type pour les rôles disponibles dans l'application
-export type UserRole = 'admin' | 'intervenant' | 'owner' | 'maitre_ouvrage';
+export { SPECIALTIES };
+export type { UserRole, Company, WorkGroup, WorkGroupMember };
 
-// Liste des spécialités d'intervenants disponibles
-export const SPECIALTIES = [
-  'MOA Maître d\'ouvrage',
-  'AMO Assistant maîtrise d\'ouvrage',
-  'Géomètre',
-  'MOE Maître d\'oeuvre',
-  'Commission de sécurité',
-  'Monuments historiques',
-  'Elus locaux',
-  'Futurs usagers',
-  'Gestionnaire',
-  'Programmiste',
-  'Architectes',
-  'Membres du Jury',
-  'Bureau de contrôle',
-  'Bureau d\'étude de sol',
-  'Bureau d\'étude structure',
-  'Bureau d\'étude thermique',
-  'Bureau d\'étude acoustique',
-  'Bureau d\'étude électricité',
-  'Bureau d\'étude plomberie, chauffage, ventilation, climatisation',
-  'Bureau d\'étude VRD voirie, réseaux divers',
-  'Architecte d\'intérieur',
-  'COORDINATEUR OPC',
-  'COORDINATEUR SPS',
-  'COORDINATEUR SSI'
-];
-
-// Type pour les paramètres utilisateur
-export interface UserSettings {
-  id: string;
-  first_name?: string;
-  last_name?: string;
-  phone?: string;
-  bio?: string;
-  avatar_url?: string;
-  theme: 'light' | 'dark' | 'system';
-  language: 'fr' | 'en' | 'es' | 'ar';
+// Type pour les paramètres utilisateur (pour compatibilité)
+export interface UserSettings extends Partial<Profile> {
   notifications: {
     email: boolean;
     push: boolean;
     messages: boolean;
     updates: boolean;
   };
-  specialty?: string;
-  created_at?: string;
-  updated_at?: string;
 }
 
-export interface Company {
-  id: string;
-  name: string;
-  pays?: string;
-  secteur?: string;
-  logo_url?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-// Types pour les groupes de travail
-export interface WorkGroup {
-  id: string;
-  name: string;
-  description?: string;
-  status: 'active' | 'inactive';
-  last_activity: string;
-  upcoming_meeting?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface WorkGroupMember {
-  id: string;
-  workgroup_id: string;
-  user_id: string;
-  role: string;
-  added_at: string;
-  // Suppression des champs joints qui ne sont plus utilisés
-}
-
+// Interface pour les groupes de travail (version étendue pour certains hooks)
 export interface WorkGroupProject {
   id: string;
   workgroup_id: string;
@@ -92,18 +26,8 @@ export interface WorkGroupProject {
   added_at: string;
 }
 
-// Type pour les intervenants
-export interface Intervenant {
-  id: string;
-  name?: string;
-  first_name?: string;
-  last_name?: string;
-  email: string;
-  phone?: string;
-  role: string;
-  specialty?: string;
-  company?: string;
-  status: 'active' | 'inactive';
+// Type pour les intervenants (pour compatibilité)
+export interface Intervenant extends Partial<Profile> {
   joinDate: string;
   joinDateRaw: Date;
 }
@@ -383,7 +307,8 @@ export function useSupabase() {
         first_name: data.first_name || '',
         last_name: data.last_name || '',
         phone: data.phone || '',
-        bio: '',
+        avatar_url: data.avatar_url || '',
+        bio: data.bio || '',
         theme: data.theme || 'light',
         language: data.language || 'fr',
         specialty: data.specialty,
@@ -415,13 +340,15 @@ export function useSupabase() {
   ): Promise<UserSettings | null> => {
     try {
       // Mapper les champs UserSettings vers les champs profiles
-      const profileUpdate: any = {};
+      const profileUpdate: Partial<Profile> = {};
       if (settings.first_name !== undefined) profileUpdate.first_name = settings.first_name;
       if (settings.last_name !== undefined) profileUpdate.last_name = settings.last_name;
       if (settings.phone !== undefined) profileUpdate.phone = settings.phone;
+      if (settings.avatar_url !== undefined) profileUpdate.avatar_url = settings.avatar_url;
+      if (settings.bio !== undefined) profileUpdate.bio = settings.bio;
       if (settings.specialty !== undefined) profileUpdate.specialty = settings.specialty;
-      if (settings.theme !== undefined) profileUpdate.theme = settings.theme;
-      if (settings.language !== undefined) profileUpdate.language = settings.language;
+      if (settings.theme !== undefined) profileUpdate.theme = settings.theme as any; // Cast for compatibility
+      if (settings.language !== undefined) profileUpdate.language = settings.language as any; // Cast for compatibility
 
       const { data, error } = await supabase
         .from('profiles')
@@ -448,8 +375,9 @@ export function useSupabase() {
         first_name: data.first_name || '',
         last_name: data.last_name || '',
         phone: data.phone || '',
-        bio: '',
-        theme: 'light',
+        avatar_url: data.avatar_url || '',
+        bio: data.bio || '',
+        theme: data.theme || 'light',
         language: settings.language || 'fr',
         specialty: data.specialty,
         notifications: {
@@ -596,7 +524,7 @@ export function useSupabase() {
           }
 
           // Valider company_id - doit être un UUID valide ou null
-          let validCompanyId = null;
+          let validCompanyId: string | null = null;
           if (additionalData.company_id && 
               additionalData.company_id !== 'independant' && 
               additionalData.company_id !== '' &&
@@ -625,7 +553,7 @@ export function useSupabase() {
               push_notifications: true,
               message_notifications: true,
               update_notifications: true
-            }, { onConflict: 'user_id' });
+            } as any, { onConflict: 'user_id' });
 
           if (profileError) {
           } else {
@@ -710,7 +638,11 @@ export function useSupabase() {
         throw new Error("L'API d'administration n'est pas disponible. Contactez votre administrateur système.");
       }
 
-      const updates: any = {};
+      const updates: {
+        email?: string;
+        password?: string;
+        user_metadata?: Record<string, any>;
+      } = {};
       
       // Création de l'objet pour mettre à jour les metadata
       if (userData.role || userData.first_name || userData.last_name || userData.specialty) {

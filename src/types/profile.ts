@@ -2,7 +2,7 @@
 
 export type UserRole = 'admin' | 'intervenant' | 'owner' | 'maitre_ouvrage';
 export type UserStatus = 'active' | 'inactive';
-export type UserTheme = 'light' | 'dark';
+export type UserTheme = 'light' | 'dark' | 'system';
 export type UserLanguage = 'fr' | 'en' | 'es' | 'ar';
 
 // Liste des spécialités disponibles (correspondant à celle du hook useSupabase)
@@ -48,6 +48,7 @@ export interface Profile {
   company_id?: string;
   status: UserStatus;
   bio?: string;
+  avatar_url?: string;
   theme: UserTheme;
   language: UserLanguage;
   // Préférences de notifications
@@ -70,6 +71,7 @@ export interface ProfileFormData {
   company: string;
   company_id?: string;
   bio?: string;
+  avatar_url?: string;
   theme?: UserTheme;
   language?: UserLanguage;
 }
@@ -86,6 +88,7 @@ export interface ProfileUpdateData {
   company_id?: string;
   status?: UserStatus;
   bio?: string;
+  avatar_url?: string;
   theme?: UserTheme;
   language?: UserLanguage;
   email_notifications?: boolean;

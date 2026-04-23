@@ -191,18 +191,6 @@ const AdminDashboard: React.FC = () => {
       // Réunions
       let activeMeetings = 0;
       let upcomingMeetings = 0;
-      try {
-        const { data: meetings, error: meetingsError } = await supabase
-          .from('video_meetings')
-          .select('id, status, scheduled_time')
-          .in('status', ['scheduled', 'active']);
-
-        if (!meetingsError && meetings) {
-          activeMeetings = meetings.filter((m: any) => m.status === 'active').length;
-          upcomingMeetings = meetings.filter((m: any) => m.status === 'scheduled' && m.scheduled_time && new Date(m.scheduled_time) > now).length;
-        }
-      } catch (e) {
-      }
 
       // Calculer les statistiques
       const newStats: DashboardStats = {
