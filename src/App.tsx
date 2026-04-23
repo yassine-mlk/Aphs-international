@@ -21,7 +21,6 @@ const Messages = lazy(() => import("./pages/Messages"));
 const VideoConference = lazy(() => import("./pages/VideoConferenceImproved"));
 const Settings = lazy(() => import("./pages/Settings"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
-const TestUpload = lazy(() => import("./test-upload"));
 const IntervenantProjects = lazy(() => import("./pages/IntervenantProjects"));
 const IntervenantProjectDetails = lazy(() => import("./pages/IntervenantProjectDetails"));
 const SuperAdminDashboard = lazy(() => import("./pages/SuperAdminDashboard"));
@@ -337,9 +336,7 @@ const App = () => {
                     </AdminRoute>
                   } />
                   
-                  {/* Test upload route - accessible to everyone */}
-                  <Route path="test-upload" element={<TestUpload />} />
-                </Route>
+                                  </Route>
                 
                 {/* Super Admin Routes - Separate from main dashboard */}
                 <Route path="/super-admin-login" element={<SuperAdminLogin />} />
