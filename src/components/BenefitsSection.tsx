@@ -1,11 +1,7 @@
 import React, { useEffect, useRef } from 'react';
-import { translations } from '@/lib/translations';
-import { useLanguage } from '@/contexts/LanguageContext';
 
 const BenefitsSection: React.FC = () => {
   const sectionRef = useRef<HTMLDivElement>(null);
-  const { language } = useLanguage();
-  const t = translations.fr.benefits;
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -29,58 +25,60 @@ const BenefitsSection: React.FC = () => {
 
   const benefits = [
     {
-      title: t.items[0].title,
-      description: t.items[0].description,
-      stat: "95%",
-      statLabel: "Satisfaction client"
+      title: "Livraison 15% plus rapide",
+      description: "Accélérez les délais de projet grâce à des flux de travail rationalisés et à l'automatisation.",
+      icon: "🚀"
     },
     {
-      title: t.items[1].title,
-      description: t.items[1].description,
-      stat: "200+",
-      statLabel: "Projets réalisés"
+      title: "Réduction des coûts de 10%",
+      description: "Minimisez les dépassements de budget grâce au suivi financier en temps réel et aux analyses.",
+      icon: "💰"
     },
     {
-      title: t.items[2].title,
-      description: t.items[2].description,
-      stat: "15+",
-      statLabel: "Années d'expérience"
+      title: "Collaboration améliorée de 30%",
+      description: "Améliorez la communication et réduisez les erreurs grâce à des informations centralisées.",
+      icon: "🤝"
     }
   ];
 
   return (
-    <section className="py-20 bg-white" ref={sectionRef}>
-      <div className="container mx-auto px-4 md:px-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-          <div>
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">
-              {t.title}
-            </h2>
-            <p className="text-xl text-gray-600 mb-8">
-              {t.subtitle}
-            </p>
-            <div className="space-y-6">
-              {benefits.map((benefit, index) => (
-                <div key={index} className="flex items-start gap-4">
-                  <div className="flex-shrink-0 w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600 font-bold text-lg">
-                    {benefit.stat}
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">{benefit.title}</h3>
-                    <p className="text-gray-600">{benefit.description}</p>
-                    <p className="text-sm text-blue-600 mt-1">{benefit.statLabel}</p>
-                  </div>
-                </div>
-              ))}
+    <section 
+      ref={sectionRef}
+      className="py-24 bg-gray-50 opacity-0 translate-y-10 transition-all duration-1000"
+    >
+      <div className="max-w-7xl mx-auto px-6 lg:px-8">
+        <div className="text-center mb-16">
+          <h2 className="text-4xl font-black text-black mb-4">
+            Transformez votre gestion de construction
+          </h2>
+          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+            Des résultats concrets de sociétés de construction comme la vôtre qui ont implémenté APS.
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-8">
+          {benefits.map((benefit, index) => (
+            <div 
+              key={index}
+              className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-shadow"
+            >
+              <div className="text-4xl mb-4">{benefit.icon}</div>
+              <h3 className="text-xl font-bold text-black mb-3">{benefit.title}</h3>
+              <p className="text-gray-600">{benefit.description}</p>
             </div>
-          </div>
-          <div className="relative">
-            <img
-              src="/about-illustration.svg"
-              alt="Benefits illustration"
-              className="w-full h-auto rounded-2xl"
-            />
-          </div>
+          ))}
+        </div>
+
+        <div className="text-center mt-16">
+          <p className="text-xl text-gray-700 mb-6">
+            Prêt à révolutionner votre gestion de projets de construction ?
+          </p>
+          <a 
+            href="/login"
+            className="inline-flex items-center px-8 py-4 bg-black text-white rounded-full font-semibold hover:bg-gray-800 transition-colors"
+          >
+            Réserver une démo
+          </a>
         </div>
       </div>
     </section>

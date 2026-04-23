@@ -1,44 +1,53 @@
 import React from 'react';
-import { translations } from '@/lib/translations';
 
 const Footer: React.FC = () => {
-  const t = translations.fr.footer;
-
   return (
-    <footer className="bg-gray-900 text-gray-300 py-12">
-      <div className="container mx-auto px-4 md:px-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+    <footer className="bg-black text-white py-16">
+      <div className="max-w-7xl mx-auto px-6 lg:px-8">
+        <div className="grid md:grid-cols-4 gap-12">
           {/* Logo et description */}
-          <div className="col-span-1 md:col-span-2">
-            <img src="/aps-logo-white.svg" alt="APS" className="h-10 mb-4" />
-            <p className="text-gray-400 mb-4 max-w-md">
-              {t.description}
+          <div className="col-span-2">
+            <img src="/aps-logo.svg" alt="APS" className="h-10 mb-4 brightness-0 invert" />
+            <p className="text-gray-400 mb-6 max-w-md">
+              Logiciel avancé de gestion de projets de construction aidant les équipes à livrer des projets à temps et dans les limites du budget.
             </p>
+            <div className="flex gap-4">
+              <a href="#" className="text-gray-400 hover:text-white transition-colors">LinkedIn</a>
+              <a href="#" className="text-gray-400 hover:text-white transition-colors">Twitter</a>
+              <a href="#" className="text-gray-400 hover:text-white transition-colors">Facebook</a>
+            </div>
           </div>
 
-          {/* Liens rapides */}
+          {/* Produit */}
           <div>
-            <h3 className="text-white font-semibold mb-4">{t.links}</h3>
+            <h4 className="font-semibold mb-4">Produit</h4>
             <ul className="space-y-2">
-              <li><a href="#about" className="hover:text-white transition-colors">{t.about}</a></li>
-              <li><a href="#features" className="hover:text-white transition-colors">{t.services}</a></li>
-              <li><a href="#testimonials" className="hover:text-white transition-colors">{t.testimonials}</a></li>
+              <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Fonctionnalités</a></li>
+              <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Tarifs</a></li>
+              <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Démo</a></li>
             </ul>
           </div>
 
-          {/* Contact */}
+          {/* Entreprise */}
           <div>
-            <h3 className="text-white font-semibold mb-4">{t.contact}</h3>
+            <h4 className="font-semibold mb-4">Entreprise</h4>
             <ul className="space-y-2">
-              <li>contact@aps-international.com</li>
-              <li>+33 1 23 45 67 89</li>
-              <li>Paris, France</li>
+              <li><a href="#" className="text-gray-400 hover:text-white transition-colors">À propos</a></li>
+              <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Carrières</a></li>
+              <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Contact</a></li>
             </ul>
           </div>
         </div>
 
-        <div className="border-t border-gray-800 mt-8 pt-8 text-center text-sm text-gray-500">
-          <p>© 2024 APS International. {t.rights}</p>
+        <div className="border-t border-gray-800 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
+          <p className="text-gray-500 text-sm">
+            © 2026 APS International. Tous droits réservés.
+          </p>
+          <div className="flex gap-6 text-sm">
+            <a href="#" className="text-gray-500 hover:text-white transition-colors">Mentions légales</a>
+            <a href="#" className="text-gray-500 hover:text-white transition-colors">Confidentialité</a>
+            <a href="#" className="text-gray-500 hover:text-white transition-colors">CGU</a>
+          </div>
         </div>
       </div>
     </footer>
