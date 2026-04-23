@@ -130,7 +130,6 @@ const TaskStatusManager: React.FC<TaskStatusManagerProps> = ({ task, onStatusCha
         onStatusChange();
       }
     } catch (error) {
-      console.error('Erreur lors de la mise à jour du statut:', error);
       toast({
         title: "Erreur",
         description: "Impossible de mettre à jour le statut de la tâche",
@@ -156,7 +155,6 @@ const TaskStatusManager: React.FC<TaskStatusManagerProps> = ({ task, onStatusCha
         task.project_name
       );
     } catch (error) {
-      console.error('Erreur lors de l\'envoi de la notification:', error);
     }
   };
 

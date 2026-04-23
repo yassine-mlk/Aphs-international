@@ -42,7 +42,6 @@ export async function sendNotification({
       });
 
     if (notifError) {
-      console.error('Error creating notification:', notifError);
       return false;
     }
 
@@ -71,14 +70,12 @@ export async function sendNotification({
           });
         }
       } catch (emailError) {
-        console.error('Error sending email notification:', emailError);
         // On continue même si l'email échoue
       }
     }
 
     return true;
   } catch (error) {
-    console.error('Error in sendNotification:', error);
     return false;
   }
 }
@@ -105,13 +102,11 @@ export async function sendBulkNotifications(
       );
 
     if (error) {
-      console.error('Error creating bulk notifications:', error);
       return false;
     }
 
     return true;
   } catch (error) {
-    console.error('Error in sendBulkNotifications:', error);
     return false;
   }
 }

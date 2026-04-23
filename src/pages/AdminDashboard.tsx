@@ -132,8 +132,6 @@ const AdminDashboard: React.FC = () => {
       const taskAssignments = taskAssignmentsData.filter((t: any) => projectIds.has(t.project_id));
 
       // Debug pour vérifier les données
-      console.log('Task assignments chargées (filtrées):', taskAssignments);
-      console.log('Nombre de tâches trouvées:', taskAssignments.length);
 
       const tasksToValidate = taskAssignments.filter((t: any) => t.status === 'submitted').length;
 
@@ -188,7 +186,6 @@ const AdminDashboard: React.FC = () => {
           }
         }
       } catch (e) {
-        console.warn('Erreur lors du chargement des KPIs messages:', e);
       }
 
       // Réunions
@@ -205,7 +202,6 @@ const AdminDashboard: React.FC = () => {
           upcomingMeetings = meetings.filter((m: any) => m.status === 'scheduled' && m.scheduled_time && new Date(m.scheduled_time) > now).length;
         }
       } catch (e) {
-        console.warn('Erreur lors du chargement des KPIs réunions:', e);
       }
 
       // Calculer les statistiques
@@ -237,7 +233,6 @@ const AdminDashboard: React.FC = () => {
         upcomingMeetings
       };
 
-      console.log('Statistiques calculées:', newStats);
 
       setStats(newStats);
 
@@ -320,7 +315,6 @@ const AdminDashboard: React.FC = () => {
       // Les activités récentes sont maintenant gérées par le hook useRecentActivities
 
     } catch (error) {
-      console.error('Erreur lors du chargement des statistiques:', error);
       toast({
         title: "Erreur",
         description: "Impossible de charger les statistiques",
@@ -345,7 +339,6 @@ const AdminDashboard: React.FC = () => {
           table: 'task_assignments'
         },
         () => {
-          console.log('Changement détecté dans task_assignments, actualisation des stats...');
           loadStats();
         }
       )
@@ -357,7 +350,6 @@ const AdminDashboard: React.FC = () => {
           table: 'projects'
         },
         () => {
-          console.log('Changement détecté dans projects, actualisation des stats...');
           loadStats();
         }
       )

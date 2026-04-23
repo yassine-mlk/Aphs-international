@@ -45,7 +45,6 @@ export function useProjects() {
 
       return projects;
     } catch (error) {
-      console.error('Erreur lors de la récupération des projets:', error);
       toast({
         title: "Erreur",
         description: "Impossible de charger les projets",
@@ -67,7 +66,6 @@ export function useProjects() {
 
       return projects.length > 0 ? projects[0] : null;
     } catch (error) {
-      console.error('Erreur lors de la récupération du projet:', error);
       toast({
         title: "Erreur",
         description: "Impossible de charger le projet",
@@ -162,9 +160,7 @@ export function useProjects() {
         await supabase.from('project_tasks_snapshot').insert(tasksToInsert);
       }
 
-      console.log(`[snapshotTenantStructure] Snapshot créé: ${newSections.length} sections, ${newItems.length} items, ${tasksToInsert.length} tâches`);
     } catch (e) {
-      console.error('Erreur snapshot structure projet:', e);
     }
   };
 
@@ -223,7 +219,6 @@ export function useProjects() {
 
       return newProject;
     } catch (error) {
-      console.error('Erreur lors de la création du projet:', error);
       toast({
         title: "Erreur",
         description: "Impossible de créer le projet",
@@ -276,7 +271,6 @@ export function useProjects() {
 
       return updatedProject;
     } catch (error) {
-      console.error('Erreur lors de la mise à jour du projet:', error);
       toast({
         title: "Erreur",
         description: "Impossible de mettre à jour le projet",
@@ -298,10 +292,8 @@ export function useProjects() {
           .delete()
           .eq('project_id', id);
         if (assignError) {
-          console.warn('Erreur suppression des assignations liées au projet:', assignError);
         }
       } catch (e) {
-        console.warn('Exception suppression des assignations liées au projet:', e);
       }
 
       const success = await deleteData('projects', id);
@@ -315,7 +307,6 @@ export function useProjects() {
 
       return success;
     } catch (error) {
-      console.error('Erreur lors de la suppression du projet:', error);
       toast({
         title: "Erreur",
         description: "Impossible de supprimer le projet",
@@ -342,7 +333,6 @@ export function useProjects() {
 
       return projects;
     } catch (error) {
-      console.error('Erreur lors de la récupération des projets de l\'utilisateur:', error);
       toast({
         title: "Erreur",
         description: "Impossible de charger les projets de l'utilisateur",
@@ -367,7 +357,6 @@ export function useProjects() {
 
       return filteredProjects;
     } catch (error) {
-      console.error('Erreur lors de la recherche de projets:', error);
       toast({
         title: "Erreur",
         description: "Impossible de rechercher les projets",

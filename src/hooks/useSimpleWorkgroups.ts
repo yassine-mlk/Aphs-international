@@ -55,7 +55,6 @@ export const useSimpleWorkgroups = () => {
       if (error) throw error;
       setMembers(data || []);
     } catch (err) {
-      console.error('Erreur membres:', err);
     }
   };
 

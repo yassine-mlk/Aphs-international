@@ -160,7 +160,6 @@ export function useNotifications() {
       setNotifications(translatedNotifications);
       setUnreadCount(data?.filter(n => !n.read).length || 0);
     } catch (error) {
-      console.error('Erreur lors de la récupération des notifications:', error);
     } finally {
       setLoading(false);
     }
@@ -184,7 +183,6 @@ export function useNotifications() {
       );
       setUnreadCount(prev => Math.max(0, prev - 1));
     } catch (error) {
-      console.error('Erreur lors du marquage comme lu:', error);
     }
   }, []);
 
@@ -206,7 +204,6 @@ export function useNotifications() {
       );
       setUnreadCount(0);
     } catch (error) {
-      console.error('Erreur lors du marquage global comme lu:', error);
     }
   }, [user?.id]);
 
@@ -227,7 +224,6 @@ export function useNotifications() {
         setUnreadCount(prev => Math.max(0, prev - 1));
       }
     } catch (error) {
-      console.error('Erreur lors de la suppression:', error);
     }
   }, [notifications]);
 
@@ -260,7 +256,6 @@ export function useNotifications() {
 
       if (error) throw error;
     } catch (error) {
-      console.error('Erreur lors de la création de notification:', error);
     }
   }, [getTranslations]);
 
@@ -289,7 +284,6 @@ export function useNotifications() {
         await Promise.all(notificationPromises);
       }
     } catch (error) {
-      console.error('Erreur lors de la création de notifications admin:', error);
     }
   }, [createNotification]);
 

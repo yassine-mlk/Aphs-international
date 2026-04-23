@@ -104,7 +104,6 @@ export default function PublicSignature() {
 
       setLoading(false);
     } catch (err) {
-      console.error('Error fetching document:', err);
       setError('Erreur lors du chargement du document');
       setLoading(false);
     }
@@ -171,7 +170,6 @@ export default function PublicSignature() {
 
       setSigned(true);
     } catch (err) {
-      console.error('Error signing document:', err);
       setError('Erreur lors de la signature du document');
     } finally {
       setSigning(false);

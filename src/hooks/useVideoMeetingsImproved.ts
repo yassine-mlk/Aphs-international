@@ -143,7 +143,6 @@ export function useVideoMeetingsImproved() {
       setMeetings(meetings);
       return meetings;
     } catch (error) {
-      console.error('Erreur lors de la récupération des réunions:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible de récupérer les réunions',
@@ -196,7 +195,6 @@ export function useVideoMeetingsImproved() {
       setMeetings(meetings);
       return meetings;
     } catch (error) {
-      console.error('Erreur lors de la récupération des réunions utilisateur:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible de récupérer vos réunions',
@@ -268,7 +266,6 @@ export function useVideoMeetingsImproved() {
 
       return meeting.id;
     } catch (error) {
-      console.error('Erreur lors de la création de la réunion:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible de créer la réunion',
@@ -307,7 +304,6 @@ export function useVideoMeetingsImproved() {
 
       return true;
     } catch (error) {
-      console.error('Erreur lors de la suppression:', error);
       toast({
         title: 'Erreur',
         description: error.message || 'Impossible de supprimer la réunion',
@@ -350,7 +346,6 @@ export function useVideoMeetingsImproved() {
 
       return true;
     } catch (error) {
-      console.error('Erreur lors de la sortie de la réunion:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible de quitter la réunion',
@@ -389,7 +384,6 @@ export function useVideoMeetingsImproved() {
 
       return true;
     } catch (error) {
-      console.error('Erreur lors de la fin de réunion:', error);
       toast({
         title: 'Erreur',
         description: error.message || 'Impossible de terminer la réunion',
@@ -448,7 +442,6 @@ export function useVideoMeetingsImproved() {
           );
         }
       } catch (notificationError) {
-        console.error('Erreur lors de l\'envoi des notifications de démarrage:', notificationError);
         // Ne pas faire échouer la connexion si les notifications échouent
       }
 
@@ -458,7 +451,6 @@ export function useVideoMeetingsImproved() {
         isModerator: false
       };
     } catch (error) {
-      console.error('Erreur lors de la connexion à la réunion:', error);
       toast({
         title: 'Erreur',
         description: error.message || 'Impossible de rejoindre la réunion',
@@ -492,7 +484,6 @@ export function useVideoMeetingsImproved() {
         endedAt: recording.ended_at ? new Date(recording.ended_at) : undefined
       }));
     } catch (error) {
-      console.error('Erreur lors de la récupération des enregistrements:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible de récupérer les enregistrements',
@@ -549,7 +540,6 @@ export function useVideoMeetingsImproved() {
 
       return true;
     } catch (error) {
-      console.error('Erreur lors de la demande de réunion:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible d\'envoyer la demande de réunion',
@@ -596,7 +586,6 @@ export function useVideoMeetingsImproved() {
 
       return true;
     } catch (error) {
-      console.error('Erreur lors du nettoyage de l\'historique:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible de nettoyer l\'historique',

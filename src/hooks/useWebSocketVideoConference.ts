@@ -102,7 +102,6 @@ export function useWebSocketVideoConference({
       setLocalStream(stream);
       return stream;
     } catch (err) {
-      console.error('❌ Erreur accès caméra/micro:', err);
       setError('Impossible d\'accéder à la caméra/microphone');
       onError?.('Impossible d\'accéder à la caméra/microphone');
       return null;
@@ -116,7 +115,6 @@ export function useWebSocketVideoConference({
       if (peersRef.current[participantId]) {
         const existingPeer = peersRef.current[participantId];
         if (existingPeer && existingPeer.connectionState !== 'closed') {
-          console.log(`🔄 Fermeture connexion existante pour ${participantId}`);
           existingPeer.close();
         }
         delete peersRef.current[participantId];
@@ -139,7 +137,6 @@ export function useWebSocketVideoConference({
       // Gérer les candidats ICE
       peer.onicecandidate = (event) => {
         if (event.candidate) {
-          console.log(`📡 ICE candidate for ${participantId}:`, event.candidate.candidate);
           // Utiliser une fonction temporaire pour éviter la dépendance circulaire
           if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
             const message = {
@@ -151,7 +148,6 @@ export function useWebSocketVideoConference({
               roomId,
               timestamp: new Date().toISOString()
             };
-            console.log('📤 Envoi WebSocket:', message);
             wsRef.current.send(JSON.stringify(message));
           }
         }
@@ -159,7 +155,6 @@ export function useWebSocketVideoConference({
 
       // Gérer les streams entrants
       peer.ontrack = (event) => {
-        console.log(`📹 Stream reçu de ${participantId}:`, event.streams[0]);
         setParticipants(prev => prev.map(p => 
           p.id === participantId 
             ? { ...p, stream: event.streams[0], isConnected: true }
@@ -169,7 +164,6 @@ export function useWebSocketVideoConference({
 
       // Gérer les changements d'état de connexion
       peer.onconnectionstatechange = () => {
-        console.log(`🔗 État connexion ${participantId}:`, peer.connectionState);
         if (peer.connectionState === 'connected') {
           setParticipants(prev => prev.map(p => 
             p.id === participantId 
@@ -181,13 +175,11 @@ export function useWebSocketVideoConference({
 
       // Gérer les changements d'état de signalisation
       peer.onsignalingstatechange = () => {
-        console.log(`📡 État signalisation ${participantId}:`, peer.signalingState);
       };
 
       peersRef.current[participantId] = peer;
       return peer;
     } catch (err) {
-      console.error(`❌ Erreur création peer pour ${participantId}:`, err);
       return null;
     }
   }, [localStream, userName]);
@@ -201,10 +193,8 @@ export function useWebSocketVideoConference({
         roomId,
         timestamp: new Date().toISOString()
       };
-      console.log('📤 Envoi WebSocket:', fullMessage);
       wsRef.current.send(JSON.stringify(fullMessage));
     } else {
-      console.error('❌ WebSocket non connecté');
     }
   }, [roomId]);
 
@@ -212,7 +202,6 @@ export function useWebSocketVideoConference({
   const handleWebSocketMessage = useCallback((data: string) => {
     try {
       const message = JSON.parse(data);
-      console.log('📨 Message WebSocket reçu:', message);
 
       // Ignorer nos propres messages
       if (message.from === currentUserId.current) {
@@ -225,7 +214,6 @@ export function useWebSocketVideoConference({
 
       switch (message.type) {
         case 'room-info':
-          console.log('📋 Informations de la room:', message.participants);
           // Ajouter les participants existants
           setParticipants(message.participants.map((p: any) => ({
             id: p.id,
@@ -241,7 +229,6 @@ export function useWebSocketVideoConference({
           // Créer des connexions avec les participants existants
           message.participants.forEach((participant: any) => {
             if (participant.id !== currentUserId.current) {
-              console.log(`🔗 Création connexion avec participant existant: ${participant.name}`);
               const peer = createPeerConnection(participant.id, false);
               if (peer) {
                 // Créer une offre pour initier la connexion
@@ -257,7 +244,6 @@ export function useWebSocketVideoConference({
                           fromName: userName
                         });
                       })
-                      .catch(err => console.error('❌ Erreur création offre:', err));
                   }
                 }, 1000);
               }
@@ -268,14 +254,12 @@ export function useWebSocketVideoConference({
         case 'user-joined':
           const joinedUserId = message.from || message.userId;
           const joinedUserName = message.fromName || message.userName;
-          console.log(`👋 ${joinedUserName} a rejoint la room`);
           setParticipants(prev => {
             if (joinedUserId && !prev.find(p => p.id === joinedUserId)) {
               const newParticipant = createParticipant(joinedUserId, joinedUserName || 'Participant');
 
               // Créer une connexion peer avec le nouveau participant
               setTimeout(() => {
-                console.log(`🔗 Création connexion peer avec ${joinedUserName}`);
                 const peer = createPeerConnection(joinedUserId, true);
                 if (peer) {
                   // Créer une offre
@@ -289,7 +273,6 @@ export function useWebSocketVideoConference({
                         fromName: userName
                       });
                     })
-                    .catch(err => console.error('❌ Erreur création offre:', err));
                 }
               }, 1000);
 
@@ -302,7 +285,6 @@ export function useWebSocketVideoConference({
         case 'user-left':
           const leftUserId = message.from || message.userId;
           const leftUserName = message.fromName || message.userName;
-          console.log(`👋 ${leftUserName} a quitté la room`);
           setParticipants(prev => prev.filter(p => p.id !== leftUserId));
           // Fermer la connexion peer
           const peerToClose = peersRef.current[leftUserId];
@@ -313,7 +295,6 @@ export function useWebSocketVideoConference({
           break;
 
         case 'offer':
-          console.log(`📥 Offre reçue de ${message.fromName}`);
           setParticipants(prev => {
             if (prev.some(p => p.id === message.from)) return prev;
             const np = createParticipant(message.from, message.fromName || 'Participant');
@@ -325,12 +306,10 @@ export function useWebSocketVideoConference({
             if (offerPeer.signalingState === 'stable' || offerPeer.signalingState === 'have-local-offer') {
               offerPeer.setRemoteDescription(new RTCSessionDescription(message.sdp))
                 .then(() => {
-                  console.log('✅ Description distante définie pour offre');
                   return offerPeer.createAnswer();
                 })
                 .then(answer => offerPeer.setLocalDescription(answer))
                 .then(() => {
-                  console.log('✅ Réponse créée et définie');
                   sendWebSocketMessage({
                     type: 'answer',
                     to: message.from,
@@ -339,10 +318,8 @@ export function useWebSocketVideoConference({
                   });
                 })
                 .catch(err => {
-                  console.error('❌ Erreur traitement offre:', err);
                   // Si l'erreur est due à l'état, essayer de redémarrer la connexion
                   if (err.message.includes('wrong state')) {
-                    console.log('🔄 Redémarrage connexion peer...');
                     offerPeer.close();
                     delete peersRef.current[message.from];
                     setTimeout(() => {
@@ -359,19 +336,16 @@ export function useWebSocketVideoConference({
                               fromName: userName
                             });
                           })
-                          .catch(err2 => console.error('❌ Erreur redémarrage connexion:', err2));
                       }
                     }, 1000);
                   }
                 });
             } else {
-              console.log(`⚠️ État de signalisation incorrect: ${offerPeer.signalingState}`);
             }
           }
           break;
 
         case 'answer':
-          console.log(`📥 Réponse reçue de ${message.fromName}`);
           setParticipants(prev => {
             if (prev.some(p => p.id === message.from)) return prev;
             const np = createParticipant(message.from, message.fromName || 'Participant');
@@ -383,29 +357,21 @@ export function useWebSocketVideoConference({
             if (answerPeer.signalingState === 'have-local-offer') {
               answerPeer.setRemoteDescription(new RTCSessionDescription(message.sdp))
                 .then(() => {
-                  console.log('✅ Description distante définie pour réponse');
                 })
                 .catch(err => {
-                  console.error('❌ Erreur traitement réponse:', err);
                   if (err.message.includes('wrong state')) {
-                    console.log(`⚠️ État de signalisation: ${answerPeer.signalingState}`);
                   }
                 });
             } else {
-              console.log(`⚠️ État de signalisation incorrect pour réponse: ${answerPeer.signalingState}`);
             }
           } else {
-            console.error('❌ Connexion peer non trouvée pour réponse');
           }
           break;
 
         case 'ice-candidate':
-          console.log(`📥 ICE candidate reçu de ${message.fromName}`);
           const icePeer = peersRef.current[message.from];
           if (icePeer && message.candidate) {
             icePeer.addIceCandidate(new RTCIceCandidate(message.candidate))
-              .then(() => console.log('✅ ICE candidate ajouté'))
-              .catch(err => console.error('❌ Erreur ajout ICE candidate:', err));
           }
           break;
 
@@ -438,35 +404,29 @@ export function useWebSocketVideoConference({
           break;
 
         default:
-          console.log('❓ Type de message inconnu:', message.type);
       }
     } catch (error) {
-      console.error('❌ Erreur parsing message WebSocket:', error);
     }
   }, [userName, sendWebSocketMessage]);
 
   // Se connecter à la room
   const connectToRoom = useCallback(async () => {
     if (!user) {
-      console.error('❌ Utilisateur non connecté');
       return;
     }
 
     if (isConnectingRef.current) {
-      console.log('⏳ Connexion déjà en cours...');
       return;
     }
 
     try {
       isConnectingRef.current = true;
-      console.log(`🚀 Connexion à la room: ${roomId}`);
       setConnectionStatus('connecting');
       setError(null);
 
       if (!WS_URL) {
         const message =
           'Configuration WebSocket manquante. Définissez VITE_WS_URL (ou VITE_WEBSOCKET_URL) en production, ou lancez le serveur local ws://localhost:3001 en développement.';
-        console.error(`❌ ${message}`);
         setError(message);
         setConnectionStatus('error');
         onError?.(message);
@@ -483,7 +443,6 @@ export function useWebSocketVideoConference({
       wsRef.current = ws;
 
       ws.onopen = () => {
-        console.log('✅ WebSocket connecté');
         setIsConnected(true);
         setConnectionStatus('connected');
       };
@@ -493,19 +452,16 @@ export function useWebSocketVideoConference({
       };
 
       ws.onerror = (error) => {
-        console.error('❌ Erreur WebSocket:', error);
         setError('Erreur de connexion WebSocket');
         setConnectionStatus('error');
       };
 
       ws.onclose = () => {
-        console.log('🛑 WebSocket fermé');
         setIsConnected(false);
         setConnectionStatus('disconnected');
       };
 
     } catch (error) {
-      console.error('❌ Erreur connexion room:', error);
       setError('Erreur de connexion à la room');
       setConnectionStatus('error');
     } finally {
@@ -515,7 +471,6 @@ export function useWebSocketVideoConference({
 
   // Se déconnecter
   const disconnect = useCallback(() => {
-    console.log('🛑 Déconnexion de la room');
     
     // Fermer les connexions peer
     Object.values(peersRef.current).forEach(peer => peer.close());
@@ -606,7 +561,6 @@ export function useWebSocketVideoConference({
         setIsScreenSharing(false);
       }
     } catch (err) {
-      console.error('❌ Erreur partage d\'écran:', err);
     }
   }, [isScreenSharing, localStream]);
 

@@ -36,7 +36,6 @@ export function MeetingRequestsManager() {
       const data = await getMeetingRequests();
       setRequests(data);
     } catch (error) {
-      console.error("Erreur lors du chargement des demandes:", error);
       toast({
         title: "Erreur",
         description: "Impossible de charger les demandes de réunion",
@@ -80,7 +79,6 @@ export function MeetingRequestsManager() {
         loadRequests();
       }
     } catch (error) {
-      console.error("Erreur lors de la réponse à la demande:", error);
       toast({
         title: "Erreur",
         description: "Impossible de traiter la demande",

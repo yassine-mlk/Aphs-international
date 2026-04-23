@@ -76,14 +76,12 @@ export function useMessages() {
     try {
       setLoading(true);
       
-      console.log('🔍 Récupération des contacts autorisés...');
       
       // Récupérer les IDs des contacts autorisés
       const { data: authorizedContactIds, error: contactsError } = await supabase
         .rpc('get_user_contacts', { user_id: user.id });
       
       if (contactsError) {
-        console.warn('⚠️ Erreur RPC get_user_contacts:', contactsError);
         // En cas d'erreur, retourner tous les contacts (mode fallback)
         const userData = await getUsers();
         if (userData && userData.users) {
@@ -105,7 +103,6 @@ export function useMessages() {
       const authorizedIds = authorizedContactIds?.map((row: any) => row.contact_id) || [];
       
       if (authorizedIds.length === 0) {
-        console.log('📝 Aucun contact autorisé trouvé');
         return [];
       }
       
@@ -116,7 +113,6 @@ export function useMessages() {
         .in('id', authorizedIds);
       
       if (usersError) {
-        console.error('❌ Erreur lors de la récupération des utilisateurs:', usersError);
         return [];
       }
       
@@ -130,11 +126,9 @@ export function useMessages() {
         specialty: authUser.raw_user_meta_data?.specialty || ''
       })) || [];
       
-      console.log('✅ Contacts autorisés récupérés:', contacts.length, 'contacts');
       return contacts;
       
     } catch (error) {
-      console.error('❌ Erreur lors de la récupération des contacts:', error);
       return [];
     } finally {
       setLoading(false);
@@ -162,7 +156,6 @@ export function useMessages() {
       const { data: participations, error: participationsError } = response;
       
       if (participationsError) {
-        console.error('Error fetching conversations:', participationsError);
         throw participationsError;
       }
       
@@ -174,7 +167,6 @@ export function useMessages() {
       
       // Récupérer les informations sur les conversations
       if (conversationIds.length === 0) {
-        console.log('Aucune conversation trouvée pour cet utilisateur');
         return [];
       }
       
@@ -210,7 +202,6 @@ export function useMessages() {
             
             try {
               // MÉTHODE CORRIGÉE : Utiliser auth.users d'abord, puis profiles en fallback
-              console.log('🔍 Récupération des participants depuis auth.users...');
               
               // D'abord essayer avec auth.users (même méthode que page Intervenants)
               const userData = await getUsers();
@@ -222,7 +213,6 @@ export function useMessages() {
                 );
                 
                 if (relevantUsers.length > 0) {
-                  console.log('✅ Participants trouvés dans auth.users:', relevantUsers.length);
                   
                   participantUsers = relevantUsers.map((authUser: any) => ({
                     id: authUser.id,
@@ -243,7 +233,6 @@ export function useMessages() {
                 throw new Error('Aucune donnée auth.users');
               }
             } catch (error) {
-              console.warn('⚠️ Fallback vers profiles:', error.message);
               
               // Fallback: utiliser la table profiles
               try {
@@ -257,7 +246,6 @@ export function useMessages() {
                   .in('user_id', participantIds);
                 
                 if (!profilesError && profilesData && profilesData.length > 0) {
-                  console.log("✅ Profils trouvés pour les participants (fallback):", profilesData);
                   
                   participantUsers = profilesData.map(profile => ({
                     id: profile.user_id,
@@ -269,7 +257,6 @@ export function useMessages() {
                     status: 'offline'
                   }));
                 } else {
-                  console.error('❌ Erreur dans fallback profiles:', profilesError);
                   
                   // Dernier fallback
                   participantUsers = participants.map((p: any) => ({
@@ -282,7 +269,6 @@ export function useMessages() {
                   }));
                 }
               } catch (fallbackError) {
-                console.error('❌ Erreur complète dans récupération participants:', fallbackError);
                 
                 // Dernier fallback
                 participantUsers = participants.map((p: any) => ({
@@ -329,12 +315,10 @@ export function useMessages() {
               });
             
             if (error) {
-              console.error('Erreur lors du comptage des messages non lus:', error);
             } else {
               unreadCount = data || 0;
             }
           } catch (error) {
-            console.error('Exception lors du comptage des messages non lus:', error);
           }
           
           // Construire l'objet conversation
@@ -353,7 +337,6 @@ export function useMessages() {
       
       return conversations;
     } catch (error) {
-      console.error('Erreur lors de la récupération des conversations:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible de récupérer vos conversations',
@@ -408,7 +391,6 @@ export function useMessages() {
           .upsert(messagesToMark, { onConflict: 'message_id,user_id' });
         
         if (markError) {
-          console.error('Erreur lors du marquage des messages comme lus:', markError);
         }
       }
       
@@ -419,7 +401,6 @@ export function useMessages() {
       let senders: Record<string, User> = {};
       if (senderIds.length > 0) {
         try {
-          console.log('🔍 Récupération des expéditeurs depuis auth.users (même méthode que page Intervenants)...');
           
           // Utiliser auth.users en premier (même logique que pour contacts et participants)
           const userData = await getUsers();
@@ -430,7 +411,6 @@ export function useMessages() {
             );
             
             if (relevantSenders.length > 0) {
-              console.log('✅ Expéditeurs trouvés dans auth.users:', relevantSenders.length);
               
               relevantSenders.forEach((authUser: any) => {
                 senders[authUser.id] = {
@@ -466,7 +446,6 @@ export function useMessages() {
             throw new Error('Aucune donnée auth.users');
           }
         } catch (error) {
-          console.warn('⚠️ Fallback expéditeurs vers profiles:', error.message);
           
           // Fallback: utiliser la table profiles
           try {
@@ -480,7 +459,6 @@ export function useMessages() {
               .in('user_id', senderIds);
             
             if (!profilesError && profilesData && profilesData.length > 0) {
-              console.log('✅ Expéditeurs trouvés dans profiles (fallback):', profilesData.length);
               
               profilesData.forEach(profile => {
                 senders[profile.user_id] = {
@@ -493,7 +471,6 @@ export function useMessages() {
                 };
               });
             } else {
-              console.error('❌ Erreur dans fallback profiles expéditeurs:', profilesError);
             }
             
             // Ajouter les expéditeurs manquants avec des valeurs par défaut
@@ -510,7 +487,6 @@ export function useMessages() {
               }
             });
           } catch (fallbackError) {
-            console.error('❌ Erreur complète dans récupération expéditeurs:', fallbackError);
             
             // Dernier fallback - valeurs par défaut pour tous
             senderIds.forEach(senderId => {
@@ -540,7 +516,6 @@ export function useMessages() {
       
       return messages;
     } catch (error) {
-      console.error('Erreur lors de la récupération des messages:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible de récupérer les messages',
@@ -615,7 +590,6 @@ export function useMessages() {
           }
         }
       } catch (notificationError) {
-        console.error('Erreur lors de l\'envoi des notifications:', notificationError);
         // Ne pas faire échouer l'envoi du message si les notifications échouent
       }
       
@@ -631,7 +605,6 @@ export function useMessages() {
       
       return message;
     } catch (error) {
-      console.error('Erreur lors de l\'envoi du message:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible d\'envoyer le message',
@@ -668,7 +641,6 @@ export function useMessages() {
       
       return true;
     } catch (error) {
-      console.error('Erreur lors de la suppression de la conversation:', error);
       toast({
         title: 'Erreur',
         description: error.message || 'Impossible de supprimer la conversation',
@@ -696,7 +668,6 @@ export function useMessages() {
       
       return data || [];
     } catch (error) {
-      console.error('Erreur lors de la récupération des statistiques:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible de récupérer les statistiques des conversations',

@@ -131,7 +131,6 @@ const EditProject: React.FC = () => {
         setCompanies(companiesData || []);
 
       } catch (error) {
-        console.error('Erreur lors du chargement:', error);
         toast({
           title: "Erreur",
           description: "Impossible de charger les données du projet",
@@ -232,7 +231,6 @@ const EditProject: React.FC = () => {
         throw new Error('Aucun résultat retourné');
       }
     } catch (error) {
-      console.error('Erreur lors de la sauvegarde:', error);
       toast({
         title: "Erreur",
         description: "Impossible de sauvegarder les modifications",

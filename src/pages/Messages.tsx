@@ -106,7 +106,6 @@ const Messages: React.FC = () => {
         }
       }, 100);
     } catch (error) {
-      console.error('Erreur lors du chargement des messages:', error);
       setMessagesError(true);
       if (showLoading) {
         toast({
@@ -144,7 +143,6 @@ const Messages: React.FC = () => {
         await loadMessages(fetchedConversations[0].id, showLoading);
       }
     } catch (error) {
-      console.error('Erreur lors du chargement des conversations:', error);
       setConversationsError(true);
       if (showLoading) {
         toast({
@@ -169,7 +167,6 @@ const Messages: React.FC = () => {
       setContacts(fetchedContacts);
       await loadConversations(silent);
     } catch (error) {
-      console.error('Erreur lors du chargement des contacts:', error);
       setContactsError(true);
       if (!silent) {
         toast({
@@ -250,7 +247,6 @@ const Messages: React.FC = () => {
           await loadMessages(activeConversation.id, false);
         }
       } catch (error) {
-        console.error('Erreur lors du polling de secours:', error);
       }
     };
 
@@ -287,7 +283,6 @@ const Messages: React.FC = () => {
         description: "Les messages ont été actualisés",
       });
     } catch (error) {
-      console.error('Erreur lors du rafraîchissement:', error);
       toast({
         title: "Erreur",
         description: "Impossible d'actualiser les messages",
@@ -335,7 +330,6 @@ const Messages: React.FC = () => {
         }, 100);
       }
     } catch (error) {
-      console.error('Erreur lors de l\'envoi du message:', error);
       toast({
         title: "Erreur",
         description: "Impossible d'envoyer le message",

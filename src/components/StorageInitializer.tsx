@@ -6,7 +6,6 @@ import { useSupabase } from '../hooks/useSupabase';
 // Les buckets doivent être créés manuellement dans l'interface Supabase
 const StorageInitializer = () => {
   useEffect(() => {
-    console.log('Storage initializer: les buckets doivent être créés manuellement dans Supabase');
   }, []);
 
   // Ce composant ne rend rien visuellement

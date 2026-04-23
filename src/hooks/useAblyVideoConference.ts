@@ -63,7 +63,6 @@ export function useAblyVideoConference({
       setLocalStream(stream);
       return stream;
     } catch (err) {
-      console.error('❌ Erreur accès caméra/micro:', err);
       setError('Impossible d\'accéder à la caméra/microphone');
       onError?.('Impossible d\'accéder à la caméra/microphone');
       return null;
@@ -98,7 +97,6 @@ export function useAblyVideoConference({
       // Gérer les candidats ICE
       peer.onicecandidate = (event) => {
         if (event.candidate) {
-          console.log(`📡 ICE candidate pour ${participantId}:`, event.candidate.candidate);
           channelRef.current?.publish('webrtc-signal', {
             type: 'ice-candidate',
             to: participantId,
@@ -111,7 +109,6 @@ export function useAblyVideoConference({
 
       // Gérer les streams entrants
       peer.ontrack = (event) => {
-        console.log(`📹 Stream reçu de ${participantId}:`, event.streams[0]);
         setParticipants(prev => prev.map(p => 
           p.id === participantId 
             ? { ...p, stream: event.streams[0], isConnected: true }
@@ -121,7 +118,6 @@ export function useAblyVideoConference({
 
       // Gérer les changements d'état de connexion
       peer.onconnectionstatechange = () => {
-        console.log(`🔗 État connexion ${participantId}:`, peer.connectionState);
         if (peer.connectionState === 'connected') {
           setParticipants(prev => prev.map(p => 
             p.id === participantId 
@@ -133,13 +129,11 @@ export function useAblyVideoConference({
 
       // Gérer les changements d'état de signalisation
       peer.onsignalingstatechange = () => {
-        console.log(`📡 État signalisation ${participantId}:`, peer.signalingState);
       };
 
       peerConnectionsRef.current.set(participantId, peer);
       return peer;
     } catch (err) {
-      console.error(`❌ Erreur création peer pour ${participantId}:`, err);
       return null;
     }
   }, [localStream, userName]);
@@ -161,11 +155,9 @@ export function useAblyVideoConference({
       // Attendre la connexion
       await new Promise<void>((resolve, reject) => {
         ably.connection.once('connected', () => {
-          console.log('✅ Ably connecté');
           resolve();
         });
         ably.connection.once('failed', (err) => {
-          console.error('❌ Erreur connexion Ably:', err);
           reject(err);
         });
       });
@@ -176,7 +168,6 @@ export function useAblyVideoConference({
 
       // S'abonner aux messages
       await channel.subscribe('presence', (message) => {
-        console.log('👥 Message présence:', message);
         if (message.action === 'enter') {
           const newParticipant = {
             id: message.clientId,
@@ -202,7 +193,6 @@ export function useAblyVideoConference({
 
       await channel.subscribe('webrtc-signal', (message) => {
         const data = message.data;
-        console.log('📨 Signal WebRTC reçu:', data);
 
         if (data.from === currentUserId.current) {
           return; // Ignorer nos propres messages
@@ -210,7 +200,6 @@ export function useAblyVideoConference({
 
         switch (data.type) {
           case 'offer':
-            console.log(`📥 Offre reçue de ${data.fromName}`);
             const offerPeer = createPeerConnection(data.from);
             if (offerPeer) {
               offerPeer.setRemoteDescription(new RTCSessionDescription(data.sdp))
@@ -225,25 +214,20 @@ export function useAblyVideoConference({
                     sdp: offerPeer.localDescription
                   });
                 })
-                .catch(err => console.error('❌ Erreur traitement offre:', err));
             }
             break;
 
           case 'answer':
-            console.log(`📥 Réponse reçue de ${data.fromName}`);
             const answerPeer = peerConnectionsRef.current.get(data.from);
             if (answerPeer) {
               answerPeer.setRemoteDescription(new RTCSessionDescription(data.sdp))
-                .catch(err => console.error('❌ Erreur traitement réponse:', err));
             }
             break;
 
           case 'ice-candidate':
-            console.log(`📥 ICE candidate reçu de ${data.fromName}`);
             const icePeer = peerConnectionsRef.current.get(data.from);
             if (icePeer && data.candidate) {
               icePeer.addIceCandidate(new RTCIceCandidate(data.candidate))
-                .catch(err => console.error('❌ Erreur ajout ICE candidate:', err));
             }
             break;
         }
@@ -265,7 +249,6 @@ export function useAblyVideoConference({
 
       // Créer des connexions avec les participants existants
       const presenceMembers = await channel.presence.get();
-      console.log('👥 Participants existants:', presenceMembers);
 
       presenceMembers.forEach(member => {
         if (member.clientId !== currentUserId.current) {
@@ -297,7 +280,6 @@ export function useAblyVideoConference({
                     sdp: peer.localDescription
                   });
                 })
-                .catch(err => console.error('❌ Erreur création offre:', err));
             }
           }, 1000);
         }
@@ -305,10 +287,8 @@ export function useAblyVideoConference({
 
       setIsConnected(true);
       setConnectionStatus('connected');
-      console.log('✅ Connecté à la room:', roomId);
 
     } catch (err) {
-      console.error('❌ Erreur connexion room:', err);
       setError('Erreur de connexion à la room');
       setConnectionStatus('error');
       onError?.('Erreur de connexion à la room');
@@ -317,7 +297,6 @@ export function useAblyVideoConference({
 
   // Se déconnecter
   const disconnect = useCallback(() => {
-    console.log('🛑 Déconnexion de la room');
     
     // Fermer toutes les connexions peer
     peerConnectionsRef.current.forEach(peer => {
@@ -415,7 +394,6 @@ export function useAblyVideoConference({
         setIsScreenSharing(false);
       }
     } catch (err) {
-      console.error('❌ Erreur screen share:', err);
     }
   }, [isScreenSharing, localStream]);
 

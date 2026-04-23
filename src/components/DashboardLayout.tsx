@@ -179,7 +179,6 @@ const DashboardLayout: React.FC = () => {
           setUser(parsedUser);
           setLoading(false);
         } catch (error) {
-          console.error('Error parsing user data:', error);
           localStorage.removeItem('user');
           navigate('/login');
         }
@@ -221,7 +220,6 @@ const DashboardLayout: React.FC = () => {
         navigate('/login', { replace: true });
       }, 100);
     } catch (error) {
-      console.error('Erreur lors de la déconnexion:', error);
       toast({
         title: "Erreur de déconnexion",
         description: "Un problème est survenu pendant la déconnexion.",

@@ -44,7 +44,6 @@ export function MeetingRecordings({ meetingId, meetingTitle, isVisible, onClose 
       const data = await getMeetingRecordings(meetingId);
       setRecordings(data);
     } catch (error) {
-      console.error('Erreur lors du chargement des enregistrements:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible de charger les enregistrements',

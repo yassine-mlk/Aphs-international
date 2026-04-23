@@ -49,7 +49,6 @@ export function useTranslatedNotifications() {
     const notificationConfig = t.types[type];
     
     if (!notificationConfig) {
-      console.warn(`Type de notification non trouvé: ${type}`);
       return;
     }
 
@@ -74,7 +73,6 @@ export function useTranslatedNotifications() {
     const messageTemplate = t.common[messageKey];
     
     if (!messageTemplate) {
-      console.warn(`Clé de message commune non trouvée: ${messageKey}`);
       return;
     }
 

@@ -68,7 +68,6 @@ const IntervenantProjects: React.FC = () => {
   // Charger les projets auxquels l'intervenant est assigné
   const loadProjects = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
     if (!user?.id) {
-      console.log('Aucun utilisateur connecté');
       return;
     }
 
@@ -130,7 +129,6 @@ const IntervenantProjects: React.FC = () => {
         setMemberRolesByProjectId({});
       }
     } catch (error) {
-      console.error('Erreur lors de la récupération des projets:', error);
       if (!silent) {
         toast({
           title: "Erreur",

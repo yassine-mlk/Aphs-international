@@ -270,7 +270,6 @@ export const useProjectStructure = (projectId: string) => {
 
       return true;
     } catch (e) {
-      console.error('Erreur création snapshot projet existant:', e);
       return false;
     }
   }, [projectId, supabase]);
@@ -291,7 +290,6 @@ export const useProjectStructure = (projectId: string) => {
       }
 
       // 2. PAS DE SNAPSHOT : Créer un snapshot pour ce projet existant
-      console.log(`[useProjectStructure] Création snapshot pour projet ${projectId}`);
       const { data: projectRow } = await supabase
         .from('projects')
         .select('tenant_id')
@@ -311,12 +309,10 @@ export const useProjectStructure = (projectId: string) => {
       }
 
       // 3. Si vraiment rien ne marche, structure vide
-      console.warn(`[useProjectStructure] Pas de snapshot pour le projet ${projectId}`);
       setCustomProjectStructure([]);
       setCustomRealizationStructure([]);
       
     } catch (error) {
-      console.error('Erreur lors du chargement des structures:', error);
       setCustomProjectStructure([]);
       setCustomRealizationStructure([]);
     } finally {
@@ -393,7 +389,6 @@ export const useProjectStructure = (projectId: string) => {
     if (!user || !projectId) return false;
 
     try {
-      console.log('Suppression de la section:', { projectId, phase, sectionId, userId: user.id });
       
       const { data, error } = await supabase
         .rpc('delete_project_section', {
@@ -404,7 +399,6 @@ export const useProjectStructure = (projectId: string) => {
         });
 
       if (error) {
-        console.error('Erreur lors de la suppression de la section:', error);
         
         // Gérer les erreurs spécifiques
         if (error.code === '42501') {
@@ -429,7 +423,6 @@ export const useProjectStructure = (projectId: string) => {
         return false;
       }
 
-      console.log('Section supprimée avec succès:', data);
       
       // Recharger les structures
       await loadCustomStructures();
@@ -441,7 +434,6 @@ export const useProjectStructure = (projectId: string) => {
 
       return true;
     } catch (error) {
-      console.error('Erreur lors de la suppression de la section:', error);
       toast({
         title: "Erreur",
         description: "Impossible de supprimer la section",
@@ -470,7 +462,6 @@ export const useProjectStructure = (projectId: string) => {
         });
 
       if (error) {
-        console.error('Erreur lors de la suppression de la sous-section:', error);
         toast({
           title: "Erreur",
           description: "Impossible de supprimer la sous-section",
@@ -489,7 +480,6 @@ export const useProjectStructure = (projectId: string) => {
 
       return true;
     } catch (error) {
-      console.error('Erreur lors de la suppression de la sous-section:', error);
       toast({
         title: "Erreur",
         description: "Impossible de supprimer la sous-section",
@@ -517,7 +507,6 @@ export const useProjectStructure = (projectId: string) => {
         });
 
       if (error) {
-        console.error('Erreur lors de la restauration:', error);
         toast({
           title: "Erreur",
           description: "Impossible de restaurer l'élément",
@@ -536,7 +525,6 @@ export const useProjectStructure = (projectId: string) => {
 
       return true;
     } catch (error) {
-      console.error('Erreur lors de la restauration:', error);
       toast({
         title: "Erreur",
         description: "Impossible de restaurer l'élément",

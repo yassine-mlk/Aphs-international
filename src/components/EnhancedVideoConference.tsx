@@ -84,7 +84,6 @@ export const EnhancedVideoConference: React.FC<EnhancedVideoConferenceProps> = (
 
   // Attacher le stream local à l'élément vidéo - approche simple et directe
   useEffect(() => {
-    console.log('🔄 useEffect - Attaching local stream:', {
       hasVideoRef: !!localVideoRef.current,
       hasStream: !!localStream,
       streamId: localStream?.id,
@@ -95,11 +94,9 @@ export const EnhancedVideoConference: React.FC<EnhancedVideoConferenceProps> = (
     });
 
     if (localVideoRef.current && localStream) {
-      console.log('🎥 Attaching local stream to video element...', localStream);
       
       // Arrêter l'ancien stream s'il y en a un
       if (localVideoRef.current.srcObject) {
-        console.log('🔄 Replacing existing srcObject');
       }
       
       localVideoRef.current.srcObject = localStream;
@@ -107,14 +104,10 @@ export const EnhancedVideoConference: React.FC<EnhancedVideoConferenceProps> = (
       
       // Forcer la lecture de la vidéo
       localVideoRef.current.play().then(() => {
-        console.log('✅ Local video playing successfully');
       }).catch(error => {
-        console.warn('⚠️ Could not auto-play local video:', error);
       });
       
-      console.log('✅ Local stream attached to video element');
     } else {
-      console.log('⚠️ Local stream not available:', { 
         localStream: !!localStream, 
         videoRef: !!localVideoRef.current 
       });
@@ -128,7 +121,6 @@ export const EnhancedVideoConference: React.FC<EnhancedVideoConferenceProps> = (
         const videoElement = remoteVideosRef.current[participant.id];
         if (videoElement.srcObject !== participant.stream) {
           videoElement.srcObject = participant.stream;
-          console.log(`📺 Remote stream attached for ${participant.name}`);
         }
       }
     });
@@ -136,9 +128,7 @@ export const EnhancedVideoConference: React.FC<EnhancedVideoConferenceProps> = (
 
   // Gérer les contrôles audio/vidéo
   const handleToggleAudio = useCallback(() => {
-    console.log('🎤 Toggling audio - current state:', isAudioEnabled);
     const enabled = toggleAudio();
-    console.log('🎤 Audio toggled result:', enabled);
     
     toast({
       title: enabled ? "Microphone activé" : "Microphone désactivé",
@@ -147,9 +137,7 @@ export const EnhancedVideoConference: React.FC<EnhancedVideoConferenceProps> = (
   }, [toggleAudio, toast, isAudioEnabled]);
 
   const handleToggleVideo = useCallback(() => {
-    console.log('📹 Toggling video - current state:', isVideoEnabled);
     const enabled = toggleVideo();
-    console.log('📹 Video toggled result:', enabled);
     
     toast({
       title: enabled ? "Caméra activée" : "Caméra désactivée",
@@ -182,7 +170,6 @@ export const EnhancedVideoConference: React.FC<EnhancedVideoConferenceProps> = (
           });
         };
       } catch (error) {
-        console.error('❌ Screen share error:', error);
         toast({
           title: "Erreur de partage d'écran",
           description: "Impossible de partager l'écran",
@@ -205,7 +192,6 @@ export const EnhancedVideoConference: React.FC<EnhancedVideoConferenceProps> = (
       });
       onLeave?.();
     } catch (error) {
-      console.error('❌ Error leaving conference:', error);
       toast({
         title: "Erreur",
         description: "Erreur lors de la déconnexion",
@@ -469,7 +455,6 @@ export const EnhancedVideoConference: React.FC<EnhancedVideoConferenceProps> = (
               {/* Bouton activer preview */}
               <Button
                 onClick={() => {
-                  console.log('🔧 Activation preview - Current state:', {
                     hasStream: !!localStream,
                     streamId: localStream?.id,
                     videoTracks: localStream?.getVideoTracks().length,
@@ -484,7 +469,6 @@ export const EnhancedVideoConference: React.FC<EnhancedVideoConferenceProps> = (
                   
                   // Forcer le re-attachement du stream
                   if (localVideoRef.current && localStream) {
-                    console.log('🔧 Forcer activation preview');
                     localVideoRef.current.srcObject = null;
                     setTimeout(() => {
                       localVideoRef.current.srcObject = localStream;

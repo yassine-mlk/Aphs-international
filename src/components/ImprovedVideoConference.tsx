@@ -86,14 +86,12 @@ const ImprovedVideoConference: React.FC<ImprovedVideoConferenceProps> = ({
 
   // Nettoyer une connexion peer
   const cleanupPeer = useCallback((participantId: string) => {
-    console.log(`🧹 Cleaning up peer: ${participantId}`);
     
     const peer = peersRef.current[participantId];
     if (peer && !peer.destroyed) {
       try {
         peer.destroy();
       } catch (error) {
-        console.warn('Error destroying peer:', error);
       }
     }
     delete peersRef.current[participantId];
@@ -112,7 +110,6 @@ const ImprovedVideoConference: React.FC<ImprovedVideoConferenceProps> = ({
   // Envoyer un signal via Supabase Realtime
   const sendRTCSignal = useCallback(async (targetUserId: string, signal: any) => {
     if (!realtimeChannelRef.current) {
-      console.warn('❌ Cannot send signal: no realtime channel');
       return;
     }
 
@@ -125,30 +122,25 @@ const ImprovedVideoConference: React.FC<ImprovedVideoConferenceProps> = ({
     };
 
     try {
-      console.log(`📡 Sending WebRTC signal to ${targetUserId}`);
       await realtimeChannelRef.current.send({
         type: 'broadcast',
         event: 'webrtc_signal',
         payload: message
       });
     } catch (error) {
-      console.error('❌ Failed to send RTC signal:', error);
     }
   }, [currentUserId, roomId]);
 
   // Créer une connexion peer-to-peer
   const createPeerConnection = useCallback((participantId: string, initiator: boolean = false) => {
     if (!localStreamRef.current) {
-      console.warn('❌ Cannot create peer: no local stream');
       return null;
     }
 
     if (peersRef.current[participantId]) {
-      console.log(`ℹ️ Peer already exists for ${participantId}`);
       return peersRef.current[participantId];
     }
 
-    console.log(`🔗 Creating peer connection with ${participantId}, initiator: ${initiator}`);
 
     const peer = new SimplePeer({
       initiator,
@@ -168,13 +160,11 @@ const ImprovedVideoConference: React.FC<ImprovedVideoConferenceProps> = ({
 
     // Gérer les signaux WebRTC
     peer.on('signal', (signal) => {
-      console.log(`📤 Signal from peer ${participantId}:`, signal.type);
       sendRTCSignal(participantId, signal);
     });
 
     // Gérer le stream distant reçu
     peer.on('stream', (remoteStream) => {
-      console.log(`🎥 Received remote stream from ${participantId}`);
       
       // Mettre à jour le participant avec le stream
       setParticipants(prev => prev.map(p => 
@@ -188,14 +178,12 @@ const ImprovedVideoConference: React.FC<ImprovedVideoConferenceProps> = ({
         const videoElement = remoteVideosRef.current[participantId];
         if (videoElement && remoteStream.active) {
           videoElement.srcObject = remoteStream;
-          console.log(`📺 Stream attached to video element for ${participantId}`);
         }
       }, 100);
     });
 
     // Gérer les connexions établies
     peer.on('connect', () => {
-      console.log(`✅ Peer connected: ${participantId}`);
       setParticipants(prev => prev.map(p => 
         p.id === participantId 
           ? { ...p, isConnected: true }
@@ -205,13 +193,11 @@ const ImprovedVideoConference: React.FC<ImprovedVideoConferenceProps> = ({
 
     // Gérer les erreurs
     peer.on('error', (err) => {
-      console.error(`❌ Peer error with ${participantId}:`, err);
       cleanupPeer(participantId);
     });
 
     // Gérer les fermetures de connexion
     peer.on('close', () => {
-      console.log(`🔌 Peer closed: ${participantId}`);
       cleanupPeer(participantId);
     });
 
@@ -227,13 +213,11 @@ const ImprovedVideoConference: React.FC<ImprovedVideoConferenceProps> = ({
       return;
     }
 
-    console.log(`📥 Received WebRTC signal from ${from}:`, signal.type);
 
     let peer = peersRef.current[from];
     
     // Créer un nouveau peer si nécessaire (non-initiateur)
     if (!peer) {
-      console.log(`🆕 Creating new peer for incoming signal from ${from}`);
       peer = createPeerConnection(from, false);
       
       // Ajouter le participant s'il n'existe pas
@@ -255,7 +239,6 @@ const ImprovedVideoConference: React.FC<ImprovedVideoConferenceProps> = ({
       try {
         peer.signal(signal);
       } catch (error) {
-        console.error(`❌ Error processing signal from ${from}:`, error);
         cleanupPeer(from);
       }
     }
@@ -264,7 +247,6 @@ const ImprovedVideoConference: React.FC<ImprovedVideoConferenceProps> = ({
   // Initialiser le stream local
   const initializeLocalStream = useCallback(async () => {
     try {
-      console.log('🎥 Initializing local media stream...');
       
       const constraints = {
         video: {
@@ -295,10 +277,8 @@ const ImprovedVideoConference: React.FC<ImprovedVideoConferenceProps> = ({
         localVideoRef.current.muted = true;
       }
 
-      console.log('✅ Local media stream initialized successfully');
       return stream;
     } catch (error) {
-      console.error('❌ Error accessing media:', error);
       setError('Impossible d\'accéder à la caméra/microphone');
       setConnectionStatus('error');
       
@@ -317,7 +297,6 @@ const ImprovedVideoConference: React.FC<ImprovedVideoConferenceProps> = ({
     }
 
     try {
-      console.log(`🚪 Connecting to room: ${roomId}`);
       setConnectionStatus('connecting');
 
       // Créer le canal Supabase Realtime
@@ -341,12 +320,10 @@ const ImprovedVideoConference: React.FC<ImprovedVideoConferenceProps> = ({
           const state = channel.presenceState();
           const participantIds = Object.keys(state).filter(id => id !== currentUserId);
           
-          console.log(`👥 Room participants (${participantIds.length}):`, participantIds);
           
           // Créer des connexions peer avec les participants existants
           participantIds.forEach(participantId => {
             if (!peersRef.current[participantId]) {
-              console.log(`🤝 Initiating connection with existing participant: ${participantId}`);
               createPeerConnection(participantId, true);
               
               // Ajouter à la liste des participants
@@ -366,12 +343,10 @@ const ImprovedVideoConference: React.FC<ImprovedVideoConferenceProps> = ({
         })
         .on('presence', { event: 'join' }, ({ key }) => {
           if (key !== currentUserId) {
-            console.log(`👋 New participant joined: ${key}`);
             
             // Attendre un peu puis initier la connexion
             setTimeout(() => {
               if (mountedRef.current && !peersRef.current[key]) {
-                console.log(`🤝 Initiating connection with new participant: ${key}`);
                 createPeerConnection(key, true);
                 
                 setParticipants(prev => {
@@ -391,14 +366,12 @@ const ImprovedVideoConference: React.FC<ImprovedVideoConferenceProps> = ({
         })
         .on('presence', { event: 'leave' }, ({ key }) => {
           if (key !== currentUserId) {
-            console.log(`👋 Participant left: ${key}`);
             cleanupPeer(key);
           }
         });
 
       // S'abonner au canal
       await channel.subscribe(async (status) => {
-        console.log(`📡 Realtime subscription status: ${status}`);
         
         if (status === 'SUBSCRIBED') {
           setIsConnected(true);
@@ -422,7 +395,6 @@ const ImprovedVideoConference: React.FC<ImprovedVideoConferenceProps> = ({
       });
 
     } catch (error) {
-      console.error('❌ Error connecting to room:', error);
       setConnectionStatus('error');
       setError('Impossible de se connecter à la room');
       
@@ -434,7 +406,6 @@ const ImprovedVideoConference: React.FC<ImprovedVideoConferenceProps> = ({
 
   // Se déconnecter de la room
   const disconnectFromRoom = useCallback(async () => {
-    console.log('🚪 Disconnecting from room...');
     
     // Nettoyer toutes les connexions peer
     Object.keys(peersRef.current).forEach(participantId => {
@@ -446,7 +417,6 @@ const ImprovedVideoConference: React.FC<ImprovedVideoConferenceProps> = ({
       try {
         await realtimeChannelRef.current.unsubscribe();
       } catch (error) {
-        console.warn('Error unsubscribing from channel:', error);
       }
       realtimeChannelRef.current = null;
     }
@@ -594,7 +564,6 @@ const ImprovedVideoConference: React.FC<ImprovedVideoConferenceProps> = ({
         };
       }
     } catch (error) {
-      console.error('❌ Error toggling screen share:', error);
       toast({
         title: "Erreur partage d'écran",
         description: "Impossible de partager l'écran",

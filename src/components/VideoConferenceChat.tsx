@@ -70,7 +70,6 @@ export const VideoConferenceChat: React.FC<VideoConferenceChatProps> = ({
 
     const connectToChat = async () => {
       try {
-        console.log(`💬 Connecting to chat for room: ${roomId}`);
         
         const channel = supabase.channel(`chat_${roomId}`, {
           config: {
@@ -83,7 +82,6 @@ export const VideoConferenceChat: React.FC<VideoConferenceChatProps> = ({
         // Écouter les nouveaux messages
         channel.on('broadcast', { event: 'chat_message' }, ({ payload }) => {
           const message = payload as ChatMessage;
-          console.log(`💬 Received chat message from ${message.fromName}:`, message.message);
           
           setMessages(prev => {
             // Éviter les doublons
@@ -101,12 +99,10 @@ export const VideoConferenceChat: React.FC<VideoConferenceChatProps> = ({
 
         // S'abonner au canal
         await channel.subscribe((status) => {
-          console.log(`💬 Chat subscription status: ${status}`);
           setIsConnected(status === 'SUBSCRIBED');
         });
 
       } catch (error) {
-        console.error('❌ Error connecting to chat:', error);
       }
     };
 
@@ -156,9 +152,7 @@ export const VideoConferenceChat: React.FC<VideoConferenceChatProps> = ({
 
       setNewMessage('');
       
-      console.log(`💬 Sent message: ${message.message}`);
     } catch (error) {
-      console.error('❌ Error sending message:', error);
       toast({
         title: "Erreur d'envoi",
         description: "Impossible d'envoyer le message. Réessayez.",

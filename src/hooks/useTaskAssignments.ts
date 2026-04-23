@@ -87,7 +87,6 @@ export const useTaskAssignments = () => {
           const existingIds = new Set((existingProjects || []).map(p => p.id));
           filteredData = filteredData.filter(a => existingIds.has(a.project_id));
         } catch (e) {
-          console.warn('Erreur vérification existence des projets pour les tâches:', e);
         }
       }
 
@@ -96,7 +95,6 @@ export const useTaskAssignments = () => {
     } catch (err) {
       const errorMessage = 'Erreur lors de la récupération des assignements';
       setError(errorMessage);
-      console.error('Erreur fetchAllTaskAssignments:', err);
       toast({
         title: "Erreur",
         description: errorMessage,
@@ -196,7 +194,6 @@ export const useTaskAssignments = () => {
             }
           }
         } catch (notifError) {
-          console.error('Error sending task assignment notification:', notifError);
           // On continue même si la notification échoue
         }
 
@@ -206,7 +203,6 @@ export const useTaskAssignments = () => {
       }
       return null;
     } catch (err) {
-      console.error('Erreur createTaskAssignment:', err);
       toast({
         title: "Erreur",
         description: "Impossible d'assigner la tâche",
@@ -238,7 +234,6 @@ export const useTaskAssignments = () => {
       }
       return null;
     } catch (err) {
-      console.error('Erreur updateTaskAssignment:', err);
       toast({
         title: "Erreur",
         description: "Impossible de mettre à jour l'assignement",
@@ -265,7 +260,6 @@ export const useTaskAssignments = () => {
       }
       return false;
     } catch (err) {
-      console.error('Erreur deleteTaskAssignment:', err);
       toast({
         title: "Erreur",
         description: "Impossible de désassigner la tâche",
@@ -370,7 +364,6 @@ export const useTaskAssignments = () => {
 
         enrichedAssignments.push(enriched);
       } catch (err) {
-        console.error('Erreur lors de l\'enrichissement des données:', err);
         // Ajouter l'assignement sans enrichissement en cas d'erreur
         enrichedAssignments.push(assignment);
       }
@@ -419,7 +412,6 @@ export const useTaskAssignments = () => {
 
       return existing && existing.length > 0 ? existing[0] : null;
     } catch (err) {
-      console.error('Erreur checkTaskExists:', err);
       return null;
     }
   }, [fetchData]);

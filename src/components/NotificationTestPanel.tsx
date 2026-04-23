@@ -189,7 +189,6 @@ const NotificationTestPanel: React.FC = () => {
         duration: 3000,
       });
     } catch (error) {
-      console.error('Erreur lors du test de notification:', error);
       toast({
         title: '❌ Erreur',
         description: 'Impossible de créer la notification',

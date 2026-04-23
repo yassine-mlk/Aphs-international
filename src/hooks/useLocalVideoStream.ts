@@ -12,7 +12,6 @@ export const useLocalVideoStream = () => {
   // Initialiser le stream local
   const initializeStream = useCallback(async () => {
     if (localStreamRef.current) {
-      console.log('🔄 Stream already exists, skipping...');
       return localStreamRef.current;
     }
 
@@ -20,7 +19,6 @@ export const useLocalVideoStream = () => {
     setError(null);
 
     try {
-      console.log('🎥 Getting user media...');
       
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -50,7 +48,6 @@ export const useLocalVideoStream = () => {
       setIsVideoEnabled(videoTrack ? videoTrack.enabled : false);
       setIsAudioEnabled(audioTrack ? audioTrack.enabled : false);
       
-      console.log('✅ Local stream initialized:', {
         streamId: stream.id,
         videoTracks: stream.getVideoTracks().length,
         audioTracks: stream.getAudioTracks().length,
@@ -60,7 +57,6 @@ export const useLocalVideoStream = () => {
       
       return stream;
     } catch (error) {
-      console.error('❌ Failed to get user media:', error);
       setError(`Erreur d'accès média: ${error.message}`);
       return null;
     } finally {
@@ -71,7 +67,6 @@ export const useLocalVideoStream = () => {
   // Nettoyer le stream
   const cleanupStream = useCallback(() => {
     if (localStreamRef.current) {
-      console.log('🧹 Cleaning up local stream...');
       localStreamRef.current.getTracks().forEach(track => track.stop());
       localStreamRef.current = null;
       setLocalStream(null);
@@ -87,7 +82,6 @@ export const useLocalVideoStream = () => {
       if (audioTrack) {
         audioTrack.enabled = !audioTrack.enabled;
         setIsAudioEnabled(audioTrack.enabled);
-        console.log('🎤 Audio toggled:', audioTrack.enabled);
         return audioTrack.enabled;
       }
     }
@@ -100,7 +94,6 @@ export const useLocalVideoStream = () => {
       if (videoTrack) {
         videoTrack.enabled = !videoTrack.enabled;
         setIsVideoEnabled(videoTrack.enabled);
-        console.log('📹 Video toggled:', videoTrack.enabled);
         return videoTrack.enabled;
       }
     }

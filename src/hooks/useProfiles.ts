@@ -57,7 +57,6 @@ export function useProfiles() {
 
       return profiles;
     } catch (error) {
-      console.error('Erreur lors de la récupération des profils:', error);
       toast({
         title: "Erreur",
         description: "Impossible de charger les profils",
@@ -79,7 +78,6 @@ export function useProfiles() {
 
       return profiles.length > 0 ? profiles[0] : null;
     } catch (error) {
-      console.error('Erreur lors de la récupération du profil:', error);
       toast({
         title: "Erreur",
         description: "Impossible de charger le profil",
@@ -99,7 +97,6 @@ export function useProfiles() {
 
       return profiles.length > 0 ? profiles[0] : null;
     } catch (error) {
-      console.error('Erreur lors de la récupération du profil par email:', error);
       return null;
     }
   }, [fetchData]);
@@ -114,7 +111,6 @@ export function useProfiles() {
 
       return profiles.length > 0 ? profiles[0] : null;
     } catch (error) {
-      console.error('Erreur lors de la récupération du profil par user_id:', error);
       return null;
     }
   }, [fetchData]);
@@ -184,7 +180,6 @@ export function useProfiles() {
 
       return newProfile;
     } catch (error) {
-      console.error('Erreur lors de la création du profil:', error);
       toast({
         title: "Erreur",
         description: "Impossible de créer le profil",
@@ -298,7 +293,6 @@ export function useProfiles() {
 
       return { profile, authUser: { id: authResult.userId } };
     } catch (error) {
-      console.error('Erreur lors de la création de l\'intervenant:', error);
       toast({
         title: "Erreur",
         description: "Impossible de créer l'intervenant",
@@ -360,7 +354,6 @@ export function useProfiles() {
 
       return updatedProfile;
     } catch (error) {
-      console.error('Erreur lors de la mise à jour du profil:', error);
       toast({
         title: "Erreur",
         description: "Impossible de mettre à jour le profil",
@@ -387,7 +380,6 @@ export function useProfiles() {
 
       return success;
     } catch (error) {
-      console.error('Erreur lors de la suppression du profil:', error);
       toast({
         title: "Erreur",
         description: "Impossible de supprimer le profil",
@@ -416,7 +408,6 @@ export function useProfiles() {
 
       return filteredProfiles;
     } catch (error) {
-      console.error('Erreur lors de la recherche de profils:', error);
       toast({
         title: "Erreur",
         description: "Impossible de rechercher les profils",

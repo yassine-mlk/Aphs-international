@@ -138,7 +138,6 @@ const Projects: React.FC = () => {
       // Récupérer les statistiques pour chaque projet
       await fetchProjectStats(data);
     } catch (error) {
-      console.error('Erreur lors de la récupération des projets:', error);
       toast({
         title: "Erreur",
         description: "Impossible de charger les projets",
@@ -269,7 +268,6 @@ const Projects: React.FC = () => {
 
       setProjectStats(stats);
     } catch (error) {
-      console.error('Erreur lors de la récupération des statistiques:', error);
       // Fallback: stats vides
       for (const project of projectList) {
         stats[project.id] = {
@@ -389,7 +387,6 @@ const Projects: React.FC = () => {
         fetchProjects();
       }
     } catch (error) {
-      console.error('Erreur lors de la création du projet:', error);
       toast({
         title: "Erreur",
         description: "Impossible de créer le projet",
@@ -462,7 +459,6 @@ const Projects: React.FC = () => {
         fetchProjects();
       }
     } catch (error) {
-      console.error('Erreur lors de la mise à jour du projet:', error);
       toast({
         title: "Erreur",
         description: "Impossible de mettre à jour le projet",
@@ -506,7 +502,6 @@ const Projects: React.FC = () => {
         fetchProjects();
       }
     } catch (error) {
-      console.error('Erreur lors de la suppression du projet:', error);
       toast({
         title: "Erreur",
         description: "Impossible de supprimer le projet ou ses données",

@@ -91,7 +91,6 @@ export function MeetingRequestFormImproved({ onRequestSubmitted }: MeetingReques
         }
       }
     } catch (error) {
-      console.error("Erreur lors de l'envoi de la demande:", error);
       toast({
         title: "Erreur",
         description: "Impossible d'envoyer votre demande de réunion",

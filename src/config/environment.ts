@@ -22,7 +22,6 @@ export const config = {
 };
 
 // Log de la configuration pour debug
-console.log('🔧 Configuration chargée:', {
   useRealtime: config.useRealtime,
   useRobustVideoConference: config.useRobustVideoConference,
   supabaseUrl: config.supabaseUrl,

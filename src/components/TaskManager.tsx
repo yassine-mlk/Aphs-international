@@ -102,7 +102,6 @@ const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, curre
       });
       setTasks(data);
     } catch (error) {
-      console.error('Erreur lors du chargement des tâches:', error);
       toast({
         title: "Erreur",
         description: "Impossible de charger les tâches",
@@ -120,7 +119,6 @@ const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, curre
       });
       setUsers(data);
     } catch (error) {
-      console.error('Erreur lors du chargement des utilisateurs:', error);
     }
   };
   
@@ -132,7 +130,6 @@ const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, curre
       });
       setTaskHistory(data);
     } catch (error) {
-      console.error('Erreur lors du chargement de l\'historique:', error);
     }
   };
   
@@ -185,7 +182,6 @@ const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, curre
         loadTasks();
       }
     } catch (error) {
-      console.error('Erreur lors de la création de la tâche:', error);
       toast({
         title: "Erreur",
         description: "Impossible de créer la tâche",
@@ -223,9 +219,7 @@ const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, curre
       const fileName = `${Date.now()}_${selectedFile.name.replace(/\s+/g, '_')}`;
       const filePath = `tasks/${task.id}/${fileName}`;
       
-      console.log(`Tentative d'upload vers Cloudflare R2: ${filePath}`);
       const fileUrl = await startUpload(task.id, selectedFile, filePath);
-      console.log('Upload R2 réussi:', fileUrl);
       
       // Notification de fin d'upload
       toast({
@@ -277,9 +271,7 @@ const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, curre
               projectName
             );
           
-          console.log(`TaskManager: Notifications envoyées pour tous les membres du projet`);
         } catch (notificationError) {
-          console.error('Erreur lors de l\'envoi des notifications:', notificationError);
           // Ne pas faire échouer la soumission si les notifications échouent
         }
         
@@ -295,7 +287,6 @@ const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, curre
         loadTasks();
       }
     } catch (error) {
-      console.error('Erreur lors de la soumission:', error);
       toast({
         title: "Erreur",
         description: "Impossible de soumettre la tâche",
@@ -327,7 +318,6 @@ const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, curre
         loadTasks();
       }
     } catch (error) {
-      console.error('Erreur lors de la validation:', error);
       toast({
         title: "Erreur",
         description: "Impossible de valider la tâche",
