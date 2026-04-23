@@ -36,8 +36,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from '@/lib/utils';
-import { useLanguage } from '@/contexts/LanguageContext';
-import { translations } from '@/lib/translations';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import NotificationBell from '@/components/NotificationBell';
@@ -51,32 +49,13 @@ type DashboardUser = {
   id?: string;
 }
 
-// Create dashboard translations
+// Traductions françaises intégrées
 const dashboardTranslations = {
-  en: {
-    dashboard: "Dashboard",
-    projects: "Projects",
-    myProjects: "My Projects",
-    projectDetails: "Project Details",
-    intervenants: "Specialists",
-    companies: "Companies",
-    workgroups: "Work Groups",
-    messages: "Messages",
-    videoconference: "Video Conference",
-    settings: "Settings",
-    tasks: "Tasks",
-    logout: "Logout",
-    myAccount: "My Account",
-    profile: "Profile",
-    administrator: "Administrator",
-    specialist: "Specialist",
-    masterOwner: "Project Owner"
-  },
   fr: {
     dashboard: "Tableau de bord",
     projects: "Projets",
     myProjects: "Mes Projets",
-    projectDetails: "Détails du Projet",
+    projectDetails: "Détails du projet",
     intervenants: "Intervenants",
     companies: "Entreprises",
     workgroups: "Groupes de travail",
@@ -85,49 +64,11 @@ const dashboardTranslations = {
     settings: "Paramètres",
     tasks: "Tâches",
     logout: "Déconnexion",
-    myAccount: "Mon Compte",
+    myAccount: "Mon compte",
     profile: "Profil",
     administrator: "Administrateur",
     specialist: "Intervenant",
     masterOwner: "Maître d'ouvrage"
-  },
-  es: {
-    dashboard: "Panel de control",
-    projects: "Proyectos",
-    myProjects: "Mis Proyectos",
-    projectDetails: "Detalles del Proyecto",
-    intervenants: "Especialistas",
-    companies: "Empresas",
-    workgroups: "Grupos de trabajo",
-    messages: "Mensajes",
-    videoconference: "Videoconferencia",
-    settings: "Ajustes",
-    tasks: "Tareas",
-    logout: "Cerrar sesión",
-    myAccount: "Mi cuenta",
-    profile: "Perfil",
-    administrator: "Administrador",
-    specialist: "Especialista",
-    masterOwner: "Propietario del proyecto"
-  },
-  ar: {
-    dashboard: "لوحة التحكم",
-    projects: "المشاريع",
-    myProjects: "مشاريعي",
-    projectDetails: "تفاصيل المشروع",
-    intervenants: "المتخصصين",
-    companies: "الشركات",
-    workgroups: "مجموعات العمل",
-    messages: "الرسائل",
-    videoconference: "مؤتمر فيديو",
-    settings: "الإعدادات",
-    tasks: "المهام",
-    logout: "تسجيل الخروج",
-    myAccount: "حسابي",
-    profile: "الملف الشخصي",
-    administrator: "المسؤول",
-    specialist: "متخصص",
-    masterOwner: "مالك المشروع"
   }
 };
 

@@ -5,10 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from '../contexts/AuthContext';
-import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/lib/supabase';
-import { translations } from '@/lib/translations';
-import LanguageSelector from '@/components/LanguageSelector';
 import PasswordInput from '@/components/ui/password-input';
 
 const Login: React.FC = () => {
@@ -19,8 +16,7 @@ const Login: React.FC = () => {
   const location = useLocation();
   const { toast } = useToast();
   const { signIn, user, loading: authLoading } = useAuth();
-  const { language, setLanguage } = useLanguage();
-  const redirectedRef = useRef(false);
+    const redirectedRef = useRef(false);
   
   // Redirect if user is already logged in
   useEffect(() => {
@@ -132,9 +128,7 @@ const Login: React.FC = () => {
     }
   };
 
-  const t = translations[language].loginPage;
-  const textDirection = language === 'ar' ? 'rtl' : 'ltr';
-
+  
   return (
     <div className="min-h-screen flex bg-white" dir={textDirection}>
       {/* Partie gauche - Formulaire de connexion */}
