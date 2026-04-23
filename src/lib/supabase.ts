@@ -43,6 +43,7 @@ const initializeSupabase = () => {
     const supabaseUrl = getConfigValue('VITE_SUPABASE_URL', 'https://vcxcxhgmpcgdjabuxcuv.supabase.co');
     const supabaseAnonKey = getConfigValue('VITE_SUPABASE_ANON_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZjeGN4aGdtcGNnZGphYnV4Y3V2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYyODYwNzksImV4cCI6MjA2MTg2MjA3OX0.L34j4DHHeYN2KzF1DXIN3IqtjMve88EooQVcihuTM1c');
 
+console.log('Supabase Config:', {
       supabaseUrl,
       supabaseAnonKey: supabaseAnonKey ? '✅ Disponible' : '❌ Manquante',
       globalConfigAvailable: !!(typeof window !== 'undefined' && window.VIDEO_CONFERENCE_CONFIG)

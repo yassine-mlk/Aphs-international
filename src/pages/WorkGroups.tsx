@@ -189,11 +189,6 @@ const WorkGroups: React.FC = () => {
   // Gestionnaire pour soumettre le formulaire de création
   const handleSubmitCreate = async () => {
     try {
-        name: formData.name,
-        selectedUsersForCreate,
-        memberIds: selectedUsersForCreate.length > 0 ? selectedUsersForCreate : undefined
-      });
-      
       const result = await createWorkGroupWithMessaging({
         name: formData.name,
         description: formData.description,

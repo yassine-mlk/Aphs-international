@@ -15,6 +15,7 @@ const R2_BUCKET_NAME = import.meta.env.VITE_R2_BUCKET_NAME || "aps-task-files";
 const R2_PUBLIC_DOMAIN = import.meta.env.VITE_R2_PUBLIC_DOMAIN || "";
 
 // Log de configuration (sans les secrets)
+console.log('R2 Config:', {
   hasAccountId: !!R2_ACCOUNT_ID, 
   hasAccessKey: !!R2_ACCESS_KEY_ID, 
   hasSecretKey: !!R2_SECRET_ACCESS_KEY,
@@ -147,6 +148,7 @@ async function uploadMultipart(
         Bucket: R2_BUCKET_NAME,
         Key: path,
         UploadId: uploadId,
+      }));
     }
     throw error;
   }
