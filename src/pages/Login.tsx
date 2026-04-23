@@ -86,14 +86,8 @@ const Login: React.FC = () => {
         localStorage.setItem('user', JSON.stringify(userData));
         
         toast({
-          title: language === 'fr' ? "Connexion réussie" :
-                 language === 'en' ? "Login successful" :
-                 language === 'es' ? "Inicio de sesión exitoso" :
-                                   "تم تسجيل الدخول بنجاح",
-          description: language === 'fr' ? "Bienvenue sur votre espace" :
-                       language === 'en' ? "Welcome to your workspace" :
-                       language === 'es' ? "Bienvenido a su espacio de trabajo" :
-                                         "مرحباً بك في مساحة العمل الخاصة بك",
+          title: "Connexion réussie",
+          description: "Bienvenue sur votre espace",
           duration: 3000,
         });
         
@@ -112,14 +106,8 @@ const Login: React.FC = () => {
       }
     } catch (error) {
       toast({
-        title: language === 'fr' ? "Erreur de connexion" :
-               language === 'en' ? "Login error" :
-               language === 'es' ? "Error de inicio de sesión" :
-                                 "خطأ في تسجيل الدخول",
-        description: language === 'fr' ? "Email ou mot de passe incorrect" :
-                     language === 'en' ? "Incorrect email or password" :
-                     language === 'es' ? "Correo electrónico o contraseña incorrectos" :
-                                       "بريد إلكتروني أو كلمة مرور غير صحيحة",
+        title: "Erreur de connexion",
+        description: "Email ou mot de passe incorrect",
         variant: "destructive",
         duration: 3000,
       });
@@ -130,34 +118,34 @@ const Login: React.FC = () => {
 
   
   return (
-    <div className="min-h-screen flex bg-white" dir={textDirection}>
+    <div className="min-h-screen flex bg-white">
       {/* Partie gauche - Formulaire de connexion */}
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
             <img src="/aps-logo.svg" alt="APS" className="h-16 mx-auto" />
-            <p className="mt-2 text-gray-500 font-medium">{t.subtitle}</p>
+            <p className="mt-2 text-gray-500 font-medium">Connectez-vous pour accéder à votre espace</p>
             <div className="mt-6 flex justify-center">
-              <LanguageSelector 
-                currentLanguage={language}
-                onLanguageChange={setLanguage}
-              />
+              <div className="flex items-center gap-2 text-sm text-gray-500">
+                <span>🇫🇷</span>
+                <span>Français</span>
+              </div>
             </div>
           </div>
           
           <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-2xl">
             <h2 className="text-3xl font-bold text-black mb-8">
-              {t.title}
+              Connexion
             </h2>
             
             <form className="space-y-6" onSubmit={handleSubmit}>
               <div className="space-y-5">
                 <div>
-                  <Label htmlFor="email" className="text-gray-700 font-semibold mb-1.5 block">{t.email}</Label>
+                  <Label htmlFor="email" className="text-gray-700 font-semibold mb-1.5 block">Email</Label>
                   <Input
                     id="email"
                     type="email"
-                    placeholder={t.emailPlaceholder}
+                    placeholder="votre@email.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
@@ -166,16 +154,16 @@ const Login: React.FC = () => {
                 </div>
                 <div>
                   <div className="flex justify-between items-center mb-1.5">
-                    <Label htmlFor="password" className="text-gray-700 font-semibold">{t.password}</Label>
+                    <Label htmlFor="password" className="text-gray-700 font-semibold">Mot de passe</Label>
                     <a href="#" className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors">
-                      {t.forgotPassword}
+                      Mot de passe oublié ?
                     </a>
                   </div>
                   <PasswordInput
                     id="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder={t.passwordPlaceholder}
+                    placeholder="••••••••"
                     required
                     className="h-12 border-gray-200 focus:border-blue-600 focus:ring-blue-600 transition-all"
                   />
@@ -187,15 +175,12 @@ const Login: React.FC = () => {
                 className="w-full h-12 bg-black hover:bg-blue-600 text-white font-bold transition-all text-lg shadow-lg hover:shadow-blue-600/20"
                 disabled={isLoading}
               >
-                {isLoading ? t.loadingButton : t.loginButton}
+                {isLoading ? "Connexion en cours..." : "Se connecter"}
               </Button>
               
               <div className="text-sm text-gray-500 mt-6 p-4 bg-gray-50 rounded-xl border border-gray-100">
-                <p className="font-bold text-black mb-1">{language === 'fr' ? "Besoin d'aide ?" :
-                                                  language === 'en' ? "Need help?" :
-                                                  language === 'es' ? "¿Necesita ayuda?" :
-                                                                     "هل تحتاج إلى مساعدة؟"}</p>
-                <p>{t.contactAdmin}</p>
+                <p className="font-bold text-black mb-1">Besoin d'aide ?</p>
+                <p>Contactez votre administrateur si vous n'avez pas de compte.</p>
               </div>
             </form>
           </div>
@@ -210,27 +195,27 @@ const Login: React.FC = () => {
         <div className="h-full w-full bg-black/60 backdrop-blur-[2px] flex flex-col justify-center p-16 text-white">
           <div className="max-w-xl">
             <h2 className="text-5xl font-black mb-8 leading-tight">
-              {t.welcomeTitle} <br/>
+              Bienvenue sur la plateforme <br/>
               <span className="text-blue-500">APS</span> <img src="/aps-logo.svg" alt="APS" className="inline h-12 ml-2 brightness-0 invert" />
             </h2>
-            <p className="text-xl text-gray-200 mb-12 leading-relaxed">{t.welcomeSubtitle}</p>
+            <p className="text-xl text-gray-200 mb-12 leading-relaxed">Gérez vos projets et collaborez efficacement avec tous vos intervenants.</p>
             
             <div className="grid grid-cols-2 gap-6">
               <div className="bg-white/10 p-6 rounded-2xl backdrop-blur-md border border-white/10 hover:bg-white/20 transition-all group">
-                <h3 className="font-bold mb-2 text-blue-400 group-hover:text-blue-300">{t.projectManagement}</h3>
-                <p className="text-sm text-gray-300">{t.projectManagementDesc}</p>
+                <h3 className="font-bold mb-2 text-blue-400 group-hover:text-blue-300">Gestion de Projets</h3>
+                <p className="text-sm text-gray-300">Suivez l'avancement de vos projets en temps réel</p>
               </div>
               <div className="bg-white/10 p-6 rounded-2xl backdrop-blur-md border border-white/10 hover:bg-white/20 transition-all group">
-                <h3 className="font-bold mb-2 text-blue-400 group-hover:text-blue-300">{t.collaboration}</h3>
-                <p className="text-sm text-gray-300">{t.collaborationDesc}</p>
+                <h3 className="font-bold mb-2 text-blue-400 group-hover:text-blue-300">Collaboration</h3>
+                <p className="text-sm text-gray-300">Travaillez en équipe avec des outils puissants</p>
               </div>
               <div className="bg-white/10 p-6 rounded-2xl backdrop-blur-md border border-white/10 hover:bg-white/20 transition-all group">
-                <h3 className="font-bold mb-2 text-blue-400 group-hover:text-blue-300">{t.communication}</h3>
-                <p className="text-sm text-gray-300">{t.communicationDesc}</p>
+                <h3 className="font-bold mb-2 text-blue-400 group-hover:text-blue-300">Communication</h3>
+                <p className="text-sm text-gray-300">Échangez avec vos collaborateurs rapidement</p>
               </div>
               <div className="bg-white/10 p-6 rounded-2xl backdrop-blur-md border border-white/10 hover:bg-white/20 transition-all group">
-                <h3 className="font-bold mb-2 text-blue-400 group-hover:text-blue-300">{t.analysis}</h3>
-                <p className="text-sm text-gray-300">{t.analysisDesc}</p>
+                <h3 className="font-bold mb-2 text-blue-400 group-hover:text-blue-300">Analyse</h3>
+                <p className="text-sm text-gray-300">Consultez des rapports détaillés sur vos activités</p>
               </div>
             </div>
           </div>
