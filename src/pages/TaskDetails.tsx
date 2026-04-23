@@ -50,7 +50,6 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { translations } from '@/lib/translations';
 import { uploadToR2 } from '@/lib/r2';
 import { useUpload } from '@/contexts/UploadContext';
 import {
@@ -159,8 +158,7 @@ const TaskDetails: React.FC = () => {
     notifyFileUploadedToProject
   } = useNotificationTriggers();
   
-  const t = translations[language as keyof typeof translations].tasks;
-  
+    
   const [task, setTask] = useState<TaskAssignment | null>(null);
   const [project, setProject] = useState<Project | null>(null);
 
