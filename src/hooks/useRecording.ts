@@ -30,7 +30,6 @@ export function useRecording(roomId: string) {
         timeSlice: 1000,
         ondataavailable: (blob: Blob) => {
           // Optionnel: traitement en temps réel des chunks
-          console.log('Recording chunk:', blob.size);
         }
       });
 
@@ -52,7 +51,6 @@ export function useRecording(roomId: string) {
         .single();
 
       if (meetingError) {
-        console.error('Erreur pour trouver la réunion:', meetingError);
       }
 
       // Enregistrer dans la base de données le début de l'enregistrement
@@ -67,7 +65,6 @@ export function useRecording(roomId: string) {
         });
 
       if (dbError) {
-        console.error('Erreur DB recording:', dbError);
       }
 
       toast({
@@ -76,7 +73,6 @@ export function useRecording(roomId: string) {
       });
 
     } catch (error) {
-      console.error('Erreur démarrage enregistrement:', error);
       toast({
         title: "Erreur",
         description: "Impossible de démarrer l'enregistrement",
@@ -138,7 +134,6 @@ export function useRecording(roomId: string) {
             .eq('status', 'recording');
 
           if (dbError) {
-            console.error('Erreur mise à jour DB:', dbError);
           }
 
           toast({
@@ -149,7 +144,6 @@ export function useRecording(roomId: string) {
           resolve(publicUrl);
 
         } catch (error) {
-          console.error('Erreur sauvegarde enregistrement:', error);
           toast({
             title: "Erreur de sauvegarde",
             description: "L'enregistrement n'a pas pu être sauvegardé",

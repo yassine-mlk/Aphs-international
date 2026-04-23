@@ -96,7 +96,6 @@ export function useVideoMeetingRequests() {
       setRequests(formattedRequests);
       return formattedRequests;
     } catch (error) {
-      console.error('Erreur lors de la récupération des demandes:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible de récupérer les demandes de réunion',
@@ -235,7 +234,6 @@ export function useVideoMeetingRequests() {
 
       return true;
     } catch (error) {
-      console.error('Erreur lors de la réponse à la demande:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible de traiter la demande',

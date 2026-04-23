@@ -171,7 +171,6 @@ const IntervenantProjectDetails: React.FC = () => {
           }
         }
       } catch (error) {
-        console.error('Erreur lors de la vérification de l\'accès:', error);
         // En cas d'erreur, permettre l'accès pour les intervenants (lecture seule)
         setIsMember(true);
       } finally {
@@ -215,7 +214,6 @@ const IntervenantProjectDetails: React.FC = () => {
           navigate('/dashboard/intervenant/projets');
         }
       } catch (error) {
-        console.error('Erreur lors de la récupération des détails du projet:', error);
         toast({
           title: "Erreur",
           description: "Impossible de charger les détails du projet",
@@ -246,7 +244,6 @@ const IntervenantProjectDetails: React.FC = () => {
           setTaskAssignments(data);
         }
       } catch (error) {
-        console.error('Erreur lors de la récupération des tâches:', error);
       } finally {
         setLoadingTasks(false);
       }
@@ -282,7 +279,6 @@ const IntervenantProjectDetails: React.FC = () => {
           setIntervenants(formattedUsers);
         }
       } catch (error) {
-        console.error('Erreur lors de la récupération des intervenants:', error);
       }
     };
     
@@ -446,7 +442,6 @@ const IntervenantProjectDetails: React.FC = () => {
           });
         }
       } catch (error) {
-        console.error('Erreur lors du chargement de la fiche informative:', error);
         toast({
           title: "Erreur",
           description: "Impossible de charger la fiche informative",
@@ -482,7 +477,6 @@ const IntervenantProjectDetails: React.FC = () => {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (error) {
-      console.error('Erreur lors du téléchargement:', error);
       toast({
         title: "Erreur",
         description: "Impossible de télécharger le fichier",

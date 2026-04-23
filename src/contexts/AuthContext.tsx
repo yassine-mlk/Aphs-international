@@ -29,13 +29,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (session) {
           setSession(session);
           setUser(session.user);
-          console.log('Session existante trouvée pour:', session.user.email);
         } else {
-          console.log('Aucune session existante trouvée');
           // Ne pas utiliser le localStorage comme fallback pour éviter les reconnexions automatiques
         }
       } catch (error) {
-        console.error('Erreur lors de la récupération de la session:', error);
       } finally {
         setLoading(false);
         setInitialized(true);
@@ -46,7 +43,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Écouter les changements d'authentification
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      console.log('État d\'authentification changé:', _event, session?.user?.email);
       
       if (session) {
         setSession(session);
@@ -75,7 +71,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error) throw error;
       
       if (data.user && data.session) {
-        console.log('Connexion réussie pour:', data.user.email);
         setUser(data.user);
         setSession(data.session);
         return { user: data.user, error: null };
@@ -83,7 +78,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       return { user: null, error: new Error('Utilisateur ou session non disponible') };
     } catch (error) {
-      console.error('Erreur de connexion:', error);
       return { user: null, error: error as Error };
     } finally {
       setLoading(false);
@@ -115,13 +109,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { error } = await supabase.auth.signOut();
       
       if (error) {
-        console.error('Erreur Supabase lors de la déconnexion:', error);
         // Malgré l'erreur, on a déjà nettoyé l'état local
       }
       
-      console.log('Déconnexion réussie, état nettoyé');
     } catch (error) {
-      console.error('Erreur lors de la déconnexion:', error);
     } finally {
       // Définir comme non chargé pour éviter les écrans de chargement bloqués
       setLoading(false);

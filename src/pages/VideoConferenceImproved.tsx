@@ -104,7 +104,6 @@ const VideoConferenceImproved: React.FC = () => {
           setUsers(formattedUsers);
         }
       } catch (error) {
-        console.error('Erreur lors du chargement des utilisateurs:', error);
         toast({
           title: "Erreur",
           description: "Impossible de charger la liste des participants",
@@ -167,7 +166,6 @@ const VideoConferenceImproved: React.FC = () => {
         });
       }
     } catch (error) {
-      console.error('Erreur lors de la connexion:', error);
       toast({
         title: "Erreur",
         description: "Impossible de rejoindre la réunion",
@@ -278,14 +276,12 @@ const VideoConferenceImproved: React.FC = () => {
   };
   
   const handleLeaveMeeting = async (meetingId: string) => {
-    console.log(`🚪 Leaving meeting: ${meetingId}`);
     
     try {
       const success = await leaveMeeting(meetingId);
       
       // Toujours quitter l'interface, même si la BD a eu un problème
       if (activeMeetingRoom && activeMeetingRoom.meetingId === meetingId) {
-        console.log(`✅ Closing meeting room interface`);
         setActiveMeetingRoom(null);
       }
       
@@ -297,10 +293,8 @@ const VideoConferenceImproved: React.FC = () => {
       }
       
     } catch (error) {
-      console.error('Error leaving meeting:', error);
       // En cas d'erreur, fermer quand même l'interface
       if (activeMeetingRoom && activeMeetingRoom.meetingId === meetingId) {
-        console.log(`🔄 Force closing meeting room due to error`);
         setActiveMeetingRoom(null);
       }
       

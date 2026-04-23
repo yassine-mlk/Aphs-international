@@ -74,7 +74,6 @@ export function useDashboardStats() {
         pendingProjects
       };
     } catch (error) {
-      console.error('Erreur lors de la récupération des statistiques de projets:', error);
       return {
         totalProjects: 0,
         activeProjects: 0,
@@ -128,7 +127,6 @@ export function useDashboardStats() {
         activeIntervenants
       };
     } catch (error) {
-      console.error('Erreur lors de la récupération des statistiques d\'intervenants:', error);
       return {
         totalIntervenants: 0,
         activeIntervenants: 0
@@ -164,7 +162,6 @@ export function useDashboardStats() {
         overdueTasks
       };
     } catch (error) {
-      console.error('Erreur lors de la récupération des statistiques de tâches:', error);
       return {
         totalTasks: 0,
         completedTasks: 0,
@@ -221,7 +218,6 @@ export function useDashboardStats() {
 
       return events.slice(0, 5); // Limiter à 5 événements
     } catch (error) {
-      console.error('Erreur lors de la récupération des événements:', error);
       return [];
     }
   }, []);
@@ -268,7 +264,6 @@ export function useDashboardStats() {
 
       return chartData;
     } catch (error) {
-      console.error('Erreur lors de la récupération des données du graphique:', error);
       return [];
     }
   }, []);
@@ -335,7 +330,6 @@ export function useDashboardStats() {
 
       return activities.slice(0, 5);
     } catch (error) {
-      console.error('Erreur lors de la récupération des activités récentes:', error);
       return [];
     }
   }, []);
@@ -366,7 +360,6 @@ export function useDashboardStats() {
       setRecentActivities(recentActivities);
       setLastUpdate(new Date());
     } catch (error) {
-      console.error('Erreur lors de la récupération des statistiques:', error);
       setError('Impossible de charger les statistiques du tableau de bord');
       toast({
         title: "Erreur",

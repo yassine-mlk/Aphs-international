@@ -197,7 +197,6 @@ export function useRecentActivities() {
               user_name: data.userName
             };
           } catch (error) {
-            console.warn('Erreur parsing data notification:', error);
           }
         }
         
@@ -225,7 +224,6 @@ export function useRecentActivities() {
       const enrichedActivities = await enrichNotifications(notifications || []);
       setActivities(enrichedActivities);
     } catch (error) {
-      console.error('Erreur lors de la récupération des activités intervenant:', error);
       setError('Impossible de charger les activités');
     }
   }, [user?.id, enrichNotifications]);
@@ -244,7 +242,6 @@ export function useRecentActivities() {
       const enrichedActivities = await enrichNotifications(notifications || []);
       setActivities(enrichedActivities);
     } catch (error) {
-      console.error('Erreur lors de la récupération des activités admin:', error);
       setError('Impossible de charger les activités');
     }
   }, [enrichNotifications]);
@@ -261,11 +258,9 @@ export function useRecentActivities() {
         .maybeSingle();  // ← maybeSingle au lieu de single
 
       if (error && error.code !== 'PGRST116') {
-        console.error('Erreur lors de la vérification du rôle:', error);
       }
       return profile?.role === 'admin';
     } catch (error) {
-      console.error('Erreur lors de la vérification du rôle:', error);
       return false;
     }
   }, [user?.id]);
@@ -286,7 +281,6 @@ export function useRecentActivities() {
         await fetchIntervenantActivities();
       }
     } catch (error) {
-      console.error('Erreur lors de la récupération des activités:', error);
       setError('Impossible de charger les activités');
       toast({
         title: "Erreur",
@@ -316,7 +310,6 @@ export function useRecentActivities() {
         )
       );
     } catch (error) {
-      console.error('Erreur lors du marquage comme lu:', error);
     }
   }, []);
 

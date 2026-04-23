@@ -109,7 +109,6 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       onImageUploaded(urlData.publicUrl);
 
     } catch (error: any) {
-      console.error('Erreur lors de l\'upload:', error);
       toast({
         title: "Erreur",
         description: error.message || "Impossible d'uploader l'image",
@@ -139,7 +138,6 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         .remove([filePath]);
 
       if (error) {
-        console.warn('Erreur lors de la suppression du fichier:', error);
       }
 
       onImageRemoved();
@@ -150,7 +148,6 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       });
 
     } catch (error: any) {
-      console.error('Erreur lors de la suppression:', error);
       toast({
         title: "Erreur",
         description: "Impossible de supprimer l'image",

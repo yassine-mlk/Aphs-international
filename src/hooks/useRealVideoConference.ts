@@ -72,7 +72,6 @@ export function useRealVideoConference({
       setLocalStream(stream);
       return stream;
     } catch (err) {
-      console.error('❌ Erreur accès caméra/micro:', err);
       setError('Impossible d\'accéder à la caméra/microphone');
       onError?.('Impossible d\'accéder à la caméra/microphone');
       return null;
@@ -108,7 +107,6 @@ export function useRealVideoConference({
       // Gérer les candidats ICE
       peer.onicecandidate = (event) => {
         if (event.candidate) {
-          console.log(`📡 ICE candidate pour ${participantId}:`, event.candidate.candidate);
           const message = {
             type: 'ice-candidate',
             to: participantId,
@@ -124,8 +122,6 @@ export function useRealVideoConference({
 
       // Gérer les streams entrants
       peer.ontrack = (event) => {
-        console.log(`📹 Stream reçu de ${participantId}:`, event.streams[0]);
-        console.log('Tracks reçues:', event.track.kind, event.track.id);
         
         // Mettre à jour le participant avec le stream
         setParticipants(prev => {
@@ -151,7 +147,6 @@ export function useRealVideoConference({
 
       // Gérer les changements d'état de connexion
       peer.onconnectionstatechange = () => {
-        console.log(`🔗 État connexion ${participantId}:`, peer.connectionState);
         if (peer.connectionState === 'connected') {
           setParticipants(prev => prev.map(p => 
             p.id === participantId 
@@ -169,18 +164,15 @@ export function useRealVideoConference({
 
       // Gérer les changements d'état de signalisation
       peer.onsignalingstatechange = () => {
-        console.log(`📡 État signalisation ${participantId}:`, peer.signalingState);
       };
 
       // Gérer les changements d'état ICE
       peer.oniceconnectionstatechange = () => {
-        console.log(`🧊 État ICE ${participantId}:`, peer.iceConnectionState);
       };
 
       peerConnectionsRef.current.set(participantId, peer);
       return peer;
     } catch (err) {
-      console.error(`❌ Erreur création peer pour ${participantId}:`, err);
       return null;
     }
   }, [localStream, userName, storageKey]);
@@ -193,7 +185,6 @@ export function useRealVideoConference({
       roomId,
       timestamp: new Date().toISOString()
     };
-    console.log('📤 Envoi localStorage:', fullMessage);
     localStorage.setItem(`${storageKey.current}_${Date.now()}`, JSON.stringify(fullMessage));
   }, [storageKey]);
 
@@ -201,7 +192,6 @@ export function useRealVideoConference({
   const handleLocalStorageMessage = useCallback((data: string) => {
     try {
       const message = JSON.parse(data);
-      console.log('📨 Message localStorage reçu:', message);
 
       // Ignorer nos propres messages
       if (message.from === currentUserId.current) {
@@ -210,7 +200,6 @@ export function useRealVideoConference({
 
       switch (message.type) {
         case 'join':
-          console.log(`👋 ${message.fromName} a rejoint la room`);
           setParticipants(prev => {
             if (!prev.find(p => p.id === message.from)) {
               const newParticipant = {
@@ -220,20 +209,16 @@ export function useRealVideoConference({
                 joinedAt: new Date()
               };
 
-              console.log(`➕ Nouveau participant ajouté: ${message.fromName} (${message.from})`);
 
               // Créer une connexion peer avec le nouveau participant
               setTimeout(() => {
-                console.log(`🔗 Création connexion peer avec ${message.fromName}`);
                 const peer = createPeerConnection(message.from);
                 if (peer) {
                   peer.createOffer()
                     .then(offer => {
-                      console.log('✅ Offre créée:', offer.type);
                       return peer.setLocalDescription(offer);
                     })
                     .then(() => {
-                      console.log('✅ Description locale définie');
                       sendLocalStorageMessage({
                         type: 'offer',
                         to: message.from,
@@ -242,7 +227,6 @@ export function useRealVideoConference({
                       });
                     })
                     .catch(err => {
-                      console.error('❌ Erreur création offre:', err);
                       // Retirer le participant en cas d'erreur
                       setParticipants(prev => prev.filter(p => p.id !== message.from));
                     });
@@ -256,7 +240,6 @@ export function useRealVideoConference({
           break;
 
         case 'leave':
-          console.log(`👋 ${message.fromName} a quitté la room`);
           setParticipants(prev => prev.filter(p => p.id !== message.from));
           const peerToClose = peerConnectionsRef.current.get(message.from);
           if (peerToClose) {
@@ -266,24 +249,19 @@ export function useRealVideoConference({
           break;
 
         case 'offer':
-          console.log(`📥 Offre reçue de ${message.fromName}`);
           const offerPeer = createPeerConnection(message.from);
           if (offerPeer) {
-            console.log(`🔗 Peer créé pour ${message.fromName}, état signalisation: ${offerPeer.signalingState}`);
             
             if (offerPeer.signalingState === 'stable' || offerPeer.signalingState === 'have-local-offer') {
               offerPeer.setRemoteDescription(new RTCSessionDescription(message.sdp))
                 .then(() => {
-                  console.log('✅ Description distante définie pour offre');
                   
                   // Ajouter les candidats ICE en attente
                   const pendingCandidates = pendingIceCandidatesRef.current.get(message.from) || [];
                   if (pendingCandidates.length > 0) {
-                    console.log(`📦 Ajout de ${pendingCandidates.length} candidats ICE en attente`);
                     const addCandidatesPromises = pendingCandidates.map(candidate => 
                       offerPeer.addIceCandidate(candidate).catch(err => {
                         if (!err.message.includes('Unknown ufrag')) {
-                          console.error('❌ Erreur ajout candidat ICE en attente:', err);
                         }
                       })
                     );
@@ -298,11 +276,9 @@ export function useRealVideoConference({
                   return offerPeer.createAnswer();
                 })
                 .then(answer => {
-                  console.log('✅ Réponse créée:', answer.type);
                   return offerPeer.setLocalDescription(answer);
                 })
                 .then(() => {
-                  console.log('✅ Description locale définie pour réponse');
                   sendLocalStorageMessage({
                     type: 'answer',
                     to: message.from,
@@ -311,9 +287,7 @@ export function useRealVideoConference({
                   });
                 })
                 .catch(err => {
-                  console.error('❌ Erreur traitement offre:', err);
                   if (err.message.includes('wrong state')) {
-                    console.log('🔄 Redémarrage connexion peer...');
                     offerPeer.close();
                     peerConnectionsRef.current.delete(message.from);
                     pendingIceCandidatesRef.current.delete(message.from);
@@ -331,34 +305,28 @@ export function useRealVideoConference({
                               fromName: userName
                             });
                           })
-                          .catch(err2 => console.error('❌ Erreur redémarrage connexion:', err2));
                       }
                     }, 1000);
                   }
                 });
             } else {
-              console.log(`⚠️ État de signalisation incorrect: ${offerPeer.signalingState}`);
             }
           }
           break;
 
         case 'answer':
-          console.log(`📥 Réponse reçue de ${message.fromName}`);
           const answerPeer = peerConnectionsRef.current.get(message.from);
           if (answerPeer) {
             if (answerPeer.signalingState === 'have-local-offer') {
               answerPeer.setRemoteDescription(new RTCSessionDescription(message.sdp))
                 .then(() => {
-                  console.log('✅ Description distante définie pour réponse');
                   
                   // Ajouter les candidats ICE en attente
                   const pendingCandidates = pendingIceCandidatesRef.current.get(message.from) || [];
                   if (pendingCandidates.length > 0) {
-                    console.log(`📦 Ajout de ${pendingCandidates.length} candidats ICE en attente pour réponse`);
                     const addCandidatesPromises = pendingCandidates.map(candidate => 
                       answerPeer.addIceCandidate(candidate).catch(err => {
                         if (!err.message.includes('Unknown ufrag')) {
-                          console.error('❌ Erreur ajout candidat ICE en attente:', err);
                         }
                       })
                     );
@@ -370,37 +338,28 @@ export function useRealVideoConference({
                   return Promise.resolve();
                 })
                 .catch(err => {
-                  console.error('❌ Erreur traitement réponse:', err);
                   if (err.message.includes('wrong state')) {
-                    console.log(`⚠️ État de signalisation: ${answerPeer.signalingState}`);
                   }
                 });
             } else {
-              console.log(`⚠️ État de signalisation incorrect pour réponse: ${answerPeer.signalingState}`);
             }
           } else {
-            console.error('❌ Connexion peer non trouvée pour réponse');
           }
           break;
 
         case 'ice-candidate':
-          console.log(`📥 ICE candidate reçu de ${message.fromName}`);
           const icePeer = peerConnectionsRef.current.get(message.from);
           if (icePeer && message.candidate) {
             // Vérifier si la description distante est définie
             if (icePeer.remoteDescription && icePeer.remoteDescription.type) {
               icePeer.addIceCandidate(new RTCIceCandidate(message.candidate))
-                .then(() => console.log('✅ ICE candidate ajouté'))
                 .catch(err => {
-                  console.error('❌ Erreur ajout ICE candidate:', err);
                   // Ignorer les erreurs "Unknown ufrag" qui sont normales
                   if (!err.message.includes('Unknown ufrag')) {
-                    console.error('❌ Erreur critique ICE candidate:', err);
                   }
                 });
             } else {
               // Stocker le candidat pour plus tard
-              console.log('📦 Stockage ICE candidate en attente de description distante');
               const pendingCandidates = pendingIceCandidatesRef.current.get(message.from) || [];
               pendingCandidates.push(new RTCIceCandidate(message.candidate));
               pendingIceCandidatesRef.current.set(message.from, pendingCandidates);
@@ -419,10 +378,8 @@ export function useRealVideoConference({
           break;
 
         default:
-          console.log('❓ Type de message inconnu:', message.type);
       }
     } catch (error) {
-      console.error('❌ Erreur parsing message localStorage:', error);
     }
   }, [userName, sendLocalStorageMessage, createPeerConnection]);
 
@@ -435,7 +392,6 @@ export function useRealVideoConference({
       setConnectionStatus('connecting');
       setError(null);
 
-      console.log(`🚀 Connexion à la room: ${roomId}`);
 
       // Envoyer un message de join
       sendLocalStorageMessage({
@@ -445,10 +401,8 @@ export function useRealVideoConference({
 
       setIsConnected(true);
       setConnectionStatus('connected');
-      console.log('✅ Connecté à la room:', roomId);
 
     } catch (err) {
-      console.error('❌ Erreur connexion room:', err);
       setError('Erreur de connexion à la room');
       setConnectionStatus('error');
       onError?.('Erreur de connexion à la room');
@@ -482,7 +436,6 @@ export function useRealVideoConference({
               handleLocalStorageMessage(value);
             }
           } catch (error) {
-            console.error('❌ Erreur parsing message existant:', error);
           }
         }
       });
@@ -499,7 +452,6 @@ export function useRealVideoConference({
 
   // Se déconnecter
   const disconnect = useCallback(() => {
-    console.log('🛑 Déconnexion de la room');
     
     // Fermer toutes les connexions peer
     peerConnectionsRef.current.forEach(peer => {
@@ -593,7 +545,6 @@ export function useRealVideoConference({
         setIsScreenSharing(false);
       }
     } catch (err) {
-      console.error('❌ Erreur screen share:', err);
     }
   }, [isScreenSharing, localStream]);
 

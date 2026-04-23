@@ -28,7 +28,6 @@ const Login: React.FC = () => {
     if (redirectedRef.current || authLoading) return;
     
     if (user) {
-      console.log('Login - User already logged in, redirecting...');
       redirectedRef.current = true;
       
       // Check if super admin for redirect
@@ -59,10 +58,8 @@ const Login: React.FC = () => {
       
       if (user) {
         // Store user data in localStorage including the role
-        console.log('Login successful - User data:', user);
         
         // Récupérer le rôle depuis la table profiles (source de vérité pour SaaS)
-        console.log('🔍 Fetching profile for user.id =', user.id);
         
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
@@ -70,12 +67,8 @@ const Login: React.FC = () => {
           .eq('user_id', user.id)
           .maybeSingle();
         
-        console.log('📋 Profile data:', profileData);
-        console.log('❌ Profile error:', profileError);
-        console.log('🔑 user.user_metadata:', user.user_metadata);
         
         if (profileError && profileError.code !== 'PGRST116') {
-          console.error('Error fetching profile:', profileError);
         }
         
         let userRole = profileData?.role || user.user_metadata?.role || 'intervenant';
@@ -83,7 +76,6 @@ const Login: React.FC = () => {
         // Force admin role for admin@aps.com
         if (email === 'admin@aps.com') {
           userRole = 'admin';
-          console.log('Forcing admin role for admin@aps.com');
         }
         
         const userData = {
@@ -93,7 +85,6 @@ const Login: React.FC = () => {
           id: user.id
         };
         
-        console.log('User role from profiles:', userRole, 'SuperAdmin:', profileData?.is_super_admin);
         
         // Définir le localStorage avant la navigation
         localStorage.setItem('user', JSON.stringify(userData));
@@ -124,7 +115,6 @@ const Login: React.FC = () => {
         throw new Error("Connexion échouée");
       }
     } catch (error) {
-      console.error('Erreur de connexion:', error);
       toast({
         title: language === 'fr' ? "Erreur de connexion" :
                language === 'en' ? "Login error" :

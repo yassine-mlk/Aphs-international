@@ -99,7 +99,6 @@ export function useIntervenantStats() {
         project_name: projectMap.get(task.project_id) || 'Projet inconnu'
       }));
     } catch (error) {
-      console.error('Erreur lors de la récupération des tâches:', error);
       return [];
     }
   }, [user?.id, supabase]);
@@ -165,7 +164,6 @@ export function useIntervenantStats() {
           : 0
       }));
     } catch (error) {
-      console.error('Erreur lors de la récupération des projets:', error);
       return [];
     }
   }, [user?.id, supabase]);
@@ -276,7 +274,6 @@ export function useIntervenantStats() {
       setRecentActivities(activities);
 
     } catch (error) {
-      console.error('Erreur lors du chargement des données:', error);
       setError('Impossible de charger les données');
       toast({
         title: "Erreur",

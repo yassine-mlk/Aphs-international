@@ -67,21 +67,17 @@ export const RobustVideoConference: React.FC<RobustVideoConferenceProps> = ({
       
       // Forcer la lecture de la vidéo
       localVideoRef.current.play().then(() => {
-        console.log('✅ Local video playing successfully');
       }).catch(error => {
-        console.warn('⚠️ Could not auto-play local video:', error);
       });
     }
   }, [localStream]);
 
   // Attacher les streams distants aux vidéos
   useEffect(() => {
-    console.log('🔄 Attaching remote streams to videos...', participants);
     
     participants.forEach(participant => {
       const videoElement = remoteVideosRef.current[participant.id];
       
-      console.log(`📹 Participant ${participant.id}:`, {
         hasStream: !!participant.stream,
         hasVideoElement: !!videoElement,
         streamActive: participant.stream?.active,
@@ -92,11 +88,9 @@ export const RobustVideoConference: React.FC<RobustVideoConferenceProps> = ({
       if (participant.stream && videoElement) {
         // Vérifier si le stream est actif
         if (participant.stream.active) {
-          console.log(`🎥 Attaching stream to video for ${participant.id}`);
           
           // Arrêter l'ancien stream s'il y en a un
           if (videoElement.srcObject) {
-            console.log(`🔄 Replacing existing stream for ${participant.id}`);
           }
           
           videoElement.srcObject = participant.stream;
@@ -104,17 +98,12 @@ export const RobustVideoConference: React.FC<RobustVideoConferenceProps> = ({
           
           // Forcer la lecture de la vidéo
           videoElement.play().then(() => {
-            console.log(`✅ Remote video playing for ${participant.id}`);
           }).catch(error => {
-            console.warn(`⚠️ Could not auto-play remote video for ${participant.id}:`, error);
           });
           
-          console.log(`✅ Stream attached to video for ${participant.id}`);
         } else {
-          console.warn(`⚠️ Stream not active for ${participant.id}`);
         }
       } else {
-        console.log(`⚠️ Missing stream or video element for ${participant.id}:`, {
           hasStream: !!participant.stream,
           hasVideoElement: !!videoElement
         });
@@ -259,7 +248,6 @@ export const RobustVideoConference: React.FC<RobustVideoConferenceProps> = ({
                   ref={(el) => {
                     if (el) {
                       remoteVideosRef.current[participant.id] = el;
-                      console.log(`📹 Video element created for ${participant.id}`);
                     }
                   }}
                   autoPlay

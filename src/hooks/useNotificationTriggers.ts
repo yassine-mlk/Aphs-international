@@ -32,7 +32,6 @@ export function useNotificationTriggers() {
 
       if (error) throw error;
     } catch (error) {
-      console.error('Erreur lors de la création de notification:', error);
     }
   }, []);
 
@@ -59,7 +58,6 @@ export function useNotificationTriggers() {
 
       await Promise.all(notificationPromises);
     } catch (error) {
-      console.error('Erreur lors de la création de notifications admin:', error);
     }
   }, [createNotification]);
 
@@ -243,7 +241,6 @@ export function useNotificationTriggers() {
 
       await Promise.all(notificationPromises);
     } catch (error) {
-      console.error('Erreur lors de la création de notifications pour les membres du projet:', error);
     }
   }, [createNotification]);
 

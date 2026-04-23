@@ -76,7 +76,6 @@ export function useRobustVideoConference({
   // Initialiser le stream local
   const initializeLocalStream = useCallback(async () => {
     try {
-      console.log('🎥 Initializing local stream...');
       
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -94,11 +93,9 @@ export function useRobustVideoConference({
 
       localStreamRef.current = stream;
       setLocalStream(stream);
-      console.log('✅ Local stream initialized');
       
       return stream;
     } catch (err) {
-      console.error('❌ Failed to get user media:', err);
       setError('Impossible d\'accéder à la caméra/microphone');
       setConnectionStatus('error');
       onError?.('Impossible d\'accéder à la caméra/microphone');
@@ -109,16 +106,13 @@ export function useRobustVideoConference({
   // Créer une connexion peer-to-peer
   const createPeerConnection = useCallback((participantId: string, initiator: boolean = false) => {
     if (!localStreamRef.current) {
-      console.warn('❌ Cannot create peer: no local stream');
       return null;
     }
 
     if (peersRef.current[participantId]) {
-      console.log(`ℹ️ Peer already exists for ${participantId}`);
       return peersRef.current[participantId];
     }
 
-    console.log(`🔗 Creating peer connection with ${participantId}, initiator: ${initiator}`);
 
     const peer = new RTCPeerConnection({
       iceServers: [
@@ -140,7 +134,6 @@ export function useRobustVideoConference({
     // Gérer les candidats ICE
     peer.onicecandidate = (event) => {
       if (event.candidate) {
-        console.log(`📡 ICE candidate for ${participantId}:`, event.candidate.candidate);
         sendRTCSignal(participantId, {
           type: 'ice-candidate',
           candidate: event.candidate
@@ -150,7 +143,6 @@ export function useRobustVideoConference({
 
     // Gérer le stream distant
     peer.ontrack = (event) => {
-      console.log(`🎥 Received remote stream from ${participantId}`);
       
       setParticipants(prev => prev.map(p => 
         p.id === participantId 
@@ -161,7 +153,6 @@ export function useRobustVideoConference({
 
     // Gérer les changements de connexion
     peer.onconnectionstatechange = () => {
-      console.log(`🔗 Connection state for ${participantId}:`, peer.connectionState);
       
       if (peer.connectionState === 'connected') {
         setParticipants(prev => prev.map(p => 
@@ -180,7 +171,6 @@ export function useRobustVideoConference({
 
     // Gérer les erreurs
     peer.oniceconnectionstatechange = () => {
-      console.log(`🧊 ICE connection state for ${participantId}:`, peer.iceConnectionState);
     };
 
     return peer;
@@ -189,7 +179,6 @@ export function useRobustVideoConference({
   // Envoyer un signal WebRTC
   const sendRTCSignal = useCallback((to: string, signal: any) => {
     if (channelRef.current) {
-      console.log(`📡 Broadcasting RTC signal to ${to}:`, signal.type);
       
       const timestamp = new Date().toISOString();
       const payload = {
@@ -199,7 +188,6 @@ export function useRobustVideoConference({
         timestamp
       };
 
-      console.log('📤 Sending broadcast webrtc-signal:', payload);
 
       channelRef.current.send({
         type: 'broadcast',
@@ -207,13 +195,10 @@ export function useRobustVideoConference({
         payload
       })
         .then(() => {
-          console.log(`✅ Signal ${signal.type} sent successfully to ${to}`);
         })
         .catch((error) => {
-          console.error(`❌ Failed to send signal to ${to}:`, error);
         });
     } else {
-      console.error('❌ No channel available to send signal');
     }
   }, [currentUserId]);
 
@@ -259,7 +244,6 @@ export function useRobustVideoConference({
           sdp: peer.localDescription
         });
       })
-      .catch(err => console.error('Error creating offer:', err));
   }, [createPeerConnection, currentUserId, sendRTCSignal, shouldInitiateOffer]);
 
   const sendMediaState = useCallback((state: { audioEnabled: boolean; videoEnabled: boolean }) => {
@@ -273,18 +257,15 @@ export function useRobustVideoConference({
         videoEnabled: state.videoEnabled,
         timestamp: new Date().toISOString()
       }
-    }).catch((err: any) => console.error('❌ Failed to send media-state:', err));
   }, [currentUserId]);
 
   // Traiter les signaux WebRTC reçus
   const handleRTCSignal = useCallback((payload: any) => {
     const { signal, from } = payload;
     
-    console.log(`📥 Processing ${signal.type} from ${from}`);
     
     // Ignorer les signaux de nous-mêmes
     if (from === currentUserId) {
-      console.log('📤 Ignoring signal from self');
       return;
     }
 
@@ -293,63 +274,48 @@ export function useRobustVideoConference({
     // Trouver ou créer la connexion peer
     let peer = peersRef.current[from];
     if (!peer) {
-      console.log(`🤝 Creating new peer connection for ${from}`);
       peer = createPeerConnection(from, false);
     }
     
     if (!peer) {
-      console.error(`❌ Failed to create peer connection for ${from}`);
       return;
     }
     
     try {
       switch (signal.type) {
         case 'offer':
-          console.log(`📥 Processing offer from ${from}`);
           peer.setRemoteDescription(new RTCSessionDescription(signal.sdp))
             .then(() => {
-              console.log(`✅ Remote description set for ${from}`);
               return peer.createAnswer();
             })
             .then(answer => {
-              console.log(`📤 Creating answer for ${from}`);
               return peer.setLocalDescription(answer);
             })
             .then(() => {
-              console.log(`📤 Sending answer to ${from}`);
               sendRTCSignal(from, {
                 type: 'answer',
                 sdp: peer.localDescription
               });
             })
-            .catch(err => console.error(`❌ Error processing offer from ${from}:`, err));
           break;
           
         case 'answer':
-          console.log(`📥 Processing answer from ${from}`);
           peer.setRemoteDescription(new RTCSessionDescription(signal.sdp))
             .then(() => {
-              console.log(`✅ Answer processed for ${from}`);
             })
-            .catch(err => console.error(`❌ Error processing answer from ${from}:`, err));
           break;
           
         case 'ice-candidate':
           if (signal.candidate) {
-            console.log(`📥 Processing ICE candidate from ${from}`);
             peer.addIceCandidate(new RTCIceCandidate(signal.candidate))
               .then(() => {
-                console.log(`✅ ICE candidate added for ${from}`);
               })
-              .catch(err => console.error(`❌ Error adding ICE candidate from ${from}:`, err));
           }
           break;
           
         default:
-          console.warn(`⚠️ Unknown signal type: ${signal.type}`);
       }
     } catch (error) {
-      console.error(`❌ Error handling signal from ${from}:`, error);
     }
   }, [currentUserId, sendRTCSignal]);
 
@@ -360,11 +326,6 @@ export function useRobustVideoConference({
     }
 
     try {
-      console.log(`🚪 Connecting to room: ${roomId}`);
-      console.log('🔧 Configuration:');
-      console.log('- useRealtime:', config.useRealtime);
-      console.log('- useRobustVideoConference:', config.useRobustVideoConference);
-      console.log('- supabaseUrl:', config.supabaseUrl);
       setConnectionStatus('connecting');
 
       // Initialiser le stream local
@@ -383,26 +344,17 @@ export function useRobustVideoConference({
 
       // Écouter les signaux WebRTC
       channel.on('broadcast', { event: 'webrtc-signal' }, ({ payload }) => {
-        console.log('📨 Signal WebRTC reçu:', payload);
-        console.log('📨 Signal type:', payload.signal?.type);
-        console.log('📨 Signal from:', payload.from);
-        console.log('📨 Signal to:', payload.to);
-        console.log('📨 Current user:', currentUserId);
         
         // Vérifier si le signal est pour nous ou en broadcast
         if (payload.to === currentUserId || payload.to === 'all' || payload.to === 'broadcast') {
-          console.log('📥 Processing signal for current user');
           handleRTCSignal(payload);
         } else {
-          console.log('📤 Ignoring signal - not for current user');
         }
       });
 
       channel.on('broadcast', { event: 'peer-hello' }, ({ payload }) => {
-        console.log('👋 peer-hello raw payload:', payload);
         const { from, name } = payload || {};
         if (!from || from === currentUserId) return;
-        console.log(`👋 peer-hello reçu de ${from}`);
         upsertParticipant(from, name);
         maybeInitiateConnection(from);
 
@@ -416,16 +368,12 @@ export function useRobustVideoConference({
             timestamp: new Date().toISOString()
           }
         }).then(() => {
-          console.log(`✅ peer-welcome envoyé à ${from}`);
-        }).catch((err: any) => console.error('❌ Failed to send peer-welcome:', err));
       });
 
       channel.on('broadcast', { event: 'peer-welcome' }, ({ payload }) => {
-        console.log('🤝 peer-welcome raw payload:', payload);
         const { to, from, name } = payload || {};
         if (!to || to !== currentUserId) return;
         if (!from || from === currentUserId) return;
-        console.log(`🤝 peer-welcome reçu de ${from}`);
         upsertParticipant(from, name);
         maybeInitiateConnection(from);
       });
@@ -466,10 +414,8 @@ export function useRobustVideoConference({
       channel
         .on('presence', { event: 'sync' }, () => {
           const state = channel.presenceState();
-          console.log('👥 Current presence state:', state);
           
           const participantIds = Object.keys(state).filter(id => id !== currentUserId);
-          console.log(`👥 Room participants (${participantIds.length}):`, participantIds);
           
           // Mettre à jour la liste des participants
           setParticipants(prev => {
@@ -488,14 +434,12 @@ export function useRobustVideoConference({
               };
             });
             
-            console.log('👥 Updated participants list:', newParticipants);
             return newParticipants;
           });
           
           // Créer des connexions peer avec les participants existants
           participantIds.forEach(participantId => {
             if (!peersRef.current[participantId]) {
-              console.log(`🤝 Preparing connection with existing participant: ${participantId}`);
               upsertParticipant(participantId, (state[participantId]?.[0] as any)?.name);
               maybeInitiateConnection(participantId);
             }
@@ -503,7 +447,6 @@ export function useRobustVideoConference({
         })
         .on('presence', { event: 'join' }, ({ key, newPresences }) => {
           if (key !== currentUserId) {
-            console.log(`👋 User joined: ${key}`, newPresences);
             
             // Ajouter le nouveau participant à la liste
             setParticipants(prev => {
@@ -516,7 +459,6 @@ export function useRobustVideoConference({
                   isVideoEnabled: true,
                   joinedAt: new Date()
                 };
-                console.log('👥 Adding new participant:', newParticipant);
                 return [...prev, newParticipant];
               }
               return prev;
@@ -529,7 +471,6 @@ export function useRobustVideoConference({
           }
         })
         .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
-          console.log(`👋 User left: ${key}`, leftPresences);
           
           // Fermer la connexion peer
           if (peersRef.current[key]) {
@@ -543,13 +484,11 @@ export function useRobustVideoConference({
       // Se connecter au canal
       await new Promise<void>((resolve, reject) => {
         channel.subscribe((status) => {
-          console.log(`📡 Supabase Realtime status: ${status}`);
           if (status === 'SUBSCRIBED') resolve();
           if (status === 'CHANNEL_ERROR') reject(new Error('CHANNEL_ERROR'));
           if (status === 'TIMED_OUT') reject(new Error('TIMED_OUT'));
         });
       });
-      console.log('✅ Canal Supabase souscrit (SUBSCRIBED)');
       
       // Se présenter dans la room
       await channel.track({
@@ -557,7 +496,6 @@ export function useRobustVideoConference({
         name: userName,
         joinedAt: new Date().toISOString()
       });
-      console.log('✅ Présence envoyée dans la room');
 
       channel.send({
         type: 'broadcast',
@@ -568,15 +506,11 @@ export function useRobustVideoConference({
           timestamp: new Date().toISOString()
         }
       }).then(() => {
-        console.log('✅ peer-hello envoyé');
-      }).catch((err: any) => console.error('❌ Failed to send peer-hello:', err));
 
       setIsConnected(true);
       setConnectionStatus('connected');
-      console.log('✅ Connected to video room');
 
     } catch (err) {
-      console.error('❌ Failed to connect to room:', err);
       setError('Impossible de se connecter à la room');
       setConnectionStatus('error');
       onError?.('Impossible de se connecter à la room');
@@ -585,7 +519,6 @@ export function useRobustVideoConference({
 
   // Se déconnecter
   const disconnect = useCallback(() => {
-    console.log('🔌 Disconnecting from room...');
     
     // Fermer toutes les connexions peer
     Object.values(peersRef.current).forEach(peer => {
@@ -621,7 +554,6 @@ export function useRobustVideoConference({
         audioTrack.enabled = nextAudioEnabled;
         setIsAudioEnabled(nextAudioEnabled);
         sendMediaState({ audioEnabled: nextAudioEnabled, videoEnabled: isVideoEnabled });
-        console.log('🎤 Audio toggled:', nextAudioEnabled);
       }
     }
   }, [isVideoEnabled, sendMediaState]);
@@ -634,7 +566,6 @@ export function useRobustVideoConference({
         videoTrack.enabled = nextVideoEnabled;
         setIsVideoEnabled(nextVideoEnabled);
         sendMediaState({ audioEnabled: isAudioEnabled, videoEnabled: nextVideoEnabled });
-        console.log('📹 Video toggled:', nextVideoEnabled);
       }
     }
   }, [isAudioEnabled, sendMediaState]);
@@ -691,7 +622,6 @@ export function useRobustVideoConference({
         };
       }
     } catch (error) {
-      console.error('❌ Error toggling screen share:', error);
     }
   }, [isScreenSharing]);
 
@@ -821,10 +751,8 @@ export function useRobustVideoConference({
 
   // Forcer la reconnexion au canal
   const forceReconnect = useCallback(async () => {
-    console.log('🔄 Forçage de la reconnexion...');
     
     if (channelRef.current) {
-      console.log('🛑 Fermeture du canal existant...');
       await channelRef.current.unsubscribe();
       channelRef.current = null;
     }
@@ -834,7 +762,6 @@ export function useRobustVideoConference({
     
     // Attendre un peu puis se reconnecter
     setTimeout(() => {
-      console.log('🔄 Reconnexion à la room:', roomId);
       connectToRoom();
     }, 1000);
   }, [roomId, connectToRoom]);

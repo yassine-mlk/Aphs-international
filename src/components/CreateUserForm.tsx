@@ -105,7 +105,6 @@ export default function CreateUserForm({ onSuccess }: CreateUserFormProps) {
         const data = await getCompanies();
         setCompanies(data);
       } catch (error) {
-        console.error("Erreur lors du chargement des entreprises:", error);
       } finally {
         setLoadingCompanies(false);
       }
@@ -199,7 +198,6 @@ export default function CreateUserForm({ onSuccess }: CreateUserFormProps) {
         throw error;
       }
     } catch (error) {
-      console.error('Erreur lors de la création de l\'intervenant:', error);
       toast({
         title: "Erreur",
         description: "Impossible de créer l'intervenant. Vérifiez les informations et réessayez.",

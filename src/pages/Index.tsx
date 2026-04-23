@@ -6,6 +6,8 @@ import {
   CheckCircle2, ArrowUpRight, Zap, Globe, Mail, Phone
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useContactForm } from '@/hooks/useContactForm';
+import SEOHead from '@/components/SEOHead';
 
 // Hook pour détecter le scroll
 const useScrollPosition = () => {
@@ -46,9 +48,12 @@ const Index: React.FC = () => {
   const [statsRef, statsVisible] = useReveal();
   const [featuresRef, featuresVisible] = useReveal();
   const [audienceRef, audienceVisible] = useReveal();
+  const { formData, isLoading, handleInputChange, handleSubmit } = useContactForm();
 
   return (
-    <div className="min-h-screen bg-white text-black font-sans selection:bg-blue-600 selection:text-white">
+    <>
+      <SEOHead />
+      <div className="min-h-screen bg-white text-black font-sans selection:bg-blue-600 selection:text-white">
       {/* Styles globaux */}
       <style>{`
         @keyframes slideUp {
@@ -58,6 +63,16 @@ const Index: React.FC = () => {
         @keyframes slideInLeft {
           from { opacity: 0; transform: translateX(-60px); }
           to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes slide-down {
+          from { opacity: 0; transform: translateY(-20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-slide-down {
+          animation: slide-down 0.3s ease-out;
+        }
+        .touch-manipulation {
+          touch-action: manipulation;
         }
         @keyframes slideInRight {
           from { opacity: 0; transform: translateX(60px); }
@@ -164,8 +179,9 @@ const Index: React.FC = () => {
             </div>
 
             <button 
-              className="md:hidden p-2"
+              className="md:hidden p-3 rounded-lg hover:bg-gray-100 transition-colors touch-manipulation"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label={mobileMenuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
             >
               {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
@@ -173,28 +189,30 @@ const Index: React.FC = () => {
         </div>
 
         {/* Mobile Menu */}
-        <div className={`md:hidden absolute top-full left-0 right-0 bg-white border-b border-gray-100 transition-all duration-300 ${
-          mobileMenuOpen ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'
-        }`}>
-          <div className="px-6 py-6 space-y-4">
-            {['Fonctionnalités', 'Solutions', 'Tarifs', 'Contact'].map((item) => (
-              <a 
-                key={item}
-                href={`#${item.toLowerCase()}`}
-                className="block text-lg font-medium"
-                onClick={() => setMobileMenuOpen(false)}
+        {mobileMenuOpen && (
+          <div className="md:hidden bg-white border-t border-gray-200 animate-slide-down">
+            <div className="px-6 py-6 space-y-6">
+              <div className="space-y-4">
+                {['Fonctionnalités', 'Solutions', 'Tarifs', 'Contact'].map((item) => (
+                  <a 
+                    key={item}
+                    href={`#${item.toLowerCase()}`}
+                    className="block text-lg font-medium py-3 px-4 rounded-lg hover:bg-gray-50 transition-colors touch-manipulation"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    {item}
+                  </a>
+                ))}
+              </div>
+              <Button 
+                className="w-full bg-black text-white rounded-full py-4 text-base touch-manipulation"
+                onClick={() => navigate('/login')}
               >
-                {item}
-              </a>
-            ))}
-            <Button 
-              className="w-full bg-black text-white rounded-full"
-              onClick={() => navigate('/login')}
-            >
-              Connexion
-            </Button>
+                Connexion
+              </Button>
+            </div>
           </div>
-        </div>
+        )}
       </nav>
 
       {/* Hero Section - Modern & Dynamic */}
@@ -702,55 +720,94 @@ const Index: React.FC = () => {
             {/* Contact Form */}
             <div className="lg:col-span-3 bg-white rounded-2xl p-8 shadow-lg">
               <h3 className="text-xl font-bold mb-6">Envoyez-nous un message</h3>
-              <form className="space-y-5" onSubmit={(e) => e.preventDefault()}>
+              <form className="space-y-5" onSubmit={handleSubmit}>
                 <div className="grid md:grid-cols-2 gap-5">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Nom</label>
+                    <label htmlFor="nom" className="block text-sm font-medium text-gray-700 mb-2">Nom</label>
                     <input 
+                      id="nom"
                       type="text" 
+                      name="nom"
+                      value={formData.nom}
+                      onChange={handleInputChange}
                       className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
                       placeholder="Votre nom"
+                      required
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Prénom</label>
+                    <label htmlFor="prenom" className="block text-sm font-medium text-gray-700 mb-2">Prénom</label>
                     <input 
+                      id="prenom"
                       type="text" 
+                      name="prenom"
+                      value={formData.prenom}
+                      onChange={handleInputChange}
                       className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
                       placeholder="Votre prénom"
+                      required
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">Email</label>
                   <input 
+                    id="email"
                     type="email" 
+                    name="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
                     className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
                     placeholder="votre@email.com"
+                    required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Entreprise</label>
+                  <label htmlFor="entreprise" className="block text-sm font-medium text-gray-700 mb-2">Entreprise</label>
                   <input 
+                    id="entreprise"
                     type="text" 
+                    name="entreprise"
+                    value={formData.entreprise}
+                    onChange={handleInputChange}
                     className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
                     placeholder="Nom de votre entreprise"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Message</label>
+                  <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-2">Message</label>
                   <textarea 
+                    id="message"
                     rows={4}
+                    name="message"
+                    value={formData.message}
+                    onChange={handleInputChange}
                     className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none"
                     placeholder="Comment pouvons-nous vous aider ?"
+                    aria-describedby="message-help"
+                    required
                   />
                 </div>
                 <Button 
                   type="submit"
-                  className="w-full bg-black text-white hover:bg-gray-800 rounded-full py-6 text-base font-medium"
+                  disabled={isLoading}
+                  className="w-full bg-black text-white hover:bg-gray-800 rounded-full py-6 text-base font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label="Envoyer le formulaire de contact"
                 >
-                  Envoyer le message
-                  <ArrowRight className="ml-2 h-5 w-5" />
+                  {isLoading ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Envoi en cours...
+                    </>
+                  ) : (
+                    <>
+                      Envoyer le message
+                      <ArrowRight className="ml-2 h-5 w-5" />
+                    </>
+                  )}
                 </Button>
               </form>
             </div>
@@ -877,6 +934,7 @@ const Index: React.FC = () => {
         </div>
       </footer>
     </div>
+    </>
   );
 };
 

@@ -110,7 +110,6 @@ export const useTaskMigration = (): UseTaskMigrationReturn => {
             }, {} as Record<string, { id: string; name: string }>);
           }
         } catch (error) {
-          console.error('Erreur lors de la récupération des projets:', error);
         }
       }
 
@@ -125,7 +124,6 @@ export const useTaskMigration = (): UseTaskMigrationReturn => {
       
       return legacyTasks;
     } catch (err) {
-      console.error('Erreur lors de la récupération des tâches:', err);
       setError('Impossible de charger les tâches');
       return [];
     } finally {
@@ -185,7 +183,6 @@ export const useTaskMigration = (): UseTaskMigrationReturn => {
             }, {} as Record<string, { id: string; name: string }>);
           }
         } catch (error) {
-          console.error('Erreur lors de la récupération des projets:', error);
         }
       }
 
@@ -200,7 +197,6 @@ export const useTaskMigration = (): UseTaskMigrationReturn => {
       
       return legacyTasks;
     } catch (err) {
-      console.error('Erreur lors de la récupération des tâches utilisateur:', err);
       setError('Impossible de charger les tâches de l\'utilisateur');
       return [];
     } finally {
@@ -265,7 +261,6 @@ export const useTaskMigration = (): UseTaskMigrationReturn => {
       const result = await updateData('task_assignments', updateData_obj);
       return !!result;
     } catch (err) {
-      console.error('Erreur lors de la mise à jour de la tâche:', err);
       setError('Impossible de mettre à jour la tâche');
       return false;
     } finally {

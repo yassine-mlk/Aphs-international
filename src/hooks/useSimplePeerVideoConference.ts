@@ -60,13 +60,11 @@ export const useSimplePeerVideoConference = ({
   const currentUserId = user?.id ? `${user.id}_${sessionId}` : `anonymous_${sessionId}`;
   const displayName = userName || user?.email?.split('@')[0] || 'Utilisateur';
   
-  console.log(`🆔 Current session ID: ${currentUserId}`);
 
   // Fonction pour attacher le stream local à l'élément vidéo
   const attachLocalStream = useCallback((videoElement: HTMLVideoElement) => {
     if (localStreamRef.current && videoElement) {
       videoElement.srcObject = localStreamRef.current;
-      console.log('📺 Local stream attached to video element');
     }
   }, []);
 
@@ -96,14 +94,12 @@ export const useSimplePeerVideoConference = ({
 
   // Nettoyer une connexion peer
   const cleanupPeer = useCallback((participantId: string) => {
-    console.log(`🧹 Cleaning up peer connection: ${participantId}`);
     
     const peer = peersRef.current[participantId];
     if (peer && !peer.destroyed) {
       try {
         peer.destroy();
       } catch (error) {
-        console.warn('Error destroying peer:', error);
       }
     }
     delete peersRef.current[participantId];
@@ -114,7 +110,6 @@ export const useSimplePeerVideoConference = ({
   // Envoyer un signal WebRTC
   const sendSignal = useCallback(async (targetUserId: string, signal: any) => {
     if (!channelRef.current) {
-      console.warn('Cannot send signal: not connected to room');
       return false;
     }
 
@@ -128,7 +123,6 @@ export const useSimplePeerVideoConference = ({
         timestamp: Date.now()
       };
 
-      console.log(`📡 Sending WebRTC signal to ${targetUserId}:`, signal.type);
       
       await channelRef.current.send({
         type: 'broadcast',
@@ -138,7 +132,6 @@ export const useSimplePeerVideoConference = ({
 
       return true;
     } catch (error) {
-      console.error('Failed to send WebRTC signal:', error);
       return false;
     }
   }, [currentUserId, roomId]);
@@ -146,16 +139,13 @@ export const useSimplePeerVideoConference = ({
   // Créer une connexion peer
   const createPeerConnection = useCallback((participantId: string, initiator: boolean = false) => {
     if (!localStreamRef.current) {
-      console.warn('Cannot create peer connection: no local stream');
       return null;
     }
 
     if (peersRef.current[participantId]) {
-      console.log(`Peer connection already exists for ${participantId}`);
       return peersRef.current[participantId];
     }
 
-    console.log(`🔗 Creating peer connection with ${participantId}, initiator: ${initiator}`);
 
     try {
       const peerOptions = defaultSimplePeerOptions(
@@ -170,13 +160,11 @@ export const useSimplePeerVideoConference = ({
 
       // Gérer les signaux
       peer.on('signal', (signal) => {
-        console.log(`📤 Sending signal to ${participantId}:`, signal.type);
         sendSignal(participantId, signal);
       });
 
       // Gérer le stream reçu
       peer.on('stream', (remoteStream) => {
-        console.log(`🎥 Received stream from ${participantId}`);
         setParticipants(prev => prev.map(p => 
           p.id === participantId 
             ? { ...p, stream: remoteStream, isConnected: true }
@@ -186,7 +174,6 @@ export const useSimplePeerVideoConference = ({
 
       // Gérer la connexion établie
       peer.on('connect', () => {
-        console.log(`✅ Peer connected: ${participantId}`);
         setParticipants(prev => prev.map(p => 
           p.id === participantId 
             ? { ...p, isConnected: true }
@@ -196,7 +183,6 @@ export const useSimplePeerVideoConference = ({
 
       // Gérer les erreurs
       peer.on('error', (err) => {
-        console.error(`❌ Peer error with ${participantId}:`, err);
         cleanupPeer(participantId);
         if (onError) {
           onError(new Error(`Peer connection error: ${err.message}`));
@@ -205,13 +191,11 @@ export const useSimplePeerVideoConference = ({
 
       // Gérer la fermeture
       peer.on('close', () => {
-        console.log(`🔌 Peer connection closed: ${participantId}`);
         cleanupPeer(participantId);
       });
 
       return peer;
     } catch (error) {
-      console.error(`❌ Failed to create peer connection with ${participantId}:`, error);
       if (onError) {
         onError(new Error(`Failed to create peer connection: ${error.message}`));
       }
@@ -228,13 +212,11 @@ export const useSimplePeerVideoConference = ({
       return;
     }
 
-    console.log(`📥 Received WebRTC signal from ${from}:`, signal.type);
 
     let peer = peersRef.current[from];
     
     // Créer un nouveau peer si nécessaire (pour les signaux entrants)
     if (!peer) {
-      console.log(`Creating new peer connection for incoming signal from ${from}`);
       peer = createPeerConnection(from, false);
       
       // Ajouter le participant s'il n'existe pas
@@ -257,7 +239,6 @@ export const useSimplePeerVideoConference = ({
       try {
         peer.signal(signal);
       } catch (error) {
-        console.error(`Error processing signal from ${from}:`, error);
         cleanupPeer(from);
       }
     }
@@ -265,7 +246,6 @@ export const useSimplePeerVideoConference = ({
 
   // Se déconnecter de la room
   const disconnectFromRoom = useCallback(async () => {
-    console.log('🚪 Disconnecting from room...');
     
     // Marquer comme déconnecté pour éviter les actions supplémentaires
     mountedRef.current = false;
@@ -280,7 +260,6 @@ export const useSimplePeerVideoConference = ({
       try {
         await channelRef.current.unsubscribe();
       } catch (error) {
-        console.warn('Error unsubscribing from channel:', error);
       }
       channelRef.current = null;
     }
@@ -349,7 +328,6 @@ export const useSimplePeerVideoConference = ({
       
       return true;
     } catch (error) {
-      console.error('Error replacing video track:', error);
       newStream.getTracks().forEach(track => track.stop());
       return false;
     }
@@ -366,7 +344,6 @@ export const useSimplePeerVideoConference = ({
     const webrtcSupport = checkWebRTCSupport();
     if (!webrtcSupport.supported) {
       const error = new Error(webrtcSupport.error);
-      console.error('❌ WebRTC not supported:', error);
       setError('WebRTC n\'est pas supporté dans ce navigateur');
       setConnectionStatus('error');
       if (onError) {
@@ -383,18 +360,15 @@ export const useSimplePeerVideoConference = ({
         setConnectionStatus('connecting');
         
         // 1. Initialiser le stream local
-        console.log('🎥 Initializing local media stream...');
         
         let stream: MediaStream;
         try {
           // Commencer par des contraintes plus simples pour éviter les problèmes
           let mediaConstraints = getOptimalMediaConstraints('low');
-          console.log('🎥 Trying media constraints:', mediaConstraints);
           
           try {
             stream = await navigator.mediaDevices.getUserMedia(mediaConstraints);
           } catch (lowQualityError) {
-            console.warn('⚠️ Low quality failed, trying basic constraints:', lowQualityError);
             // Fallback vers des contraintes très basiques
             mediaConstraints = {
               video: {
@@ -411,7 +385,6 @@ export const useSimplePeerVideoConference = ({
             stream = await navigator.mediaDevices.getUserMedia(mediaConstraints);
           }
         } catch (mediaError) {
-          console.error('❌ Failed to get user media:', mediaError);
           const errorMessage = handleMediaError(mediaError as Error);
           setError(errorMessage);
           setConnectionStatus('error');
@@ -432,7 +405,6 @@ export const useSimplePeerVideoConference = ({
         // Debug des tracks du stream
         const videoTracks = stream.getVideoTracks();
         const audioTracks = stream.getAudioTracks();
-        console.log('🎥 Video tracks:', videoTracks.length, videoTracks.map(t => ({
           id: t.id,
           label: t.label,
           enabled: t.enabled,
@@ -440,7 +412,6 @@ export const useSimplePeerVideoConference = ({
           muted: t.muted,
           settings: t.getSettings()
         })));
-        console.log('🎤 Audio tracks:', audioTracks.length, audioTracks.map(t => ({
           id: t.id,
           label: t.label,
           enabled: t.enabled,
@@ -448,14 +419,12 @@ export const useSimplePeerVideoConference = ({
           muted: t.muted
         })));
         
-        console.log('✅ Local media stream initialized');
 
         // 2. Se connecter à la room
         if (!supabase || channelRef.current) {
           return;
         }
 
-        console.log(`🚪 Connecting to room: ${roomId}`);
         setConnectionStatus('connecting');
 
         // Créer le canal Supabase Realtime
@@ -480,14 +449,10 @@ export const useSimplePeerVideoConference = ({
             const allParticipants = Object.keys(state);
             const participantIds = allParticipants.filter(id => id !== currentUserId);
             
-            console.log(`👥 Room state sync - All: [${allParticipants.join(', ')}]`);
-            console.log(`👥 Room participants (excluding me): ${participantIds.length} - [${participantIds.join(', ')}]`);
-            console.log(`🆔 My ID: ${currentUserId}`);
             
             // Initier des connexions avec les participants existants
             participantIds.forEach(participantId => {
               if (!peersRef.current[participantId] && mountedRef.current) {
-                console.log(`🤝 Initiating connection with existing participant: ${participantId}`);
                 createPeerConnection(participantId, true);
                 
                 const participantData = state[participantId]?.[0];
@@ -508,14 +473,11 @@ export const useSimplePeerVideoConference = ({
             });
           })
           .on('presence', { event: 'join' }, ({ key }) => {
-            console.log(`👋 Presence JOIN event - Key: ${key}, My ID: ${currentUserId}`);
             if (key !== currentUserId && mountedRef.current) {
-              console.log(`✅ New participant joined (different from me): ${key}`);
               
               // Attendre un peu puis initier la connexion
               setTimeout(() => {
                 if (mountedRef.current && !peersRef.current[key]) {
-                  console.log(`🤝 Initiating P2P connection with new participant: ${key}`);
                   createPeerConnection(key, true);
                   
                   setParticipants(prev => {
@@ -531,26 +493,20 @@ export const useSimplePeerVideoConference = ({
                     return prev;
                   });
                 } else {
-                  console.log(`⚠️ Skip P2P connection - mounted: ${mountedRef.current}, existing peer: ${!!peersRef.current[key]}`);
                 }
               }, 1000);
             } else {
-              console.log(`⚠️ Skip JOIN - Same user (${key === currentUserId}) or unmounted (${!mountedRef.current})`);
             }
           })
           .on('presence', { event: 'leave' }, ({ key }) => {
-            console.log(`👋 Presence LEAVE event - Key: ${key}, My ID: ${currentUserId}`);
             if (key !== currentUserId) {
-              console.log(`✅ Participant left (different from me): ${key}`);
               cleanupPeer(key);
             } else {
-              console.log(`⚠️ Skip LEAVE - Same user`);
             }
           });
 
         // S'abonner au canal
         await channel.subscribe(async (status) => {
-          console.log(`📡 Realtime subscription status: ${status}`);
           
           if (status === 'SUBSCRIBED' && mountedRef.current) {
             setIsConnected(true);
@@ -565,7 +521,6 @@ export const useSimplePeerVideoConference = ({
               joined_at: new Date().toISOString()
             });
             
-            console.log(`✅ Successfully connected to room as: ${currentUserId}`);
           } else if (status === 'CHANNEL_ERROR') {
             setConnectionStatus('error');
             setError('Erreur de connexion à la room');
@@ -573,7 +528,6 @@ export const useSimplePeerVideoConference = ({
         });
 
       } catch (error) {
-        console.error('❌ Error during initialization:', error);
         setConnectionStatus('error');
         setError('Impossible d\'initialiser la vidéoconférence');
         

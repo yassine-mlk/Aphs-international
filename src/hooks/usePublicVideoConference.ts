@@ -62,7 +62,6 @@ export function usePublicVideoConference({
       setLocalStream(stream);
       return stream;
     } catch (err) {
-      console.error('❌ Erreur accès caméra/micro:', err);
       setError('Impossible d\'accéder à la caméra/microphone');
       onError?.('Impossible d\'accéder à la caméra/microphone');
       return null;
@@ -97,7 +96,6 @@ export function usePublicVideoConference({
       // Gérer les candidats ICE
       peer.onicecandidate = (event) => {
         if (event.candidate) {
-          console.log(`📡 ICE candidate pour ${participantId}:`, event.candidate.candidate);
           if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
             const message = {
               type: 'ice-candidate',
@@ -115,7 +113,6 @@ export function usePublicVideoConference({
 
       // Gérer les streams entrants
       peer.ontrack = (event) => {
-        console.log(`📹 Stream reçu de ${participantId}:`, event.streams[0]);
         setParticipants(prev => prev.map(p => 
           p.id === participantId 
             ? { ...p, stream: event.streams[0], isConnected: true }
@@ -125,7 +122,6 @@ export function usePublicVideoConference({
 
       // Gérer les changements d'état de connexion
       peer.onconnectionstatechange = () => {
-        console.log(`🔗 État connexion ${participantId}:`, peer.connectionState);
         if (peer.connectionState === 'connected') {
           setParticipants(prev => prev.map(p => 
             p.id === participantId 
@@ -137,13 +133,11 @@ export function usePublicVideoConference({
 
       // Gérer les changements d'état de signalisation
       peer.onsignalingstatechange = () => {
-        console.log(`📡 État signalisation ${participantId}:`, peer.signalingState);
       };
 
       peerConnectionsRef.current.set(participantId, peer);
       return peer;
     } catch (err) {
-      console.error(`❌ Erreur création peer pour ${participantId}:`, err);
       return null;
     }
   }, [localStream, userName]);
@@ -157,10 +151,8 @@ export function usePublicVideoConference({
         roomId,
         timestamp: new Date().toISOString()
       };
-      console.log('📤 Envoi WebSocket:', fullMessage);
       wsRef.current.send(JSON.stringify(fullMessage));
     } else {
-      console.error('❌ WebSocket non connecté');
     }
   }, [roomId]);
 
@@ -168,7 +160,6 @@ export function usePublicVideoConference({
   const handleWebSocketMessage = useCallback((data: string) => {
     try {
       const message = JSON.parse(data);
-      console.log('📨 Message WebSocket reçu:', message);
 
       // Ignorer nos propres messages
       if (message.from === currentUserId.current) {
@@ -177,7 +168,6 @@ export function usePublicVideoConference({
 
       switch (message.type) {
         case 'room-info':
-          console.log('📋 Informations de la room:', message.participants);
           setParticipants(message.participants.map((p: any) => ({
             id: p.id,
             name: p.name,
@@ -188,7 +178,6 @@ export function usePublicVideoConference({
           // Créer des connexions avec les participants existants
           message.participants.forEach((participant: any) => {
             if (participant.id !== currentUserId.current) {
-              console.log(`🔗 Création connexion avec participant existant: ${participant.name}`);
               const peer = createPeerConnection(participant.id);
               if (peer) {
                 setTimeout(() => {
@@ -203,7 +192,6 @@ export function usePublicVideoConference({
                           fromName: userName
                         });
                       })
-                      .catch(err => console.error('❌ Erreur création offre:', err));
                   }
                 }, 1000);
               }
@@ -212,7 +200,6 @@ export function usePublicVideoConference({
           break;
 
         case 'user-joined':
-          console.log(`👋 ${message.fromName} a rejoint la room`);
           setParticipants(prev => {
             if (!prev.find(p => p.id === message.from)) {
               const newParticipant = {
@@ -224,7 +211,6 @@ export function usePublicVideoConference({
 
               // Créer une connexion peer avec le nouveau participant
               setTimeout(() => {
-                console.log(`🔗 Création connexion peer avec ${message.fromName}`);
                 const peer = createPeerConnection(message.from);
                 if (peer) {
                   peer.createOffer()
@@ -237,7 +223,6 @@ export function usePublicVideoConference({
                         fromName: userName
                       });
                     })
-                    .catch(err => console.error('❌ Erreur création offre:', err));
                 }
               }, 1000);
 
@@ -248,7 +233,6 @@ export function usePublicVideoConference({
           break;
 
         case 'user-left':
-          console.log(`👋 ${message.fromName} a quitté la room`);
           setParticipants(prev => prev.filter(p => p.id !== message.from));
           const peerToClose = peerConnectionsRef.current.get(message.from);
           if (peerToClose) {
@@ -258,18 +242,15 @@ export function usePublicVideoConference({
           break;
 
         case 'offer':
-          console.log(`📥 Offre reçue de ${message.fromName}`);
           const offerPeer = createPeerConnection(message.from);
           if (offerPeer) {
             if (offerPeer.signalingState === 'stable' || offerPeer.signalingState === 'have-local-offer') {
               offerPeer.setRemoteDescription(new RTCSessionDescription(message.sdp))
                 .then(() => {
-                  console.log('✅ Description distante définie pour offre');
                   return offerPeer.createAnswer();
                 })
                 .then(answer => offerPeer.setLocalDescription(answer))
                 .then(() => {
-                  console.log('✅ Réponse créée et définie');
                   sendWebSocketMessage({
                     type: 'answer',
                     to: message.from,
@@ -278,9 +259,7 @@ export function usePublicVideoConference({
                   });
                 })
                 .catch(err => {
-                  console.error('❌ Erreur traitement offre:', err);
                   if (err.message.includes('wrong state')) {
-                    console.log('🔄 Redémarrage connexion peer...');
                     offerPeer.close();
                     peerConnectionsRef.current.delete(message.from);
                     setTimeout(() => {
@@ -297,47 +276,36 @@ export function usePublicVideoConference({
                               fromName: userName
                             });
                           })
-                          .catch(err2 => console.error('❌ Erreur redémarrage connexion:', err2));
                       }
                     }, 1000);
                   }
                 });
             } else {
-              console.log(`⚠️ État de signalisation incorrect: ${offerPeer.signalingState}`);
             }
           }
           break;
 
         case 'answer':
-          console.log(`📥 Réponse reçue de ${message.fromName}`);
           const answerPeer = peerConnectionsRef.current.get(message.from);
           if (answerPeer) {
             if (answerPeer.signalingState === 'have-local-offer') {
               answerPeer.setRemoteDescription(new RTCSessionDescription(message.sdp))
                 .then(() => {
-                  console.log('✅ Description distante définie pour réponse');
                 })
                 .catch(err => {
-                  console.error('❌ Erreur traitement réponse:', err);
                   if (err.message.includes('wrong state')) {
-                    console.log(`⚠️ État de signalisation: ${answerPeer.signalingState}`);
                   }
                 });
             } else {
-              console.log(`⚠️ État de signalisation incorrect pour réponse: ${answerPeer.signalingState}`);
             }
           } else {
-            console.error('❌ Connexion peer non trouvée pour réponse');
           }
           break;
 
         case 'ice-candidate':
-          console.log(`📥 ICE candidate reçu de ${message.fromName}`);
           const icePeer = peerConnectionsRef.current.get(message.from);
           if (icePeer && message.candidate) {
             icePeer.addIceCandidate(new RTCIceCandidate(message.candidate))
-              .then(() => console.log('✅ ICE candidate ajouté'))
-              .catch(err => console.error('❌ Erreur ajout ICE candidate:', err));
           }
           break;
 
@@ -352,10 +320,8 @@ export function usePublicVideoConference({
           break;
 
         default:
-          console.log('❓ Type de message inconnu:', message.type);
       }
     } catch (error) {
-      console.error('❌ Erreur parsing message WebSocket:', error);
     }
   }, [userName, sendWebSocketMessage, createPeerConnection]);
 
@@ -367,13 +333,11 @@ export function usePublicVideoConference({
 
       // Utiliser un service WebSocket public qui fonctionne immédiatement
       const wsUrl = `wss://ws.postman-echo.com/raw`;
-      console.log('🌐 Connexion au service WebSocket public:', wsUrl);
       
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {
-        console.log('✅ WebSocket connecté');
         setIsConnected(true);
         setConnectionStatus('connected');
         
@@ -407,14 +371,12 @@ export function usePublicVideoConference({
       };
 
       ws.onerror = (error) => {
-        console.error('❌ Erreur WebSocket:', error);
         setError('Erreur de connexion WebSocket');
         setConnectionStatus('error');
         onError?.('Erreur de connexion WebSocket');
       };
 
       ws.onclose = () => {
-        console.log('🛑 WebSocket fermé');
         setIsConnected(false);
         setConnectionStatus('disconnected');
         
@@ -423,13 +385,11 @@ export function usePublicVideoConference({
           clearTimeout(reconnectTimeoutRef.current);
         }
         reconnectTimeoutRef.current = setTimeout(() => {
-          console.log('🔄 Tentative de reconnexion...');
           connectToRoom();
         }, 5000);
       };
 
     } catch (err) {
-      console.error('❌ Erreur connexion room:', err);
       setError('Erreur de connexion à la room');
       setConnectionStatus('error');
       onError?.('Erreur de connexion à la room');
@@ -438,7 +398,6 @@ export function usePublicVideoConference({
 
   // Se déconnecter
   const disconnect = useCallback(() => {
-    console.log('🛑 Déconnexion de la room');
     
     // Annuler la reconnexion automatique
     if (reconnectTimeoutRef.current) {
@@ -537,7 +496,6 @@ export function usePublicVideoConference({
         setIsScreenSharing(false);
       }
     } catch (err) {
-      console.error('❌ Erreur screen share:', err);
     }
   }, [isScreenSharing, localStream]);
 

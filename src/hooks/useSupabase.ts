@@ -154,7 +154,6 @@ export function useSupabase() {
               const formattedValue = `(${filter.value})`;
               query = query.filter(filter.column, 'in', formattedValue);
             } else {
-              console.warn(`Filtre 'in' ignoré: la valeur doit être un tableau non vide ou une chaîne formatée`, filter);
             }
           } else {
             // Traitement normal pour les autres opérateurs
@@ -202,7 +201,6 @@ export function useSupabase() {
 
       return data as T[];
     } catch (error) {
-      console.error(`Erreur lors de la récupération des données depuis ${tableName}:`, error);
       toast({
         title: "Erreur de chargement",
         description: `Impossible de charger les données depuis ${tableName}`,
@@ -245,7 +243,6 @@ export function useSupabase() {
 
       return result as T;
     } catch (error) {
-      console.error(`Erreur lors de l'insertion dans ${tableName}:`, error);
       toast({
         title: "Erreur",
         description: `Impossible d'ajouter les données dans ${tableName}`,
@@ -304,7 +301,6 @@ export function useSupabase() {
 
       return result as T;
     } catch (error) {
-      console.error(`Erreur lors de la mise à jour dans ${tableName}:`, error);
       toast({
         title: "Erreur",
         description: `Impossible de mettre à jour les données dans ${tableName}`,
@@ -339,7 +335,6 @@ export function useSupabase() {
 
       return true;
     } catch (error) {
-      console.error(`Erreur lors de la suppression dans ${tableName}:`, error);
       toast({
         title: "Erreur",
         description: `Impossible de supprimer les données dans ${tableName}`,
@@ -402,7 +397,6 @@ export function useSupabase() {
         updated_at: data.updated_at
       } as UserSettings;
     } catch (error) {
-      console.error('Erreur lors de la récupération des paramètres utilisateur:', error);
       toast({
         title: "Erreur",
         description: "Impossible de charger vos paramètres",
@@ -468,7 +462,6 @@ export function useSupabase() {
         updated_at: data.updated_at
       } as UserSettings;
     } catch (error) {
-      console.error('Erreur lors de la mise à jour des paramètres:', error);
       toast({
         title: "Erreur",
         description: "Impossible de mettre à jour vos paramètres",
@@ -515,7 +508,6 @@ export function useSupabase() {
 
       return true;
     } catch (error) {
-      console.error('Erreur lors de la mise à jour du mot de passe:', error);
       toast({
         title: "Erreur",
         description: "Impossible de mettre à jour votre mot de passe",
@@ -540,7 +532,6 @@ export function useSupabase() {
         throw new Error("VITE_SUPABASE_SERVICE_ROLE_KEY manquante dans .env.local");
       }
 
-      console.log('🔄 Création utilisateur auth pour:', email);
 
       // 1. Créer l'utilisateur auth
       const { data, error } = await supabaseAdmin.auth.admin.createUser({
@@ -554,16 +545,13 @@ export function useSupabase() {
       });
 
       if (error) {
-        console.error('❌ Erreur création auth:', error);
         throw error;
       }
       
       if (data && data.user) {
-        console.log('✅ Utilisateur auth créé:', data.user.id);
 
         // 2. Créer manuellement le profil (contournement du trigger)
         try {
-          console.log('🔄 Création manuelle du profil...');
           
               // Utiliser tenant_id fourni ou le récupérer depuis l'admin connecté
           let tenantId: string | null = additionalData.tenant_id || null;
@@ -640,12 +628,9 @@ export function useSupabase() {
             }, { onConflict: 'user_id' });
 
           if (profileError) {
-            console.warn('⚠️ Erreur profil (non bloquante):', profileError);
           } else {
-            console.log('✅ Profil upsert avec succès, tenant_id:', tenantId);
           }
         } catch (profileError) {
-          console.warn('⚠️ Profil non créé, mais utilisateur auth OK:', profileError);
           // Ne pas échouer complètement
         }
 
@@ -659,7 +644,6 @@ export function useSupabase() {
 
       throw new Error("Échec de la création de l'utilisateur");
     } catch (error) {
-      console.error('❌ Erreur création utilisateur:', error);
       
       let errorMessage = "Impossible de créer l'utilisateur";
       if (error instanceof Error) {
@@ -697,7 +681,6 @@ export function useSupabase() {
       
       return data;
     } catch (error) {
-      console.error('Erreur lors de la récupération des utilisateurs:', error);
       toast({
         title: "Erreur",
         description: "Impossible de récupérer la liste des utilisateurs",
@@ -758,7 +741,6 @@ export function useSupabase() {
 
       // Note: La mise à jour du profil est maintenant gérée par le hook useProfiles.updateProfile()
       // Nous ne mettons à jour ici que les métadonnées auth, le profil sera mis à jour séparément
-      console.log('Utilisateur auth mis à jour avec succès pour:', userId);
 
       toast({
         title: "Succès",
@@ -767,7 +749,6 @@ export function useSupabase() {
 
       return { success: true };
     } catch (error) {
-      console.error('Erreur lors de la mise à jour de l\'utilisateur:', error);
       toast({
         title: "Erreur",
         description: "Impossible de mettre à jour l'utilisateur",
@@ -795,87 +776,70 @@ export function useSupabase() {
       }
 
       // Nettoyer les données associées dans l'ordre inverse des dépendances
-      console.log(`Suppression des données associées pour l'utilisateur ${userId}...`);
 
       // 1. Supprimer les participations aux conversations
       try {
-        console.log("1. Suppression des participations aux conversations...");
         const { error: participationsError } = await supabaseAdmin
           .from('conversation_participants')
           .delete()
           .eq('user_id', userId);
         
         if (participationsError) {
-          console.warn("Erreur lors de la suppression des participations:", participationsError);
         }
       } catch (error) {
-        console.warn("Exception lors de la suppression des participations:", error);
       }
 
       // 2. Supprimer les lectures de messages
       try {
-        console.log("2. Suppression des lectures de messages...");
         const { error: readsError } = await supabaseAdmin
           .from('message_reads')
           .delete()
           .eq('user_id', userId);
         
         if (readsError) {
-          console.warn("Erreur lors de la suppression des lectures de messages:", readsError);
         }
       } catch (error) {
-        console.warn("Exception lors de la suppression des lectures de messages:", error);
       }
 
       // 3. Supprimer les appartenances aux groupes de travail
       try {
-        console.log("3. Suppression des appartenances aux groupes de travail...");
         const { error: membershipError } = await supabaseAdmin
           .from('workgroup_members')
           .delete()
           .eq('user_id', userId);
         
         if (membershipError) {
-          console.warn("Erreur lors de la suppression des appartenances aux groupes:", membershipError);
         }
       } catch (error) {
-        console.warn("Exception lors de la suppression des appartenances aux groupes:", error);
       }
 
       // 4. Vérifier et supprimer les messages envoyés
       try {
-        console.log("4. Anonymisation des messages envoyés...");
         // Utiliser la fonction SQL pour anonymiser les messages
         const { error: messagesError } = await supabaseAdmin
           .rpc('anonymize_user_messages', { user_id_param: userId });
         
         if (messagesError) {
-          console.warn("Erreur lors de l'anonymisation des messages:", messagesError);
         }
       } catch (error) {
-        console.warn("Exception lors du traitement des messages:", error);
       }
 
       // 5. Supprimer le profil utilisateur (nouvelle table profiles)
       try {
-        console.log("5. Suppression du profil utilisateur...");
         const { error: profileError } = await supabaseAdmin
           .from('profiles')
           .delete()
           .eq('user_id', userId);
         
         if (profileError) {
-          console.warn("Erreur lors de la suppression du profil:", profileError);
         }
       } catch (error) {
-        console.warn("Exception lors de la suppression du profil:", error);
       }
 
       // 6. Les paramètres utilisateur sont maintenant dans la table profiles
       // (pas besoin de suppression séparée)
 
       // Finalement, supprimer l'utilisateur
-      console.log("7. Suppression de l'utilisateur dans auth.users...");
       const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
       
       if (error) throw error;
@@ -887,7 +851,6 @@ export function useSupabase() {
 
       return { success: true };
     } catch (error) {
-      console.error('Erreur lors de la suppression de l\'utilisateur:', error);
       toast({
         title: "Erreur",
         description: error instanceof Error ? error.message : "Impossible de supprimer l'utilisateur",
@@ -911,7 +874,6 @@ export function useSupabase() {
       
       return data as Company[];
     } catch (error) {
-      console.error('Erreur lors de la récupération des entreprises:', error);
       toast({
         title: "Erreur",
         description: "Impossible de récupérer la liste des entreprises",
@@ -947,7 +909,6 @@ export function useSupabase() {
 
       return { success: true, company: data as Company };
     } catch (error) {
-      console.error('Erreur lors de la création de l\'entreprise:', error);
       toast({
         title: "Erreur",
         description: "Impossible de créer l'entreprise",
@@ -984,7 +945,6 @@ export function useSupabase() {
 
       return { success: true, company: data as Company };
     } catch (error) {
-      console.error('Erreur lors de la mise à jour de l\'entreprise:', error);
       toast({
         title: "Erreur",
         description: "Impossible de mettre à jour l'entreprise",
@@ -1028,7 +988,6 @@ export function useSupabase() {
 
       return { success: true };
     } catch (error) {
-      console.error('Erreur lors de la suppression de l\'entreprise:', error);
       toast({
         title: "Erreur",
         description: error instanceof Error ? error.message : "Impossible de supprimer l'entreprise",
@@ -1062,12 +1021,10 @@ export function useSupabase() {
         
         if (createError) throw createError;
         
-        console.log(`Bucket de stockage "${bucketName}" créé avec succès`);
       }
       
       return true;
     } catch (error) {
-      console.error(`Erreur lors de la création du bucket "${bucketName}":`, error);
       return false;
     }
   }, []);
@@ -1077,7 +1034,6 @@ export function useSupabase() {
    */
   const getWorkGroups = useCallback(async (): Promise<{ workgroups: WorkGroup[] } | null> => {
     try {
-      console.log('Début de récupération des groupes de travail');
       
       // Vérifier d'abord si la table workgroups existe
       const { error: tableError } = await supabase
@@ -1086,7 +1042,6 @@ export function useSupabase() {
         .limit(1);
         
       if (tableError) {
-        console.error('Erreur de vérification de la table workgroups:', tableError);
         return { workgroups: [] }; // Retourner un tableau vide si la table n'existe pas
       }
       
@@ -1096,14 +1051,11 @@ export function useSupabase() {
         .order('updated_at', { ascending: false });
 
       if (error) {
-        console.error('Erreur Supabase lors de la récupération des groupes:', error);
         throw error;
       }
 
-      console.log(`${data?.length || 0} groupes de travail récupérés`);
       return { workgroups: data as WorkGroup[] };
     } catch (error) {
-      console.error('Erreur détaillée lors de la récupération des groupes de travail:', error);
       toast({
         title: "Erreur",
         description: `Impossible de récupérer les groupes de travail: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
@@ -1135,7 +1087,6 @@ export function useSupabase() {
 
       return data as WorkGroup;
     } catch (error) {
-      console.error('Erreur lors de la création du groupe de travail:', error);
       toast({
         title: "Erreur",
         description: "Impossible de créer le groupe de travail",
@@ -1168,7 +1119,6 @@ export function useSupabase() {
 
       return data as WorkGroup;
     } catch (error) {
-      console.error('Erreur lors de la mise à jour du groupe de travail:', error);
       toast({
         title: "Erreur",
         description: "Impossible de mettre à jour le groupe de travail",
@@ -1199,7 +1149,6 @@ export function useSupabase() {
 
       return true;
     } catch (error) {
-      console.error('Erreur lors de la suppression du groupe de travail:', error);
       toast({
         title: "Erreur",
         description: "Impossible de supprimer le groupe de travail",
@@ -1226,7 +1175,6 @@ export function useSupabase() {
 
       return data as WorkGroupMember[];
     } catch (error) {
-      console.error(`Erreur lors de la récupération des membres du groupe ${workgroupId}:`, error);
       toast({
         title: "Erreur",
         description: "Impossible de récupérer les membres du groupe",
@@ -1241,7 +1189,6 @@ export function useSupabase() {
    */
   const addMembersToWorkGroup = useCallback(async (workgroupId: string, userIds: string[]): Promise<boolean> => {
     try {
-      console.log('🔄 Ajout de membres au groupe:', { workgroupId, userIds });
 
       // Insérer directement chaque membre dans workgroup_members
       const membersToInsert = userIds.map(userId => ({
@@ -1258,11 +1205,9 @@ export function useSupabase() {
         .select('*');
 
       if (error) {
-        console.error('❌ Erreur lors de l\'insertion des membres:', error);
         throw error;
       }
 
-      console.log('✅ Membres ajoutés avec succès:', data);
 
       toast({
         title: "Succès",
@@ -1271,7 +1216,6 @@ export function useSupabase() {
 
       return true;
     } catch (error) {
-      console.error('Erreur lors de l\'ajout des membres au groupe:', error);
       toast({
         title: "Erreur",
         description: "Impossible d'ajouter les membres au groupe",
@@ -1302,7 +1246,6 @@ export function useSupabase() {
 
       return true;
     } catch (error) {
-      console.error('Erreur lors du retrait du membre du groupe:', error);
       toast({
         title: "Erreur",
         description: "Impossible de retirer le membre du groupe",
@@ -1328,7 +1271,6 @@ export function useSupabase() {
 
       return data as WorkGroupProject[];
     } catch (error) {
-      console.error(`Erreur lors de la récupération des projets du groupe ${workgroupId}:`, error);
       toast({
         title: "Erreur",
         description: "Impossible de récupérer les projets du groupe",
@@ -1363,7 +1305,6 @@ export function useSupabase() {
 
       return data as WorkGroupProject;
     } catch (error) {
-      console.error('Erreur lors de l\'ajout du projet au groupe:', error);
       toast({
         title: "Erreur",
         description: "Impossible d'ajouter le projet au groupe",
@@ -1394,7 +1335,6 @@ export function useSupabase() {
 
       return true;
     } catch (error) {
-      console.error('Erreur lors du retrait du projet du groupe:', error);
       toast({
         title: "Erreur",
         description: "Impossible de retirer le projet du groupe",
@@ -1426,7 +1366,6 @@ export function useSupabase() {
 
       return { data, error: null };
     } catch (error) {
-      console.error(`Erreur lors du téléchargement du fichier vers ${bucketName}:`, error);
       toast({
         title: "Erreur",
         description: "Impossible de télécharger le fichier",
@@ -1450,7 +1389,6 @@ export function useSupabase() {
 
       return data.publicUrl;
     } catch (error) {
-      console.error(`Erreur lors de la récupération de l'URL du fichier depuis ${bucketName}:`, error);
       toast({
         title: "Erreur",
         description: "Impossible de récupérer l'URL du fichier",

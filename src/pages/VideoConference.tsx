@@ -161,7 +161,6 @@ const VideoConference: React.FC = () => {
         }));
         setUsers(formattedUsers);
       } catch (error) {
-        console.error('Erreur lors du chargement des utilisateurs:', error);
         toast({
           title: "Erreur",
           description: "Impossible de charger la liste des participants",
@@ -216,7 +215,6 @@ const VideoConference: React.FC = () => {
         });
       }
     } catch (error) {
-      console.error('Erreur lors de la connexion à la réunion:', error);
       toast({
         title: "Erreur",
         description: "Impossible de rejoindre la réunion",
@@ -243,7 +241,6 @@ const VideoConference: React.FC = () => {
         setMeetingIdToJoin("");
       }
     } catch (error) {
-      console.error('Erreur lors de la connexion à la réunion:', error);
       toast({
         title: "Erreur",
         description: "Impossible de rejoindre la réunion avec cet ID",
@@ -311,7 +308,6 @@ const VideoConference: React.FC = () => {
         }
       }
     } catch (error) {
-      console.error('Erreur lors de la création de la réunion:', error);
     } finally {
       setLoadingAction(false);
     }
@@ -333,7 +329,6 @@ const VideoConference: React.FC = () => {
         description: "Vous avez quitté la réunion"
       });
     } catch (error) {
-      console.error('Erreur lors de la sortie de la réunion:', error);
       toast({
         title: "Erreur",
         description: "Impossible de quitter la réunion",
@@ -354,7 +349,6 @@ const VideoConference: React.FC = () => {
         description: "La réunion a été terminée avec succès"
       });
     } catch (error) {
-      console.error('Erreur lors de la fin de la réunion:', error);
       toast({
         title: "Erreur",
         description: "Impossible de terminer la réunion",
@@ -374,7 +368,6 @@ const VideoConference: React.FC = () => {
         description: "La réunion a été supprimée"
       });
     } catch (error) {
-      console.error('Erreur lors de la suppression de la réunion:', error);
       toast({
         title: "Erreur",
         description: "Impossible de supprimer la réunion",
@@ -394,7 +387,6 @@ const VideoConference: React.FC = () => {
         description: "Les réunions terminées ont été supprimées"
       });
     } catch (error) {
-      console.error('Erreur lors du nettoyage de l\'historique:', error);
       toast({
         title: "Erreur",
         description: "Impossible de nettoyer l'historique",

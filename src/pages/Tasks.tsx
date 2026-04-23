@@ -208,7 +208,6 @@ const Tasks: React.FC = () => {
         setAdminIntervenants(profs || []);
       }
     } catch (error) {
-      console.error('Erreur lors du chargement des tâches (admin):', error);
       toast({
         title: t.messages.error,
         description: t.messages.errorLoadingTasks,
@@ -282,7 +281,6 @@ const Tasks: React.FC = () => {
             setProjects(projectsData);
           }
         } catch (error) {
-          console.error('Erreur lors de la récupération des projets:', error);
         }
       }
 
@@ -294,7 +292,6 @@ const Tasks: React.FC = () => {
         });
       }
     } catch (error) {
-      console.error('Erreur lors de la récupération des tâches:', error);
       if (!silent) {
         toast({
           title: t.messages.error,

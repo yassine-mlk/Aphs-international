@@ -33,7 +33,6 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
           JSON.parse(storedUser);
           setAuthenticated(true);
         } catch (error) {
-          console.error('Invalid user data in localStorage:', error);
           localStorage.removeItem('user');
           setAuthenticated(false);
         }

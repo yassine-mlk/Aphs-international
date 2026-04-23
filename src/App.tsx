@@ -3,35 +3,36 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
-import { useEffect, useState, createContext, useContext, useCallback } from "react";
-import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
-import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
-import Intervenants from "./pages/Intervenants";
-import Projects from "./pages/Projects";
-import ProjectDetails from "./pages/ProjectDetails";
-import EditProject from "./pages/EditProject";
-import Tasks from "./pages/Tasks";
-import TaskDetails from "./pages/TaskDetails";
-import Companies from "./pages/Companies";
-import WorkGroups from "./pages/WorkGroups";
-import Messages from "./pages/Messages";
-import VideoConference from "./pages/VideoConferenceImproved";
-import Settings from "./pages/Settings";
-import ProfilePage from "./pages/ProfilePage";
-import TestUpload from "./test-upload";
-import IntervenantProjects from "./pages/IntervenantProjects";
-import IntervenantProjectDetails from "./pages/IntervenantProjectDetails";
-import SuperAdminDashboard from "./pages/SuperAdminDashboard";
-import SuperAdminLogin from "./pages/SuperAdminLogin";
-import Features from "./pages/Features";
-import Solutions from "./pages/Solutions";
-import Validations from "./pages/Validations";
-import MesSignatures from "./pages/MesSignatures";
-import DocumentDetail from "./pages/DocumentDetail";
-import WorkflowTemplates from "./pages/WorkflowTemplates";
-import PublicSignature from "./pages/PublicSignature";
+import { useEffect, useState, createContext, useContext, useCallback, lazy, Suspense } from "react";
+// Lazy loaded components for code splitting
+const Index = lazy(() => import("./pages/Index"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const Login = lazy(() => import("./pages/Login"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Intervenants = lazy(() => import("./pages/Intervenants"));
+const Projects = lazy(() => import("./pages/Projects"));
+const ProjectDetails = lazy(() => import("./pages/ProjectDetails"));
+const EditProject = lazy(() => import("./pages/EditProject"));
+const Tasks = lazy(() => import("./pages/Tasks"));
+const TaskDetails = lazy(() => import("./pages/TaskDetails"));
+const Companies = lazy(() => import("./pages/Companies"));
+const WorkGroups = lazy(() => import("./pages/WorkGroups"));
+const Messages = lazy(() => import("./pages/Messages"));
+const VideoConference = lazy(() => import("./pages/VideoConferenceImproved"));
+const Settings = lazy(() => import("./pages/Settings"));
+const ProfilePage = lazy(() => import("./pages/ProfilePage"));
+const TestUpload = lazy(() => import("./test-upload"));
+const IntervenantProjects = lazy(() => import("./pages/IntervenantProjects"));
+const IntervenantProjectDetails = lazy(() => import("./pages/IntervenantProjectDetails"));
+const SuperAdminDashboard = lazy(() => import("./pages/SuperAdminDashboard"));
+const SuperAdminLogin = lazy(() => import("./pages/SuperAdminLogin"));
+const Features = lazy(() => import("./pages/Features"));
+const Solutions = lazy(() => import("./pages/Solutions"));
+const Validations = lazy(() => import("./pages/Validations"));
+const MesSignatures = lazy(() => import("./pages/MesSignatures"));
+const DocumentDetail = lazy(() => import("./pages/DocumentDetail"));
+const WorkflowTemplates = lazy(() => import("./pages/WorkflowTemplates"));
+const PublicSignature = lazy(() => import("./pages/PublicSignature"));
 
 import DashboardLayout from "./components/DashboardLayout";
 import SuperAdminRoute from "./components/SuperAdminRoute";
@@ -42,6 +43,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import { useAuth } from "./contexts/AuthContext";
 import { supabase } from "./lib/supabase";
 import StorageInitializer from "./components/StorageInitializer";
+import LoadingSpinner from "./components/LoadingSpinner";
 
 const getRoleFromStorage = () => {
   try { return JSON.parse(localStorage.getItem('user') || '{}').role as string | undefined; } catch { return undefined; }
@@ -152,7 +154,6 @@ const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         setThemeState(loadedTheme);
         updateResolvedTheme(loadedTheme);
       } catch (error) {
-        console.error('Error loading theme preference:', error);
         // Fallback vers system en cas d'erreur
         setThemeState('system');
         updateResolvedTheme('system');
@@ -220,12 +221,12 @@ const App = () => {
                 {/* Initialisation du stockage Supabase */}
                 {user && <StorageInitializer />}
                 <Routes>
-                  <Route path="/" element={<Index />} />
-                  <Route path="/login" element={<Login />} />
-                  <Route path="/fonctionnalites" element={<Features />} />
-                  <Route path="/fonctionnalites/:featureId" element={<Features />} />
-                  <Route path="/solutions" element={<Solutions />} />
-                  <Route path="/signer/:token" element={<PublicSignature />} />
+                  <Route path="/" element={<Suspense fallback={<LoadingSpinner />}><Index /></Suspense>} />
+                  <Route path="/login" element={<Suspense fallback={<LoadingSpinner />}><Login /></Suspense>} />
+                  <Route path="/fonctionnalites" element={<Suspense fallback={<LoadingSpinner />}><Features /></Suspense>} />
+                  <Route path="/fonctionnalites/:featureId" element={<Suspense fallback={<LoadingSpinner />}><Features /></Suspense>} />
+                  <Route path="/solutions" element={<Suspense fallback={<LoadingSpinner />}><Solutions /></Suspense>} />
+                  <Route path="/signer/:token" element={<Suspense fallback={<LoadingSpinner />}><PublicSignature /></Suspense>} />
 
                 {/* Routes du dashboard protégées */}
                 <Route path="/dashboard" element={
@@ -233,35 +234,35 @@ const App = () => {
                     <DashboardLayout />
                   </ProtectedRoute>
                 }>
-                  <Route index element={<Dashboard />} />
+                  <Route index element={<Suspense fallback={<LoadingSpinner />}><Dashboard /></Suspense>} />
                   
                   {/* Projets - accessibles aux admins uniquement */}
                   <Route path="projets" element={
                     <AdminRoute>
-                      <Projects />
+                      <Suspense fallback={<LoadingSpinner />}><Projects /></Suspense>
                     </AdminRoute>
                   } />
                   
                   <Route path="projets/:id" element={
                     <AdminRoute>
-                      <ProjectDetails />
+                      <Suspense fallback={<LoadingSpinner />}><ProjectDetails /></Suspense>
                     </AdminRoute>
                   } />
                   <Route path="projets/:id/edit" element={
                     <AdminRoute>
-                      <EditProject />
+                      <Suspense fallback={<LoadingSpinner />}><EditProject /></Suspense>
                     </AdminRoute>
                   } />
                   
                   {/* Tâches - accessibles aux intervenants et aux admins */}
                   <Route path="tasks" element={
                     <SharedRoute>
-                      <Tasks />
+                      <Suspense fallback={<LoadingSpinner />}><Tasks /></Suspense>
                     </SharedRoute>
                   } />
                   <Route path="tasks/:id" element={
                     <SharedRoute>
-                      <TaskDetails />
+                      <Suspense fallback={<LoadingSpinner />}><TaskDetails /></Suspense>
                     </SharedRoute>
                   } />
                   

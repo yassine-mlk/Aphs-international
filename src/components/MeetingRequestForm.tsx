@@ -51,7 +51,6 @@ export function MeetingRequestForm({ onRequestSubmitted }: MeetingRequestFormPro
           setUsers([]);
         }
       } catch (error) {
-        console.error("Erreur lors du chargement des utilisateurs:", error);
         setUsers([]); // S'assurer que users est toujours un tableau
         toast({
           title: "Erreur",
@@ -115,7 +114,6 @@ export function MeetingRequestForm({ onRequestSubmitted }: MeetingRequestFormPro
         }
       }
     } catch (error) {
-      console.error("Erreur lors de l'envoi de la demande:", error);
       toast({
         title: "Erreur",
         description: "Impossible d'envoyer votre demande de réunion",

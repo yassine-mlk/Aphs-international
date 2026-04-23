@@ -102,7 +102,6 @@ export function useWorkGroups() {
       const { data: profilesData, error } = await query;
 
       if (error) {
-        console.error('❌ Erreur profiles:', error);
         throw error;
       }
 
@@ -122,7 +121,6 @@ export function useWorkGroups() {
       return availableUsers;
       
     } catch (error) {
-      console.error('❌ Erreur lors de la récupération des utilisateurs:', error);
       return [];
     }
   }, [supabase, user?.id]);
@@ -134,28 +132,23 @@ export function useWorkGroups() {
     try {
       setLoading(true);
       
-      console.log('🔍 Récupération des workgroups pour user:', user.id);
       
       // Utiliser la nouvelle fonction RPC simplifiée
       const { data: workgroupsData, error: workgroupsError } = await supabase
         .rpc('get_user_workgroups_simple', { p_user_id: user.id });
 
       if (workgroupsError) {
-        console.error('❌ Erreur workgroups RPC:', workgroupsError);
         throw workgroupsError;
       }
 
       if (!workgroupsData || workgroupsData.length === 0) {
-        console.log('📭 Aucun workgroup trouvé');
         return [];
       }
 
-      console.log('📊 Workgroups trouvés:', workgroupsData.length);
 
       // Pour chaque groupe, récupérer les membres avec leurs profils
       const workgroupsWithDetails = await Promise.all(
         workgroupsData.map(async (wg: any) => {
-          console.log(`🔍 Traitement du groupe "${wg.workgroup_name}" (ID: ${wg.workgroup_id})`);
           
           // Récupérer les membres
           const { data: membersData, error: membersError } = await supabase
@@ -164,10 +157,8 @@ export function useWorkGroups() {
             .eq('workgroup_id', wg.workgroup_id);
 
           if (membersError) {
-            console.error('❌ Erreur membres:', membersError);
           }
 
-          console.log(`👥 Membres trouvés pour "${wg.workgroup_name}":`, membersData?.length || 0);
 
           // Pour chaque membre, récupérer son profil
           const members: WorkGroupMember[] = [];
@@ -181,10 +172,8 @@ export function useWorkGroups() {
                 .single();
 
               if (profileError) {
-                console.warn(`⚠️ Pas de profil trouvé pour user_id: ${member.user_id}`, profileError);
               }
 
-              console.log(`👤 Membre ${member.user_id}:`, profileData ? 
                 `${profileData.first_name} ${profileData.last_name}` : 'PROFIL MANQUANT');
 
               members.push({
@@ -225,10 +214,8 @@ export function useWorkGroups() {
         })
       );
 
-      console.log('✅ Workgroups avec détails formatés:', workgroupsWithDetails.length);
       return workgroupsWithDetails;
     } catch (error) {
-      console.error('❌ Erreur lors de la récupération des groupes de travail:', error);
       throw error;
     } finally {
       setLoading(false);
@@ -249,7 +236,6 @@ export function useWorkGroups() {
     try {
       setLoading(true);
 
-      console.log('🚀 Début création workgroup:', {
         name: workgroupData.name,
         creator: user.id,
         memberIds: workgroupData.memberIds,
@@ -258,7 +244,6 @@ export function useWorkGroups() {
 
       // Log simple des IDs membres (sans validation pour éviter les problèmes de permissions)
       if (workgroupData.memberIds && workgroupData.memberIds.length > 0) {
-        console.log('👥 IDs membres à ajouter:', workgroupData.memberIds);
       }
 
       // Créer le groupe de travail avec la fonction RPC
@@ -271,16 +256,12 @@ export function useWorkGroups() {
         });
 
       if (workgroupError) {
-        console.error('❌ Erreur création workgroup:', workgroupError);
         throw workgroupError;
       }
 
-      console.log('✅ Workgroup créé avec ID:', workgroupId);
 
       // Ajouter des membres si spécifiés
       if (workgroupData.memberIds && workgroupData.memberIds.length > 0) {
-        console.log('👥 Ajout de', workgroupData.memberIds.length, 'membres...');
-        console.log('🔧 Appel add_members_to_workgroup avec:', {
           p_workgroup_id: workgroupId,
           p_user_ids: workgroupData.memberIds,
           user_ids_array: workgroupData.memberIds.map(id => `'${id}'`).join(', ')
@@ -292,10 +273,8 @@ export function useWorkGroups() {
             p_user_ids: workgroupData.memberIds
           });
 
-        console.log('📋 Résultat add_members_to_workgroup:', { addResult, membersError });
 
         if (membersError) {
-          console.error('❌ Erreur lors de l\'ajout des membres:', membersError);
           toast({
             title: "Attention",
             description: "Groupe créé mais erreur lors de l'ajout des membres",
@@ -303,7 +282,6 @@ export function useWorkGroups() {
           });
         } else if (addResult && addResult.length > 0) {
           const result = addResult[0];
-          console.log('✅ Résultat détaillé add_members:', {
             success: result.success,
             added_count: result.added_count,
             skipped_count: result.skipped_count,
@@ -311,20 +289,17 @@ export function useWorkGroups() {
           });
           
           if (!result.success) {
-            console.error('❌ La fonction a échoué:', result.error_message);
             toast({
               title: "Attention",
               description: `Erreur ajout membres: ${result.error_message}`,
               variant: "destructive",
             });
           } else if (result.added_count === 0) {
-            console.warn('⚠️ Aucun membre ajouté:', result.error_message);
             toast({
               title: "Information",
               description: "Groupe créé mais aucun membre ajouté",
             });
           } else {
-            console.log(`✅ ${result.added_count} membres ajoutés avec succès!`);
             toast({
               title: "Succès",
               description: `Groupe créé avec ${result.added_count} membre(s)`,
@@ -332,7 +307,6 @@ export function useWorkGroups() {
           }
         }
       } else {
-        console.log('⚠️ Aucun membre à ajouter');
         toast({
           title: "Succès",
           description: "Groupe de travail créé avec succès",
@@ -354,7 +328,6 @@ export function useWorkGroups() {
         unreadCount: 0
       };
     } catch (error) {
-      console.error('❌ Erreur lors de la création du groupe:', error);
       toast({
         title: "Erreur",
         description: "Impossible de créer le groupe de travail",
@@ -392,7 +365,6 @@ export function useWorkGroups() {
 
       return true;
     } catch (error) {
-      console.error('Erreur lors de la mise à jour:', error);
       toast({
         title: "Erreur",
         description: "Impossible de mettre à jour le groupe",
@@ -418,7 +390,6 @@ export function useWorkGroups() {
 
       return true;
     } catch (error) {
-      console.error('Erreur lors de la suppression:', error);
       toast({
         title: "Erreur",
         description: "Impossible de supprimer le groupe",
@@ -438,7 +409,6 @@ export function useWorkGroups() {
     try {
       setLoading(true);
 
-      console.log('👥 Ajout membres avec IDs:', userIds);
 
       const { data: result, error } = await supabase
         .rpc('add_members_to_workgroup', {
@@ -448,7 +418,6 @@ export function useWorkGroups() {
 
       if (error) throw error;
 
-      console.log('📋 Résultat ajout membres:', result);
 
       toast({
         title: "Succès",
@@ -457,7 +426,6 @@ export function useWorkGroups() {
 
       return true;
     } catch (error) {
-      console.error('Erreur lors de l\'ajout des membres:', error);
       toast({
         title: "Erreur",
         description: "Impossible d'ajouter les membres",
@@ -485,7 +453,6 @@ export function useWorkGroups() {
 
       return true;
     } catch (error) {
-      console.error('Erreur lors de la suppression du membre:', error);
       toast({
         title: "Erreur",
         description: "Impossible de supprimer le membre",
@@ -503,7 +470,6 @@ export function useWorkGroups() {
     projectName: string
   ): Promise<boolean> => {
     // TODO: Implémenter quand les projets seront supportés
-    console.log('addProjectToWorkGroup not implemented yet');
     return false;
   }, []);
 
@@ -512,7 +478,6 @@ export function useWorkGroups() {
     projectId: string
   ): Promise<boolean> => {
     // TODO: Implémenter quand les projets seront supportés
-    console.log('removeProjectFromWorkGroup not implemented yet');
     return false;
   }, []);
 

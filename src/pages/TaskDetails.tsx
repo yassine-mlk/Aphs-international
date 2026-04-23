@@ -315,7 +315,6 @@ const TaskDetails: React.FC = () => {
         setHasCurrentUserPendingSubmission(false);
       }
     } catch (error) {
-      console.error('Erreur lors du chargement de l\'historique des soumissions:', error);
       setSubmissionHistory([]);
       setHasAnyPendingSubmission(false);
       setHasCurrentUserPendingSubmission(false);
@@ -327,7 +326,6 @@ const TaskDetails: React.FC = () => {
     try {
       await insertData('task_submission_history', data);
     } catch (error) {
-      console.error('Erreur lors de la création de l\'entrée d\'historique:', error);
     }
   };
   
@@ -472,7 +470,6 @@ const TaskDetails: React.FC = () => {
         navigate('/dashboard/tasks');
       }
     } catch (error) {
-      console.error('Erreur lors de la récupération des détails de la tâche:', error);
       toast({
         title: t.details.toasts.error,
         description: t.details.toasts.cannotLoadDetails,
@@ -501,7 +498,6 @@ const TaskDetails: React.FC = () => {
           filter: `id=eq.${id}`
         },
         (payload) => {
-          console.log('Changement détecté dans la tâche, actualisation...', payload);
           fetchTaskDetails();
         }
       )
@@ -514,7 +510,6 @@ const TaskDetails: React.FC = () => {
           filter: `task_assignment_id=eq.${id}`
         },
         () => {
-          console.log('Changement détecté dans l\'historique de la tâche, actualisation...');
           loadSubmissionHistory(id);
         }
       )
@@ -547,7 +542,6 @@ const TaskDetails: React.FC = () => {
         description: t.details.toasts.taskStarted,
       });
     } catch (error) {
-      console.error('Erreur lors du démarrage de la tâche:', error);
               toast({
           title: t.details.toasts.error,
           description: t.details.toasts.cannotStartTask,
@@ -609,7 +603,6 @@ const TaskDetails: React.FC = () => {
         contentType = mimeTypes[fileExt] || 'application/octet-stream';
       }
       
-      console.log(`Uploading file: ${selectedFile.name} (${Math.round(selectedFile.size / (1024 * 1024))}MB) with type: ${contentType}`);
       
       setTotalBytes(selectedFile.size);
       setUploadedBytes(0);
@@ -620,9 +613,7 @@ const TaskDetails: React.FC = () => {
       const fileNameForR2 = `${timestamp}_${selectedFile.name.replace(/\s+/g, '_')}`;
       const filePath = `tasks/${task.id}/${fileNameForR2}`;
       
-      console.log(`Tentative d'upload vers Cloudflare R2: ${filePath}`);
       const fileUrl = await startUpload(task.id, selectedFile, filePath);
-      console.log('Upload R2 réussi:', fileUrl);
       
       // Notification de fin d'upload
       toast({
@@ -703,9 +694,7 @@ const TaskDetails: React.FC = () => {
             project?.name
           );
         
-        console.log(`Notifications envoyées: Admin + ${task.validators.length} validateur(s)`);
       } catch (notificationError) {
-        console.error('Erreur lors de l\'envoi des notifications:', notificationError);
         // Ne pas faire échouer la soumission si les notifications échouent
       }
       
@@ -719,7 +708,6 @@ const TaskDetails: React.FC = () => {
       
       setIsSubmitDialogOpen(false);
     } catch (error: any) {
-      console.error('Erreur lors de la soumission de la tâche:', error);
               toast({
           title: t.details.toasts.error,
           description: error.message || t.details.toasts.cannotSubmitTask,
@@ -802,9 +790,7 @@ const TaskDetails: React.FC = () => {
           project?.name
         );
         
-        console.log(`Notification de validation envoyée pour la tâche ${task.task_name}`);
       } catch (notificationError) {
-        console.error('Erreur lors de l\'envoi de la notification:', notificationError);
       }
       
       toast({
@@ -817,7 +803,6 @@ const TaskDetails: React.FC = () => {
       
       setIsValidateDialogOpen(false);
     } catch (error) {
-      console.error('Erreur lors de la validation de la tâche:', error);
               toast({
           title: t.details.toasts.error,
           description: t.details.toasts.cannotValidateTask,
@@ -883,9 +868,7 @@ const TaskDetails: React.FC = () => {
           project?.name
         );
         
-        console.log(`Notification de rejet envoyée pour la tâche ${task.task_name}`);
       } catch (notificationError) {
-        console.error('Erreur lors de l\'envoi de la notification:', notificationError);
       }
       
       toast({
@@ -898,7 +881,6 @@ const TaskDetails: React.FC = () => {
       
       setIsRejectDialogOpen(false);
     } catch (error) {
-      console.error('Erreur lors du rejet de la tâche:', error);
       toast({
         title: t.details.toasts.error,
         description: t.details.toasts.cannotRejectTask,
@@ -959,7 +941,6 @@ const TaskDetails: React.FC = () => {
       
       setIsFinalizeDialogOpen(false);
     } catch (error) {
-      console.error('Erreur lors de la finalisation de la tâche:', error);
       toast({
         title: t.details.toasts.error,
         description: t.details.toasts.cannotFinalizeTask,

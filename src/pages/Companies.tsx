@@ -62,7 +62,6 @@ const Companies: React.FC = () => {
       const companiesData = await getCompanies();
       setCompanies(companiesData);
     } catch (error) {
-      console.error('Erreur lors de la récupération des entreprises:', error);
       toast({
         title: "Erreur",
         description: "Impossible de récupérer la liste des entreprises",
@@ -91,7 +90,6 @@ const Companies: React.FC = () => {
       const employees = await getCompanyEmployees(companyId);
       setCompanyEmployees(employees);
     } catch (error) {
-      console.error('Erreur lors du chargement des employés:', error);
       setCompanyEmployees([]);
     }
   };
@@ -130,7 +128,6 @@ const Companies: React.FC = () => {
         throw error;
       }
     } catch (error) {
-      console.error('Erreur lors de la suppression de l\'entreprise:', error);
       toast({
         title: "Erreur",
         description: error instanceof Error 

@@ -194,7 +194,6 @@ const Intervenants: React.FC = () => {
 
       setIntervenants(formattedUsers);
     } catch (error) {
-      console.error('Erreur lors de la récupération des utilisateurs:', error);
       toast({
         title: "Erreur",
         description: "Impossible de récupérer la liste des utilisateurs",
@@ -230,7 +229,6 @@ const Intervenants: React.FC = () => {
         throw error;
       }
     } catch (error) {
-      console.error('Erreur lors de la suppression de l\'intervenant:', error);
       toast({
         title: "Erreur",
         description: "Impossible de supprimer l'intervenant. Veuillez réessayer.",
@@ -318,7 +316,6 @@ const Intervenants: React.FC = () => {
         if (taskError) throw taskError;
         setSummaryTasks((tasks || []) as TaskAssignmentRow[]);
       } catch (error) {
-        console.error('Erreur lors du chargement du résumé intervenant:', error);
         toast({
           title: 'Erreur',
           description: "Impossible de charger le résumé de l'intervenant",

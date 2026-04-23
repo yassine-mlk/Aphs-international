@@ -44,11 +44,9 @@ export function useSuperAdmin() {
           .maybeSingle();  // ← maybeSingle au lieu de single
 
         if (error && error.code !== 'PGRST116') {
-          console.error('Error checking super admin:', error);
         }
         setIsSuperAdmin(data?.is_super_admin || false);
       } catch (error) {
-        console.error('Error checking super admin:', error);
         setIsSuperAdmin(false);
       } finally {
         setIsLoading(false);
@@ -121,7 +119,6 @@ export function useSuperAdmin() {
             try {
               await supabase.rpc('delete_auth_user', { user_id: userId });
             } catch (e) {
-              console.log('Could not delete auth user:', userId);
             }
           }
         }
@@ -141,7 +138,6 @@ export function useSuperAdmin() {
       return true;
 
     } catch (error: any) {
-      console.error('Delete tenant error:', error);
       toast({
         title: "Erreur",
         description: error.message || "Impossible de supprimer le tenant",
@@ -175,7 +171,6 @@ export function useSuperAdmin() {
         if (!rpcData?.success) throw new Error(rpcData?.error || 'Échec de la création utilisateur');
         
         userId = rpcData.userId;
-        console.log('Admin créé via SQL RPC (email confirmé):', userId);
         
       } catch (authErr: any) {
         throw new Error(`Erreur création admin: ${authErr.message}`);
@@ -195,7 +190,6 @@ export function useSuperAdmin() {
         trial_ends_at: new Date(Date.now() + (data.trialDays || 14) * 24 * 60 * 60 * 1000).toISOString()
       };
       
-      console.log('Creating tenant with data:', insertData);
 
       const { data: tenantData, error: tenantError } = await supabase
         .from('tenants')
@@ -204,7 +198,6 @@ export function useSuperAdmin() {
         .single();
 
       if (tenantError) {
-        console.error('Tenant creation error:', tenantError);
         throw tenantError;
       }
 
@@ -224,7 +217,6 @@ export function useSuperAdmin() {
         }, { onConflict: 'user_id' });
 
       if (profileError) {
-        console.error('Profile update error:', profileError);
         // Non bloquant, on continue
       }
 
@@ -240,7 +232,6 @@ export function useSuperAdmin() {
         });
 
       if (memberError) {
-        console.error('Member creation error:', memberError);
         // Non bloquant si duplicate
       }
       
@@ -342,7 +333,6 @@ export function useSuperAdmin() {
         taxId: t.tax_id
       }));
     } catch (error) {
-      console.error('Error fetching tenants:', error);
       return [];
     }
   }, []);
@@ -508,7 +498,6 @@ export function useSuperAdmin() {
         .eq('user_id', userId);
 
       if (memberError) {
-        console.error('Member delete error:', memberError);
         throw memberError;
       }
 
@@ -519,7 +508,6 @@ export function useSuperAdmin() {
         .eq('user_id', userId);
 
       if (profileError) {
-        console.error('Profile update error:', profileError);
         throw profileError;
       }
 
@@ -531,7 +519,6 @@ export function useSuperAdmin() {
       return true;
 
     } catch (error: any) {
-      console.error('Remove user error:', error);
       toast({
         title: "Erreur",
         description: error.message || "Impossible de retirer l'utilisateur",
@@ -561,7 +548,6 @@ export function useSuperAdmin() {
 
       if (existingProfile) {
         // L'utilisateur existe dans profiles - on l'associe juste au tenant
-        console.log('User exists in profiles, associating:', existingProfile.user_id);
         
         const userId = existingProfile.user_id;
 
@@ -628,7 +614,6 @@ export function useSuperAdmin() {
             
             if (existingUser) {
               userId = existingUser.id;
-              console.log('User exists in auth, using ID:', userId);
             } else {
               throw new Error('Email déjà utilisé mais utilisateur introuvable. Utilisez "Associer un utilisateur existant".');
             }
@@ -690,7 +675,6 @@ export function useSuperAdmin() {
       return { userId, error: null };
 
     } catch (error: any) {
-      console.error('Create tenant admin error:', error);
       toast({
         title: "Erreur",
         description: error.message || "Impossible de créer l'administrateur",
@@ -741,7 +725,6 @@ export function useSuperAdmin() {
       try {
         await supabase.rpc('delete_auth_user', { user_id: userId });
       } catch (e) {
-        console.log('Note: delete_auth_user RPC not available, user marked for deletion');
       }
 
       toast({
@@ -752,7 +735,6 @@ export function useSuperAdmin() {
       return true;
 
     } catch (error: any) {
-      console.error('Delete user error:', error);
       toast({
         title: "Erreur",
         description: error.message || "Impossible de supprimer l'utilisateur",
@@ -908,7 +890,6 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         updateUsage(loadedTenant);
 
       } catch (err: any) {
-        console.error('Error loading tenant:', err);
         setError(err.message);
       } finally {
         setIsLoading(false);
@@ -963,7 +944,6 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         updateUsage(updatedTenant);
       }
     } catch (err) {
-      console.error('Error refreshing usage:', err);
     }
   }, [tenant?.id, updateUsage]);
 

@@ -113,7 +113,6 @@ export function useVideoMeetings() {
         })
       }));
     } catch (error) {
-      console.error('Erreur lors de la récupération des réunions:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible de récupérer les réunions',
@@ -211,7 +210,6 @@ export function useVideoMeetings() {
         };
       });
     } catch (error) {
-      console.error('Erreur lors de la récupération des réunions utilisateur:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible de récupérer vos réunions',
@@ -281,7 +279,6 @@ export function useVideoMeetings() {
             });
             
           if (participantError) {
-            console.error(`Error adding participant ${userId}:`, participantError);
             // Continue adding other participants even if one fails
           }
         }
@@ -313,14 +310,12 @@ export function useVideoMeetings() {
               p_scheduled_time: options?.scheduledTime?.toISOString() || new Date().toISOString()
             });
           } catch (notificationError) {
-            console.error('Erreur lors de l\'envoi de notification:', notificationError);
           }
         }
       }
 
       return data.id;
     } catch (error) {
-      console.error('Erreur lors de la création de la réunion:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible de créer la réunion',
@@ -382,9 +377,6 @@ export function useVideoMeetings() {
       // SEULS les créateurs et les vrais admins sont modérateurs
       const isModerator = isCreator || isRealAdmin;
         
-      console.log(`Joining meeting: ${meetingId}`);
-      console.log(`User: ${user.email}, Creator: ${isCreator}, Admin: ${isRealAdmin}, Moderator: ${isModerator}`);
-      console.log(`Room: ${meetingData.room_id}`);
       
       // Vérifier si l'utilisateur est déjà participant
       const { data: existingParticipant, error: checkError } = await supabase
@@ -395,7 +387,6 @@ export function useVideoMeetings() {
         .maybeSingle();
 
       if (checkError) {
-        console.error('Erreur lors de la vérification du participant:', checkError);
       }
 
       if (existingParticipant) {
@@ -423,11 +414,9 @@ export function useVideoMeetings() {
           });
 
         if (addParticipantError) {
-          console.error('Erreur lors de l\'ajout du participant:', addParticipantError);
           // Ne pas empêcher la connexion pour cette erreur
         }
         
-        console.log(`Added as participant with role: ${participantRole}`);
       }
       
       // Marquer la réunion comme active
@@ -465,7 +454,6 @@ export function useVideoMeetings() {
             );
           }
         } catch (notificationError) {
-          console.error('Erreur lors de l\'envoi des notifications de démarrage:', notificationError);
           // Ne pas faire échouer la connexion si les notifications échouent
         }
       }
@@ -480,7 +468,6 @@ export function useVideoMeetings() {
         isModerator
       };
     } catch (error: any) {
-      console.error('Erreur lors de la connexion à la réunion:', error);
       toast({
         title: 'Erreur',
         description: error.message || 'Impossible de rejoindre la réunion',
@@ -497,7 +484,6 @@ export function useVideoMeetings() {
     if (!user) return false;
     setLoading(true);
     try {
-      console.log(`🚪 Attempting to leave meeting: ${meetingId} for user: ${user.id}`);
       
       // Vérifier si le participant existe dans la base de données
       const { data: existingParticipant, error: checkError } = await supabase
@@ -508,13 +494,11 @@ export function useVideoMeetings() {
         .maybeSingle();
 
       if (checkError) {
-        console.error('Erreur lors de la vérification du participant:', checkError);
         throw checkError;
       }
 
       if (existingParticipant) {
         // Mettre à jour le participant existant
-        console.log(`📝 Updating existing participant: ${existingParticipant.id}`);
         const { error: updateError } = await supabase
           .from('video_meeting_participants')
           .update({ 
@@ -525,16 +509,13 @@ export function useVideoMeetings() {
           .eq('user_id', user.id);
 
         if (updateError) {
-          console.error('Erreur lors de la mise à jour du participant:', updateError);
           throw updateError;
         }
       } else {
         // Le participant n'existe pas dans la BD, mais ce n'est pas une erreur
         // Il peut avoir rejoint via WebRTC sans être enregistré correctement
-        console.log(`⚠️ Participant not found in database, but this is OK`);
       }
 
-      console.log(`✅ Successfully left meeting: ${meetingId}`);
       
       toast({
         title: 'Vous avez quitté la réunion',
@@ -543,7 +524,6 @@ export function useVideoMeetings() {
 
       return true;
     } catch (error: any) {
-      console.error('Erreur lors de la sortie de la réunion:', error);
       toast({
         title: 'Erreur',
         description: error?.message || 'Impossible de quitter la réunion',
@@ -624,7 +604,6 @@ export function useVideoMeetings() {
 
       return true;
     } catch (error) {
-      console.error('Erreur lors de la fermeture de la réunion:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible de terminer la réunion',
@@ -681,7 +660,6 @@ export function useVideoMeetings() {
 
       return true;
     } catch (error) {
-      console.error('Erreur lors de la demande de réunion:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible d\'envoyer la demande de réunion',
@@ -728,7 +706,6 @@ export function useVideoMeetings() {
         }))
       }));
     } catch (error) {
-      console.error('Erreur lors de la récupération des demandes de réunion:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible de récupérer les demandes de réunion',
@@ -793,7 +770,6 @@ export function useVideoMeetings() {
 
       return true;
     } catch (error) {
-      console.error('Erreur lors de la réponse à la demande:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible de traiter la demande de réunion',
@@ -824,7 +800,6 @@ export function useVideoMeetings() {
 
       setMeetings(meetingsData);
     } catch (error) {
-      console.error("Erreur lors du chargement des réunions:", error);
     } finally {
       if (!silent) setLoadingMeetings(false);
     }
@@ -910,7 +885,6 @@ export function useVideoMeetings() {
 
       return true;
     } catch (error) {
-      console.error('Erreur lors de la suppression de la réunion:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible de supprimer la réunion',
@@ -970,7 +944,6 @@ export function useVideoMeetings() {
 
       return true;
     } catch (error) {
-      console.error('Erreur lors du nettoyage de l\'historique:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible de nettoyer l\'historique',

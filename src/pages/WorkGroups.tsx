@@ -118,7 +118,6 @@ const WorkGroups: React.FC = () => {
       const data = await getWorkGroupsWithMessaging();
       setWorkGroups(data);
     } catch (error) {
-      console.error('Erreur lors du chargement des groupes de travail:', error);
       toast({
         title: "Erreur",
         description: "Impossible de charger les groupes de travail",
@@ -133,11 +132,9 @@ const WorkGroups: React.FC = () => {
   const fetchAllUsersFromProfiles = async () => {
     setLoadingUsers(true);
     try {
-      console.log('🔍 Chargement des utilisateurs depuis profiles...');
       
       const users = await getAvailableUsers();
       
-      console.log('✅ Utilisateurs récupérés:', users.length, users);
       
       // Convertir pour la compatibilité avec l'interface existante
       const formattedUsers = users.map(user => ({
@@ -152,7 +149,6 @@ const WorkGroups: React.FC = () => {
       setAvailableUsersForCreate(users);
       
     } catch (error) {
-      console.error('❌ Erreur lors de la récupération des utilisateurs:', error);
       toast({
         title: "Erreur",
         description: "Impossible de récupérer la liste des utilisateurs",
@@ -193,7 +189,6 @@ const WorkGroups: React.FC = () => {
   // Gestionnaire pour soumettre le formulaire de création
   const handleSubmitCreate = async () => {
     try {
-      console.log('🚀 Création groupe avec membres:', {
         name: formData.name,
         selectedUsersForCreate,
         memberIds: selectedUsersForCreate.length > 0 ? selectedUsersForCreate : undefined
@@ -213,7 +208,6 @@ const WorkGroups: React.FC = () => {
         setCreateDialogOpen(false);
       }
     } catch (error) {
-      console.error('Erreur lors de la création du groupe:', error);
     }
   };
 
@@ -247,7 +241,6 @@ const WorkGroups: React.FC = () => {
         setSelectedGroup(null);
       }
     } catch (error) {
-      console.error('Erreur lors de la modification du groupe:', error);
     }
   };
 
@@ -273,7 +266,6 @@ const WorkGroups: React.FC = () => {
         });
       }
     } catch (error) {
-      console.error('Erreur lors de la suppression du groupe:', error);
     } finally {
       setDeleteDialogOpen(false);
       setSelectedGroup(null);
@@ -287,7 +279,6 @@ const WorkGroups: React.FC = () => {
     setUserSearchQuery("");
     
     try {
-      console.log('👥 Gestion membres pour le groupe:', group.name);
       
       // Récupérer les utilisateurs disponibles
       const users = await getAvailableUsers();
@@ -302,10 +293,8 @@ const WorkGroups: React.FC = () => {
         isMember: group.members.some(member => member.user_id === user.id)
       }));
       
-      console.log('👥 Utilisateurs formatés pour gestion membres:', formattedUsers.length);
       setAvailableUsers(formattedUsers);
     } catch (error) {
-      console.error('Erreur lors de la récupération des utilisateurs:', error);
       toast({
         title: "Erreur",
         description: "Impossible de récupérer la liste des intervenants",
@@ -333,7 +322,6 @@ const WorkGroups: React.FC = () => {
         setMembersDialogOpen(false);
       }
     } catch (error) {
-      console.error('Erreur lors de l\'ajout des membres:', error);
     }
   };
 
@@ -347,7 +335,6 @@ const WorkGroups: React.FC = () => {
         fetchWorkGroups();
       }
     } catch (error) {
-      console.error('Erreur lors du retrait du membre:', error);
     }
   };
 
@@ -378,7 +365,6 @@ const WorkGroups: React.FC = () => {
         setNewProject('');
       }
     } catch (error) {
-      console.error('Erreur lors de l\'ajout du projet:', error);
     }
   };
 
@@ -392,7 +378,6 @@ const WorkGroups: React.FC = () => {
         fetchWorkGroups();
       }
     } catch (error) {
-      console.error('Erreur lors de la suppression du projet:', error);
     }
   };
 

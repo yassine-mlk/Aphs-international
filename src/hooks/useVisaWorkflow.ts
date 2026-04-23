@@ -105,7 +105,6 @@ export const useVisaWorkflow = () => {
         validator_names: validatorNames
       };
     } catch (error) {
-      console.error('Erreur fetchWorkflow:', error);
       return null;
     }
   }, []);
@@ -176,7 +175,6 @@ export const useVisaWorkflow = () => {
 
       return true;
     } catch (error) {
-      console.error('Erreur submitDocument:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible de soumettre le document',
@@ -313,7 +311,6 @@ export const useVisaWorkflow = () => {
           actorName
         });
       } catch (notifError) {
-        console.error('Error sending workflow notification:', notifError);
       }
 
       toast({
@@ -324,7 +321,6 @@ export const useVisaWorkflow = () => {
       const allValidated = nextStatus === 'validated';
       return { success: true, nextStatus, nextValidatorIdx, allValidated, message };
     } catch (error) {
-      console.error('Erreur submitValidation:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible d\'enregistrer l\'avis',

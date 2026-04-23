@@ -171,7 +171,6 @@ const ProjectMembersTab: React.FC<ProjectMembersTabProps> = ({
         }));
         setTenantIntervenants(mapped);
       } catch (error) {
-        console.error('Error fetching intervenants:', error);
         toast({
           title: 'Erreur',
           description: 'Impossible de charger les intervenants',
@@ -206,7 +205,6 @@ const ProjectMembersTab: React.FC<ProjectMembersTabProps> = ({
       }));
       setTenantIntervenants(mapped);
     } catch (error) {
-      console.error('Error fetching tenant intervenants:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible de charger les intervenants du tenant',
@@ -261,14 +259,12 @@ const ProjectMembersTab: React.FC<ProjectMembersTabProps> = ({
           });
         }
       } catch (notifError) {
-        console.error('Error sending member added notifications:', notifError);
       }
 
       setIsAddDialogOpen(false);
       setSelectedIntervenants([]);
       onMembersChanged();
     } catch (error) {
-      console.error('Error adding members:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible d\'ajouter les membres',
@@ -300,7 +296,6 @@ const ProjectMembersTab: React.FC<ProjectMembersTabProps> = ({
 
       setMemberAssignments(memberTasks);
     } catch (error) {
-      console.error('Error checking assignments:', error);
       setMemberAssignments([]);
     } finally {
       setCheckingAssignments(false);
@@ -355,7 +350,6 @@ const ProjectMembersTab: React.FC<ProjectMembersTabProps> = ({
       setMemberAssignments([]);
       onMembersChanged();
     } catch (error) {
-      console.error('Error removing member:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible de retirer le membre',

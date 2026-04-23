@@ -27,7 +27,6 @@ const SuperAdminRoute: React.FC = () => {
 
         setIsSuperAdmin(profile?.is_super_admin === true);
       } catch (error) {
-        console.error('Error checking super admin:', error);
         setIsSuperAdmin(false);
       } finally {
         setIsLoading(false);

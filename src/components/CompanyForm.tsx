@@ -92,7 +92,6 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess, mode }) =
       
       return urlData.publicUrl;
     } catch (error) {
-      console.error('Erreur lors de l\'upload du logo:', error);
       setUploadProgress(0);
       showError('fileUploadError');
       return null;
@@ -178,7 +177,6 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess, mode }) =
         throw result.error;
       }
     } catch (error) {
-      console.error('Erreur lors de l\'opération sur l\'entreprise:', error);
       showError(mode === 'create' ? 'cannotCreateCompany' : 'cannotUpdateCompany');
     } finally {
       setLoading(false);

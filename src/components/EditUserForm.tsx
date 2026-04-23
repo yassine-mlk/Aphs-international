@@ -137,7 +137,6 @@ const EditUserForm: React.FC<EditUserFormProps> = ({ userId, userData, onSuccess
         const data = await getCompanies();
         setCompanies(data);
       } catch (error) {
-        console.error("Erreur lors du chargement des entreprises:", error);
       } finally {
         setLoadingCompanies(false);
       }
@@ -231,7 +230,6 @@ const EditUserForm: React.FC<EditUserFormProps> = ({ userId, userData, onSuccess
         throw error;
       }
     } catch (error) {
-      console.error('Erreur lors de la mise à jour de l\'utilisateur:', error);
       toast({
         title: "Erreur",
         description: "Impossible de mettre à jour l'utilisateur. Vérifiez les informations et réessayez.",

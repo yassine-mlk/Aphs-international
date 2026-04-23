@@ -46,7 +46,6 @@ export function useCompanies() {
       setCompanies(companies);
       return companies;
     } catch (error) {
-      console.error('Erreur lors de la récupération des entreprises:', error);
       toast({
         title: "Erreur",
         description: "Impossible de récupérer la liste des entreprises",
@@ -78,7 +77,6 @@ export function useCompanies() {
       setCompanies(results);
       return results;
     } catch (error) {
-      console.error('Erreur lors de la recherche d\'entreprises:', error);
       toast({
         title: "Erreur",
         description: "Erreur lors de la recherche",
@@ -100,7 +98,6 @@ export function useCompanies() {
 
       return companies.length > 0 ? companies[0] : null;
     } catch (error) {
-      console.error('Erreur lors de la récupération de l\'entreprise:', error);
       toast({
         title: "Erreur",
         description: "Impossible de récupérer l'entreprise",
@@ -141,7 +138,6 @@ export function useCompanies() {
 
       return newCompany;
     } catch (error) {
-      console.error('Erreur lors de la création de l\'entreprise:', error);
       toast({
         title: "Erreur",
         description: "Impossible de créer l'entreprise",
@@ -195,7 +191,6 @@ export function useCompanies() {
 
       return updatedCompany;
     } catch (error) {
-      console.error('Erreur lors de la mise à jour de l\'entreprise:', error);
       toast({
         title: "Erreur",
         description: "Impossible de mettre à jour l'entreprise",
@@ -247,7 +242,6 @@ export function useCompanies() {
         }
       } catch (error) {
         // Si la table projects n'existe pas, continuer
-        console.log('Table projects non trouvée, suppression autorisée');
       }
 
       const success = await deleteData('companies', id);
@@ -264,7 +258,6 @@ export function useCompanies() {
 
       return success;
     } catch (error) {
-      console.error('Erreur lors de la suppression de l\'entreprise:', error);
       toast({
         title: "Erreur",
         description: "Impossible de supprimer l'entreprise",
@@ -312,7 +305,6 @@ export function useCompanies() {
 
       return stats;
     } catch (error) {
-      console.error('Erreur lors de la récupération des statistiques:', error);
       toast({
         title: "Erreur",
         description: "Impossible de récupérer les statistiques",
@@ -358,7 +350,6 @@ export function useCompanies() {
 
       return data.publicUrl;
     } catch (error) {
-      console.error('Erreur lors de l\'upload du logo:', error);
       toast({
         title: "Erreur",
         description: "Impossible d'uploader le logo",
@@ -373,7 +364,6 @@ export function useCompanies() {
     setLoading(true);
     try {
       // Méthode 1: Essayer d'abord avec la table profiles
-      console.log('🔍 Recherche des employés pour l\'entreprise:', companyId);
       
       let employees = await fetchData<Profile>('profiles', {
         filters: [
@@ -383,11 +373,9 @@ export function useCompanies() {
         order: { column: 'first_name', ascending: true }
       });
 
-      console.log('📊 Employés trouvés dans la table profiles:', employees?.length || 0);
 
       // Méthode 2: Si aucun employé trouvé dans profiles, chercher dans auth.users
       if (!employees || employees.length === 0) {
-        console.log('🔄 Fallback: recherche dans auth.users...');
         
         const userData = await getUsers();
         
@@ -397,7 +385,6 @@ export function useCompanies() {
           const selectedCompany = companies.find(c => c.id === companyId);
           const selectedCompanyName = selectedCompany?.name;
           
-          console.log('🏢 Entreprise sélectionnée:', selectedCompanyName);
           
           // Filtrer les utilisateurs par company_id ou company name
           const filteredUsers = userData.users.filter((user: any) => {
@@ -415,14 +402,12 @@ export function useCompanies() {
             const matchesName = selectedCompanyName && userCompanyName === selectedCompanyName;
             
             if (matchesId || matchesName) {
-              console.log('✅ Utilisateur correspondant trouvé:', user.email);
               return true;
             }
             
             return false;
           });
 
-          console.log('👥 Utilisateurs filtrés trouvés:', filteredUsers.length);
 
           // Transformer en format Profile complet
           employees = filteredUsers.map((user: any) => {
@@ -457,11 +442,9 @@ export function useCompanies() {
       }
 
       const finalEmployees = employees || [];
-      console.log('📋 Employés finaux retournés:', finalEmployees.length);
       
       return finalEmployees;
     } catch (error) {
-      console.error('❌ Erreur lors de la récupération des employés:', error);
       toast({
         title: "Erreur",
         description: "Impossible de charger les employés de cette entreprise",

@@ -90,7 +90,6 @@ const Settings: React.FC = () => {
           }
         }
       } catch (error) {
-        console.error('Error loading user settings:', error);
         toast({
           title: "Erreur",
           description: "Impossible de charger vos paramètres",
@@ -161,7 +160,6 @@ const Settings: React.FC = () => {
       const uploadResult = await uploadFile('avatars', fileName, avatarFile);
       
       if (uploadResult.error) {
-        console.error('Erreur d\'upload:', uploadResult.error);
         throw uploadResult.error;
       }
 
@@ -170,7 +168,6 @@ const Settings: React.FC = () => {
       
       return publicUrl;
     } catch (error) {
-      console.error('Erreur lors de l\'upload de l\'avatar:', error);
       toast({
         title: "Erreur",
         description: `Impossible d'uploader la photo de profil: ${error.message || 'Erreur inconnue'}`,
@@ -228,7 +225,6 @@ const Settings: React.FC = () => {
         description: "Profil mis à jour avec succès",
       });
     } catch (error) {
-      console.error('Error updating profile:', error);
       toast({
         title: "Erreur",
         description: "Impossible de mettre à jour votre profil",
@@ -275,7 +271,6 @@ const Settings: React.FC = () => {
         });
       }
     } catch (error) {
-      console.error('Error updating password:', error);
     } finally {
       setSaving(false);
     }
@@ -297,7 +292,6 @@ const Settings: React.FC = () => {
         notifications
       });
     } catch (error) {
-      console.error('Error updating notifications:', error);
       toast({
         title: "Erreur",
         description: "Impossible de mettre à jour vos préférences de notification",

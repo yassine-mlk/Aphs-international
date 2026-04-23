@@ -117,7 +117,6 @@ const ProjectDocumentsTab: React.FC<ProjectDocumentsTabProps> = ({ projectId, is
   // Fetch project members
   const fetchProjectMembers = useCallback(async () => {
     try {
-      console.log('Fetching members for project:', projectId);
       
       // Step 1: Get user_ids from membre table
       const { data: memberData, error: memberError } = await supabase
@@ -126,15 +125,12 @@ const ProjectDocumentsTab: React.FC<ProjectDocumentsTabProps> = ({ projectId, is
         .eq('project_id', projectId);
 
       if (memberError) {
-        console.error('Error fetching membre:', memberError);
         throw memberError;
       }
 
-      console.log('Found member user_ids:', memberData);
 
       if (memberData && memberData.length > 0) {
         const userIds = memberData.map(m => m.user_id);
-        console.log('User IDs to fetch:', userIds);
         
         // Step 2: Fetch profiles one by one (to avoid .in() issues)
         const profiles: ProjectMember[] = [];
@@ -146,20 +142,16 @@ const ProjectDocumentsTab: React.FC<ProjectDocumentsTabProps> = ({ projectId, is
             .single();
           
           if (profileError) {
-            console.error(`Error fetching profile for ${userId}:`, profileError);
           } else if (profile) {
             profiles.push(profile);
           }
         }
         
-        console.log('Fetched profiles:', profiles);
         setProjectMembers(profiles);
       } else {
-        console.log('No members found for this project');
         setProjectMembers([]);
       }
     } catch (error) {
-      console.error('Error fetching project members:', error);
       setProjectMembers([]);
     }
   }, [projectId, supabase]);
@@ -245,7 +237,6 @@ const ProjectDocumentsTab: React.FC<ProjectDocumentsTabProps> = ({ projectId, is
         setRecipients({});
       }
     } catch (error) {
-      console.error('Error fetching documents:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible de charger les documents',
@@ -288,7 +279,6 @@ const ProjectDocumentsTab: React.FC<ProjectDocumentsTabProps> = ({ projectId, is
       // Upload file to Cloudflare R2
       const filePath = `project-documents/${projectId}/${Date.now()}_${selectedFile.name.replace(/\s+/g, '_')}`;
       
-      console.log('Uploading to Cloudflare R2:', filePath);
       const fileUrl = await uploadToR2(selectedFile, filePath);
 
         // Create document record avec tenant_id
@@ -365,7 +355,6 @@ const ProjectDocumentsTab: React.FC<ProjectDocumentsTabProps> = ({ projectId, is
           description: `Document envoyé à ${selectedRecipients.length} destinataire(s). Des emails de signature ont été envoyés.`
         });
       } catch (emailError) {
-        console.error('Error sending signature emails:', emailError);
         // Ne pas bloquer si l'email échoue
         toast({
           title: 'Succès',
@@ -381,7 +370,6 @@ const ProjectDocumentsTab: React.FC<ProjectDocumentsTabProps> = ({ projectId, is
       setSelectedRecipients([]);
       fetchDocuments();
     } catch (error) {
-      console.error('Error uploading document:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible d\'envoyer le document',
@@ -420,7 +408,6 @@ const ProjectDocumentsTab: React.FC<ProjectDocumentsTabProps> = ({ projectId, is
       setSignatureComment('');
       fetchDocuments();
     } catch (error) {
-      console.error('Error signing document:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible de signer le document',
@@ -459,7 +446,6 @@ const ProjectDocumentsTab: React.FC<ProjectDocumentsTabProps> = ({ projectId, is
       setSignatureComment('');
       fetchDocuments();
     } catch (error) {
-      console.error('Error rejecting document:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible de refuser le document',
@@ -497,7 +483,6 @@ const ProjectDocumentsTab: React.FC<ProjectDocumentsTabProps> = ({ projectId, is
 
       fetchDocuments();
     } catch (error) {
-      console.error('Error deleting document:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible de supprimer le document',

@@ -86,7 +86,6 @@ const SuperAdminLogin: React.FC = () => {
       navigate('/super-admin', { replace: true });
 
     } catch (err: any) {
-      console.error('Super Admin login error:', err);
       setError(err.message || 'Erreur de connexion');
       toast({
         title: 'Erreur',

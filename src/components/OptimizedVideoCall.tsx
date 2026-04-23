@@ -57,7 +57,6 @@ const OptimizedVideoCall: React.FC<OptimizedVideoCallProps> = ({
     roomId,
     userName,
     onError: (error) => {
-      console.error('Video conference error:', error);
       toast({
         title: "Erreur vidéoconférence",
         description: error.message,
@@ -69,21 +68,16 @@ const OptimizedVideoCall: React.FC<OptimizedVideoCallProps> = ({
   // Attacher le stream local à l'élément vidéo
   useEffect(() => {
     if (localVideoRef.current && localStream) {
-      console.log('🎥 Attaching local stream to video element (OptimizedVideoCall)...', localStream);
       
       localVideoRef.current.srcObject = localStream;
       localVideoRef.current.muted = true;
       
       // Forcer la lecture de la vidéo
       localVideoRef.current.play().then(() => {
-        console.log('✅ Local video playing successfully (OptimizedVideoCall)');
       }).catch(error => {
-        console.warn('⚠️ Could not auto-play local video (OptimizedVideoCall):', error);
       });
       
-      console.log('✅ Local stream attached to video element (OptimizedVideoCall)');
     } else {
-      console.log('⚠️ Local stream not available (OptimizedVideoCall):', { 
         localStream: !!localStream, 
         videoRef: !!localVideoRef.current 
       });
@@ -169,7 +163,6 @@ const OptimizedVideoCall: React.FC<OptimizedVideoCallProps> = ({
         }
       }
     } catch (error) {
-      console.error('Error toggling screen share:', error);
       toast({
         title: "Erreur partage d'écran",
         description: "Impossible de partager l'écran",

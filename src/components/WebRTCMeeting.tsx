@@ -97,7 +97,6 @@ export function WebRTCMeeting({
       }
       
       if (peer) {
-        console.log(`📡 Processing WebRTC signal from: ${from}`);
         peer.signal(signal);
       }
     }
@@ -130,7 +129,6 @@ export function WebRTCMeeting({
         setUserProfiles(prev => new Map([...prev, ...profilesMap]));
       }
     } catch (error) {
-      console.error('Erreur lors du chargement des profils:', error);
       if (user && userIds.includes(user.id)) {
         const name = user.user_metadata?.first_name && user.user_metadata?.last_name
           ? `${user.user_metadata.first_name} ${user.user_metadata.last_name}`
@@ -160,18 +158,14 @@ export function WebRTCMeeting({
       setLocalStream(stream);
       
       if (localVideoRef.current) {
-        console.log('🎥 Attaching local stream to video element (WebRTCMeeting)...', stream);
         localVideoRef.current.srcObject = stream;
         localVideoRef.current.muted = true;
         
         // Forcer la lecture de la vidéo
         localVideoRef.current.play().then(() => {
-          console.log('✅ Local video playing successfully (WebRTCMeeting)');
         }).catch(error => {
-          console.warn('⚠️ Could not auto-play local video (WebRTCMeeting):', error);
         });
         
-        console.log('✅ Local stream attached to video element (WebRTCMeeting)');
       }
       
       toast({
@@ -180,7 +174,6 @@ export function WebRTCMeeting({
       });
       
     } catch (error) {
-      console.error('Erreur accès média:', error);
       setConnectionError('Impossible d\'accéder à la caméra/microphone');
       if (onError) {
         onError(new Error('Accès refusé à la caméra/microphone'));
@@ -191,11 +184,9 @@ export function WebRTCMeeting({
   // Créer une connexion peer
   const createPeerConnection = useCallback((participantId: string, initiator: boolean = false) => {
     if (!localStream) {
-      console.log(`❌ Cannot create peer connection: no local stream`);
       return;
     }
 
-    console.log(`🔗 Creating peer connection with ${participantId}, initiator: ${initiator}`);
 
     const peer = new SimplePeer({
       initiator,
@@ -212,12 +203,10 @@ export function WebRTCMeeting({
     peersRef.current[participantId] = peer;
 
     peer.on('signal', (signal) => {
-      console.log(`📡 Sending signal to ${participantId}:`, signal.type);
       videoConference.sendSignal(signal, participantId);
     });
 
     peer.on('stream', (remoteStream) => {
-      console.log(`🎥 Received stream from ${participantId}`);
       setParticipants(prev => prev.map(p => 
         p.id === participantId 
           ? { ...p, stream: remoteStream, peer }
@@ -228,17 +217,14 @@ export function WebRTCMeeting({
         const videoElement = remoteVideosRef.current[participantId];
         if (videoElement) {
           videoElement.srcObject = remoteStream;
-          console.log(`📺 Stream attached to video element for ${participantId}`);
         }
       }, 100);
     });
 
     peer.on('connect', () => {
-      console.log(`🤝 Peer connected: ${participantId}`);
     });
 
     peer.on('error', (error) => {
-      console.error(`❌ Peer error with ${participantId}:`, error);
       toast({
         title: "Erreur de connexion",
         description: `Problème avec ${userProfiles.get(participantId)?.name || participantId}`,
@@ -247,7 +233,6 @@ export function WebRTCMeeting({
     });
 
     peer.on('close', () => {
-      console.log(`🔌 Peer connection closed: ${participantId}`);
       delete peersRef.current[participantId];
       setParticipants(prev => prev.filter(p => p.id !== participantId));
     });
@@ -259,20 +244,16 @@ export function WebRTCMeeting({
   useEffect(() => {
     if (!videoConference.isConnected || !localStream) return;
 
-    console.log(`🔄 Managing participants. Connected: ${videoConference.isConnected}, Local stream: ${!!localStream}`);
-    console.log(`👥 Participants: [${videoConference.participants.join(', ')}]`);
 
     // Charger les profils des participants
     const newParticipantIds = videoConference.participants.filter(id => !userProfiles.has(id));
     if (newParticipantIds.length > 0) {
-      console.log(`📋 Loading profiles for: [${newParticipantIds.join(', ')}]`);
       loadUserProfiles(newParticipantIds);
     }
 
     // Créer des connexions pour les participants existants
     videoConference.participants.forEach(participantId => {
       if (!peersRef.current[participantId]) {
-        console.log(`🤝 Creating peer connection with: ${participantId}`);
         
         const userProfile = userProfiles.get(participantId);
         const participant: Participant = {
@@ -283,7 +264,6 @@ export function WebRTCMeeting({
         
         setParticipants(prev => {
           if (!prev.find(p => p.id === participantId)) {
-            console.log(`➕ Adding participant to UI: ${participantId}`);
             return [...prev, participant];
           }
           return prev;
@@ -291,7 +271,6 @@ export function WebRTCMeeting({
         
         createPeerConnection(participantId, true);
       } else {
-        console.log(`✅ Peer connection already exists for: ${participantId}`);
       }
     });
 
@@ -300,7 +279,6 @@ export function WebRTCMeeting({
     setParticipants(prev => {
       const filtered = prev.filter(p => currentParticipantIds.includes(p.id));
       if (filtered.length !== prev.length) {
-        console.log(`🧹 Cleaned up ${prev.length - filtered.length} participants from UI`);
       }
       return filtered;
     });
@@ -308,7 +286,6 @@ export function WebRTCMeeting({
     // Nettoyer les connexions peer pour les participants qui ont quitté
     Object.keys(peersRef.current).forEach(participantId => {
       if (!currentParticipantIds.includes(participantId)) {
-        console.log(`🔌 Closing peer connection for: ${participantId}`);
         peersRef.current[participantId].destroy();
         delete peersRef.current[participantId];
       }
@@ -402,7 +379,6 @@ export function WebRTCMeeting({
         setIsScreenSharing(false);
       }
     } catch (error) {
-      console.error('Erreur partage d\'écran:', error);
       toast({
         title: "Erreur",
         description: "Impossible de partager l'écran",

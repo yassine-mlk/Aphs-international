@@ -99,7 +99,6 @@ export function useAdminDocuments() {
       setPendingDocs(formattedDocs.filter(d => d.status === 'pending'));
       setSignedDocs(formattedDocs.filter(d => d.status !== 'pending'));
     } catch (error) {
-      console.error('Error fetching admin documents:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible de charger les documents',

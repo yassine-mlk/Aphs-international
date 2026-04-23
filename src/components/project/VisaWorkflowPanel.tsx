@@ -122,7 +122,6 @@ export const VisaWorkflowPanel: React.FC<VisaWorkflowPanelProps> = ({
     try {
       // Upload file to Cloudflare R2
       const filePath = `visa-workflows/${workflow.id}/${Date.now()}_${selectedFile.name.replace(/\s+/g, '_')}`;
-      console.log('Uploading to Cloudflare R2:', filePath);
       const fileUrl = await uploadToR2(selectedFile, filePath);
       
       const success = await submitDocument(workflow.id, {
@@ -138,7 +137,6 @@ export const VisaWorkflowPanel: React.FC<VisaWorkflowPanelProps> = ({
         loadWorkflow();
       }
     } catch (error) {
-      console.error('Error submitting document:', error);
     } finally {
       setSubmitting(false);
     }

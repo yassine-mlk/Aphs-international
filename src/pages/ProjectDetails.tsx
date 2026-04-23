@@ -125,7 +125,6 @@ const ProjectDetails: React.FC = () => {
         setProject(data);
       }
     } catch (error) {
-      console.error('Error fetching project:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible de charger les détails du projet',
@@ -151,7 +150,6 @@ const ProjectDetails: React.FC = () => {
         fetchIntervenantsInfo(data.map(m => m.user_id));
       }
     } catch (error) {
-      console.error('Error fetching members:', error);
     }
   };
 
@@ -173,7 +171,6 @@ const ProjectDetails: React.FC = () => {
 
       setIntervenantsInfo(infoMap);
     } catch (error) {
-      console.error('Error fetching intervenants info:', error);
     }
   };
 
@@ -195,7 +192,6 @@ const ProjectDetails: React.FC = () => {
 
       navigate('/dashboard/projets');
     } catch (error) {
-      console.error('Error deleting project:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible de supprimer le projet',

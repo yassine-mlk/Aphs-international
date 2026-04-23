@@ -43,7 +43,6 @@ const initializeSupabase = () => {
     const supabaseUrl = getConfigValue('VITE_SUPABASE_URL', 'https://vcxcxhgmpcgdjabuxcuv.supabase.co');
     const supabaseAnonKey = getConfigValue('VITE_SUPABASE_ANON_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZjeGN4aGdtcGNnZGphYnV4Y3V2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYyODYwNzksImV4cCI6MjA2MTg2MjA3OX0.L34j4DHHeYN2KzF1DXIN3IqtjMve88EooQVcihuTM1c');
 
-    console.log(`🔧 Tentative ${attempts} d'initialisation Supabase:`, {
       supabaseUrl,
       supabaseAnonKey: supabaseAnonKey ? '✅ Disponible' : '❌ Manquante',
       globalConfigAvailable: !!(typeof window !== 'undefined' && window.VIDEO_CONFERENCE_CONFIG)
@@ -51,11 +50,9 @@ const initializeSupabase = () => {
 
     if (!supabaseUrl || !supabaseAnonKey) {
       if (attempts < maxAttempts) {
-        console.log(`⏳ Configuration non disponible, nouvelle tentative dans 500ms... (${attempts}/${maxAttempts})`);
         setTimeout(tryInitialize, 500);
         return null;
       } else {
-        console.error('❌ Impossible d\'initialiser Supabase après', maxAttempts, 'tentatives');
         return null;
       }
     }
@@ -80,11 +77,8 @@ const initializeSupabase = () => {
     }) : null;
 
     if (!supabaseServiceKey) {
-      console.error('⚠️ VITE_SUPABASE_SERVICE_ROLE_KEY est manquant dans votre configuration');
-      console.error('Les fonctionnalités d\'administration ne seront pas disponibles');
     }
 
-    console.log('✅ Supabase initialisé avec succès');
     return { client, adminClient };
   };
 
@@ -102,7 +96,6 @@ if (result) {
   supabaseAdminInstance = result.adminClient;
 } else {
   // Si l'initialisation échoue, essayer plus tard
-  console.log('⏳ Initialisation différée de Supabase...');
   setTimeout(() => {
     const delayedResult = initializeSupabase();
     if (delayedResult) {

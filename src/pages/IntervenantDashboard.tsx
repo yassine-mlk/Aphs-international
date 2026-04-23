@@ -155,7 +155,6 @@ const IntervenantDashboard: React.FC = () => {
           setUserProfile(p);
         }
       } catch (error) {
-        console.error('Erreur lors du chargement du profil:', error);
       }
     };
     loadUserProfile();
@@ -197,7 +196,6 @@ const IntervenantDashboard: React.FC = () => {
         filters: [{ column: 'user_id', operator: 'eq', value: user.id }]
       }) || [];
       
-      console.log('Données membres récupérées:', memberData);
 
       let projects = [];
       if (memberData && memberData.length > 0) {
@@ -206,7 +204,6 @@ const IntervenantDashboard: React.FC = () => {
           .map((member: any) => member.project_id)
           .filter((id: any) => id && typeof id === 'string' && id.trim() !== '');
         
-        console.log('IDs des projets à récupérer:', projectIds);
         
         if (projectIds.length > 0) {
           // Utiliser une requête directe Supabase au lieu du helper générique pour le filtre 'in'
@@ -216,7 +213,6 @@ const IntervenantDashboard: React.FC = () => {
             .in('id', projectIds);
           
           if (error) {
-            console.error('Erreur lors de la récupération des données depuis projects:', error);
             throw error;
           }
           
@@ -224,7 +220,6 @@ const IntervenantDashboard: React.FC = () => {
         }
       }
 
-      console.log('Projets récupérés:', projects);
       const projectIdsSet = new Set(projects.map((p: any) => p.id));
 
       // 2. Récupérer toutes les tâches utiles (assigné ou validateur)
@@ -242,7 +237,6 @@ const IntervenantDashboard: React.FC = () => {
         .in('status', ['pending_validation', 'revision_required']);
 
       if (workflowError) {
-        console.error('Error loading workflow tasks:', workflowError);
       }
 
       const typedRawTasks = (rawTasks || []) as TaskWithMeta[];
@@ -277,9 +271,6 @@ const IntervenantDashboard: React.FC = () => {
       // Fusionner les tâches standards et workflow
       const allExecutionTasks = [...executionTasks, ...workflowExecutionTasks];
 
-      console.log('Tâches exécution (filtrées):', executionTasks);
-      console.log('Tâches workflow (filtrées):', workflowExecutionTasks);
-      console.log('Tâches validation (filtrées):', validatorTasks);
 
       // 3. Calculer les statistiques
       const now = new Date();
@@ -301,7 +292,6 @@ const IntervenantDashboard: React.FC = () => {
         activeProjects: projects.filter((p: any) => p.status === 'active' || p.status === 'in_progress').length
       };
 
-      console.log('Statistiques calculées:', newStats);
       setStats(newStats);
       setAllTasks(allExecutionTasks.map((t: any) => ({
         ...t,
@@ -330,7 +320,6 @@ const IntervenantDashboard: React.FC = () => {
       // Les activités récentes sont maintenant gérées par le hook useRecentActivities
 
     } catch (error) {
-      console.error('Erreur lors du chargement des statistiques:', error);
       if (!silent) {
         toast({
           title: "Erreur",

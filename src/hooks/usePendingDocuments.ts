@@ -90,7 +90,6 @@ export function usePendingDocuments() {
       setPendingDocs(formattedDocs.filter(d => d.status === 'pending'));
       setSignedDocs(formattedDocs.filter(d => d.status !== 'pending'));
     } catch (error) {
-      console.error('Error fetching pending documents:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible de charger les documents en attente',
@@ -174,7 +173,6 @@ export function usePendingDocuments() {
             read: false
           });
 
-        if (notifError) console.error('Error creating notification:', notifError);
 
         // Envoyer un email à l'admin via Edge Function
         try {
@@ -188,7 +186,6 @@ export function usePendingDocuments() {
             }
           });
         } catch (emailError) {
-          console.error('Error sending email:', emailError);
         }
       }
 
@@ -202,7 +199,6 @@ export function usePendingDocuments() {
       
       return true;
     } catch (error) {
-      console.error('Error signing document:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible de signer le document',
@@ -235,7 +231,6 @@ export function usePendingDocuments() {
       
       return true;
     } catch (error) {
-      console.error('Error rejecting document:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible de refuser le document',

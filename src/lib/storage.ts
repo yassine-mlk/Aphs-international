@@ -16,7 +16,6 @@ export const uploadToStorage = async (
     });
 
   if (error) {
-    console.error('Storage upload error:', error);
     throw new Error(`Upload failed: ${error.message}`);
   }
 
@@ -42,7 +41,6 @@ export const uploadFile = async (
       const { uploadToR2 } = await import('./r2');
       return await uploadToR2(file, path);
     } catch (r2Error) {
-      console.warn('R2 upload failed, falling back to Storage:', r2Error);
       // Fallback vers Storage
       return await uploadToStorage(file, path);
     }

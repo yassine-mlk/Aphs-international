@@ -233,7 +233,6 @@ const ProjectStructureTab: React.FC<ProjectStructureTabProps> = ({
       if (error) throw error;
       setIntervenants(data || []);
     } catch (error) {
-      console.error('Error fetching intervenants:', error);
     } finally {
       setLoadingIntervenants(false);
     }
@@ -427,7 +426,6 @@ const ProjectStructureTab: React.FC<ProjectStructureTabProps> = ({
         setIsAssignDialogOpen(false);
       }
     } catch (error) {
-      console.error('Erreur lors de l\'assignation de la tâche:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible d\'assigner la tâche',
@@ -463,7 +461,6 @@ const ProjectStructureTab: React.FC<ProjectStructureTabProps> = ({
       setAssignments(prev => prev.filter(t => t.id !== taskToUnassign.id));
       setIsUnassignDialogOpen(false);
     } catch (error) {
-      console.error('Erreur lors de la désassignation de la tâche:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible de désassigner la tâche',

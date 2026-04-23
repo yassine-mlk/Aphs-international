@@ -58,7 +58,6 @@ export function MeetingRequestsManagerImproved() {
           setUsers([]);
         }
       } catch (error) {
-        console.error("Erreur lors du chargement des utilisateurs:", error);
         setUsers([]);
         toast({
           title: "Erreur",
@@ -119,7 +118,6 @@ export function MeetingRequestsManagerImproved() {
         setSelectedParticipants([]);
       }
     } catch (error) {
-      console.error("Erreur lors de la réponse à la demande:", error);
     } finally {
       setProcessing(false);
     }
