@@ -2,8 +2,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { useLanguage } from '@/contexts/LanguageContext';
-import { translations } from '@/lib/translations';
 
 export interface Notification {
   id: string;
@@ -15,22 +13,15 @@ export interface Notification {
   read: boolean;
   created_at: string;
   updated_at: string;
-  // Nouveaux champs pour les traductions
-  title_key?: string;
-  message_key?: string;
-  title_params?: Record<string, any>;
-  message_params?: Record<string, any>;
 }
 
 export type NotificationType =
-  // Pour les admins
   | 'file_uploaded'
   | 'task_validated'
   | 'new_message'
   | 'meeting_request'
   | 'document_signed'
   | 'document_rejected'
-  // Pour les intervenants
   | 'task_assigned'
   | 'project_added'
   | 'task_validation_request'
@@ -42,31 +33,28 @@ export type NotificationType =
   | 'meeting_request_approved'
   | 'meeting_request_rejected'
   | 'meeting_started'
-  // Pour tous les membres du projet
   | 'task_status_changed';
 
-// Fonction utilitaire pour formater les messages avec paramètres
-const formatMessage = (template: string, params: Record<string, any> = {}): string => {
-  if (!template) return '';
-  
-  return template.replace(/\{(\w+)(?:,\s*select,\s*([^}]+))?\}/g, (match, key, selectClause) => {
-    const value = params[key];
-    
-    if (selectClause) {
-      // Gérer les conditions select (ex: {projectName, select, undefined {} other {text}})
-      const selectOptions = selectClause.split(' other ');
-      if (selectOptions.length === 2) {
-        const [undefinedOption, otherOption] = selectOptions;
-        if (value === undefined || value === null || value === '') {
-          return undefinedOption.replace(/[{}]/g, '');
-        } else {
-          return otherOption.replace(/[{}]/g, '').replace(/\{(\w+)\}/g, (m, k) => params[k] || '');
-        }
-      }
-    }
-    
-    return value !== undefined ? String(value) : '';
-  });
+// Titres des notifications en français
+const notificationTitles: Record<NotificationType, string> = {
+  file_uploaded: 'Nouveau fichier uploadé',
+  task_validated: 'Tâche validée',
+  new_message: 'Nouveau message',
+  meeting_request: 'Demande de réunion',
+  document_signed: 'Document signé',
+  document_rejected: 'Document refusé',
+  task_assigned: 'Nouvelle tâche assignée',
+  project_added: 'Ajouté à un nouveau projet',
+  task_validation_request: 'Demande de validation de tâche',
+  file_validation_request: 'Fichier à valider',
+  message_received: 'Message reçu',
+  meeting_invitation: 'Invitation à une réunion',
+  meeting_accepted: 'Réunion acceptée',
+  meeting_declined: 'Réunion refusée',
+  meeting_request_approved: 'Demande de réunion approuvée',
+  meeting_request_rejected: 'Demande de réunion rejetée',
+  meeting_started: 'Réunion démarrée',
+  task_status_changed: 'Statut de tâche modifié'
 };
 
 export function useNotifications() {
@@ -74,374 +62,151 @@ export function useNotifications() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [isConnected, setIsConnected] = useState(true);
-  const [hasNewNotification, setHasNewNotification] = useState(false);
   
   const { toast } = useToast();
   const { user } = useAuth();
-  const { language } = useLanguage();
   const channelRef = useRef<any>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
-  const lastFetchRef = useRef<number>(0);
 
-  // Obtenir les traductions pour la langue actuelle
-  const getTranslations = useCallback(() => {
-    return translations[language as keyof typeof translations];
-  }, [language]);
-
-  // Traduire une notification selon la langue actuelle
-  const translateNotification = useCallback((notification: Notification): Notification => {
-    const t = getTranslations();
+  // Charger les notifications
+  const fetchNotifications = useCallback(async () => {
+    if (!user?.id) return;
     
-    // Si la notification a des clés de traduction, les utiliser
-    if (notification.title_key && notification.message_key) {
-      const titleTemplate = t.notifications.types[notification.type]?.title || notification.title;
-      const messageTemplate = t.notifications.types[notification.type]?.message || notification.message;
-      
-      return {
-        ...notification,
-        title: formatMessage(titleTemplate, notification.title_params || {}),
-        message: formatMessage(messageTemplate, notification.message_params || {})
-      };
-    }
-    
-    // Sinon, utiliser les textes existants
-    return notification;
-  }, [getTranslations]);
-
-  // Jouer un son de notification (simplifié)
-  const playNotificationSound = useCallback(() => {
     try {
-      // Son simple et moins gourmand
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-      
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      
-      oscillator.frequency.setValueAtTime(600, audioContext.currentTime);
-      gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
-      
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.2);
-    } catch (error) {
-      // Ignorer silencieusement
-    }
-  }, []);
-
-  // Récupérer les notifications avec cache et debounce
-  const fetchNotifications = useCallback(async (force = false) => {
-    if (!user?.id) {
-      setLoading(false);
-      return;
-    }
-
-    // Éviter les requêtes trop fréquentes (max 1 par seconde)
-    const now = Date.now();
-    if (!force && now - lastFetchRef.current < 1000) {
-      return;
-    }
-    lastFetchRef.current = now;
-
-    try {
+      setLoading(true);
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(20);
+        .limit(50);
 
       if (error) throw error;
-
-      // Traduire les notifications
-      const translatedNotifications = (data || []).map(notification => translateNotification(notification));
-
-      setNotifications(translatedNotifications);
-      setUnreadCount(data?.filter(n => !n.read).length || 0);
+      
+      setNotifications(data || []);
+      setUnreadCount((data || []).filter(n => !n.read).length);
     } catch (error) {
+      console.error('Erreur lors du chargement des notifications:', error);
     } finally {
       setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
-  // Marquer une notification comme lue
+  // Marquer comme lu
   const markAsRead = useCallback(async (notificationId: string) => {
     try {
       const { error } = await supabase
         .from('notifications')
-        .update({ read: true })
+        .update({ read: true, updated_at: new Date().toISOString() })
         .eq('id', notificationId);
 
       if (error) throw error;
-
+      
       setNotifications(prev => 
-        prev.map(n => 
-          n.id === notificationId ? { ...n, read: true } : n
-        )
+        prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
       );
       setUnreadCount(prev => Math.max(0, prev - 1));
     } catch (error) {
+      console.error('Erreur lors du marquage comme lu:', error);
     }
   }, []);
 
-  // Marquer toutes les notifications comme lues
+  // Marquer tout comme lu
   const markAllAsRead = useCallback(async () => {
     if (!user?.id) return;
-
+    
     try {
       const { error } = await supabase
         .from('notifications')
-        .update({ read: true })
+        .update({ read: true, updated_at: new Date().toISOString() })
         .eq('user_id', user.id)
         .eq('read', false);
 
       if (error) throw error;
-
-      setNotifications(prev => 
-        prev.map(n => ({ ...n, read: true }))
-      );
-      setUnreadCount(0);
-    } catch (error) {
-    }
-  }, [user?.id]);
-
-  // Supprimer une notification
-  const deleteNotification = useCallback(async (notificationId: string) => {
-    try {
-      const { error } = await supabase
-        .from('notifications')
-        .delete()
-        .eq('id', notificationId);
-
-      if (error) throw error;
-
-      const notification = notifications.find(n => n.id === notificationId);
-      setNotifications(prev => prev.filter(n => n.id !== notificationId));
       
-      if (notification && !notification.read) {
-        setUnreadCount(prev => Math.max(0, prev - 1));
-      }
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      setUnreadCount(0);
+      
+      toast({
+        title: 'Notifications marquées comme lues',
+        duration: 2000
+      });
     } catch (error) {
+      console.error('Erreur lors du marquage de tout comme lu:', error);
     }
-  }, [notifications]);
+  }, [user?.id, toast]);
 
-  // Créer une nouvelle notification avec traduction
+  // Créer une notification
   const createNotification = useCallback(async (
     userId: string,
     type: NotificationType,
-    titleParams: Record<string, any> = {},
-    messageParams: Record<string, any> = {},
+    title: string,
+    message: string,
     data: Record<string, any> = {}
   ) => {
     try {
-      const t = getTranslations();
-      const titleTemplate = t.notifications.types[type]?.title || 'Notification';
-      const messageTemplate = t.notifications.types[type]?.message || 'Vous avez une nouvelle notification';
-      
       const { error } = await supabase
         .from('notifications')
         .insert({
           user_id: userId,
           type,
-          title: formatMessage(titleTemplate, titleParams),
-          message: formatMessage(messageTemplate, messageParams),
-          title_key: type,
-          message_key: type,
-          title_params: titleParams,
-          message_params: messageParams,
-          data
+          title: title || notificationTitles[type],
+          message,
+          data,
+          read: false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         });
 
       if (error) throw error;
     } catch (error) {
+      console.error('Erreur lors de la création de la notification:', error);
     }
-  }, [getTranslations]);
-
-  // Créer une notification pour tous les admins
-  const createAdminNotification = useCallback(async (
-    type: NotificationType,
-    titleParams: Record<string, any> = {},
-    messageParams: Record<string, any> = {},
-    data: Record<string, any> = {}
-  ) => {
-    try {
-      // Récupérer tous les admins
-      const { data: users, error: usersError } = await supabase
-        .from('profiles')
-        .select('user_id')
-        .eq('role', 'admin');
-
-      if (usersError) throw usersError;
-
-      // Créer une notification pour chaque admin
-      const notificationPromises = users?.map(admin => 
-        createNotification(admin.user_id, type, titleParams, messageParams, data)
-      ) || [];
-
-      if (notificationPromises.length > 0) {
-        await Promise.all(notificationPromises);
-      }
-    } catch (error) {
-    }
-  }, [createNotification]);
-
-  // Fonction pour établir la connexion temps réel (optimisée)
-  const setupRealtimeConnection = useCallback(() => {
-    if (!user?.id) return;
-
-    // Nettoyer la connexion précédente
-    if (channelRef.current) {
-      channelRef.current.unsubscribe();
-    }
-
-    // Créer une nouvelle connexion
-    const channel = supabase
-      .channel(`notifications-${user.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`
-        },
-        (payload) => {
-          const rawNotification = payload.new as Notification;
-          const newNotification = translateNotification(rawNotification);
-
-          setNotifications(prev => [newNotification, ...prev.slice(0, 19)]);
-          setUnreadCount(prev => prev + 1);
-          setHasNewNotification(true);
-
-          // Son et toast seulement pour les notifications importantes
-          const importantTypes: NotificationType[] = [
-            'task_assigned',
-            'meeting_invitation',
-            'meeting_started',
-            'message_received',
-            'task_validated',
-            'task_status_changed',
-            'file_uploaded'
-          ];
-
-          if (importantTypes.includes(newNotification.type)) {
-            playNotificationSound();
-            toast({
-              title: newNotification.title,
-              description: newNotification.message,
-              duration: 4000,
-            });
-          }
-
-          // Reset de l'animation
-          setTimeout(() => setHasNewNotification(false), 2000);
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`
-        },
-        (payload) => {
-          const rawNotification = payload.new as Notification;
-          const updatedNotification = translateNotification(rawNotification);
-          setNotifications(prev =>
-            prev.map(n =>
-              n.id === updatedNotification.id ? updatedNotification : n
-            )
-          );
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`
-        },
-        (payload) => {
-          const deletedNotification = payload.old as Notification;
-          setNotifications(prev => prev.filter(n => n.id !== deletedNotification.id));
-          if (!deletedNotification.read) {
-            setUnreadCount(prev => Math.max(0, prev - 1));
-          }
-        }
-      )
-      .subscribe((status) => {
-        setIsConnected(status === 'SUBSCRIBED');
-
-        if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-          reconnectTimeoutRef.current = setTimeout(() => {
-            setupRealtimeConnection();
-          }, 10000);
-        }
-      });
-
-    channelRef.current = channel;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, []);
 
   // Écouter les nouvelles notifications en temps réel
-  // Utiliser refs pour éviter la recréation de la subscription
-  const setupRealtimeRef = useRef(setupRealtimeConnection);
-  const fetchNotifRef = useRef(fetchNotifications);
-
-  useEffect(() => {
-    setupRealtimeRef.current = setupRealtimeConnection;
-    fetchNotifRef.current = fetchNotifications;
-  }, [setupRealtimeConnection, fetchNotifications]);
-
   useEffect(() => {
     if (!user?.id) return;
 
     // Charger les notifications initiales
-    fetchNotifRef.current(true);
+    fetchNotifications();
 
-    // Configurer la connexion temps réel
-    setupRealtimeRef.current();
+    // S'abonner aux nouvelles notifications
+    const channel = supabase
+      .channel(`notifications:${user.id}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'notifications',
+        filter: `user_id=eq.${user.id}`
+      }, (payload) => {
+        const newNotification = payload.new as Notification;
+        setNotifications(prev => [newNotification, ...prev]);
+        setUnreadCount(prev => prev + 1);
+        
+        // Afficher un toast
+        toast({
+          title: newNotification.title,
+          description: newNotification.message,
+          duration: 5000
+        });
+      })
+      .subscribe();
 
-    // Nettoyage
+    channelRef.current = channel;
+
     return () => {
-      if (channelRef.current) {
-        channelRef.current.unsubscribe();
-      }
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
+      channel.unsubscribe();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
-
-  // Recharger les notifications quand la langue change
-  useEffect(() => {
-    if (notifications.length > 0) {
-      setNotifications(prev => prev.map(notification => translateNotification(notification)));
-    }
-  }, [language, translateNotification]);
-
-  // Fonction pour reconnecter manuellement
-  const reconnect = useCallback(() => {
-    setupRealtimeConnection();
-  }, [setupRealtimeConnection]);
+  }, [user?.id, fetchNotifications, toast]);
 
   return {
     notifications,
     unreadCount,
     loading,
     isConnected,
-    hasNewNotification,
     fetchNotifications,
     markAsRead,
     markAllAsRead,
-    deleteNotification,
-    createNotification,
-    createAdminNotification,
-    reconnect
+    createNotification
   };
-} 
+}

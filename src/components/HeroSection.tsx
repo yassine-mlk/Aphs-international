@@ -1,14 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { translations } from '@/lib/translations';
-import { useLanguage } from '@/contexts/LanguageContext';
 import { X, Play } from 'lucide-react';
 
 const HeroSection: React.FC = () => {
   const sectionRef = useRef<HTMLDivElement>(null);
-  const { language } = useLanguage();
-  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
+    const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
   const navigate = useNavigate();
   
   useEffect(() => {
@@ -53,12 +50,9 @@ const HeroSection: React.FC = () => {
     };
   }, [isVideoModalOpen]);
 
-  const t = translations[language].heroSection;
-  const textDirection = language === 'ar' ? 'rtl' : 'ltr';
+  const textDirection = 'ltr';
 
   const navigateToLogin = () => {
-    // Assurer que la langue est sauvegardée avant navigation
-    localStorage.setItem('preferredLanguage', language);
     navigate('/login');
   };
 
