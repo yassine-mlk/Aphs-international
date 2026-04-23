@@ -1,8 +1,10 @@
 import { useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { NotificationType } from '@/hooks/useNotifications';
+import { useTenant } from '@/contexts/TenantContext';
 
 export function useNotificationTriggers() {
+  const { tenant } = useTenant();
   
   // Créer une notification pour un utilisateur spécifique avec paramètres
   const createNotification = useCallback(async (
@@ -27,27 +29,36 @@ export function useNotificationTriggers() {
           message_key: type,
           title_params: titleParams,
           message_params: messageParams,
-          data
+          data,
+          tenant_id: tenant?.id // Ajout du tenant_id si disponible
         });
 
       if (error) throw error;
     } catch (error) {
+      console.error("Error creating notification:", error);
     }
-  }, []);
+  }, [tenant?.id]);
 
-  // Créer une notification pour tous les admins
+  // Créer une notification pour tous les admins d'un tenant
   const createAdminNotification = useCallback(async (
     type: NotificationType,
     titleParams: Record<string, any> = {},
     messageParams: Record<string, any> = {},
-    data: Record<string, any> = {}
+    data: Record<string, any> = {},
+    tenantId?: string
   ) => {
     try {
-      // Récupérer tous les admins
-      const { data: admins, error: adminsError } = await supabase
+      // Récupérer tous les admins (filtrer par tenant si spécifié)
+      let query = supabase
         .from('profiles')
         .select('user_id')
         .eq('role', 'admin');
+      
+      if (tenantId) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data: admins, error: adminsError } = await query;
 
       if (adminsError) throw adminsError;
 
@@ -58,6 +69,7 @@ export function useNotificationTriggers() {
 
       await Promise.all(notificationPromises);
     } catch (error) {
+      console.error("Error creating admin notification:", error);
     }
   }, [createNotification]);
 
@@ -70,8 +82,6 @@ export function useNotificationTriggers() {
         return 'Tâche validée';
       case 'message_received':
         return 'Nouveau message';
-      case 'meeting_request':
-        return 'Demande de réunion';
       case 'task_assigned':
         return 'Nouvelle tâche assignée';
       case 'project_added':
@@ -80,16 +90,16 @@ export function useNotificationTriggers() {
         return 'Demande de validation de tâche';
       case 'file_validation_request':
         return 'Fichier à valider';
-      case 'meeting_request_approved':
-        return 'Demande de réunion approuvée';
-      case 'meeting_request_rejected':
-        return 'Demande de réunion refusée';
-      case 'meeting_invitation':
-        return 'Invitation à une réunion';
-      case 'meeting_started':
-        return 'Réunion démarrée';
       case 'task_status_changed':
         return 'Statut de tâche modifié';
+      case 'videoconf_request':
+        return 'Demande de visioconférence';
+      case 'videoconf_accepted':
+        return 'Réunion acceptée';
+      case 'videoconf_rejected':
+        return 'Réunion refusée';
+      case 'videoconf_scheduled':
+        return 'Réunion programmée';
       default:
         return 'Notification';
     }
@@ -103,8 +113,6 @@ export function useNotificationTriggers() {
         return `${params.validatorName || 'Un validateur'} a validé la tâche "${params.taskName || 'tâche'}"${params.projectName ? ` du projet ${params.projectName}` : ''}`;
       case 'message_received':
         return `Vous avez reçu un nouveau message de ${params.senderName || 'un utilisateur'}${params.subject ? ` : "${params.subject}"` : ''}`;
-      case 'meeting_request':
-        return `${params.requesterName || 'Un utilisateur'} a demandé une réunion : "${params.meetingTitle || 'réunion'}" prévue le ${params.scheduledDate || 'date à définir'}`;
       case 'task_assigned':
         return `Une nouvelle tâche "${params.taskName || 'tâche'}" vous a été assignée${params.projectName ? ` pour le projet ${params.projectName}` : ''}${params.assignerName ? ` par ${params.assignerName}` : ''}`;
       case 'project_added':
@@ -113,18 +121,18 @@ export function useNotificationTriggers() {
         return `${params.intervenantName || 'Un intervenant'} demande la validation de la tâche "${params.taskName || 'tâche'}"${params.projectName ? ` du projet ${params.projectName}` : ''}`;
       case 'file_validation_request':
         return `${params.uploaderName || 'Un utilisateur'} a uploadé le fichier "${params.fileName || 'fichier'}" qui nécessite votre validation${params.projectName ? ` pour le projet ${params.projectName}` : ''}`;
-      case 'meeting_request_approved':
-        return `Votre demande de réunion "${params.meetingTitle || 'réunion'}" a été approuvée${params.adminName ? ` par ${params.adminName}` : ''}${params.responseMessage ? `. Message : ${params.responseMessage}` : ''}`;
-      case 'meeting_request_rejected':
-        return `Votre demande de réunion "${params.meetingTitle || 'réunion'}" a été refusée${params.adminName ? ` par ${params.adminName}` : ''}${params.responseMessage ? `. Message : ${params.responseMessage}` : ''}`;
-      case 'meeting_invitation':
-        return `${params.organizerName || 'Un organisateur'} vous invite à la réunion "${params.meetingTitle || 'réunion'}" prévue le ${params.scheduledDate || 'date à définir'}`;
-      case 'meeting_started':
-        return `La réunion "${params.meetingTitle || 'réunion'}" a démarré ! Rejoignez-la maintenant.`;
       case 'task_status_changed':
         return `${params.userName || 'Un utilisateur'} a ${params.statusLabel || 'modifié'} la tâche "${params.taskName || 'tâche'}"${params.projectName ? ` du projet ${params.projectName}` : ''}`;
+      case 'videoconf_request':
+        return `${params.intervenantName || 'Un intervenant'} demande une réunion : "${params.title || 'Sans titre'}"`;
+      case 'videoconf_accepted':
+        return `Votre demande de réunion "${params.title || 'Sans titre'}" a été acceptée par l'administrateur.`;
+      case 'videoconf_rejected':
+        return `Votre demande de réunion "${params.title || 'Sans titre'}" a été refusée.`;
+      case 'videoconf_scheduled':
+        return `Vous êtes invité à la réunion "${params.title || 'Sans titre'}" prévue le ${params.date || 'bientôt'}.`;
       default:
-        return 'Vous avez une nouvelle notification';
+        return 'Vous avez reçu une nouvelle notification';
     }
   };
 
@@ -170,21 +178,6 @@ export function useNotificationTriggers() {
       { senderName, subject }
     );
   }, [createNotification]);
-
-  // Notifications pour les demandes de réunion
-  const notifyMeetingRequest = useCallback(async (
-    meetingTitle: string,
-    requesterName: string,
-    scheduledTime: string
-  ) => {
-    const scheduledDate = new Date(scheduledTime).toLocaleDateString();
-    await createAdminNotification(
-      'meeting_request',
-      { meetingTitle, requesterName, scheduledDate },
-      { meetingTitle, requesterName, scheduledDate },
-      { meetingTitle, requesterName, scheduledTime, scheduledDate }
-    );
-  }, [createAdminNotification]);
 
   // Notifications pour l'assignation de tâches
   const notifyTaskAssigned = useCallback(async (
@@ -337,74 +330,16 @@ export function useNotificationTriggers() {
     );
   }, [createNotification]);
 
-  // Notifications pour les réponses aux demandes de réunion
-  const notifyMeetingRequestResponse = useCallback(async (
-    requesterId: string,
-    meetingTitle: string,
-    approved: boolean,
-    adminName?: string,
-    responseMessage?: string
-  ) => {
-    await createNotification(
-      requesterId,
-      approved ? 'meeting_request_approved' : 'meeting_request_rejected',
-      { meetingTitle, adminName, responseMessage },
-      { meetingTitle, adminName, responseMessage },
-      { meetingTitle, approved, adminName, responseMessage }
-    );
-  }, [createNotification]);
-
-  // Notifications pour les invitations de réunion
-  const notifyMeetingInvitation = useCallback(async (
-    participantId: string,
-    meetingTitle: string,
-    organizerName: string,
-    scheduledTime: string
-  ) => {
-    const scheduledDate = new Date(scheduledTime).toLocaleDateString();
-    await createNotification(
-      participantId,
-      'meeting_invitation',
-      { meetingTitle, organizerName, scheduledDate },
-      { meetingTitle, organizerName, scheduledDate },
-      { meetingTitle, organizerName, scheduledTime }
-    );
-  }, [createNotification]);
-
-  // Notifications pour le démarrage de réunion
-  const notifyMeetingStarted = useCallback(async (
-    participants: string[],
-    meetingTitle: string,
-    organizerName: string,
-    meetingId: string,
-    roomId: string
-  ) => {
-    // Envoyer la notification à tous les participants
-    for (const participantId of participants) {
-      await createNotification(
-        participantId,
-        'meeting_started',
-        { meetingTitle, organizerName },
-        { meetingTitle, organizerName },
-        { meetingTitle, organizerName, meetingId, roomId }
-      );
-    }
-  }, [createNotification]);
-
   return {
     createNotification,
     createAdminNotification,
     notifyFileUploaded,
     notifyTaskValidated,
     notifyNewMessage,
-    notifyMeetingRequest,
     notifyTaskAssigned,
     notifyProjectAdded,
     notifyTaskValidationRequest,
     notifyFileValidationRequest,
-    notifyMeetingRequestResponse,
-    notifyMeetingInvitation,
-    notifyMeetingStarted,
     notifyProjectMembers,
     notifyTaskStatusChange,
     notifyFileUploadedToProject

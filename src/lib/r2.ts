@@ -33,11 +33,10 @@ const s3Client = new S3Client({
 });
 
 /**
- * Upload un fichier directement vers Cloudflare R2
- * Gère automatiquement l'upload simple ou multipart selon la taille du fichier
+ * Upload un fichier (File ou Blob) vers Cloudflare R2
  */
 export const uploadToR2 = async (
-  file: File, 
+  file: File | Blob, 
   path: string, 
   onProgress?: (progress: number) => void
 ): Promise<string> => {
@@ -58,7 +57,7 @@ export const uploadToR2 = async (
 /**
  * Upload simple pour les petits fichiers
  */
-async function uploadSimple(file: File, path: string): Promise<string> {
+async function uploadSimple(file: File | Blob, path: string): Promise<string> {
   // Convertir en Uint8Array pour le navigateur
   const arrayBuffer = await file.arrayBuffer();
   const body = new Uint8Array(arrayBuffer);
@@ -67,7 +66,7 @@ async function uploadSimple(file: File, path: string): Promise<string> {
     Bucket: R2_BUCKET_NAME,
     Key: path,
     Body: body,
-    ContentType: file.type,
+    ContentType: file.type || 'video/webm',
   });
 
   await s3Client.send(command);
@@ -79,7 +78,7 @@ async function uploadSimple(file: File, path: string): Promise<string> {
  * Upload multipart pour les gros fichiers (jusqu'à 5Go)
  */
 async function uploadMultipart(
-  file: File, 
+  file: File | Blob, 
   path: string, 
   onProgress?: (progress: number) => void
 ): Promise<string> {

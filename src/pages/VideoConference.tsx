@@ -1,854 +1,539 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTenant } from '@/contexts/TenantContext';
+import { useVideoConference } from '@/hooks/useVideoConference';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { useToast } from '@/components/ui/use-toast';
-import { 
-  VideoIcon, 
-  Calendar, 
-  Users, 
-  Plus, 
-  Search,
-  Filter,
-  Clock,
-  Copy,
-  X,
-  StopCircle,
-  History,
-  Settings,
-  Trash2,
-  AlertCircle
-} from 'lucide-react';
+import { Video, Calendar, Clock, Plus, Users, Check, X, Play, MessageSquare, Save } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { CardFooter } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { useSupabase } from '@/hooks/useSupabase';
-import { supabase as supabaseClient } from '@/lib/supabase';
-import { useAuth } from '@/contexts/AuthContext';
-import { useVideoMeetings } from '@/hooks/useVideoMeetings';
-import { SimpleVideoConference } from '@/components/SimpleVideoConference';
-import { translations } from '../lib/translations';
-import { MeetingRequestFormImproved } from '@/components/MeetingRequestFormImproved';
-import { MeetingRequestsManagerImproved } from '@/components/MeetingRequestsManagerImproved';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { useProfiles } from '@/hooks/useProfiles';
+import { useWorkGroups } from '@/hooks/useWorkGroups';
+import { MultiSelect } from '@/components/ui/multi-select';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Profile } from '@/types/profile';
+import MeetingRoom from '@/components/MeetingRoom';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-// Interface pour le format de retour de getUsers
-interface UserData {
-  users: Array<{
-    id: string;
-    email?: string;
-    user_metadata?: {
-      first_name?: string;
-      last_name?: string;
-      role?: string;
-    };
-  }>;
-}
-
-// Fonction pour formater l'heure des réunions
-const formatMeetingTime = (date: Date) => {
-  return format(date, "d MMM yyyy 'à' HH:mm", { locale: fr });
-};
-
-// Fonction pour vérifier si une réunion peut être rejointe
-const canJoinMeeting = (meeting: any, isAdmin: boolean) => {
-  // Les admins peuvent toujours rejoindre
-  if (isAdmin) return true;
-  
-  // Si la réunion est active, on peut la rejoindre
-  if (meeting.status === 'active') return true;
-  
-  // Si la réunion n'est pas planifiée, on peut la rejoindre
-  if (meeting.status !== 'scheduled') return true;
-  
-  // Si la réunion n'a pas d'heure de début, on peut la rejoindre
-  if (!meeting.scheduledTime) return true;
-  
-  // Vérifier si l'heure de début est passée (avec une marge de 10 minutes avant)
-  const now = new Date();
-  const scheduledTime = new Date(meeting.scheduledTime);
-  const tenMinutesBefore = new Date(scheduledTime.getTime() - 10 * 60 * 1000);
-  
-  return now >= tenMinutesBefore;
-};
-
-// Fonction pour obtenir le message d'erreur pour une réunion non accessible
-const getJoinErrorMessage = (meeting: any) => {
-  if (meeting.status === 'scheduled' && meeting.scheduledTime) {
-    const scheduledTime = new Date(meeting.scheduledTime);
-    const tenMinutesBefore = new Date(scheduledTime.getTime() - 10 * 60 * 1000);
-    return `Cette réunion ne peut être rejointe qu'à partir de ${formatMeetingTime(tenMinutesBefore)}`;
-  }
-  return "Cette réunion n'est pas encore disponible";
-};
-
-const VideoConference: React.FC = () => {
-  const { toast } = useToast();
+export default function VideoConference() {
   const { user } = useAuth();
-    const t = translations[language as keyof typeof translations].videoConference;
-  const { supabase } = useSupabase();
-  const [filter, setFilter] = useState("toutes");
-  const [copyTooltip, setCopyTooltip] = useState("Copier l'ID");
-  const [meetingIdToJoin, setMeetingIdToJoin] = useState("");
-  const [newMeetingDialog, setNewMeetingDialog] = useState(false);
-  const [activeMeetingRoom, setActiveMeetingRoom] = useState<{roomId: string, meetingId: string, isModerator?: boolean} | null>(null);
-  const [users, setUsers] = useState<{id: string, name: string, email: string, role: string}[]>([]);
-  const [loadingAction, setLoadingAction] = useState(false);
-  const [activeTab, setActiveTab] = useState("meetings");
-  const [formData, setFormData] = useState({
+  const { tenant } = useTenant();
+  const { 
+    meetings, 
+    loading, 
+    effectiveTenantId,
+    createMeeting, 
+    updateMeetingStatus, 
+    joinMeeting,
+    updateMeetingParticipants,
+    getMeetingParticipants
+  } = useVideoConference();
+  const { getProfiles, getProfileById } = useProfiles();
+  const { workGroups, fetchWorkGroups } = useWorkGroups();
+  
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [currentUserProfile, setCurrentUserProfile] = useState<Profile | null>(null);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [activeMeetingId, setActiveMeetingId] = useState<string | null>(null);
+  const [editingMeeting, setEditingMeeting] = useState<any>(null);
+  const [newMeeting, setNewMeeting] = useState({
     title: '',
     description: '',
-    scheduledTime: '',
-    selectedParticipants: [] as string[],
-    isInstant: false
+    scheduled_at: '',
+    is_recording_enabled: false,
+    participants: [] as string[]
   });
 
-  // Vérifier si l'utilisateur est admin
-  const isAdmin = user?.user_metadata?.role === 'admin' || user?.email === 'admin@aps.com';
-  
-  const { 
-    loading, 
-    loadingMeetings,
-    meetings,
-    getAllMeetings, 
-    getUserMeetings, 
-    createMeeting, 
-    joinMeeting,
-    leaveMeeting,
-    endMeeting,
-    deleteMeeting,
-    clearCompletedMeetings
-  } = useVideoMeetings();
-  
-  // Charger la liste des intervenants du même tenant
   useEffect(() => {
-    if (!user?.id) return;
-    const loadUsers = async () => {
-      try {
-        const { data: myProfile } = await supabaseClient
-          .from('profiles')
-          .select('tenant_id')
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-        let query = supabaseClient
-          .from('profiles')
-          .select('user_id, email, first_name, last_name, role')
-          .neq('role', 'admin')
-          .neq('is_super_admin', true);
-
-        if (myProfile?.tenant_id) {
-          query = query.eq('tenant_id', myProfile.tenant_id);
-        }
-
-        const { data, error } = await query;
-        if (error) throw error;
-
-        const formattedUsers = (data || []).map(p => ({
-          id: p.user_id,
-          name: `${p.first_name || ''} ${p.last_name || ''}`.trim() || p.email || 'Utilisateur',
-          email: p.email || '',
-          role: p.role || 'intervenant'
-        }));
-        setUsers(formattedUsers);
-      } catch (error) {
-        toast({
-          title: "Erreur",
-          description: "Impossible de charger la liste des participants",
-          variant: "destructive"
-        });
-      }
+    const fetchProfiles = async () => {
+      if (!effectiveTenantId) return;
+      const data = await getProfiles({ tenant_id: effectiveTenantId } as any);
+      setProfiles(data);
     };
-    loadUsers();
-  }, [user?.id, toast]);
-  
-  // Filtrer les réunions
-  const filteredMeetings = useMemo(() => {
-    if (!meetings || meetings.length === 0) return [];
-    
-    return meetings.filter(meeting => {
-      if (filter === "toutes") return true;
-      if (filter === "actives" && meeting.status === "active") return true;
-      if (filter === "planifiees" && meeting.status === "scheduled") return true;
-      return false;
+
+    const fetchCurrentUserProfile = async () => {
+      if (!user?.id) return;
+      const profile = await getProfileById(user.id);
+      setCurrentUserProfile(profile);
+    };
+
+    // Vérifier si une réunion était en cours (après rafraîchissement)
+    const savedMeetingId = localStorage.getItem('active_video_meeting');
+    if (savedMeetingId) {
+      setActiveMeetingId(savedMeetingId);
+    }
+
+    fetchProfiles();
+    fetchCurrentUserProfile();
+    fetchWorkGroups();
+  }, [getProfiles, getProfileById, fetchWorkGroups, effectiveTenantId, user?.id]);
+
+  const isAdmin = currentUserProfile?.role === 'admin' || user?.email === 'admin@aps.com';
+
+  const handleCreateMeeting = async (status: 'scheduled' | 'active' | 'pending' = 'scheduled') => {
+    console.log("handleCreateMeeting triggered with status:", status);
+    const meeting = await createMeeting({
+      ...newMeeting,
+      status,
+      scheduled_at: status === 'active' ? new Date().toISOString() : newMeeting.scheduled_at
     });
-  }, [meetings, filter]);
-  
-  // Réunion active (s'il y en a une)
-  const activeMeeting = useMemo(() => 
-    meetings?.find(meeting => meeting.status === "active"),
-  [meetings]);
-  
-  const handleJoinMeeting = async (meetingId: string) => {
-    if (!user) return;
     
-    // Vérifier si la réunion peut être rejointe
-    const meeting = meetings?.find(m => m.id === meetingId);
-    if (meeting && !canJoinMeeting(meeting, isAdmin)) {
-      toast({
-        title: "Accès refusé",
-        description: getJoinErrorMessage(meeting),
-        variant: "destructive"
+    console.log("createMeeting result:", meeting);
+    
+    if (meeting) {
+      setIsCreateDialogOpen(false);
+      setNewMeeting({
+        title: '',
+        description: '',
+        scheduled_at: '',
+        is_recording_enabled: false,
+        participants: []
       });
-      return;
-    }
-    
-    setLoadingAction(true);
-    
-    try {
-      const result = await joinMeeting(meetingId);
-      
-      if (result) {
-        setActiveMeetingRoom({
-          roomId: result.roomId,
-          meetingId,
-          isModerator: result.isModerator
-        });
+      if (status === 'active') {
+        setActiveMeetingId(meeting.id);
+        localStorage.setItem('active_video_meeting', meeting.id);
       }
-    } catch (error) {
-      toast({
-        title: "Erreur",
-        description: "Impossible de rejoindre la réunion",
-        variant: "destructive"
-      });
-    } finally {
-      setLoadingAction(false);
-    }
-  };
-  
-  const handleJoinWithId = async () => {
-    if (!meetingIdToJoin.trim()) return;
-    
-    setLoadingAction(true);
-    try {
-      const result = await joinMeeting(meetingIdToJoin);
-      
-      if (result) {
-        setActiveMeetingRoom({
-          roomId: result.roomId,
-          meetingId: meetingIdToJoin,
-          isModerator: result.isModerator
-        });
-        setMeetingIdToJoin("");
-      }
-    } catch (error) {
-      toast({
-        title: "Erreur",
-        description: "Impossible de rejoindre la réunion avec cet ID",
-        variant: "destructive"
-      });
-    } finally {
-      setLoadingAction(false);
-    }
-  };
-  
-  const handleCreateMeeting = () => {
-    setNewMeetingDialog(true);
-  };
-  
-  const handleSubmitNewMeeting = async () => {
-    if (!formData.title.trim()) {
-      toast({
-        title: "Titre manquant",
-        description: "Veuillez saisir un titre pour la réunion",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    if (!formData.isInstant && !formData.scheduledTime) {
-      toast({
-        title: "Heure manquante",
-        description: "Veuillez sélectionner une heure pour la réunion planifiée",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    setLoadingAction(true);
-    try {
-      const scheduledTime = formData.isInstant ? undefined : new Date(formData.scheduledTime);
-      
-      const result = await createMeeting(
-        formData.title,
-        formData.selectedParticipants,
-        {
-          description: formData.description,
-          scheduledTime,
-          isInstant: formData.isInstant
-        }
-      );
-      
-      if (result) {
-        setNewMeetingDialog(false);
-        setFormData({
-          title: '',
-          description: '',
-          scheduledTime: '',
-          selectedParticipants: [],
-          isInstant: false
-        });
-        
-        if (formData.isInstant) {
-          // Rejoindre automatiquement la réunion instantanée
-          setActiveMeetingRoom({
-            roomId: result,
-            meetingId: result,
-            isModerator: true
-          });
-        }
-      }
-    } catch (error) {
-    } finally {
-      setLoadingAction(false);
-    }
-  };
-  
-  const handleCopyMeetingId = (meetingId: string) => {
-    navigator.clipboard.writeText(meetingId);
-    setCopyTooltip("Copié!");
-    setTimeout(() => setCopyTooltip("Copier l'ID"), 2000);
-  };
-  
-  const handleLeaveMeeting = async (meetingId: string) => {
-    setLoadingAction(true);
-    try {
-      await leaveMeeting(meetingId);
-      setActiveMeetingRoom(null);
-      toast({
-        title: "Réunion quittée",
-        description: "Vous avez quitté la réunion"
-      });
-    } catch (error) {
-      toast({
-        title: "Erreur",
-        description: "Impossible de quitter la réunion",
-        variant: "destructive"
-      });
-    } finally {
-      setLoadingAction(false);
-    }
-  };
-  
-  const handleEndMeeting = async (meetingId: string) => {
-    setLoadingAction(true);
-    try {
-      await endMeeting(meetingId);
-      setActiveMeetingRoom(null);
-      toast({
-        title: "Réunion terminée",
-        description: "La réunion a été terminée avec succès"
-      });
-    } catch (error) {
-      toast({
-        title: "Erreur",
-        description: "Impossible de terminer la réunion",
-        variant: "destructive"
-      });
-    } finally {
-      setLoadingAction(false);
-    }
-  };
-  
-  const handleDeleteMeeting = async (meetingId: string) => {
-    setLoadingAction(true);
-    try {
-      await deleteMeeting(meetingId);
-      toast({
-        title: "Réunion supprimée",
-        description: "La réunion a été supprimée"
-      });
-    } catch (error) {
-      toast({
-        title: "Erreur",
-        description: "Impossible de supprimer la réunion",
-        variant: "destructive"
-      });
-    } finally {
-      setLoadingAction(false);
-    }
-  };
-  
-  const handleClearHistory = async () => {
-    setLoadingAction(true);
-    try {
-      await clearCompletedMeetings();
-      toast({
-        title: "Historique nettoyé",
-        description: "Les réunions terminées ont été supprimées"
-      });
-    } catch (error) {
-      toast({
-        title: "Erreur",
-        description: "Impossible de nettoyer l'historique",
-        variant: "destructive"
-      });
-    } finally {
-      setLoadingAction(false);
-    }
-  };
-  
-  const memoizedVideoCall = useMemo(() => {
-    if (!activeMeetingRoom) return null;
-    
-    return (
-      <SimpleVideoConference 
-        roomId={activeMeetingRoom.roomId}
-        userName={`${user?.user_metadata?.first_name || ''} ${user?.user_metadata?.last_name || ''}`.trim() || user?.email || 'Utilisateur'}
-        onError={(error) => {
-          toast({
-            title: "Erreur de vidéoconférence",
-            description: error,
-            variant: "destructive"
-          });
-        }}
-      />
-    );
-  }, [activeMeetingRoom, user, toast]);
-  
-  // Charger les réunions au montage
-  useEffect(() => {
-    if (isAdmin) {
-      getAllMeetings();
     } else {
-      getUserMeetings();
+      console.warn("Meeting creation failed or returned null");
     }
-  }, [isAdmin, getAllMeetings, getUserMeetings]);
-  
-  // Si l'utilisateur est dans une réunion, afficher seulement l'interface de vidéoconférence
-  if (activeMeetingRoom) {
+  };
+
+  const handleEditMeeting = async (meeting: any) => {
+    const participantIds = await getMeetingParticipants(meeting.id);
+    setEditingMeeting({
+      ...meeting,
+      participants: participantIds
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdateMeeting = async () => {
+    if (!editingMeeting) return;
+    
+    // Mettre à jour les participants
+    await updateMeetingParticipants(editingMeeting.id, editingMeeting.participants);
+    
+    // Si la date a changé
+    if (editingMeeting.scheduled_at) {
+      // On pourrait ajouter une fonction updateMeetingDetails si nécessaire
+    }
+    
+    setIsEditDialogOpen(false);
+    setEditingMeeting(null);
+  };
+
+  const handleWorkGroupSelect = (workgroupId: string) => {
+    const wg = workGroups.find(g => g.id === workgroupId);
+    if (wg) {
+      const memberIds = wg.members.map(m => m.user_id).filter(id => id !== user?.id);
+      setNewMeeting(prev => ({
+        ...prev,
+        participants: Array.from(new Set([...prev.participants, ...memberIds]))
+      }));
+    }
+  };
+
+  if (activeMeetingId) {
     return (
-      <div className="h-screen bg-gray-900 text-white flex flex-col overflow-hidden">
-        <div className="shrink-0 flex justify-between items-center px-4 py-3 md:px-6 md:py-4 border-b border-gray-700">
-          <h1 className="text-lg md:text-2xl font-bold tracking-tight">{t.currentMeeting}</h1>
-          <div className="flex gap-2">
-            {activeMeetingRoom.isModerator && (
-              <Button 
-                variant="destructive" 
-                onClick={() => handleEndMeeting(activeMeetingRoom.meetingId)}
-              >
-                <StopCircle className="mr-2 h-4 w-4" /> {t.endMeeting}
-              </Button>
-            )}
-            <Button 
-              variant="outline" 
-              onClick={() => handleLeaveMeeting(activeMeetingRoom.meetingId)}
-              className="bg-gray-900 text-gray-100 border-gray-600 hover:bg-gray-700 hover:text-white"
-            >
-                              <X className="mr-2 h-4 w-4" /> {t.leave}
-            </Button>
-          </div>
-        </div>
-        <div className="flex-1 min-h-0">
-          {memoizedVideoCall}
-        </div>
-      </div>
+      <MeetingRoom 
+        roomId={activeMeetingId} 
+        onLeave={() => {
+          setActiveMeetingId(null);
+          localStorage.removeItem('active_video_meeting');
+        }} 
+        isAdmin={isAdmin}
+      />
     );
   }
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">{t.title}</h1>
-        <p className="text-muted-foreground">
-          {t.subtitle}
-        </p>
-      </div>
-      
-      {/* Navigation par onglets - Seul "Mes réunions" pour les intervenants */}
-      <div className="flex flex-wrap gap-2 mb-6">
-        <Button 
-          variant={activeTab === "meetings" ? "default" : "outline"}
-          onClick={() => setActiveTab("meetings")}
-          className={activeTab === "meetings" ? "bg-aps-teal hover:bg-aps-navy" : ""}
-        >
-          <VideoIcon className="mr-2 h-4 w-4" /> {t.myMeetings}
-        </Button>
-        {isAdmin && (
-          <Button 
-            variant={activeTab === "requests" ? "default" : "outline"}
-            onClick={() => setActiveTab("requests")}
-            className={activeTab === "requests" ? "bg-aps-teal hover:bg-aps-navy" : ""}
-          >
-            <Users className="mr-2 h-4 w-4" /> {t.meetingRequests}
-          </Button>
-        )}
-      </div>
+  const pendingMeetings = meetings.filter(m => m.status === 'pending');
+  const upcomingMeetings = meetings.filter(m => m.status === 'scheduled' || m.status === 'active');
+  const pastMeetings = meetings.filter(m => m.status === 'completed' || m.status === 'cancelled');
 
-      {/* Contenu selon l'onglet actif */}
-      {activeTab === "meetings" && (
+  const participantOptions = profiles
+    .filter(p => p.user_id !== user?.id)
+    .map(p => ({
+      label: `${p.first_name} ${p.last_name} (${p.company})`,
+      value: p.user_id
+    }));
+
+  return (
+    <div className="container mx-auto py-6 space-y-6">
+      <div className="flex justify-between items-center">
         <div>
-          <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
-            <div className="flex gap-2">
-              {isAdmin && (
-                <>
-                  <Button 
-                    className="bg-aps-teal hover:bg-aps-navy flex-1 md:flex-none" 
-                    onClick={handleCreateMeeting}
-                  >
-                    <Plus className="mr-2 h-4 w-4" /> Créer une réunion
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="flex-1 md:flex-none"
-                    onClick={handleCreateMeeting}
-                  >
-                    <Calendar className="mr-2 h-4 w-4" /> Planifier
-                  </Button>
-                  <Button 
-                    variant="destructive" 
-                    className="flex-1 md:flex-none"
-                    onClick={handleClearHistory}
-                    disabled={loadingAction}
-                  >
-                    <History className="mr-2 h-4 w-4" /> Nettoyer l'historique
-                  </Button>
-                </>
-              )}
-            </div>
-            <div className="flex gap-2 items-center">
-              <Input
-                placeholder="Saisir l'ID de réunion..."
-                className="max-w-xs"
-                value={meetingIdToJoin}
-                onChange={(e) => setMeetingIdToJoin(e.target.value)}
-              />
-              <Button onClick={handleJoinWithId}>Rejoindre</Button>
-            </div>
-          </div>
-          
-          {activeMeeting && (
-            <Card className="border-0 shadow-md overflow-hidden bg-gradient-to-r from-green-50 to-teal-50 mb-6">
-              <CardHeader className="pb-2">
-                <div className="flex justify-between items-center">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Badge className="bg-green-100 text-green-800 hover:bg-green-100">En cours</Badge>
-                    {activeMeeting.title}
-                  </CardTitle>
+          <h1 className="text-3xl font-bold tracking-tight">Visioconférence</h1>
+          <p className="text-muted-foreground">
+            {isAdmin ? "Gérez les visioconférences de votre tenant." : "Demandez et participez à vos réunions vidéo."}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2">
+                <Plus className="h-4 w-4" />
+                {isAdmin ? "Nouvelle réunion" : "Demander une réunion"}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[525px]">
+              <DialogHeader>
+                <DialogTitle>{isAdmin ? "Programmer une réunion" : "Demander une réunion"}</DialogTitle>
+                <DialogDescription>
+                  Remplissez les détails ci-dessous pour {isAdmin ? "créer" : "demander"} une visioconférence.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="title">Titre</Label>
+                  <Input 
+                    id="title" 
+                    placeholder="Sujet de la réunion" 
+                    value={newMeeting.title}
+                    onChange={(e) => setNewMeeting({...newMeeting, title: e.target.value})}
+                  />
                 </div>
-              </CardHeader>
-              <CardContent className="pb-0">
-                <div className="flex items-center gap-1 text-gray-600 text-sm mb-2">
-                  <Users className="h-4 w-4" />
-                  <span>{activeMeeting.participants.length} participants</span>
-                  <span className="mx-2">•</span>
-                  <span>ID: {activeMeeting.roomId}</span>
-                  <button 
-                    onClick={() => handleCopyMeetingId(activeMeeting.roomId)}
-                    className="ml-1 hover:text-aps-teal"
-                    title={copyTooltip}
-                  >
-                    <Copy className="h-3 w-3" />
-                  </button>
+                <div className="grid gap-2">
+                  <Label htmlFor="description">Description (Optionnel)</Label>
+                  <Textarea 
+                    id="description" 
+                    placeholder="Objectifs de la réunion..." 
+                    value={newMeeting.description}
+                    onChange={(e) => setNewMeeting({...newMeeting, description: e.target.value})}
+                  />
                 </div>
-              </CardContent>
-              <CardFooter className="flex justify-between py-3 border-t bg-white">
-                <Button 
-                  className="bg-aps-teal hover:bg-aps-navy"
-                  onClick={() => handleJoinMeeting(activeMeeting.id)}
-                >
-                  <VideoIcon className="mr-2 h-4 w-4" /> Rejoindre la réunion
-                </Button>
+                <div className="grid gap-2">
+                  <Label htmlFor="date">Date et heure</Label>
+                  <Input 
+                    id="date" 
+                    type="datetime-local" 
+                    value={newMeeting.scheduled_at}
+                    onChange={(e) => setNewMeeting({...newMeeting, scheduled_at: e.target.value})}
+                  />
+                </div>
                 
-                {(isAdmin || activeMeeting.createdBy === user?.id) && (
-                  <Button 
-                    variant="destructive"
-                    onClick={() => handleEndMeeting(activeMeeting.id)}
-                  >
-                    <StopCircle className="mr-2 h-4 w-4" /> Terminer
-                  </Button>
-                )}
-              </CardFooter>
-            </Card>
-          )}
-          
-          <div>
-            <Tabs defaultValue="toutes" className="w-full" onValueChange={setFilter}>
-              <TabsList className="w-full justify-start bg-gray-100 p-0 h-auto mb-4">
-                <TabsTrigger value="toutes" className="flex-1 sm:flex-none py-2 data-[state=active]:bg-white">
-                  Toutes
-                </TabsTrigger>
-                <TabsTrigger value="actives" className="flex-1 sm:flex-none py-2 data-[state=active]:bg-white">
-                  Actives
-                </TabsTrigger>
-                <TabsTrigger value="planifiees" className="flex-1 sm:flex-none py-2 data-[state=active]:bg-white">
-                  Planifiées
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-            
-            {loadingMeetings ? (
-              <div className="text-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-aps-teal mx-auto mb-4"></div>
-                <p className="text-gray-500">Chargement des réunions...</p>
-              </div>
-            ) : (
-              <div className="grid gap-4">
-                {filteredMeetings.filter(meeting => meeting.id !== activeMeeting?.id).map((meeting) => {
-                  const canJoin = canJoinMeeting(meeting, isAdmin);
-                  
-                  return (
-                    <Card key={meeting.id} className="border-0 shadow-sm hover:shadow-md transition-shadow">
-                      <CardHeader className="pb-2">
-                        <div className="flex justify-between items-center">
-                          <CardTitle className="text-lg flex items-center gap-2">
-                            {meeting.status === "scheduled" && <Badge variant="outline">Programmée</Badge>}
-                            {meeting.status === "active" && <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Active</Badge>}
-                            {meeting.status === "ended" && <Badge variant="secondary">Terminée</Badge>}
-                            {meeting.title}
-                          </CardTitle>
-                          {meeting.scheduledTime && (
-                            <div className="text-sm text-gray-500 flex items-center gap-1">
-                              <Clock className="h-4 w-4" />
-                              {formatMeetingTime(meeting.scheduledTime)}
-                            </div>
-                          )}
-                        </div>
-                      </CardHeader>
-                      <CardContent className="pb-3 pt-0">
-                        {meeting.description && (
-                          <p className="text-sm text-gray-700 mb-4">{meeting.description}</p>
-                        )}
-                        
-                        {/* Affichage d'un avertissement pour les réunions non accessibles */}
-                        {!canJoin && (
-                          <div className="bg-orange-50 border border-orange-200 rounded-md p-3 mb-4">
-                            <div className="flex items-center gap-2 text-orange-800">
-                              <AlertCircle className="h-4 w-4" />
-                              <span className="text-sm font-medium">Réunion non accessible</span>
-                            </div>
-                            <p className="text-sm text-orange-700 mt-1">
-                              {getJoinErrorMessage(meeting)}
-                            </p>
-                          </div>
-                        )}
-                        
-                        <div className="flex items-center gap-1 text-sm text-gray-600 mb-4">
-                          <Users className="h-4 w-4 text-gray-400" />
-                          <span>Participants ({meeting.participants.length}):</span>
-                        </div>
-                        
-                        <div className="flex flex-wrap gap-2 mb-4">
-                          {meeting.participants.map(participant => (
-                            <div key={participant.id} className="flex items-center gap-1 bg-gray-100 rounded-full px-2 py-1">
-                              <Avatar className="h-5 w-5">
-                                <AvatarFallback className="text-xs bg-aps-navy text-white">
-                                  {participant.name.split(' ').map(n => n[0]).join('')}
-                                </AvatarFallback>
-                              </Avatar>
-                              <span className="text-xs">{participant.name}</span>
-                              {participant.role === 'host' && (
-                                <Badge variant="outline" className="ml-1 text-[0.6rem] h-4 bg-blue-50 text-blue-700 hover:bg-blue-50">
-                                  Hôte
-                                </Badge>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                        
-                        <div className="bg-gray-50 p-3 rounded-md">
-                          <p className="text-xs text-gray-500">ID de réunion:</p>
-                          <div className="flex items-center justify-between mt-1">
-                            <code className="bg-gray-100 px-2 py-1 rounded text-sm">{meeting.roomId}</code>
-                            <button 
-                              onClick={() => handleCopyMeetingId(meeting.roomId)}
-                              className="text-gray-500 hover:text-aps-teal"
-                              title={copyTooltip}
-                            >
-                              <Copy className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </div>
-                      </CardContent>
-                      <CardFooter className="flex justify-between pt-0">
-                        <div className="flex gap-2">
-                          <Button 
-                            className="bg-aps-teal hover:bg-aps-navy"
-                            onClick={() => handleJoinMeeting(meeting.id)}
-                            disabled={!canJoin}
-                          >
-                            <VideoIcon className="mr-2 h-4 w-4" /> Rejoindre
-                          </Button>
-                          
-                          {(meeting.status === 'active') && 
-                           (isAdmin || meeting.createdBy === user?.id) && (
-                            <Button 
-                              variant="destructive"
-                              onClick={() => handleEndMeeting(meeting.id)}
-                              disabled={loadingAction}
-                            >
-                              <StopCircle className="mr-2 h-4 w-4" /> Terminer
-                            </Button>
-                          )}
-                          
-                          {isAdmin && (
-                            <Button 
-                              variant="outline"
-                              onClick={() => handleDeleteMeeting(meeting.id)}
-                              disabled={loadingAction}
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" /> Supprimer
-                            </Button>
-                          )}
-                        </div>
-                        
-                        {meeting.status === 'scheduled' && (
-                          <div className="text-xs text-gray-500">
-                            Programmée pour le {formatMeetingTime(meeting.scheduledTime)}
-                          </div>
-                        )}
-                      </CardFooter>
-                    </Card>
-                  );
-                })}
-                
-                {!loadingMeetings && filteredMeetings.length === (activeMeeting ? 1 : 0) && (
-                  <div className="text-center py-12">
-                    <VideoIcon className="mx-auto h-12 w-12 text-gray-300 mb-2" />
-                    <h3 className="text-lg font-medium mb-2">Aucune réunion trouvée</h3>
-                    <p className="text-gray-500">Vous n'avez pas de réunions {filter === "planifiees" ? "planifiées" : filter === "actives" ? "actives" : ""}</p>
-                    {isAdmin && (
-                      <Button 
-                        className="mt-4 bg-aps-teal hover:bg-aps-navy"
-                        onClick={handleCreateMeeting}
-                      >
-                        Planifier une réunion
-                      </Button>
-                    )}
+                <div className="grid gap-2">
+                  <Label>Groupes de travail (Charger participants)</Label>
+                  <Select onValueChange={handleWorkGroupSelect}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choisir un groupe" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {workGroups.map(wg => (
+                        <SelectItem key={wg.id} value={wg.id}>{wg.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label>Participants</Label>
+                  <MultiSelect
+                    options={participantOptions}
+                    onChange={(values) => setNewMeeting({...newMeeting, participants: values})}
+                    selected={newMeeting.participants}
+                    placeholder="Sélectionner des participants"
+                  />
+                </div>
+
+                {isAdmin && (
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label>Enregistrement</Label>
+                      <p className="text-xs text-muted-foreground">Enregistrer automatiquement la session</p>
+                    </div>
+                    <Switch 
+                      checked={newMeeting.is_recording_enabled}
+                      onCheckedChange={(checked) => setNewMeeting({...newMeeting, is_recording_enabled: checked})}
+                    />
                   </div>
                 )}
               </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Onglet pour gérer les demandes de réunion (admins seulement) */}
-      {activeTab === "requests" && isAdmin && (
-        <div>
-          <MeetingRequestsManagerImproved />
-        </div>
-      )}
-      
-      {/* Modal de création de réunion */}
-      <Dialog open={newMeetingDialog} onOpenChange={setNewMeetingDialog}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Nouvelle visioconférence</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="title">Titre de la réunion *</Label>
-              <Input
-                id="title"
-                placeholder="Réunion d'équipe..."
-                value={formData.title}
-                onChange={(e) => setFormData({...formData, title: e.target.value})}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                placeholder="Ordre du jour, informations importantes..."
-                value={formData.description}
-                onChange={(e) => setFormData({...formData, description: e.target.value})}
-              />
-            </div>
-            
-            <div>
-              <div className="flex items-center space-x-2 mb-4">
-                <Checkbox 
-                  id="instant" 
-                  checked={formData.isInstant} 
-                  onCheckedChange={(checked) => 
-                    setFormData({...formData, isInstant: checked as boolean})
-                  }
-                />
-                <label
-                  htmlFor="instant"
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                >
-                  Démarrer immédiatement
-                </label>
-              </div>
-            </div>
-            
-            {!formData.isInstant && (
-              <div className="space-y-2">
-                <Label htmlFor="scheduledTime">Date et heure</Label>
-                <Input
-                  id="scheduledTime"
-                  type="datetime-local"
-                  value={formData.scheduledTime}
-                  onChange={(e) => setFormData({...formData, scheduledTime: e.target.value})}
-                />
-              </div>
-            )}
-            
-            <div className="space-y-2">
-              <Label htmlFor="participants">Participants</Label>
-              <div className="border rounded-md p-3 max-h-60 overflow-y-auto space-y-2">
-                {users.length === 0 ? (
-                  <p className="text-sm text-gray-500 italic">Aucun intervenant disponible</p>
-                ) : (
-                  users.map(user => (
-                    <div key={user.id} className="flex items-center space-x-2">
-                      <Checkbox 
-                        id={`user-${user.id}`}
-                        checked={formData.selectedParticipants.includes(user.id)}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            setFormData({
-                              ...formData,
-                              selectedParticipants: [...formData.selectedParticipants, user.id]
-                            });
-                          } else {
-                            setFormData({
-                              ...formData,
-                              selectedParticipants: formData.selectedParticipants.filter(id => id !== user.id)
-                            });
-                          }
-                        }}
-                      />
-                      <Label htmlFor={`user-${user.id}`} className="flex-1 flex items-center space-x-2 cursor-pointer">
-                        <Avatar className="h-7 w-7">
-                          <AvatarFallback>{user.name.substring(0, 2).toUpperCase()}</AvatarFallback>
-                        </Avatar>
-                        <div className="text-sm">
-                          <p>{user.name}</p>
-                          <p className="text-gray-500 text-xs">{user.email}</p>
-                        </div>
-                      </Label>
-                    </div>
-                  ))
+              <div className="flex justify-end gap-2">
+                {isAdmin && (
+                  <Button variant="outline" onClick={() => handleCreateMeeting('active')} disabled={!newMeeting.title}>
+                    <Play className="mr-2 h-4 w-4" /> Lancer maintenant
+                  </Button>
                 )}
+                <Button onClick={() => handleCreateMeeting(isAdmin ? 'scheduled' : 'pending')} disabled={!newMeeting.title}>
+                  {isAdmin ? "Programmer" : "Envoyer la demande"}
+                </Button>
               </div>
-              <p className="text-sm text-gray-500">
-                {formData.selectedParticipants.length} participant(s) sélectionné(s)
-              </p>
-            </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
+
+      <Tabs defaultValue="upcoming" className="w-full">
+        <TabsList className="grid w-full grid-cols-3 lg:w-[400px]">
+          <TabsTrigger value="upcoming">À venir</TabsTrigger>
+          {isAdmin && <TabsTrigger value="pending">Demandes ({pendingMeetings.length})</TabsTrigger>}
+          {!isAdmin && <TabsTrigger value="requests">Mes demandes</TabsTrigger>}
+          <TabsTrigger value="history">Historique</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="upcoming" className="mt-6">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {upcomingMeetings.length === 0 ? (
+              <Card className="col-span-full py-12">
+                <CardContent className="flex flex-col items-center justify-center text-center space-y-4">
+                  <Video className="h-12 w-12 text-muted-foreground" />
+                  <div className="space-y-2">
+                    <h3 className="text-xl font-semibold">Aucune réunion prévue</h3>
+                    <p className="text-muted-foreground">Vous n'avez pas de visioconférences programmées pour le moment.</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              upcomingMeetings.map((meeting) => (
+                <MeetingCard 
+                  key={meeting.id} 
+                  meeting={meeting} 
+                  isAdmin={isAdmin}
+                  onJoin={() => {
+                    joinMeeting(meeting.id);
+                    setActiveMeetingId(meeting.id);
+                    localStorage.setItem('active_video_meeting', meeting.id);
+                  }}
+                  onComplete={() => updateMeetingStatus(meeting.id, 'completed')}
+                  onCancel={() => updateMeetingStatus(meeting.id, 'cancelled')}
+                  onEdit={() => handleEditMeeting(meeting)}
+                />
+              ))
+            )}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setNewMeetingDialog(false)}>
-              Annuler
-            </Button>
-            <Button className="bg-aps-teal hover:bg-aps-navy" onClick={handleSubmitNewMeeting}>
-              {formData.isInstant ? "Démarrer maintenant" : "Programmer la réunion"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </TabsContent>
+
+        {isAdmin && (
+          <TabsContent value="pending" className="mt-6">
+            <div className="grid gap-4">
+              {pendingMeetings.length === 0 ? (
+                <Card className="py-12">
+                  <CardContent className="flex flex-col items-center justify-center text-center space-y-4">
+                    <Clock className="h-12 w-12 text-muted-foreground" />
+                    <div className="space-y-2">
+                      <h3 className="text-xl font-semibold">Aucune demande en attente</h3>
+                      <p className="text-muted-foreground">Toutes les demandes de réunion ont été traitées.</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                pendingMeetings.map((meeting) => (
+                  <Card key={meeting.id}>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <div className="space-y-1">
+                        <CardTitle>{meeting.title}</CardTitle>
+                        <CardDescription>
+                          Demandé par {profiles.find(p => p.user_id === meeting.created_by)?.first_name} le {format(new Date(meeting.created_at), 'PPP', { locale: fr })}
+                        </CardDescription>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" onClick={() => handleEditMeeting(meeting)}>
+                          <Users className="h-4 w-4 mr-1" /> Modifier participants
+                        </Button>
+                        <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={() => updateMeetingStatus(meeting.id, 'cancelled')}>
+                          <X className="h-4 w-4 mr-1" /> Refuser
+                        </Button>
+                        <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => updateMeetingStatus(meeting.id, 'scheduled')}>
+                          <Check className="h-4 w-4 mr-1" /> Accepter
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground mb-4">{meeting.description || "Aucune description fournie."}</p>
+                      <div className="flex items-center text-sm text-muted-foreground">
+                        <Calendar className="mr-2 h-4 w-4" />
+                        {meeting.scheduled_at ? format(new Date(meeting.scheduled_at), 'PPPp', { locale: fr }) : "Non spécifié"}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          </TabsContent>
+        )}
+
+        {/* Dialog d'édition des participants pour l'admin */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Modifier les participants</DialogTitle>
+              <DialogDescription>
+                Modifiez la liste des participants avant de programmer la réunion.
+              </DialogDescription>
+            </DialogHeader>
+            {editingMeeting && (
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label>Participants</Label>
+                  <MultiSelect
+                    options={participantOptions}
+                    onChange={(values) => setEditingMeeting({...editingMeeting, participants: values})}
+                    selected={editingMeeting.participants}
+                    placeholder="Sélectionner des participants"
+                  />
+                </div>
+              </div>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Annuler</Button>
+              <Button onClick={handleUpdateMeeting}>Enregistrer les modifications</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {!isAdmin && (
+          <TabsContent value="requests" className="mt-6">
+            <div className="grid gap-4">
+              {meetings.filter(m => m.created_by === user?.id && m.status === 'pending').length === 0 ? (
+                <Card className="py-12">
+                  <CardContent className="flex flex-col items-center justify-center text-center space-y-4">
+                    <MessageSquare className="h-12 w-12 text-muted-foreground" />
+                    <div className="space-y-2">
+                      <h3 className="text-xl font-semibold">Aucune demande</h3>
+                      <p className="text-muted-foreground">Vous n'avez pas de demandes de réunion en cours.</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                meetings.filter(m => m.created_by === user?.id && m.status === 'pending').map((meeting) => (
+                  <Card key={meeting.id}>
+                    <CardHeader>
+                      <div className="flex justify-between items-start">
+                        <div className="space-y-1">
+                          <CardTitle>{meeting.title}</CardTitle>
+                          <CardDescription>
+                            Demandé le {format(new Date(meeting.created_at), 'PPP', { locale: fr })}
+                          </CardDescription>
+                        </div>
+                        <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200">
+                          En attente
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground">{meeting.description || "Aucune description fournie."}</p>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          </TabsContent>
+        )}
+
+        <TabsContent value="history" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Historique des réunions</CardTitle>
+              <CardDescription>Consultez les enregistrements et les statistiques des réunions passées.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[400px]">
+                <div className="space-y-4">
+                  {pastMeetings.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      Aucun historique disponible.
+                    </div>
+                  ) : (
+                    pastMeetings.map((meeting) => (
+                      <div key={meeting.id} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="space-y-1">
+                          <p className="font-medium">{meeting.title}</p>
+                          <div className="flex items-center text-xs text-muted-foreground gap-4">
+                            <span className="flex items-center"><Calendar className="mr-1 h-3 w-3" /> {format(new Date(meeting.created_at), 'dd/MM/yyyy')}</span>
+                            <span className="flex items-center"><Clock className="mr-1 h-3 w-3" /> {meeting.duration_minutes || 0} min</span>
+                            <span className="flex items-center"><Users className="mr-1 h-3 w-3" /> Suivi présence...</span>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          {meeting.recording_url && (
+                            <Button size="sm" variant="ghost" asChild>
+                              <a href={meeting.recording_url} target="_blank" rel="noopener noreferrer">
+                                <Save className="h-4 w-4 mr-1" /> Enregistrement
+                              </a>
+                            </Button>
+                          )}
+                          <Badge variant={meeting.status === 'completed' ? 'secondary' : 'destructive'}>
+                            {meeting.status === 'completed' ? 'Terminée' : 'Annulée'}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
-};
+}
 
-export default VideoConference; 
+function MeetingCard({ meeting, isAdmin, onJoin, onComplete, onCancel, onEdit }: { 
+  meeting: any, 
+  isAdmin: boolean, 
+  onJoin: () => void,
+  onComplete: () => void,
+  onCancel: () => void,
+  onEdit: () => void
+}) {
+  return (
+    <Card className="flex flex-col">
+      <CardHeader>
+        <div className="flex justify-between items-start">
+          <Badge variant={meeting.status === 'active' ? 'destructive' : 'outline'} className={meeting.status === 'active' ? 'animate-pulse' : ''}>
+            {meeting.status === 'active' ? 'EN DIRECT' : 'PROGRAMMÉ'}
+          </Badge>
+          <div className="flex items-center text-xs text-muted-foreground">
+            <Clock className="mr-1 h-3 w-3" />
+            {meeting.scheduled_at ? format(new Date(meeting.scheduled_at), 'p', { locale: fr }) : "Maintenant"}
+          </div>
+        </div>
+        <CardTitle className="mt-2">{meeting.title}</CardTitle>
+        <CardDescription className="line-clamp-2">{meeting.description || "Pas de description"}</CardDescription>
+      </CardHeader>
+      <CardContent className="flex-1">
+        <div className="flex items-center text-sm text-muted-foreground mb-4">
+          <Calendar className="mr-2 h-4 w-4" />
+          {meeting.scheduled_at ? format(new Date(meeting.scheduled_at), 'PPP', { locale: fr }) : "Aujourd'hui"}
+        </div>
+        <div className="flex items-center text-sm text-muted-foreground">
+          <Users className="mr-2 h-4 w-4" />
+          Cliquez sur rejoindre pour participer
+        </div>
+      </CardContent>
+      <div className="p-6 pt-0 flex gap-2">
+        <Button className="flex-1" onClick={onJoin}>
+          Rejoindre
+        </Button>
+        {isAdmin && (
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="icon">
+                <Plus className="h-4 w-4" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Actions Administrateur</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <Button variant="outline" onClick={onEdit}>Modifier les participants</Button>
+                <Button variant="outline" onClick={onComplete}>Marquer comme terminée</Button>
+                <Button variant="destructive" onClick={onCancel}>Annuler la réunion</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
+      </div>
+    </Card>
+  );
+}
+

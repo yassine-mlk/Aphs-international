@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { useToast } from '@/components/ui/use-toast';
-import { translations } from '@/lib/translations';
+import { NOTIFICATIONS } from '@/lib/constants';
 import { NotificationType } from '@/hooks/useNotifications';
 
 interface ToastParams {
@@ -13,8 +13,8 @@ interface ToastParams {
 export function useTranslatedNotifications() {
   const { toast } = useToast();
     
-  // Récupérer les traductions pour la langue actuelle
-  const t = translations[language as keyof typeof translations].notifications;
+  // Utiliser les constantes en français
+  const t = NOTIFICATIONS;
 
   // Fonction pour formatter les messages avec paramètres
   const formatMessage = useCallback((template: string, params: Record<string, any>): string => {
@@ -38,20 +38,20 @@ export function useTranslatedNotifications() {
     return result;
   }, []);
 
-  // Afficher une notification toast traduite avec un type de notification
+  // Afficher une notification toast avec un type de notification
   const showNotification = useCallback((
     type: NotificationType,
     params: Record<string, any> = {},
     options: Partial<ToastParams> = {}
   ) => {
-    const notificationConfig = t.types[type];
+    const notificationConfig = (t.types as any)[type];
     
     if (!notificationConfig) {
       return;
     }
 
-    const title = formatMessage(notificationConfig.title, params);
-    const message = formatMessage(notificationConfig.message, params);
+    const title = formatMessage(typeof notificationConfig === 'string' ? notificationConfig : notificationConfig.title, params);
+    const message = formatMessage(typeof notificationConfig === 'string' ? "" : notificationConfig.message, params);
 
     toast({
       title,
@@ -62,13 +62,13 @@ export function useTranslatedNotifications() {
     });
   }, [t.types, formatMessage, toast]);
 
-  // Afficher un toast commun traduit
+  // Afficher un toast commun
   const showCommonToast = useCallback((
-    messageKey: keyof typeof t.common,
+    messageKey: string,
     params: Record<string, any> = {},
     options: Partial<ToastParams> = {}
   ) => {
-    const messageTemplate = t.common[messageKey];
+    const messageTemplate = (t as any)[messageKey];
     
     if (!messageTemplate) {
       return;
@@ -77,37 +77,37 @@ export function useTranslatedNotifications() {
     const message = formatMessage(String(messageTemplate), params);
 
     toast({
-      title: options.title || t.common.info,
+      title: options.title || t.title,
       description: message,
       variant: options.variant || 'default',
       duration: options.duration || 3000,
       ...options
     });
-  }, [t.common, formatMessage, toast]);
+  }, [t, formatMessage, toast]);
 
   // Raccourcis pour les types de toast les plus communs
-  const showSuccess = useCallback((messageKey: keyof typeof t.common, params?: Record<string, any>) => {
+  const showSuccess = useCallback((messageKey: string, params?: Record<string, any>) => {
     showCommonToast(messageKey, params, { 
-      title: t.common.success, 
+      title: "Succès", 
       variant: 'default' 
     });
-  }, [showCommonToast, t.common.success]);
+  }, [showCommonToast]);
 
-  const showError = useCallback((messageKey: keyof typeof t.common, params?: Record<string, any>) => {
+  const showError = useCallback((messageKey: string, params?: Record<string, any>) => {
     showCommonToast(messageKey, params, { 
-      title: t.common.error, 
+      title: "Erreur", 
       variant: 'destructive' 
     });
-  }, [showCommonToast, t.common.error]);
+  }, [showCommonToast]);
 
-  const showWarning = useCallback((messageKey: keyof typeof t.common, params?: Record<string, any>) => {
+  const showWarning = useCallback((messageKey: string, params?: Record<string, any>) => {
     showCommonToast(messageKey, params, { 
-      title: t.common.warning, 
+      title: "Attention", 
       variant: 'default' 
     });
-  }, [showCommonToast, t.common.warning]);
+  }, [showCommonToast]);
 
-  // Toast personnalisé avec traduction directe
+  // Toast personnalisé
   const showCustomToast = useCallback((
     title: string,
     description?: string,
@@ -132,7 +132,7 @@ export function useTranslatedNotifications() {
     showWarning,
     showCustomToast,
     
-    // Accès direct aux traductions
+    // Accès direct aux constantes
     translations: t,
     
     // Fonction utilitaire pour formatter les messages

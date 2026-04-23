@@ -4,11 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useNotificationTriggers } from '@/hooks/useNotificationTriggers';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
-import { Bell, Send, TestTube, Languages, Users, File, Video, MessageSquare } from 'lucide-react';
+import { Bell, Send, TestTube, Users, File, MessageSquare, Target } from 'lucide-react';
 
 const NotificationTestPanel: React.FC = () => {
   const { user } = useAuth();
@@ -19,37 +18,31 @@ const NotificationTestPanel: React.FC = () => {
     notifyTaskAssigned,
     notifyFileUploaded,
     notifyTaskValidated,
-    notifyMeetingRequest,
     notifyProjectAdded,
     notifyNewMessage,
     notifyTaskValidationRequest,
-    notifyFileValidationRequest,
-    notifyMeetingInvitation,
-    notifyMeetingRequestResponse
+    notifyFileValidationRequest
   } = useNotificationTriggers();
 
   // Paramètres de test
   const [testParams, setTestParams] = useState({
-    taskName: 'Rénovation cuisine',
-    projectName: 'Maison familiale',
+    taskName: 'Conception structurelle',
+    projectName: 'Résidence Horizon',
     assignerName: 'Jean Dupont',
-    fileName: 'plan-cuisine.pdf',
-    uploaderName: 'Marie Martin',
+    fileName: 'plan-structure.pdf',
+    uploaderName: 'Marie Curie',
     validatorName: 'Pierre Durand',
-    meetingTitle: 'Réunion de suivi',
-    senderName: 'Sophie Leblanc',
-    organizerName: 'Thomas Petit',
+    senderName: 'Sophie Martin',
     intervenantName: 'Alice Moreau',
-    adminName: 'Admin Principal',
-    subject: 'Validation du projet',
-    responseMessage: 'Approuvé avec commentaires'
+    adminName: 'Admin APS',
+    subject: 'Révision des plans'
   });
 
   const testNotifications = [
     {
       type: 'task_assigned',
       title: 'Tâche assignée',
-      icon: <Users className="h-4 w-4" />,
+      icon: <Target className="h-4 w-4" />,
       color: 'bg-blue-500',
       action: () => notifyTaskAssigned(
         user?.id || 'test-user',
@@ -78,17 +71,6 @@ const NotificationTestPanel: React.FC = () => {
         testParams.taskName,
         testParams.validatorName,
         testParams.projectName
-      )
-    },
-    {
-      type: 'meeting_request',
-      title: 'Demande de réunion',
-      icon: <Video className="h-4 w-4" />,
-      color: 'bg-orange-500',
-      action: () => notifyMeetingRequest(
-        testParams.meetingTitle,
-        testParams.organizerName,
-        new Date().toISOString()
       )
     },
     {
@@ -136,44 +118,6 @@ const NotificationTestPanel: React.FC = () => {
         testParams.uploaderName,
         testParams.projectName
       )
-    },
-    {
-      type: 'meeting_invitation',
-      title: 'Invitation réunion',
-      icon: <Video className="h-4 w-4" />,
-      color: 'bg-indigo-500',
-      action: () => notifyMeetingInvitation(
-        user?.id || 'test-user',
-        testParams.meetingTitle,
-        testParams.organizerName,
-        new Date().toISOString()
-      )
-    },
-    {
-      type: 'meeting_approved',
-      title: 'Réunion approuvée',
-      icon: <Video className="h-4 w-4" />,
-      color: 'bg-green-600',
-      action: () => notifyMeetingRequestResponse(
-        user?.id || 'test-user',
-        testParams.meetingTitle,
-        true,
-        testParams.adminName,
-        testParams.responseMessage
-      )
-    },
-    {
-      type: 'meeting_rejected',
-      title: 'Réunion refusée',
-      icon: <Video className="h-4 w-4" />,
-      color: 'bg-red-600',
-      action: () => notifyMeetingRequestResponse(
-        user?.id || 'test-user',
-        testParams.meetingTitle,
-        false,
-        testParams.adminName,
-        testParams.responseMessage
-      )
     }
   ];
 
@@ -198,13 +142,6 @@ const NotificationTestPanel: React.FC = () => {
     }
   };
 
-  const languages = [
-    { code: 'fr', label: 'Français', flag: '🇫🇷' },
-    { code: 'en', label: 'English', flag: '🇬🇧' },
-    { code: 'es', label: 'Español', flag: '🇪🇸' },
-    { code: 'ar', label: 'العربية', flag: '🇸🇦' }
-  ];
-
   return (
     <div className="space-y-6">
       {/* En-tête */}
@@ -212,45 +149,13 @@ const NotificationTestPanel: React.FC = () => {
         <div>
           <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <Bell className="h-6 w-6" />
-            Test des Notifications Traduites
+            Test des Notifications
           </h2>
           <p className="text-gray-600">
-            Testez les notifications dans différentes langues
+            Testez l'envoi des notifications système
           </p>
         </div>
-        <Badge variant="outline" className="text-sm">
-          <Languages className="h-4 w-4 mr-1" />
-          Multilingue
-        </Badge>
       </div>
-
-      {/* Sélecteur de langue */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Languages className="h-5 w-5" />
-            Langue Actuelle
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-2">
-            {languages.map((lang) => (
-              <Button
-                key={lang.code}
-                variant={language === lang.code ? "default" : "outline"}
-                onClick={() => setLanguage(lang.code as any)}
-                className="flex items-center gap-2"
-              >
-                <span>{lang.flag}</span>
-                {lang.label}
-              </Button>
-            ))}
-          </div>
-          <p className="text-sm text-gray-500 mt-2">
-            Les notifications s'afficheront dans la langue sélectionnée
-          </p>
-        </CardContent>
-      </Card>
 
       {/* Paramètres de test */}
       <Card>
@@ -300,11 +205,11 @@ const NotificationTestPanel: React.FC = () => {
               />
             </div>
             <div>
-              <Label htmlFor="meetingTitle">Titre de la réunion</Label>
+              <Label htmlFor="senderName">Nom de l'expéditeur</Label>
               <Input
-                id="meetingTitle"
-                value={testParams.meetingTitle}
-                onChange={(e) => setTestParams({...testParams, meetingTitle: e.target.value})}
+                id="senderName"
+                value={testParams.senderName}
+                onChange={(e) => setTestParams({...testParams, senderName: e.target.value})}
               />
             </div>
           </div>
@@ -343,24 +248,8 @@ const NotificationTestPanel: React.FC = () => {
           </div>
         </CardContent>
       </Card>
-
-      {/* Instructions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Instructions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2 text-sm">
-            <p>1. 🌍 <strong>Choisissez une langue</strong> pour voir les notifications traduites</p>
-            <p>2. ⚙️ <strong>Modifiez les paramètres</strong> pour personnaliser les notifications</p>
-            <p>3. 🧪 <strong>Cliquez sur "Tester"</strong> pour créer une notification</p>
-            <p>4. 🔔 <strong>Vérifiez la cloche</strong> de notifications en haut à droite</p>
-            <p>5. 🔄 <strong>Changez de langue</strong> et observez le changement automatique</p>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 };
 
-export default NotificationTestPanel; 
+export default NotificationTestPanel;

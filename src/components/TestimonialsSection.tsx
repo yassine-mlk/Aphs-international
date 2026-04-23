@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { translations } from '@/lib/translations';
+import { NAV } from '@/lib/constants';
 
 interface Testimonial {
   name: string;
@@ -10,100 +10,29 @@ interface Testimonial {
   quote: string;
 }
 
-const testimonials: Record<string, Testimonial[]> = {
-  en: [
-    {
-      name: "Philippe Chognot",
-      role: "Director SOUTH WEST",
-      company: "Stockmeier France",
-      image: "/testimonials/philippe-chognot.jpg",
-      quote: "This project had to be carried out in an occupied environment and in phases to guarantee production continuity. We thank Mr. Kharrat!"
-    },
-    {
-      name: "Norbert Fradin",
-      role: "Developer",
-      company: "Fradin Promotion",
-      image: "/testimonials/norbert-fradin.jpg",
-      quote: "APS and its teams supported us in delivering a 50-unit building within the allotted timeframe and in compliance with quality standards."
-    },
-    {
-      name: "Alice Moll-Bocherel",
-      role: "Director",
-      company: "SEMIDEP",
-      image: "/testimonials/alice-moll-bocherel.jpg",
-      quote: "Mr. Kharrat carried out this project with great transparency and professionalism during the renovation of Hotel Paris 9."
-    }
-  ],
-  fr: [
-    {
-      name: "Philippe Chognot",
-      role: "Directeur SUD OUEST",
-      company: "Stockmeier France",
-      image: "/testimonials/philippe-chognot.jpg",
-      quote: "Ce chantier devait se réaliser en milieu occupé et par phase afin de garantir la continuité de la production. Nous remercions Monsieur Kharrat !"
-    },
-    {
-      name: "Norbert Fradin",
-      role: "Promoteur",
-      company: "Fradin Promotion",
-      image: "/testimonials/norbert-fradin.jpg",
-      quote: "APS et ses équipes nous ont accompagné dans la livraison d'un immeuble de 50 logements dans les délais impartis et dans le respect de la qualité."
-    },
-    {
-      name: "Alice Moll-Bocherel",
-      role: "Directrice",
-      company: "SEMIDEP",
-      image: "/testimonials/alice-moll-bocherel.jpg",
-      quote: "Monsieur Kharrat a réalisé ce chantier avec beaucoup de transparence et de professionnalisme. Rénovation Hôtel Paris 9."
-    }
-  ],
-  es: [
-    {
-      name: "Philippe Chognot",
-      role: "Director SUR OESTE",
-      company: "Stockmeier France",
-      image: "/testimonials/philippe-chognot.jpg",
-      quote: "Este proyecto tuvo que realizarse en un entorno ocupado y por fases para garantizar la continuidad de la producción. ¡Agradecemos al Sr. Kharrat!"
-    },
-    {
-      name: "Norbert Fradin",
-      role: "Promotor",
-      company: "Fradin Promotion",
-      image: "/testimonials/norbert-fradin.jpg",
-      quote: "APS y sus equipos nos apoyaron en la entrega de un edificio de 50 unidades dentro del plazo asignado y cumpliendo con los estándares de calidad."
-    },
-    {
-      name: "Alice Moll-Bocherel",
-      role: "Directora",
-      company: "SEMIDEP",
-      image: "/testimonials/alice-moll-bocherel.jpg",
-      quote: "El Sr. Kharrat llevó a cabo este proyecto con gran transparencia y profesionalismo durante la renovación del Hotel Paris 9."
-    }
-  ],
-  ar: [
-    {
-      name: "فيليب شونو",
-      role: "مدير الجنوب الغربي",
-      company: "ستوكماير فرنسا",
-      image: "/testimonials/philippe-chognot.jpg",
-      quote: "كان يجب تنفيذ هذا المشروع في بيئة مشغولة وعلى مراحل لضمان استمرارية الإنتاج. نشكر السيد خرات!"
-    },
-    {
-      name: "نوربرت فرادين",
-      role: "مطور",
-      company: "فرادين بروموشن",
-      image: "/testimonials/norbert-fradin.jpg",
-      quote: "دعمتنا APS وفرقها في تسليم مبنى من 50 وحدة ضمن الإطار الزمني المخصص ووفقاً لمعايير الجودة."
-    },
-    {
-      name: "أليس مول-بوشيريل",
-      role: "مديرة",
-      company: "سيميديب",
-      image: "/testimonials/alice-moll-bocherel.jpg",
-      quote: "نفذ السيد خرات هذا المشروع بشفافية ومهنية كبيرة خلال تجديد فندق باريس 9."
-    }
-  ]
-};
+const testimonials: Testimonial[] = [
+  {
+    name: "Philippe Chognot",
+    role: "Directeur SUD OUEST",
+    company: "Stockmeier France",
+    image: "/testimonials/philippe-chognot.jpg",
+    quote: "Ce chantier devait se réaliser en milieu occupé et par phase afin de garantir la continuité de la production. Nous remercions Monsieur Kharrat !"
+  },
+  {
+    name: "Norbert Fradin",
+    role: "Promoteur",
+    company: "Fradin Promotion",
+    image: "/testimonials/norbert-fradin.jpg",
+    quote: "APS et ses équipes nous ont accompagné dans la livraison d'un immeuble de 50 logements dans les délais impartis et dans le respect de la qualité."
+  },
+  {
+    name: "Alice Moll-Bocherel",
+    role: "Directrice",
+    company: "SEMIDEP",
+    image: "/testimonials/alice-moll-bocherel.jpg",
+    quote: "Monsieur Kharrat a réalisé ce chantier avec beaucoup de transparence et de professionnalisme. Rénovation Hôtel Paris 9."
+  }
+];
 
 const TestimonialsSection: React.FC = () => {
   const [activeIndex, setActiveIndex] = useState(0);
@@ -122,12 +51,12 @@ const TestimonialsSection: React.FC = () => {
   
   useEffect(() => {
     const interval = setInterval(() => {
-      const nextIndex = (activeIndex + 1) % testimonials[language].length;
+      const nextIndex = (activeIndex + 1) % testimonials.length;
       changeTestimonial(nextIndex);
     }, 6000);
     
     return () => clearInterval(interval);
-  }, [language, activeIndex]);
+  }, [activeIndex]);
 
   useEffect(() => {
     const observer = new IntersectionObserver((entries) => {
@@ -149,19 +78,15 @@ const TestimonialsSection: React.FC = () => {
     };
   }, []);
 
-  const t = translations[language].testimonialsSection;
-  const textDirection = language === 'ar' ? 'rtl' : 'ltr';
-  const currentTestimonials = testimonials[language] || testimonials.en;
-
   return (
-    <section id="testimonials" className="py-20 px-4 bg-gray-50" dir={textDirection}>
+    <section id="testimonials" className="py-20 px-4 bg-gray-50">
       <div ref={sectionRef} className="container mx-auto opacity-0">
         <div className="text-center max-w-2xl mx-auto mb-16">
           <h2 className="text-3xl md:text-4xl font-bold text-black mb-4">
-            {t.title}
+            {NAV.testimonials}
           </h2>
           <p className="text-gray-600 text-lg">
-            {t.subtitle}
+            Ce que nos clients disent de nous
           </p>
         </div>
         
@@ -177,8 +102,8 @@ const TestimonialsSection: React.FC = () => {
                 <div className="flex-shrink-0">
                   <div className={`w-32 h-40 rounded-2xl border-4 border-blue-600 shadow-lg overflow-hidden bg-gray-50 transition-all duration-500 ${isTransitioning ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
                     <img 
-                      src={currentTestimonials[activeIndex].image} 
-                      alt={currentTestimonials[activeIndex].name}
+                      src={testimonials[activeIndex].image} 
+                      alt={testimonials[activeIndex].name}
                       className="w-full h-full object-cover"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
@@ -188,7 +113,7 @@ const TestimonialsSection: React.FC = () => {
                       }}
                     />
                     <div className="w-full h-full bg-blue-600 text-white text-2xl font-bold hidden items-center justify-center">
-                      {currentTestimonials[activeIndex].name.substring(0, 2)}
+                      {testimonials[activeIndex].name.substring(0, 2)}
                     </div>
                   </div>
                 </div>
@@ -197,12 +122,12 @@ const TestimonialsSection: React.FC = () => {
                 <div className="flex-1">
                   <div className="text-4xl text-blue-600 mb-4 font-serif">"</div>
                   <p className={`text-lg md:text-xl text-black mb-6 leading-relaxed transition-all duration-500 ${isTransitioning ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'}`}>
-                    {currentTestimonials[activeIndex].quote}
+                    {testimonials[activeIndex].quote}
                   </p>
                   <div className={`transition-all duration-500 delay-100 ${isTransitioning ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'}`}>
-                    <h4 className="font-bold text-black text-lg mb-1">{currentTestimonials[activeIndex].name}</h4>
-                    <p className="text-blue-600 font-semibold">{currentTestimonials[activeIndex].role}</p>
-                    <p className="text-sm text-gray-500">{currentTestimonials[activeIndex].company}</p>
+                    <h4 className="font-bold text-black text-lg mb-1">{testimonials[activeIndex].name}</h4>
+                    <p className="text-blue-600 font-semibold">{testimonials[activeIndex].role}</p>
+                    <p className="text-sm text-gray-500">{testimonials[activeIndex].company}</p>
                   </div>
                 </div>
               </div>
@@ -211,7 +136,7 @@ const TestimonialsSection: React.FC = () => {
           
           {/* Navigation points */}
           <div className="flex justify-center mt-8 space-x-3">
-            {currentTestimonials.map((_, index) => (
+            {testimonials.map((_, index) => (
               <button
                 key={index}
                 onClick={() => changeTestimonial(index)}
@@ -220,7 +145,7 @@ const TestimonialsSection: React.FC = () => {
                     ? 'bg-blue-600 w-8' 
                     : 'bg-gray-300 hover:bg-gray-400'
                 }`}
-                aria-label={`View testimonial ${index + 1}`}
+                aria-label={`Voir le témoignage ${index + 1}`}
               />
             ))}
           </div>
@@ -228,9 +153,9 @@ const TestimonialsSection: React.FC = () => {
           {/* Navigation arrows */}
           <div className="flex justify-between items-center mt-6">
             <button
-              onClick={() => changeTestimonial((activeIndex - 1 + currentTestimonials.length) % currentTestimonials.length)}
+              onClick={() => changeTestimonial((activeIndex - 1 + testimonials.length) % testimonials.length)}
               className="p-3 rounded-full bg-white shadow-md hover:shadow-lg transition-all duration-300 hover:scale-110 text-blue-600 border border-gray-100"
-              aria-label="Previous testimonial"
+              aria-label="Témoignage précédent"
             >
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
@@ -238,13 +163,13 @@ const TestimonialsSection: React.FC = () => {
             </button>
             
             <div className="text-center">
-              <span className="text-sm text-gray-500 font-medium">{activeIndex + 1} / {currentTestimonials.length}</span>
+              <span className="text-sm text-gray-500 font-medium">{activeIndex + 1} / {testimonials.length}</span>
             </div>
             
             <button
-              onClick={() => changeTestimonial((activeIndex + 1) % currentTestimonials.length)}
+              onClick={() => changeTestimonial((activeIndex + 1) % testimonials.length)}
               className="p-3 rounded-full bg-white shadow-md hover:shadow-lg transition-all duration-300 hover:scale-110 text-blue-600 border border-gray-100"
-              aria-label="Next testimonial"
+              aria-label="Témoignage suivant"
             >
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />

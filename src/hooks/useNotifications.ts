@@ -19,7 +19,6 @@ export type NotificationType =
   | 'file_uploaded'
   | 'task_validated'
   | 'new_message'
-  | 'meeting_request'
   | 'document_signed'
   | 'document_rejected'
   | 'task_assigned'
@@ -27,20 +26,17 @@ export type NotificationType =
   | 'task_validation_request'
   | 'file_validation_request'
   | 'message_received'
-  | 'meeting_invitation'
-  | 'meeting_accepted'
-  | 'meeting_declined'
-  | 'meeting_request_approved'
-  | 'meeting_request_rejected'
-  | 'meeting_started'
-  | 'task_status_changed';
+  | 'task_status_changed'
+  | 'videoconf_request'
+  | 'videoconf_accepted'
+  | 'videoconf_rejected'
+  | 'videoconf_scheduled';
 
 // Titres des notifications en français
 const notificationTitles: Record<NotificationType, string> = {
   file_uploaded: 'Nouveau fichier uploadé',
   task_validated: 'Tâche validée',
   new_message: 'Nouveau message',
-  meeting_request: 'Demande de réunion',
   document_signed: 'Document signé',
   document_rejected: 'Document refusé',
   task_assigned: 'Nouvelle tâche assignée',
@@ -48,13 +44,11 @@ const notificationTitles: Record<NotificationType, string> = {
   task_validation_request: 'Demande de validation de tâche',
   file_validation_request: 'Fichier à valider',
   message_received: 'Message reçu',
-  meeting_invitation: 'Invitation à une réunion',
-  meeting_accepted: 'Réunion acceptée',
-  meeting_declined: 'Réunion refusée',
-  meeting_request_approved: 'Demande de réunion approuvée',
-  meeting_request_rejected: 'Demande de réunion rejetée',
-  meeting_started: 'Réunion démarrée',
-  task_status_changed: 'Statut de tâche modifié'
+  task_status_changed: 'Statut de tâche modifié',
+  videoconf_request: 'Demande de visioconférence',
+  videoconf_accepted: 'Réunion acceptée',
+  videoconf_rejected: 'Réunion refusée',
+  videoconf_scheduled: 'Réunion programmée'
 };
 
 export function useNotifications() {

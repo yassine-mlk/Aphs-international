@@ -21,7 +21,7 @@ export default defineConfig(({ mode }) => ({
       buffer: "buffer",
       events: "events",
       stream: "stream-browserify",
-      util: "util",
+      util: path.resolve(__dirname, "./src/lib/util-polyfill.ts"),
       crypto: "crypto-browserify",
     },
   },
@@ -29,7 +29,11 @@ export default defineConfig(({ mode }) => ({
     // Polyfills pour SimplePeer et les modules Node.js
     global: 'globalThis',
     'process.env': {},
-    process: { env: {} },
+    process: { 
+      env: { NODE_DEBUG: false },
+      nextTick: (fn: any) => setTimeout(fn, 0),
+      browser: true
+    },
   },
   optimizeDeps: {
     // Forcer la pré-compilation de ces dépendances
@@ -39,7 +43,6 @@ export default defineConfig(({ mode }) => ({
       'buffer',
       'events',
       'stream-browserify',
-      'util',
       'crypto-browserify'
     ]
   }

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { X, Play } from 'lucide-react';
+import { APP_NAME, APP_DESCRIPTION } from '@/lib/constants';
 
 const HeroSection: React.FC = () => {
   const sectionRef = useRef<HTMLDivElement>(null);
@@ -64,20 +65,9 @@ const HeroSection: React.FC = () => {
     setIsVideoModalOpen(false);
   };
 
-  // Définir les chemins des vidéos selon la langue
+  // Définir les chemins des vidéos
   const getVideoPath = () => {
-    switch (language) {
-      case 'fr':
-        return '/videos/demo-fr.mp4';
-      case 'en':
-        return '/videos/demo-en.mp4';
-      case 'es':
-        return '/videos/demo-es.mp4';
-      case 'ar':
-        return '/videos/demo-ar.mp4';
-      default:
-        return '/videos/demo-fr.mp4';
-    }
+    return '/videos/demo-fr.mp4';
   };
 
   return (
@@ -92,25 +82,16 @@ const HeroSection: React.FC = () => {
             <div className="text-center lg:text-left order-2 lg:order-1">
               <div className="mb-6">
                 <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
-                  {language === 'ar' ? (
-                    <span dir="rtl" className="block">
-                      <span className="text-black">{translations[language].heroSection.title.split(' ')[0]}</span>{' '}
-                      <span className="text-blue-600">
-                        {translations[language].heroSection.title.split(' ').slice(1).join(' ')}
-                      </span>
+                  <span>
+                    <span className="text-black">{APP_NAME.split(' ')[0]}</span>{' '}
+                    <span className="text-blue-600">
+                      {APP_NAME.split(' ').slice(1).join(' ')}
                     </span>
-                  ) : (
-                    <span>
-                      <span className="text-black">{translations[language].heroSection.title.split(' ')[0]}</span>{' '}
-                      <span className="text-blue-600">
-                        {translations[language].heroSection.title.split(' ').slice(1).join(' ')}
-                      </span>
-                    </span>
-                  )}
+                  </span>
                 </h1>
               </div>
               <p className="text-lg md:text-xl text-gray-600 max-w-lg">
-                {t.subtitle}
+                {APP_DESCRIPTION}
               </p>
               <div className="flex flex-col sm:flex-row gap-4 pt-4">
                 <Button 
@@ -118,7 +99,7 @@ const HeroSection: React.FC = () => {
                   size="lg"
                   onClick={navigateToLogin}
                 >
-                  {t.cta.primary}
+                  Commencer maintenant
                 </Button>
               </div>
             </div>
@@ -129,10 +110,7 @@ const HeroSection: React.FC = () => {
                 <div className="relative bg-white rounded-2xl shadow-2xl overflow-hidden">
                   <img 
                     src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80" 
-                    alt={language === 'fr' ? "Tableau de bord APS" :
-                         language === 'en' ? "APS Dashboard" :
-                         language === 'es' ? "Panel de Control APS" :
-                                           "لوحة تحكم APS"}
+                    alt="Tableau de bord APS"
                     className="w-full h-auto rounded-2xl"
                   />
                   
@@ -144,10 +122,7 @@ const HeroSection: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
                       <span className="text-sm font-medium text-gray-800">
-                        {language === 'fr' ? 'En ligne' :
-                         language === 'en' ? 'Online' :
-                         language === 'es' ? 'En línea' :
-                                           'متصل'}
+                        En ligne
                       </span>
                     </div>
                   </div>
@@ -160,10 +135,7 @@ const HeroSection: React.FC = () => {
                         <span>+23%</span>
                       </div>
                       <div className="text-xs text-gray-600 mt-1">
-                        {language === 'fr' ? 'Productivité' :
-                         language === 'en' ? 'Productivity' :
-                         language === 'es' ? 'Productividad' :
-                                           'الإنتاجية'}
+                        Productivité
                       </div>
                     </div>
                   </div>
@@ -179,10 +151,7 @@ const HeroSection: React.FC = () => {
                     <span className="text-sm">👥</span>
                   </div>
                   <div className="text-xs font-medium text-gray-800">
-                    {language === 'fr' ? 'Équipes' :
-                     language === 'en' ? 'Teams' :
-                     language === 'es' ? 'Equipos' :
-                                       'الفرق'}
+                    Équipes
                   </div>
                   <div className="text-xs text-blue-600 font-bold">127</div>
                 </div>
@@ -192,57 +161,63 @@ const HeroSection: React.FC = () => {
                     <span className="text-sm">📋</span>
                   </div>
                   <div className="text-xs font-medium text-gray-800">
-                    {language === 'fr' ? 'Projets' :
-                     language === 'en' ? 'Projects' :
-                     language === 'es' ? 'Proyectos' :
-                                       'المشاريع'}
+                    Projets
                   </div>
-                  <div className="text-xs text-black font-bold">43</div>
+                  <div className="text-xs text-blue-600 font-bold">42</div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-        
-
       </section>
+
+      {/* Bouton Play flottant pour la vidéo */}
+      <div className="fixed bottom-8 left-8 z-40">
+        <button 
+          onClick={openVideoModal}
+          className="flex items-center gap-3 bg-white/90 backdrop-blur-md border border-gray-200 px-5 py-3 rounded-full shadow-2xl hover:bg-black hover:text-white group transition-all duration-500 hover:scale-105"
+        >
+          <div className="relative">
+            <div className="absolute -inset-2 bg-blue-600/20 rounded-full animate-ping group-hover:bg-blue-600/40"></div>
+            <div className="relative w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-lg">
+              <Play className="w-5 h-5 fill-current ml-1" />
+            </div>
+          </div>
+          <div className="flex flex-col items-start">
+            <span className="text-xs font-bold uppercase tracking-wider opacity-60">Regarder</span>
+            <span className="text-sm font-bold">Démo Vidéo</span>
+          </div>
+        </button>
+      </div>
 
       {/* Modal Vidéo */}
       {isVideoModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80">
-          <div className="relative w-full max-w-4xl mx-4">
-            <button
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8">
+          <div 
+            className="absolute inset-0 bg-black/90 backdrop-blur-md transition-opacity"
+            onClick={closeVideoModal}
+          ></div>
+          
+          <div className="relative w-full max-w-5xl aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-white/10 animate-scale-in">
+            <button 
               onClick={closeVideoModal}
-              className="absolute -top-12 right-0 text-white hover:text-gray-300 transition-colors z-10"
-              aria-label="Fermer la vidéo"
+              className="absolute top-4 right-4 z-50 p-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors backdrop-blur-md"
             >
-              <X className="w-8 h-8" />
+              <X className="w-6 h-6" />
             </button>
             
-            <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
-              <video
-                controls
-                autoPlay
-                className="w-full h-full"
-                onEnded={closeVideoModal}
-              >
-                <source src={getVideoPath()} type="video/mp4" />
-                <p className="text-white p-4">
-                  {language === 'fr' ? "Votre navigateur ne supporte pas les vidéos HTML5." :
-                   language === 'en' ? "Your browser does not support HTML5 video." :
-                   language === 'es' ? "Su navegador no admite video HTML5." :
-                                     "متصفحك لا يدعم فيديو HTML5."}
-                </p>
-              </video>
-            </div>
+            <video 
+              autoPlay 
+              controls 
+              className="w-full h-full"
+            >
+              <source src={getVideoPath()} type="video/mp4" />
+              Votre navigateur ne supporte pas les vidéos HTML5.
+            </video>
             
-            <div className="mt-4 text-center">
-              <p className="text-white text-sm">
-                {language === 'fr' ? "Vidéo de démonstration - APS" :
-                 language === 'en' ? "Demo Video - APS" :
-                 language === 'es' ? "Video de Demostración - APS" :
-                                   "فيديو توضيحي - APS"}
-              </p>
+            <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/80 to-transparent pointer-events-none">
+              <h3 className="text-white font-bold text-xl">Vidéo de démonstration - APS</h3>
+              <p className="text-white/60 text-sm">Découvrez comment APS transforme la gestion de vos chantiers.</p>
             </div>
           </div>
         </div>

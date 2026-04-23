@@ -22,7 +22,6 @@ export const NAV = {
   companies: "Entreprises",
   workgroups: "Groupes de travail",
   messages: "Messages",
-  videoconference: "Visioconférence",
   settings: "Paramètres",
   validations: "Validations",
   signatures: "Mes Signatures"
@@ -97,17 +96,12 @@ export const NOTIFICATIONS = {
     file_uploaded: "Nouveau fichier uploadé",
     task_validated: "Tâche validée",
     message_received: "Nouveau message",
-    meeting_request: "Demande de réunion",
     document_signed: "Document signé",
     document_rejected: "Document refusé",
     task_assigned: "Nouvelle tâche assignée",
     project_added: "Ajouté à un nouveau projet",
     task_validation_request: "Demande de validation de tâche",
-    file_validation_request: "Fichier à valider",
-    meeting_request_approved: "Demande de réunion approuvée",
-    meeting_request_rejected: "Demande de réunion rejetée",
-    meeting_invitation: "Invitation à une réunion",
-    meeting_started: "Réunion démarrée"
+    file_validation_request: "Fichier à valider"
   },
   
   // Messages communs
@@ -168,56 +162,6 @@ export const MESSAGES = {
   send: "Envoyer",
   create: "Créer",
   cancel: "Annuler"
-};
-
-// Visioconférence
-export const VIDEO_CONFERENCE = {
-  title: "Visioconférence",
-  subtitle: "Rejoignez des réunions en direct ou planifiez vos vidéoconférences",
-  currentMeeting: "Visioconférence en cours",
-  myMeetings: "Mes réunions",
-  requestMeeting: "Demander une réunion",
-  meetingRequests: "Demandes de réunion",
-  createMeeting: "Créer une réunion",
-  schedule: "Planifier",
-  enterMeetingId: "Entrez l'ID de la réunion...",
-  join: "Rejoindre",
-  endMeeting: "Terminer la réunion",
-  leave: "Quitter",
-  inProgress: "En cours",
-  joinMeeting: "Rejoindre la réunion",
-  end: "Terminer",
-  all: "Toutes",
-  active: "Actives",
-  scheduled: "Planifiées",
-  loadingMeetings: "Chargement des réunions...",
-  participants: "Participants",
-  host: "Hôte",
-  newVideoConference: "Nouvelle visioconférence",
-  meetingTitle: "Titre de la réunion *",
-  meetingPlaceholder: "Réunion d'équipe...",
-  description: "Description",
-  descriptionPlaceholder: "Ordre du jour, informations importantes...",
-  startImmediately: "Démarrer immédiatement",
-  dateTime: "Date et heure",
-  participants_select: "Participants",
-  noSpecialistsAvailable: "Aucun spécialiste disponible",
-  participantsSelected: "participant(s) sélectionné(s)",
-  connectionError: "Erreur de visioconférence",
-  meetingCreated: "Réunion créée",
-  meetingCreatedDesc: "La réunion a été créée avec succès",
-  cannotCreateMeeting: "Impossible de créer la réunion",
-  meetingJoined: "Réunion rejointe",
-  meetingJoinedDesc: "Vous avez rejoint la réunion avec succès",
-  cannotJoinMeeting: "Impossible de rejoindre la réunion",
-  meetingEnded: "Réunion terminée",
-  meetingEndedDesc: "La réunion a été terminée avec succès",
-  cannotEndMeeting: "Impossible de terminer la réunion",
-  meetingIdCopied: "ID de réunion copié",
-  meetingIdCopiedDesc: "L'ID de la réunion a été copié dans le presse-papiers",
-  copyMeetingId: "Copier l'ID",
-  invalidMeetingId: "ID de réunion invalide",
-  enterValidMeetingId: "Veuillez entrer un ID de réunion valide"
 };
 
 // Projets
@@ -486,7 +430,6 @@ export const SETTINGS = {
     emailNotifications: "Notifications par email",
     pushNotifications: "Notifications push",
     taskReminders: "Rappels de tâches",
-    meetingReminders: "Rappels de réunions",
     documentNotifications: "Notifications de documents",
     savePreferences: "Enregistrer les préférences",
     preferencesSaved: "Préférences enregistrées avec succès",

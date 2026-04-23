@@ -21,7 +21,7 @@ export interface CalendarEvent {
   id: string;
   title: string;
   date: string;
-  type: 'meeting' | 'deadline' | 'training' | 'call';
+  type: 'deadline' | 'training' | 'call';
   project_id?: string;
   description?: string;
 }
@@ -193,24 +193,24 @@ export function useDashboardStats() {
         description: `Date limite pour le projet ${project.name}`
       })) || [];
 
-      // Récupérer aussi les réunions programmées
-      const { data: meetings, error: meetingsError } = await supabase
-        .from('video_meetings')
-        .select('id, title, scheduled_time, description')
-        .eq('status', 'scheduled')
-        .gt('scheduled_time', new Date().toISOString())
-        .order('scheduled_time', { ascending: true })
-        .limit(3);
+      // Récupérer les tâches (pour le calendrier)
+      const { data: tasks, error: tasksError } = await supabase
+        .from('tasks')
+        .select('id, name, due_date, project_id, description')
+        .order('due_date', { ascending: true });
 
-      if (!meetingsError && meetings) {
-        const meetingEvents: CalendarEvent[] = meetings.map(meeting => ({
-          id: meeting.id,
-          title: meeting.title,
-          date: meeting.scheduled_time,
-          type: 'meeting' as const,
-          description: meeting.description || `Réunion: ${meeting.title}`
-        }));
-        events = [...events, ...meetingEvents];
+      if (!tasksError && tasks) {
+        const taskEvents: CalendarEvent[] = tasks
+          .filter(task => task.due_date)
+          .map(task => ({
+            id: task.id,
+            title: task.name,
+            date: task.due_date!,
+            type: 'deadline' as const,
+            project_id: task.project_id,
+            description: task.description || `Échéance de la tâche: ${task.name}`
+          }));
+        events = [...events, ...taskEvents];
       }
 
       // Trier tous les événements par date
