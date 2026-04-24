@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   LiveKitRoom,
   VideoConference,
@@ -9,7 +9,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getLiveKitToken } from '@/lib/livekit';
 import { supabase, getConfigValue } from '@/lib/supabase';
 import { useToast } from '@/components/ui/use-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Circle, StopCircle } from 'lucide-react';
+import { useVideoConference } from '@/hooks/useVideoConference';
+import RecordRTC from 'recordrtc';
+import { uploadToR2 } from '@/lib/r2';
 
 interface Props {
   roomId: string;
@@ -20,8 +23,14 @@ interface Props {
 export default function MeetingRoom({ roomId, onLeave, isAdmin }: Props) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { leaveMeeting } = useVideoConference();
   const [token, setToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  
+  // États pour l'enregistrement
+  const [isRecording, setIsRecording] = useState(false);
+  const recorderRef = useRef<RecordRTC | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   const serverUrl = getConfigValue('VITE_LIVEKIT_URL');
 
@@ -52,7 +61,11 @@ export default function MeetingRoom({ roomId, onLeave, isAdmin }: Props) {
     fetchToken();
   }, [roomId, user, toast, serverUrl]);
 
-  const handleDisconnected = () => {
+  const handleDisconnected = async () => {
+    if (isRecording) {
+      await stopRecording();
+    }
+    await leaveMeeting(roomId);
     onLeave();
   };
 
@@ -60,6 +73,10 @@ export default function MeetingRoom({ roomId, onLeave, isAdmin }: Props) {
     if (!isAdmin) return;
     
     try {
+      if (isRecording) {
+        await stopRecording();
+      }
+
       const { error } = await supabase
         .from('video_meetings')
         .update({ 
@@ -69,6 +86,7 @@ export default function MeetingRoom({ roomId, onLeave, isAdmin }: Props) {
         .eq('id', roomId);
 
       if (error) throw error;
+      await leaveMeeting(roomId);
       onLeave();
     } catch (e: any) {
       toast({
@@ -77,6 +95,93 @@ export default function MeetingRoom({ roomId, onLeave, isAdmin }: Props) {
         description: e.message
       });
     }
+  };
+
+  const startRecording = async () => {
+    try {
+      // Pour capturer toute la réunion (vidéo + audio système), getDisplayMedia est le plus adapté
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: true
+      });
+
+      streamRef.current = stream;
+      
+      const recorder = new RecordRTC(stream, {
+        type: 'video',
+        mimeType: 'video/webm;codecs=vp9',
+        bitsPerSecond: 1280000,
+      });
+
+      recorder.startRecording();
+      recorderRef.current = recorder;
+      setIsRecording(true);
+
+      toast({
+        title: "Enregistrement démarré",
+        description: "La session est en cours d'enregistrement."
+      });
+
+      // Gérer l'arrêt si l'utilisateur arrête le partage d'écran via le navigateur
+      stream.getVideoTracks()[0].onended = () => {
+        if (isRecording) stopRecording();
+      };
+
+    } catch (e: any) {
+      console.error("Recording error:", e);
+      toast({
+        variant: "destructive",
+        title: "Erreur d'enregistrement",
+        description: "Impossible de démarrer l'enregistrement : " + e.message
+      });
+    }
+  };
+
+  const stopRecording = async () => {
+    if (!recorderRef.current) return;
+
+    return new Promise<void>((resolve) => {
+      recorderRef.current?.stopRecording(async () => {
+        const blob = recorderRef.current?.getBlob();
+        if (blob) {
+          try {
+            toast({
+              title: "Traitement de l'enregistrement",
+              description: "Téléchargement vers Cloudflare R2 en cours..."
+            });
+
+            const fileName = `recordings/${roomId}_${Date.now()}.webm`;
+            const publicUrl = await uploadToR2(blob, fileName);
+
+            // Mettre à jour la réunion avec l'URL de l'enregistrement
+            await supabase
+              .from('video_meetings')
+              .update({ recording_url: publicUrl })
+              .eq('id', roomId);
+
+            toast({
+              title: "Enregistrement sauvegardé",
+              description: "La vidéo est disponible dans l'historique."
+            });
+          } catch (e: any) {
+            console.error("Upload error:", e);
+            toast({
+              variant: "destructive",
+              title: "Erreur de sauvegarde",
+              description: "L'enregistrement n'a pas pu être sauvegardé sur R2."
+            });
+          }
+        }
+
+        // Nettoyage
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(track => track.stop());
+        }
+        setIsRecording(false);
+        recorderRef.current = null;
+        resolve();
+      });
+    });
   };
 
   if (error) {
@@ -126,9 +231,27 @@ export default function MeetingRoom({ roomId, onLeave, isAdmin }: Props) {
           chatMessageFormatter={formatChatMessageLinks}
         />
         
-        {/* Bouton spécial pour l'admin pour clore la session en base de données */}
+        {/* Contrôles d'enregistrement pour l'admin */}
         {isAdmin && (
-          <div className="absolute top-4 right-20 z-50">
+          <div className="absolute top-4 right-4 z-50 flex gap-2">
+            {!isRecording ? (
+              <button
+                onClick={startRecording}
+                className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-md text-sm font-bold shadow-lg transition-colors backdrop-blur-md border border-white/10"
+              >
+                <Circle className="w-4 h-4 text-red-500 fill-red-500" />
+                Enregistrer
+              </button>
+            ) : (
+              <button
+                onClick={stopRecording}
+                className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md text-sm font-bold shadow-lg transition-colors"
+              >
+                <StopCircle className="w-4 h-4 animate-pulse" />
+                Arrêter
+              </button>
+            )}
+
             <button
               onClick={handleMeetingEnd}
               className="px-4 py-2 bg-destructive text-white rounded-md text-sm font-bold shadow-lg hover:bg-destructive/90 transition-colors"

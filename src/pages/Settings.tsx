@@ -5,8 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User, Lock, Bell, ClipboardList, Loader2, Camera } from "lucide-react";
+import { User, Lock, Bell, ClipboardList, Loader2 } from "lucide-react";
 import { useToast } from '@/components/ui/use-toast';
 import { useSupabase, UserSettings as UserSettingsType } from '../hooks/useSupabase';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -16,18 +15,13 @@ import { ProjectStructureTab } from "@/components/settings/ProjectStructureTab";
 
 const Settings: React.FC = () => {
   const { toast } = useToast();
-  const { getUserSettings, updateUserSettings, updateUserPassword, uploadFile, getFileUrl } = useSupabase();
+  const { getUserSettings, updateUserSettings, updateUserPassword } = useSupabase();
   const { setTheme } = useTheme();
   const { user: currentUser } = useAuth();
   const [user, setUser] = useState<{ email: string, role: string, id: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [userSettings, setUserSettings] = useState<UserSettingsType | null>(null);
-  
-  // États pour l'upload de photo de profil
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   
   const [tenantId, setTenantId] = useState<string | null>(null);
 
@@ -81,11 +75,6 @@ const Settings: React.FC = () => {
               bio: settings.bio || ""
             });
             
-            // Charger l'avatar existant
-            if (settings.avatar_url) {
-              setAvatarPreview(settings.avatar_url);
-            }
-            
             setNotifications(settings.notifications);
           }
         }
@@ -114,71 +103,6 @@ const Settings: React.FC = () => {
       .then(({ data }) => { if (data?.tenant_id) setTenantId(data.tenant_id); });
   }, [currentUser?.id]);
 
-  // Gérer la sélection de fichier avatar
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      // Vérifier le type de fichier
-      const validImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-      if (!validImageTypes.includes(file.type)) {
-        toast({
-          title: "Erreur",
-          description: "Veuillez sélectionner un fichier image (JPG, PNG, GIF, WEBP)",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Vérifier la taille du fichier (2MB max)
-      if (file.size > 2 * 1024 * 1024) {
-        toast({
-          title: "Erreur",
-          description: "L'image ne doit pas dépasser 2MB",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      setAvatarFile(file);
-      
-      // Créer une prévisualisation
-      const objectUrl = URL.createObjectURL(file);
-      setAvatarPreview(objectUrl);
-    }
-  };
-
-  // Uploader l'avatar
-  const uploadAvatar = async (): Promise<string | null> => {
-    if (!avatarFile || !user?.id) return null;
-
-    setUploadingAvatar(true);
-    try {
-      const fileExt = avatarFile.name.split('.').pop();
-      const fileName = `${user.id}_${Date.now()}.${fileExt}`;
-
-      // Upload du fichier directement (le bucket doit être créé au préalable via SQL)
-      const uploadResult = await uploadFile('avatars', fileName, avatarFile);
-      
-      if (uploadResult.error) {
-        throw uploadResult.error;
-      }
-
-      // Obtenir l'URL publique
-      const publicUrl = await getFileUrl('avatars', fileName);
-      
-      return publicUrl;
-    } catch (error) {
-      toast({
-        title: "Erreur",
-        description: `Impossible d'uploader la photo de profil: ${error.message || 'Erreur inconnue'}`,
-        variant: "destructive",
-      });
-      return null;
-    } finally {
-      setUploadingAvatar(false);
-    }
-  };
-
   // Mettre à jour le profil
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -186,23 +110,12 @@ const Settings: React.FC = () => {
     
     setSaving(true);
     try {
-      let avatarUrl = userSettings?.avatar_url;
-
-      // Uploader la nouvelle photo si elle a été sélectionnée
-      if (avatarFile) {
-        const uploadedUrl = await uploadAvatar();
-        if (uploadedUrl) {
-          avatarUrl = uploadedUrl;
-        }
-      }
-
       // Mettre à jour les paramètres dans Supabase
       await updateUserSettings(user.id, {
         first_name: profileForm.firstName,
         last_name: profileForm.lastName,
         phone: profileForm.phone,
-        bio: profileForm.bio,
-        avatar_url: avatarUrl
+        bio: profileForm.bio
       });
       
       // Mettre à jour le state local
@@ -212,13 +125,9 @@ const Settings: React.FC = () => {
           first_name: profileForm.firstName,
           last_name: profileForm.lastName,
           phone: profileForm.phone,
-          bio: profileForm.bio,
-          avatar_url: avatarUrl
+          bio: profileForm.bio
         });
       }
-
-      // Réinitialiser le fichier sélectionné
-      setAvatarFile(null);
 
       toast({
         title: "Succès",
@@ -354,100 +263,65 @@ const Settings: React.FC = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleProfileSubmit} className="space-y-4">
-                <div className="flex flex-col sm:flex-row gap-6">
-                  <div className="flex-shrink-0 flex flex-col items-center space-y-2">
-                    <div className="relative">
-                      <Avatar className="w-24 h-24">
-                        <AvatarImage src={avatarPreview || ""} />
-                        <AvatarFallback className="text-xl bg-aps-navy text-white">
-                          {profileForm.firstName.charAt(0)}{profileForm.lastName.charAt(0)}
-                        </AvatarFallback>
-                      </Avatar>
-                      {uploadingAvatar && (
-                        <div className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center">
-                          <Loader2 className="h-6 w-6 text-white animate-spin" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex flex-col items-center space-y-1">
-                      <input
-                        type="file"
-                        id="avatar-upload"
-                        accept="image/*"
-                        onChange={handleAvatarChange}
-                        className="hidden"
+              <form onSubmit={handleProfileSubmit} className="space-y-5">
+                <div className="grid gap-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="firstName">Prénom</Label>
+                      <Input 
+                        id="firstName"
+                        value={profileForm.firstName} 
+                        onChange={e => setProfileForm(p => ({ ...p, firstName: e.target.value }))} 
                       />
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        type="button"
-                        onClick={() => document.getElementById('avatar-upload')?.click()}
-                        disabled={uploadingAvatar}
-                        className="flex items-center gap-2"
-                      >
-                        <Camera className="h-4 w-4" />
-                        {avatarFile ? 'Changer' : 'Ajouter une photo'}
-                      </Button>
-                      {avatarFile && (
-                        <p className="text-xs text-gray-500">
-                          {avatarFile.name}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex-1 grid gap-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="firstName">Prénom</Label>
-                        <Input 
-                          id="firstName"
-                          value={profileForm.firstName}
-                          onChange={(e) => setProfileForm({...profileForm, firstName: e.target.value})}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="lastName">Nom</Label>
-                        <Input 
-                          id="lastName"
-                          value={profileForm.lastName}
-                          onChange={(e) => setProfileForm({...profileForm, lastName: e.target.value})}
-                        />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="email">Email</Label>
-                        <Input 
-                          id="email" 
-                          type="email"
-                          value={profileForm.email}
-                          readOnly
-                          disabled
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="phone">Téléphone</Label>
-                        <Input 
-                          id="phone"
-                          value={profileForm.phone}
-                          onChange={(e) => setProfileForm({...profileForm, phone: e.target.value})}
-                        />
-                      </div>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="bio">Bio</Label>
+                      <Label htmlFor="lastName">Nom</Label>
                       <Input 
-                        id="bio"
-                        value={profileForm.bio}
-                        onChange={(e) => setProfileForm({...profileForm, bio: e.target.value})}
+                        id="lastName"
+                        value={profileForm.lastName} 
+                        onChange={e => setProfileForm(p => ({ ...p, lastName: e.target.value }))} 
                       />
                     </div>
                   </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email</Label>
+                      <Input 
+                        id="email"
+                        value={profileForm.email} 
+                        disabled 
+                        className="bg-gray-50"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Téléphone</Label>
+                      <Input 
+                        id="phone"
+                        value={profileForm.phone} 
+                        onChange={e => setProfileForm(p => ({ ...p, phone: e.target.value }))} 
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="bio">Bio</Label>
+                    <Input 
+                      id="bio"
+                      value={profileForm.bio} 
+                      onChange={e => setProfileForm(p => ({ ...p, bio: e.target.value }))} 
+                    />
+                  </div>
                 </div>
-                <div className="flex justify-end">
+                
+                <div className="flex justify-end pt-4">
                   <Button type="submit" disabled={saving}>
-                    {saving ? 'Enregistrement...' : 'Enregistrer'}
+                    {saving ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Enregistrement...
+                      </>
+                    ) : 'Enregistrer les modifications'}
                   </Button>
                 </div>
               </form>

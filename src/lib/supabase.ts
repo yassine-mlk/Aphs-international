@@ -14,16 +14,16 @@ declare global {
   }
 }
 
-// Configuration avec priorité aux variables globales
+// Configuration avec priorité aux variables d'environnement
 export const getConfigValue = (key: string, defaultValue: string = '') => {
-  // Priorité 1: Variables globales (config.js)
-  if (typeof window !== 'undefined' && window.VIDEO_CONFERENCE_CONFIG?.[key]) {
-    return window.VIDEO_CONFERENCE_CONFIG[key];
-  }
-  
-  // Priorité 2: Variables d'environnement Vite
+  // Priorité 1: Variables d'environnement Vite
   if (import.meta.env && import.meta.env[key]) {
     return import.meta.env[key];
+  }
+  
+  // Priorité 2: Variables globales (fallback historique)
+  if (typeof window !== 'undefined' && window.VIDEO_CONFERENCE_CONFIG?.[key]) {
+    return window.VIDEO_CONFERENCE_CONFIG[key];
   }
   
   // Priorité 3: Valeur par défaut
@@ -32,80 +32,40 @@ export const getConfigValue = (key: string, defaultValue: string = '') => {
 
 // Fonction pour initialiser Supabase
 const initializeSupabase = () => {
-  // Attendre que la configuration soit disponible
-  let attempts = 0;
-  const maxAttempts = 10;
-  
-  const tryInitialize = () => {
-    attempts++;
-    
-    // URL de Supabase et clé anonyme avec fallback
-    const supabaseUrl = getConfigValue('VITE_SUPABASE_URL', 'https://vcxcxhgmpcgdjabuxcuv.supabase.co');
-    const supabaseAnonKey = getConfigValue('VITE_SUPABASE_ANON_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZjeGN4aGdtcGNnZGphYnV4Y3V2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYyODYwNzksImV4cCI6MjA2MTg2MjA3OX0.L34j4DHHeYN2KzF1DXIN3IqtjMve88EooQVcihuTM1c');
+  // URL de Supabase et clé anonyme depuis les variables d'environnement
+  const supabaseUrl = getConfigValue('VITE_SUPABASE_URL');
+  const supabaseAnonKey = getConfigValue('VITE_SUPABASE_ANON_KEY');
 
-console.log('Supabase Config:', {
-      supabaseUrl,
-      supabaseAnonKey: supabaseAnonKey ? '✅ Disponible' : '❌ Manquante',
-      globalConfigAvailable: !!(typeof window !== 'undefined' && window.VIDEO_CONFERENCE_CONFIG)
-    });
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.error('Configuration Supabase manquante dans .env');
+    return null;
+  }
 
-    if (!supabaseUrl || !supabaseAnonKey) {
-      if (attempts < maxAttempts) {
-        setTimeout(tryInitialize, 500);
-        return null;
-      } else {
-        return null;
-      }
-    }
-
-    // Client Supabase standard pour les opérations côté client
-    const client = createClient(supabaseUrl, supabaseAnonKey, {
-      realtime: {
-        params: {
-          eventsPerSecond: 10,
-        },
+  // Client Supabase standard pour les opérations côté client
+  const client = createClient(supabaseUrl, supabaseAnonKey, {
+    realtime: {
+      params: {
+        eventsPerSecond: 10,
       },
-    });
+    },
+  });
 
-    // Client Supabase admin pour les opérations d'administration
-    const supabaseServiceKey = getConfigValue('VITE_SUPABASE_SERVICE_ROLE_KEY', '');
-    const adminClient = supabaseServiceKey ? createClient(supabaseUrl, supabaseServiceKey, {
-      realtime: {
-        params: {
-          eventsPerSecond: 10,
-        },
+  // Client Supabase admin pour les opérations d'administration
+  const supabaseServiceKey = getConfigValue('VITE_SUPABASE_SERVICE_ROLE_KEY');
+  const adminClient = supabaseServiceKey ? createClient(supabaseUrl, supabaseServiceKey, {
+    realtime: {
+      params: {
+        eventsPerSecond: 10,
       },
-    }) : null;
+    },
+  }) : null;
 
-    if (!supabaseServiceKey) {
-    }
-
-    return { client, adminClient };
-  };
-
-  return tryInitialize();
+  return { client, adminClient };
 };
 
-// Initialisation immédiate ou différée
-let supabaseInstance: any = null;
-let supabaseAdminInstance: any = null;
-
-// Essayer l'initialisation immédiate
+// Initialisation immédiate
 const result = initializeSupabase();
-if (result) {
-  supabaseInstance = result.client;
-  supabaseAdminInstance = result.adminClient;
-} else {
-  // Si l'initialisation échoue, essayer plus tard
-  setTimeout(() => {
-    const delayedResult = initializeSupabase();
-    if (delayedResult) {
-      supabaseInstance = delayedResult.client;
-      supabaseAdminInstance = delayedResult.adminClient;
-    }
-  }, 1000);
-}
 
-// Export des clients
-export const supabase = supabaseInstance;
-export const supabaseAdmin = supabaseAdminInstance; 
+// Export des instances (peuvent être null si la config est absente au démarrage)
+export const supabase = result?.client;
+export const supabaseAdmin = result?.adminClient;
