@@ -15,14 +15,14 @@ declare global {
 }
 
 // Configuration avec priorité aux variables globales
-const getConfigValue = (key: string, defaultValue: string = '') => {
+export const getConfigValue = (key: string, defaultValue: string = '') => {
   // Priorité 1: Variables globales (config.js)
   if (typeof window !== 'undefined' && window.VIDEO_CONFERENCE_CONFIG?.[key]) {
     return window.VIDEO_CONFERENCE_CONFIG[key];
   }
   
   // Priorité 2: Variables d'environnement Vite
-  if (import.meta.env?.[key]) {
+  if (import.meta.env && import.meta.env[key]) {
     return import.meta.env[key];
   }
   
