@@ -23,9 +23,6 @@ const ProfilePage: React.FC = () => {
   const [profileForm, setProfileForm] = useState({ firstName: '', lastName: '', email: '', phone: '', bio: '' });
   const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
 
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [userSettingsState, setUserSettingsState] = useState<any>(null);
 
   const [tenantPlan, setTenantPlan] = useState<{
@@ -52,7 +49,6 @@ const ProfilePage: React.FC = () => {
             phone: settings.phone || '',
             bio: settings.bio || ''
           });
-          if (settings.avatar_url) setAvatarPreview(settings.avatar_url);
         }
       } finally {
         setLoading(false);
@@ -82,57 +78,18 @@ const ProfilePage: React.FC = () => {
     loadTenantPlan();
   }, [isAdmin, currentUser?.id]);
 
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-      toast({ title: "Erreur", description: "Format accepté : JPG, PNG, WEBP", variant: "destructive" });
-      return;
-    }
-    if (file.size > 2 * 1024 * 1024) {
-      toast({ title: "Erreur", description: "Image max 2 MB", variant: "destructive" });
-      return;
-    }
-    setAvatarFile(file);
-    setAvatarPreview(URL.createObjectURL(file));
-  };
-
-  const uploadAvatar = async (): Promise<string | null> => {
-    if (!avatarFile || !currentUser?.id) return null;
-    setUploadingAvatar(true);
-    try {
-      const ext = avatarFile.name.split('.').pop();
-      const fileName = `${currentUser.id}_${Date.now()}.${ext}`;
-      const result = await uploadFile('avatars', fileName, avatarFile);
-      if (result.error) throw result.error;
-      return await getFileUrl('avatars', fileName);
-    } catch (err: any) {
-      toast({ title: "Erreur upload", description: err.message, variant: "destructive" });
-      return null;
-    } finally {
-      setUploadingAvatar(false);
-    }
-  };
 
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser?.id) return;
     setSaving(true);
     try {
-      let avatarUrl = userSettingsState?.avatar_url;
-      if (avatarFile) {
-        const uploaded = await uploadAvatar();
-        if (uploaded) avatarUrl = uploaded;
-      }
       await updateUserSettings(currentUser.id, {
         first_name: profileForm.firstName,
         last_name: profileForm.lastName,
         phone: profileForm.phone,
-        bio: profileForm.bio,
-        avatar_url: avatarUrl
+        bio: profileForm.bio
       });
-      setUserSettingsState((prev: any) => ({ ...prev, avatar_url: avatarUrl }));
-      setAvatarFile(null);
       toast({ title: "Succès", description: "Profil mis à jour" });
     } finally {
       setSaving(false);
@@ -187,54 +144,30 @@ const ProfilePage: React.FC = () => {
             </CardHeader>
             <CardContent>
               <form onSubmit={handleProfileSubmit} className="space-y-5">
-                <div className="flex flex-col sm:flex-row gap-6">
-                  <div className="flex-shrink-0 flex flex-col items-center gap-2">
-                    <div className="relative">
-                      <Avatar className="w-24 h-24">
-                        <AvatarImage src={avatarPreview || ''} />
-                        <AvatarFallback className="text-xl bg-aps-navy text-white">
-                          {profileForm.firstName.charAt(0)}{profileForm.lastName.charAt(0)}
-                        </AvatarFallback>
-                      </Avatar>
-                      {uploadingAvatar && (
-                        <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
-                          <Loader2 className="h-6 w-6 text-white animate-spin" />
-                        </div>
-                      )}
-                    </div>
-                    <input type="file" id="avatar-upload" accept="image/*" onChange={handleAvatarChange} className="hidden" />
-                    <Button variant="outline" size="sm" type="button" onClick={() => document.getElementById('avatar-upload')?.click()} disabled={uploadingAvatar}>
-                      <Camera className="h-4 w-4 mr-1" />
-                      {avatarFile ? 'Changer' : 'Ajouter une photo'}
-                    </Button>
-                    {avatarFile && <p className="text-xs text-muted-foreground">{avatarFile.name}</p>}
-                  </div>
-
-                  <div className="flex-1 grid gap-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Prénom</Label>
-                        <Input value={profileForm.firstName} onChange={e => setProfileForm(p => ({ ...p, firstName: e.target.value }))} />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Nom</Label>
-                        <Input value={profileForm.lastName} onChange={e => setProfileForm(p => ({ ...p, lastName: e.target.value }))} />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Email</Label>
-                        <Input value={profileForm.email} readOnly disabled />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Téléphone</Label>
-                        <Input value={profileForm.phone} onChange={e => setProfileForm(p => ({ ...p, phone: e.target.value }))} />
-                      </div>
+                <div className="grid gap-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Prénom</Label>
+                      <Input value={profileForm.firstName} onChange={e => setProfileForm(p => ({ ...p, firstName: e.target.value }))} />
                     </div>
                     <div className="space-y-2">
-                      <Label>Bio</Label>
-                      <Input value={profileForm.bio} onChange={e => setProfileForm(p => ({ ...p, bio: e.target.value }))} />
+                      <Label>Nom</Label>
+                      <Input value={profileForm.lastName} onChange={e => setProfileForm(p => ({ ...p, lastName: e.target.value }))} />
                     </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Email</Label>
+                      <Input value={profileForm.email} readOnly disabled />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Téléphone</Label>
+                      <Input value={profileForm.phone} onChange={e => setProfileForm(p => ({ ...p, phone: e.target.value }))} />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Bio</Label>
+                    <Input value={profileForm.bio} onChange={e => setProfileForm(p => ({ ...p, bio: e.target.value }))} />
                   </div>
                 </div>
 

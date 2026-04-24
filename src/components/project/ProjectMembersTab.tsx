@@ -57,7 +57,6 @@ interface Intervenant {
   email: string;
   company?: string;
   specialty?: string;
-  avatar_url?: string;
 }
 
 interface TaskAssignment {
@@ -74,7 +73,6 @@ interface ProjectMembersTabProps {
     first_name: string;
     last_name: string;
     company?: string;
-    avatar_url?: string;
   }>;
   tenantId?: string | null;
   onMembersChanged: () => void;
@@ -402,9 +400,6 @@ const ProjectMembersTab: React.FC<ProjectMembersTabProps> = ({
                 >
                   <div className="flex items-center gap-4">
                     <Avatar className="h-12 w-12">
-                      {info?.avatar_url && (
-                        <AvatarImage src={info.avatar_url} alt={fullName} />
-                      )}
                       <AvatarFallback className="bg-blue-100 text-blue-700">
                         {initials}
                       </AvatarFallback>
@@ -521,7 +516,6 @@ const ProjectMembersTab: React.FC<ProjectMembersTabProps> = ({
                         }}
                       />
                       <Avatar className="h-8 w-8">
-                        <AvatarImage src={intervenant.avatar_url} />
                         <AvatarFallback className="text-xs bg-blue-100 text-blue-700">
                           {getInitials(intervenant.first_name, intervenant.last_name)}
                         </AvatarFallback>
@@ -667,9 +661,6 @@ const ProjectMembersTab: React.FC<ProjectMembersTabProps> = ({
                 return (
                   <div className="flex items-start gap-4">
                     <Avatar className="h-16 w-16">
-                      {info?.avatar_url && (
-                        <AvatarImage src={info.avatar_url} alt={fullName} />
-                      )}
                       <AvatarFallback className="bg-blue-100 text-blue-700 text-lg">
                         {getInitials(info?.first_name, info?.last_name)}
                       </AvatarFallback>

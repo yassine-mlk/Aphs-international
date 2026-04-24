@@ -241,39 +241,132 @@ export function useVideoConference() {
   };
 
   const joinMeeting = async (meetingId: string) => {
-    if (!user?.id || !tenant?.id) return;
+    if (!user?.id || !effectiveTenantId) return;
 
     try {
-      // Mettre à jour le statut du participant
-      const { error } = await supabase
+      const now = new Date().toISOString();
+      
+      // 1. Mettre à jour le statut du participant
+      const { data, error } = await supabase
         .from('video_meeting_participants')
         .update({ 
-          status: 'present', 
-          joined_at: new Date().toISOString() 
+          status: 'present',
+          joined_at: now
         })
         .eq('meeting_id', meetingId)
         .eq('user_id', user.id);
 
-      if (error) {
-        // Si le participant n'existe pas encore (invité tardif ou admin), on l'ajoute
+      if (error) throw error;
+
+      // 2. Si c'est le premier à rejoindre et que le statut est 'scheduled', passer à 'active'
+      const { data: meeting } = await supabase
+        .from('video_meetings')
+        .select('status, started_at')
+        .eq('id', meetingId)
+        .single();
+      
+      if (meeting && meeting.status === 'scheduled') {
         await supabase
-          .from('video_meeting_participants')
-          .insert([{
-            meeting_id: meetingId,
-            user_id: user.id,
-            tenant_id: tenant.id,
-            role: 'participant',
-            status: 'present',
-            joined_at: new Date().toISOString()
-          }]);
+          .from('video_meetings')
+          .update({ 
+            status: 'active',
+            started_at: meeting.started_at || now 
+          })
+          .eq('id', meetingId);
       }
-    } catch (error) {
-      console.error("Erreur lors de la participation:", error);
+      
+      fetchMeetings();
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Erreur lors de la connexion",
+        description: error.message
+      });
     }
   };
 
+  const leaveMeeting = async (meetingId: string) => {
+    if (!user?.id) return;
+
+    try {
+      const now = new Date().toISOString();
+      
+      // 1. Mettre à jour le statut du participant (temps de sortie)
+      const { data: participant, error: partError } = await supabase
+        .from('video_meeting_participants')
+        .update({ 
+          status: 'absent',
+          left_at: now
+        })
+        .eq('meeting_id', meetingId)
+        .eq('user_id', user.id)
+        .select()
+        .single();
+
+      if (partError) throw partError;
+
+      // 2. Calculer la durée de la réunion si elle est terminée
+      const { data: meeting, error: meetingError } = await supabase
+        .from('video_meetings')
+        .select('started_at, ended_at, status')
+        .eq('id', meetingId)
+        .single();
+
+      if (!meetingError && meeting && meeting.status === 'completed' && meeting.started_at) {
+        const start = new Date(meeting.started_at).getTime();
+        const end = meeting.ended_at ? new Date(meeting.ended_at).getTime() : new Date().getTime();
+        const durationMinutes = Math.round((end - start) / (1000 * 60));
+
+        await supabase
+          .from('video_meetings')
+          .update({ duration_minutes: durationMinutes })
+          .eq('id', meetingId);
+      }
+
+      toast({
+        title: "Vous avez quitté la réunion"
+      });
+      
+      fetchMeetings();
+    } catch (error: any) {
+      console.error("Error leaving meeting:", error);
+    }
+  };
+
+  const getMeetingDetails = async (meetingId: string) => {
+     try {
+       // 1. Récupérer les participants
+       const { data: participants, error: pError } = await supabase
+         .from('video_meeting_participants')
+         .select('*')
+         .eq('meeting_id', meetingId);
+
+       if (pError) throw pError;
+       if (!participants || participants.length === 0) return [];
+
+       // 2. Récupérer les profils associés
+       const userIds = participants.map(p => p.user_id);
+       const { data: profiles, error: profError } = await supabase
+         .from('profiles')
+         .select('user_id, first_name, last_name, company')
+         .in('user_id', userIds);
+
+       if (profError) throw profError;
+
+       // 3. Fusionner les données
+       return participants.map(p => ({
+         ...p,
+         profile: profiles?.find(prof => prof.user_id === p.user_id) || null
+       }));
+     } catch (error) {
+       console.error("Erreur lors de la récupération des détails:", error);
+       return [];
+     }
+   };
+
   const updateMeetingParticipants = async (meetingId: string, participantIds: string[]) => {
-    if (!tenant?.id) return;
+    const tId = effectiveTenantId || tenant?.id;
+    if (!tId) return;
 
     try {
       // 1. Supprimer les anciens participants (sauf le créateur s'il est modérateur)
@@ -287,7 +380,7 @@ export function useVideoConference() {
       const participantsData = participantIds.map(userId => ({
         meeting_id: meetingId,
         user_id: userId,
-        tenant_id: tenant.id,
+        tenant_id: tId,
         role: 'participant',
         status: 'invited'
       }));
@@ -334,6 +427,8 @@ export function useVideoConference() {
     createMeeting,
     updateMeetingStatus,
     joinMeeting,
+    leaveMeeting,
+    getMeetingDetails,
     updateMeetingParticipants,
     getMeetingParticipants
   };

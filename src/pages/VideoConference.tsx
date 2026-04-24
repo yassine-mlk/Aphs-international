@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTenant } from '@/contexts/TenantContext';
 import { useVideoConference } from '@/hooks/useVideoConference';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Video, Calendar, Clock, Plus, Users, Check, X, Play, MessageSquare, Save } from 'lucide-react';
+import { Video, Calendar, Clock, Plus, Users, Check, X, Play, MessageSquare } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -22,16 +21,17 @@ import { Profile } from '@/types/profile';
 import MeetingRoom from '@/components/MeetingRoom';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
+// Composant principal pour la gestion des visioconférences
 export default function VideoConference() {
   const { user } = useAuth();
-  const { tenant } = useTenant();
   const { 
     meetings, 
-    loading, 
     effectiveTenantId,
+    fetchMeetings,
     createMeeting, 
     updateMeetingStatus, 
     joinMeeting,
+    getMeetingDetails,
     updateMeetingParticipants,
     getMeetingParticipants
   } = useVideoConference();
@@ -44,6 +44,10 @@ export default function VideoConference() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [activeMeetingId, setActiveMeetingId] = useState<string | null>(null);
   const [editingMeeting, setEditingMeeting] = useState<any>(null);
+  const [selectedMeetingDetails, setSelectedMeetingDetails] = useState<any[] | null>(null);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  const [isJoining, setIsJoining] = useState(false);
+  const [meetingToJoin, setMeetingToJoin] = useState<string | null>(null);
   const [newMeeting, setNewMeeting] = useState({
     title: '',
     description: '',
@@ -68,7 +72,8 @@ export default function VideoConference() {
     // Vérifier si une réunion était en cours (après rafraîchissement)
     const savedMeetingId = localStorage.getItem('active_video_meeting');
     if (savedMeetingId) {
-      setActiveMeetingId(savedMeetingId);
+      setMeetingToJoin(savedMeetingId);
+      setIsJoining(true);
     }
 
     fetchProfiles();
@@ -130,6 +135,12 @@ export default function VideoConference() {
     setEditingMeeting(null);
   };
 
+  const handleViewDetails = async (meetingId: string) => {
+    const details = await getMeetingDetails(meetingId);
+    setSelectedMeetingDetails(details);
+    setIsDetailsDialogOpen(true);
+  };
+
   const handleWorkGroupSelect = (workgroupId: string) => {
     const wg = workGroups.find(g => g.id === workgroupId);
     if (wg) {
@@ -139,6 +150,26 @@ export default function VideoConference() {
         participants: Array.from(new Set([...prev.participants, ...memberIds]))
       }));
     }
+  };
+
+  const confirmJoin = (meetingId: string) => {
+    setMeetingToJoin(meetingId);
+    setIsJoining(true);
+  };
+
+  const startMeeting = () => {
+    if (meetingToJoin) {
+      setActiveMeetingId(meetingToJoin);
+      localStorage.setItem('active_video_meeting', meetingToJoin);
+      setIsJoining(false);
+      setMeetingToJoin(null);
+    }
+  };
+
+  const cancelJoin = () => {
+    setIsJoining(false);
+    setMeetingToJoin(null);
+    localStorage.removeItem('active_video_meeting');
   };
 
   if (activeMeetingId) {
@@ -175,6 +206,22 @@ export default function VideoConference() {
           </p>
         </div>
         <div className="flex gap-2">
+          {/* Dialog de confirmation de rejoint */}
+          <Dialog open={isJoining} onOpenChange={setIsJoining}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Rejoindre la visioconférence</DialogTitle>
+                <DialogDescription>
+                  Une réunion est en cours ou vous avez été invité. Souhaitez-vous la rejoindre maintenant ?
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex justify-end gap-2 mt-4">
+                <Button variant="outline" onClick={cancelJoin}>Plus tard</Button>
+                <Button onClick={startMeeting}>Rejoindre maintenant</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2">
@@ -280,33 +327,32 @@ export default function VideoConference() {
 
         <TabsContent value="upcoming" className="mt-6">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {upcomingMeetings.length === 0 ? (
-              <Card className="col-span-full py-12">
-                <CardContent className="flex flex-col items-center justify-center text-center space-y-4">
-                  <Video className="h-12 w-12 text-muted-foreground" />
-                  <div className="space-y-2">
-                    <h3 className="text-xl font-semibold">Aucune réunion prévue</h3>
-                    <p className="text-muted-foreground">Vous n'avez pas de visioconférences programmées pour le moment.</p>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              upcomingMeetings.map((meeting) => (
-                <MeetingCard 
-                  key={meeting.id} 
-                  meeting={meeting} 
-                  isAdmin={isAdmin}
-                  onJoin={() => {
-                    joinMeeting(meeting.id);
-                    setActiveMeetingId(meeting.id);
-                    localStorage.setItem('active_video_meeting', meeting.id);
-                  }}
-                  onComplete={() => updateMeetingStatus(meeting.id, 'completed')}
-                  onCancel={() => updateMeetingStatus(meeting.id, 'cancelled')}
-                  onEdit={() => handleEditMeeting(meeting)}
-                />
-              ))
-            )}
+                {upcomingMeetings.length === 0 ? (
+                  <Card className="col-span-full py-12">
+                    <CardContent className="flex flex-col items-center justify-center text-center space-y-4">
+                      <Video className="h-12 w-12 text-muted-foreground" />
+                      <div className="space-y-2">
+                        <h3 className="text-xl font-semibold">Aucune réunion prévue</h3>
+                        <p className="text-muted-foreground">Vous n'avez pas de visioconférences programmées pour le moment.</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  upcomingMeetings.map((meeting) => (
+                    <MeetingCard 
+                      key={meeting.id} 
+                      meeting={meeting} 
+                      isAdmin={isAdmin}
+                      onJoin={() => {
+                        joinMeeting(meeting.id);
+                        confirmJoin(meeting.id);
+                      }}
+                      onComplete={() => updateMeetingStatus(meeting.id, 'completed')}
+                      onCancel={() => updateMeetingStatus(meeting.id, 'cancelled')}
+                      onEdit={() => handleEditMeeting(meeting)}
+                    />
+                  ))
+                )}
           </div>
         </TabsContent>
 
@@ -434,7 +480,7 @@ export default function VideoConference() {
               <CardDescription>Consultez les enregistrements et les statistiques des réunions passées.</CardDescription>
             </CardHeader>
             <CardContent>
-              <ScrollArea className="h-[400px]">
+              <ScrollArea className="h-[500px]">
                 <div className="space-y-4">
                   {pastMeetings.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
@@ -442,24 +488,27 @@ export default function VideoConference() {
                     </div>
                   ) : (
                     pastMeetings.map((meeting) => (
-                      <div key={meeting.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div key={meeting.id} className="flex flex-col md:flex-row md:items-center justify-between p-4 border rounded-lg gap-4">
                         <div className="space-y-1">
-                          <p className="font-medium">{meeting.title}</p>
-                          <div className="flex items-center text-xs text-muted-foreground gap-4">
-                            <span className="flex items-center"><Calendar className="mr-1 h-3 w-3" /> {format(new Date(meeting.created_at), 'dd/MM/yyyy')}</span>
-                            <span className="flex items-center"><Clock className="mr-1 h-3 w-3" /> {meeting.duration_minutes || 0} min</span>
-                            <span className="flex items-center"><Users className="mr-1 h-3 w-3" /> Suivi présence...</span>
+                          <p className="font-bold text-lg">{meeting.title}</p>
+                          <div className="flex flex-wrap items-center text-xs text-muted-foreground gap-x-4 gap-y-2">
+                            <span className="flex items-center bg-secondary/50 px-2 py-1 rounded"><Calendar className="mr-1 h-3 w-3" /> {format(new Date(meeting.created_at), 'dd MMMM yyyy', { locale: fr })}</span>
+                            <span className="flex items-center bg-secondary/50 px-2 py-1 rounded"><Clock className="mr-1 h-3 w-3" /> {meeting.duration_minutes || 0} min</span>
+                            <span className="flex items-center bg-secondary/50 px-2 py-1 rounded"><Users className="mr-1 h-3 w-3" /> Présences enregistrées</span>
                           </div>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2">
+                          <Button size="sm" variant="outline" onClick={() => handleViewDetails(meeting.id)}>
+                            <Users className="h-4 w-4 mr-1" /> Détails Présence
+                          </Button>
                           {meeting.recording_url && (
-                            <Button size="sm" variant="ghost" asChild>
+                            <Button size="sm" variant="secondary" asChild className="bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200">
                               <a href={meeting.recording_url} target="_blank" rel="noopener noreferrer">
-                                <Save className="h-4 w-4 mr-1" /> Enregistrement
+                                <Play className="h-4 w-4 mr-1" /> Voir l'enregistrement
                               </a>
                             </Button>
                           )}
-                          <Badge variant={meeting.status === 'completed' ? 'secondary' : 'destructive'}>
+                          <Badge variant={meeting.status === 'completed' ? 'secondary' : 'destructive'} className="h-8">
                             {meeting.status === 'completed' ? 'Terminée' : 'Annulée'}
                           </Badge>
                         </div>
@@ -472,6 +521,62 @@ export default function VideoConference() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Dialog Détails de présence */}
+      <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Détails de la réunion</DialogTitle>
+            <DialogDescription>
+              Pointage des participants (Entrée / Sortie)
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[400px] mt-4">
+            <div className="space-y-4">
+              {selectedMeetingDetails?.length === 0 ? (
+                <p className="text-center py-4 text-muted-foreground">Aucun participant enregistré.</p>
+              ) : (
+                <div className="border rounded-md">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="p-2 text-left font-medium">Participant</th>
+                        <th className="p-2 text-left font-medium">Arrivée</th>
+                        <th className="p-2 text-left font-medium">Départ</th>
+                        <th className="p-2 text-left font-medium">Statut</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedMeetingDetails?.map((p: any) => (
+                        <tr key={p.id} className="border-b last:border-0">
+                          <td className="p-2">
+                            <div className="font-medium">{p.profile?.first_name} {p.profile?.last_name}</div>
+                            <div className="text-xs text-muted-foreground">{p.profile?.company}</div>
+                          </td>
+                          <td className="p-2">
+                            {p.joined_at ? format(new Date(p.joined_at), 'HH:mm:ss') : '-'}
+                          </td>
+                          <td className="p-2">
+                            {p.left_at ? format(new Date(p.left_at), 'HH:mm:ss') : (p.status === 'present' ? 'En cours' : '-')}
+                          </td>
+                          <td className="p-2">
+                            <Badge variant={p.status === 'present' ? 'default' : (p.status === 'invited' ? 'outline' : 'secondary')}>
+                              {p.status === 'present' ? 'Présent' : (p.status === 'invited' ? 'Invité' : p.status)}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+          <div className="flex justify-end mt-4">
+            <Button onClick={() => setIsDetailsDialogOpen(false)}>Fermer</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

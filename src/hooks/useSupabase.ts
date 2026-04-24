@@ -307,7 +307,6 @@ export function useSupabase() {
         first_name: data.first_name || '',
         last_name: data.last_name || '',
         phone: data.phone || '',
-        avatar_url: data.avatar_url || '',
         bio: data.bio || '',
         theme: data.theme || 'light',
         language: data.language || 'fr',
@@ -344,7 +343,6 @@ export function useSupabase() {
       if (settings.first_name !== undefined) profileUpdate.first_name = settings.first_name;
       if (settings.last_name !== undefined) profileUpdate.last_name = settings.last_name;
       if (settings.phone !== undefined) profileUpdate.phone = settings.phone;
-      if (settings.avatar_url !== undefined) profileUpdate.avatar_url = settings.avatar_url;
       if (settings.bio !== undefined) profileUpdate.bio = settings.bio;
       if (settings.specialty !== undefined) profileUpdate.specialty = settings.specialty;
       if (settings.theme !== undefined) profileUpdate.theme = settings.theme as any; // Cast for compatibility
@@ -375,7 +373,6 @@ export function useSupabase() {
         first_name: data.first_name || '',
         last_name: data.last_name || '',
         phone: data.phone || '',
-        avatar_url: data.avatar_url || '',
         bio: data.bio || '',
         theme: data.theme || 'light',
         language: settings.language || 'fr',
