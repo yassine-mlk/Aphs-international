@@ -34,33 +34,29 @@ const DocumentDetail = lazy(() => import("@/pages/DocumentDetail"));
 const WorkflowTemplates = lazy(() => import("@/pages/WorkflowTemplates"));
 const PublicSignature = lazy(() => import("@/pages/PublicSignature"));
 const VideoConference = lazy(() => import("@/pages/VideoConference"));
-
-const getRoleFromStorage = () => {
-  try { return JSON.parse(localStorage.getItem('user') || '{}').role as string | undefined; } catch { return undefined; }
-};
+const SupportPage = lazy(() => import("@/pages/Support"));
+const AdminSupport = lazy(() => import("@/pages/AdminSupport"));
 
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user } = useAuth();
-  const role = getRoleFromStorage();
+  const { user, role } = useAuth();
   const hasAdminRole = role === 'admin' || user?.email === 'admin@aps.com';
   return hasAdminRole ? <>{children}</> : <Navigate to="/dashboard" replace />;
 };
 
 const IntervenantRoute = ({ children }: { children: React.ReactNode }) => {
-  const role = getRoleFromStorage();
+  const { role } = useAuth();
   const hasAccess = role === 'intervenant' || role === 'maitre_ouvrage';
   return hasAccess ? <>{children}</> : <Navigate to="/dashboard" replace />;
 };
 
 const MaitreOuvrageRoute = ({ children }: { children: React.ReactNode }) => {
-  const role = getRoleFromStorage();
+  const { role } = useAuth();
   const hasAccess = role === 'maitre_ouvrage';
   return hasAccess ? <>{children}</> : <Navigate to="/dashboard" replace />;
 };
 
 const SharedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user } = useAuth();
-  const role = getRoleFromStorage();
+  const { user, role } = useAuth();
   const hasAccess = role === 'admin' || role === 'intervenant' || role === 'maitre_ouvrage' || user?.email === 'admin@aps.com';
   return hasAccess ? <>{children}</> : <Navigate to="/dashboard" replace />;
 };
@@ -162,6 +158,16 @@ export const AppRoutes = () => {
           <SharedRoute>
             <Suspense fallback={<LoadingSpinner />}><Settings /></Suspense>
           </SharedRoute>
+        } />
+        <Route path="support" element={
+          <SharedRoute>
+            <Suspense fallback={<LoadingSpinner />}><SupportPage /></Suspense>
+          </SharedRoute>
+        } />
+        <Route path="admin-support" element={
+          <SuperAdminRoute>
+            <Suspense fallback={<LoadingSpinner />}><AdminSupport /></Suspense>
+          </SuperAdminRoute>
         } />
         <Route path="profil" element={
           <SharedRoute>

@@ -25,24 +25,6 @@ const queryClient = new QueryClient({
 const App = () => {
   const { user } = useAuth();
 
-  // Sync role dans localStorage quand l'user est disponible
-  useEffect(() => {
-    if (!user) return;
-    import('@/lib/supabase').then(({ supabase }) => {
-      supabase
-        .from('profiles')
-        .select('role')
-        .eq('user_id', user.id)
-        .maybeSingle()
-        .then(({ data }) => {
-          if (data?.role) {
-            const stored = JSON.parse(localStorage.getItem('user') || '{}');
-            localStorage.setItem('user', JSON.stringify({ ...stored, role: data.role }));
-          }
-        });
-    });
-  }, [user?.id]);
-
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>

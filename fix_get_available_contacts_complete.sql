@@ -14,7 +14,8 @@ RETURNS TABLE (
     contact_first_name TEXT,
     contact_last_name TEXT,
     contact_role TEXT,
-    contact_specialty TEXT
+    contact_specialty TEXT,
+    contact_avatar_url TEXT
 ) AS $$
 BEGIN
     RETURN QUERY
@@ -24,7 +25,8 @@ BEGIN
         p.first_name::TEXT as contact_first_name,
         p.last_name::TEXT as contact_last_name,
         p.role::TEXT as contact_role,
-        COALESCE(p.specialty, '')::TEXT as contact_specialty
+        COALESCE(p.specialty, '')::TEXT as contact_specialty,
+        p.avatar_url::TEXT as contact_avatar_url
     FROM profiles p
     INNER JOIN workgroup_members wm1 ON p.user_id = wm1.user_id
     INNER JOIN workgroup_members wm2 ON wm1.workgroup_id = wm2.workgroup_id

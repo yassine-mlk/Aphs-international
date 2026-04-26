@@ -1,17 +1,11 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { 
-  Search, 
   Send, 
   MoreVertical, 
-  Phone, 
-  Video as VideoIcon,
-  Edit, 
   MessageSquare, 
-  Clock, 
   Users,
   RefreshCw,
   Plus,
@@ -20,7 +14,6 @@ import {
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from "@/components/ui/use-toast";
 import { useSupabase } from '../hooks/useSupabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -31,25 +24,13 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
-  DialogClose
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-
-// Constante pour l'intervalle de polling en millisecondes (30 secondes)
-const POLLING_INTERVAL = 30000;
 
 const Messages: React.FC = () => {
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, role } = useAuth();
     const { supabase } = useSupabase();
     const { 
     getAvailableContacts, 
@@ -62,7 +43,6 @@ const Messages: React.FC = () => {
   // Variables de recherche et onglets supprimées pour simplifier l'interface
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(true);
-  const [users, setUsers] = useState<User[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
@@ -79,10 +59,11 @@ const Messages: React.FC = () => {
   const [deleteConversationDialogOpen, setDeleteConversationDialogOpen] = useState(false);
   const [conversationToDelete, setConversationToDelete] = useState<Conversation | null>(null);
   
+  // État pour les détails du groupe
+  const [showGroupDetails, setShowGroupDetails] = useState(false);
+  
   // Vérifier si l'utilisateur est admin
-  const isAdmin = user?.user_metadata?.role === 'admin' ||
-                 user?.email === 'admin@aps.com' ||
-                 JSON.parse(localStorage.getItem('user') || '{}')?.role === 'admin';
+  const isAdmin = role === 'admin' || user?.email === 'admin@aps.com';
 
   // Charger les messages d'une conversation
   const loadMessages = useCallback(async (conversationId: string, showLoading = true) => {
@@ -93,7 +74,7 @@ const Messages: React.FC = () => {
 
       setMessagesError(false);
 
-      const fetchedMessages = await getMessages(conversationId);
+      const fetchedMessages = await getMessages(conversationId, !showLoading);
       setMessages(fetchedMessages);
 
       setTimeout(() => {
@@ -126,15 +107,10 @@ const Messages: React.FC = () => {
 
       setConversationsError(false);
 
-      const fetchedConversations = await getConversations();
-      setConversations(prev => {
-        if (fetchedConversations.length > 0 && !activeConversation && showLoading) {
-          return fetchedConversations;
-        }
-        return fetchedConversations;
-      });
+      const fetchedConversations = await getConversations(!showLoading);
+      setConversations(fetchedConversations);
 
-      if (fetchedConversations.length > 0 && !activeConversation && showLoading) {
+      if (fetchedConversations.length > 0 && !activeConversationRef.current && showLoading) {
         setActiveConversation(fetchedConversations[0]);
         await loadMessages(fetchedConversations[0].id, showLoading);
       }
@@ -152,16 +128,16 @@ const Messages: React.FC = () => {
         setLoading(false);
       }
     }
-  }, [getConversations, activeConversation, loadMessages, toast]);
+  }, [getConversations, loadMessages, toast]);
 
   // Charger les contacts disponibles (déclaré après loadConversations)
   const loadContacts = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
     try {
       if (!silent) setLoading(true);
       setContactsError(false);
-      const fetchedContacts = await getAvailableContacts();
+      const fetchedContacts = await getAvailableContacts(silent);
       setContacts(fetchedContacts);
-      await loadConversations(silent);
+      await loadConversations(!silent);
     } catch (error) {
       setContactsError(true);
       if (!silent) {
@@ -180,7 +156,8 @@ const Messages: React.FC = () => {
     if (user?.id) {
       loadContacts();
     }
-  }, [user?.id, loadContacts]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   // Stabilisation des callbacks et state pour realtime sans re-subscription
   const loadConversationsRef = useRef(loadConversations);
@@ -238,11 +215,12 @@ const Messages: React.FC = () => {
 
     const pollForUpdates = async () => {
       try {
-        await loadConversations(false);
-        if (activeConversation) {
-          await loadMessages(activeConversation.id, false);
+        await loadConversationsRef.current(false);
+        if (activeConversationRef.current) {
+          await loadMessagesRef.current(activeConversationRef.current.id, false);
         }
       } catch (error) {
+        // Silently ignore polling errors
       }
     };
 
@@ -251,7 +229,7 @@ const Messages: React.FC = () => {
     return () => {
       clearInterval(pollingInterval);
     };
-  }, [user?.id, activeConversation?.id, loadConversations, loadMessages]);
+  }, [user?.id]);
 
   // Fonction manuelle pour rafraîchir les données (erreur uniquement)
   const handleRefresh = async () => {
@@ -375,7 +353,7 @@ const Messages: React.FC = () => {
   };
 
   // Obtenir les initiales d'un utilisateur ou contact pour l'avatar
-  const getInitials = (person: User | Contact) => {
+  const getInitials = (person: User | Contact | undefined) => {
     if (!person) return "?";
     
     // Essayer d'utiliser first_name et last_name
@@ -410,12 +388,12 @@ const Messages: React.FC = () => {
   };
   
   // Changer de conversation active
-  const changeActiveConversation = async (conversation: Conversation) => {
+  const changeActiveConversation = useCallback(async (conversation: Conversation) => {
     setActiveConversation(conversation);
+    setShowGroupDetails(false); // Reset group details view when switching
     await loadMessages(conversation.id);
     
-    // Marquer comme lu (la fonction loadMessages s'en charge déjà via Supabase)
-    // Mais mettons quand même à jour l'état local
+    // Marquer comme lu
     setConversations(prev => 
       prev.map(conv => 
         conv.id === conversation.id 
@@ -423,7 +401,7 @@ const Messages: React.FC = () => {
           : conv
       )
     );
-  };
+  }, [loadMessages]);
   
   // Toutes les conversations sont affichées (pas de filtrage)
   const filteredConversations = conversations;
@@ -543,10 +521,10 @@ const Messages: React.FC = () => {
                 >
                   <div className="flex gap-3">
                     <div className="relative">
-                      <Avatar className="h-12 w-12">
-                        <AvatarImage src={conv.type === 'direct' && conv.participants.length > 0 ? conv.participants[0].avatar : ''} />
+                      <Avatar className="h-12 w-12 border border-gray-100 shadow-sm">
+                        <AvatarImage src={conv.type === 'direct' && conv.participants.length > 0 ? conv.participants[0].avatar_url : ''} />
                         <AvatarFallback className={`
-                          ${conv.type === 'group' ? 'bg-aps-navy' : 'bg-aps-teal'}
+                          ${conv.type === 'group' || conv.type === 'workgroup' ? 'bg-aps-navy' : 'bg-aps-teal'}
                           text-white
                         `}>
                           {conv.type === 'direct' && conv.participants.length > 0
@@ -564,7 +542,7 @@ const Messages: React.FC = () => {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-baseline">
-                        <h3 className="font-medium truncate flex-1 min-w-0 max-w-full">
+                        <h3 className={`font-medium truncate flex-1 min-w-0 max-w-full ${conv.unreadCount > 0 ? 'text-gray-900 font-bold' : 'text-gray-700'}`}>
                           {conv.type === 'direct' && conv.participants.length > 0
                             ? formatUserName(conv.participants[0])
                             : conv.name
@@ -599,7 +577,7 @@ const Messages: React.FC = () => {
                       )}
                       
                       <div className="flex justify-between items-start mt-1">
-                        <p className="text-sm text-gray-600 truncate flex-1 min-w-0 max-w-full">
+                        <p className={`text-sm truncate flex-1 min-w-0 max-w-full ${conv.unreadCount > 0 ? 'text-aps-teal font-medium' : 'text-gray-500'}`}>
                           {conv.lastMessage ? (
                             conv.type === 'group' && conv.lastMessage.senderId !== user?.id ? (
                               <span className="truncate block max-w-full">
@@ -640,12 +618,12 @@ const Messages: React.FC = () => {
           {activeConversation ? (
             <>
               {/* En-tête de la conversation */}
-              <div className="p-4 border-b bg-white flex justify-between items-center">
+              <div className="p-4 border-b bg-white flex justify-between items-center shadow-sm z-10">
                 <div className="flex items-center space-x-3">
-                  <Avatar className="h-10 w-10">
-                    <AvatarImage src={activeConversation.type === 'direct' && activeConversation.participants.length > 0 ? activeConversation.participants[0].avatar : ''} />
+                  <Avatar className="h-10 w-10 border-2 border-gray-100">
+                    <AvatarImage src={activeConversation.type === 'direct' && activeConversation.participants.length > 0 ? activeConversation.participants[0].avatar_url : ''} />
                     <AvatarFallback className={`
-                      ${activeConversation.type === 'group' ? 'bg-aps-navy' : 'bg-aps-teal'}
+                      ${activeConversation.type === 'group' || activeConversation.type === 'workgroup' ? 'bg-aps-navy' : 'bg-aps-teal'}
                       text-white
                     `}>
                       {activeConversation.type === 'direct' && activeConversation.participants.length > 0
@@ -654,123 +632,226 @@ const Messages: React.FC = () => {
                       }
                     </AvatarFallback>
                   </Avatar>
-                  <div>
-                    <h2 className="font-semibold">
+                  <div className="cursor-pointer" onClick={() => (activeConversation.type === 'group' || activeConversation.type === 'workgroup') && setShowGroupDetails(!showGroupDetails)}>
+                    <h2 className="font-semibold text-gray-900 flex items-center gap-2">
                       {activeConversation.type === 'direct' && activeConversation.participants.length > 0
                         ? formatUserName(activeConversation.participants[0])
                         : activeConversation.name
                       }
+                      {(activeConversation.type === 'group' || activeConversation.type === 'workgroup') && (
+                        <Badge variant="outline" className="text-[10px] py-0 h-4 bg-gray-50">Groupe</Badge>
+                      )}
                     </h2>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-gray-500 flex items-center gap-1">
                       {activeConversation.type === 'direct' && activeConversation.participants.length > 0 ? (
-                        activeConversation.participants[0].status === 'online' ? 'En ligne' : 
-                        activeConversation.participants[0].status === 'away' ? 'Absent' : 'Hors ligne'
+                        <>
+                          <span className={`w-2 h-2 rounded-full ${activeConversation.participants[0].status === 'online' ? 'bg-green-500' : 'bg-gray-300'}`}></span>
+                          {activeConversation.participants[0].status === 'online' ? 'En ligne' : 'Hors ligne'}
+                        </>
                       ) : (
-                        `${activeConversation.participants.length} membres`
+                        <>
+                          <Users className="h-3 w-3" />
+                          {activeConversation.participants.length + 1} membres
+                        </>
                       )}
                     </p>
                   </div>
                 </div>
+                
+                <div className="flex items-center space-x-1">
+                  {(activeConversation.type === 'group' || activeConversation.type === 'workgroup') && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className={`h-9 w-9 p-0 ${showGroupDetails ? 'bg-gray-100 text-aps-teal' : ''}`}
+                      onClick={() => setShowGroupDetails(!showGroupDetails)}
+                      title="Détails du groupe"
+                    >
+                      <MoreVertical className="h-5 w-5" />
+                    </Button>
+                  )}
+                </div>
               </div>
               
-              {/* Corps de la conversation (messages) */}
-              <ScrollArea className="flex-1 p-4 w-full overflow-hidden">
-                {messages.length === 0 ? (
-                  <div className="flex flex-col justify-center items-center h-full p-4 text-center">
-                    <MessageSquare className="h-12 w-12 text-gray-400 mb-2" />
-                    <p className="text-gray-500">Aucun message</p>
-                    <p className="text-sm text-gray-400 mt-1">
-                      Envoyez votre premier message pour démarrer la conversation
-                    </p>
-                  </div>
-                ) : (
-                  messages.map((msg, index) => {
-                    const isMe = msg.senderId === user?.id;
-                    const showSender = index === 0 || messages[index - 1].senderId !== msg.senderId;
-                    const isDeletedUserMessage = msg.content.includes("[Message d'un utilisateur supprimé]");
-                    
-                    return (
-                      <div 
-                        key={msg.id} 
-                        className={`mb-4 flex w-full ${isMe ? 'justify-end' : 'justify-start'}`}
-                      >
-                        {!isMe && showSender && activeConversation.participants.length > 0 && (
-                          <Avatar className="h-8 w-8 mr-2 mt-1">
-                            <AvatarFallback className={`text-white text-xs ${isDeletedUserMessage ? 'bg-gray-400' : 'bg-aps-teal'}`}>
-                              {isDeletedUserMessage ? "?" : (
-                                msg.sender 
-                                ? getInitials(msg.sender)
-                                : (activeConversation.type === 'direct'
-                                  ? getInitials(activeConversation.participants[0])
-                                  : getInitials(activeConversation.participants.find(p => p.id === msg.senderId) || 
-                                    { id: '', email: '', role: '' })
-                                )
-                              )}
-                            </AvatarFallback>
-                          </Avatar>
-                        )}
-                        
-                        <div className={`max-w-[70%] min-w-0 flex-shrink-0 max-w-full ${!isMe && !showSender ? 'ml-10' : ''}`}>
-                          {!isMe && showSender && (
-                            <div className="mb-1 text-xs text-gray-500">
-                              {isDeletedUserMessage ? "Utilisateur supprimé" : (
-                                msg.sender 
-                                ? formatUserName(msg.sender)
-                                : (activeConversation.type === 'direct' && activeConversation.participants.length > 0
-                                  ? formatUserName(activeConversation.participants[0])
-                                  : formatUserName(activeConversation.participants.find(p => p.id === msg.senderId) || 
-                                    { id: '', email: '', role: '' })
-                                )
-                              )}
-                            </div>
-                          )}
+              <div className="flex-1 flex overflow-hidden relative">
+                {/* Corps de la conversation (messages) */}
+                <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${showGroupDetails ? 'mr-0 lg:mr-4' : ''}`}>
+                  <ScrollArea className="flex-1 p-4 w-full">
+                    {messages.length === 0 ? (
+                      <div className="flex flex-col justify-center items-center h-full p-4 text-center">
+                        <div className="bg-white p-6 rounded-full shadow-sm mb-4">
+                          <MessageSquare className="h-12 w-12 text-gray-300" />
+                        </div>
+                        <p className="text-gray-600 font-medium">Aucun message</p>
+                        <p className="text-sm text-gray-400 mt-1">
+                          Envoyez votre premier message pour démarrer la conversation
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {messages.map((msg, index) => {
+                          const isMe = msg.senderId === user?.id;
+                          const showSender = index === 0 || messages[index - 1].senderId !== msg.senderId;
+                          const isDeletedUserMessage = msg.content.includes("[Message d'un utilisateur supprimé]");
                           
-                          <div className="flex items-end max-w-full">
-                            <div
-                              className={`px-4 py-2 rounded-2xl max-w-full overflow-hidden ${
-                                isMe 
-                                  ? 'bg-aps-teal text-white rounded-tr-none' 
-                                  : isDeletedUserMessage
-                                    ? 'bg-gray-100 text-gray-500 italic rounded-tl-none shadow-sm'
-                                    : 'bg-white text-gray-800 rounded-tl-none shadow-sm'
-                              }`}
+                          return (
+                            <div 
+                              key={msg.id} 
+                              className={`flex w-full ${isMe ? 'justify-end' : 'justify-start'} ${showSender ? 'mt-4' : 'mt-1'}`}
                             >
-                              <p className="whitespace-pre-wrap break-words max-w-full overflow-hidden text-sm">{msg.content}</p>
+                              {!isMe && showSender && (
+                                <Avatar className="h-8 w-8 mr-2 flex-shrink-0">
+                                  <AvatarImage src={
+                                    msg.sender 
+                                    ? msg.sender.avatar_url 
+                                    : (activeConversation.type === 'direct'
+                                      ? activeConversation.participants[0].avatar_url
+                                      : activeConversation.participants.find(p => p.id === msg.senderId)?.avatar_url)
+                                  } />
+                                  <AvatarFallback className={`text-white text-xs ${isDeletedUserMessage ? 'bg-gray-400' : 'bg-aps-teal'}`}>
+                                    {isDeletedUserMessage ? "?" : (
+                                      msg.sender 
+                                      ? getInitials(msg.sender)
+                                      : (activeConversation.type === 'direct' && activeConversation.participants.length > 0
+                                        ? getInitials(activeConversation.participants[0])
+                                        : getInitials(activeConversation.participants.find(p => p.id === msg.senderId) || 
+                                          { id: '', email: '', role: '' })
+                                      )
+                                    )}
+                                  </AvatarFallback>
+                                </Avatar>
+                              )}
+                              
+                              <div className={`max-w-[75%] min-w-0 ${!isMe && !showSender ? 'ml-10' : ''}`}>
+                                {!isMe && showSender && (
+                                  <div className="mb-1 ml-1 text-[11px] font-medium text-gray-500 uppercase tracking-wider">
+                                    {isDeletedUserMessage ? "Utilisateur supprimé" : (
+                                      msg.sender 
+                                      ? formatUserName(msg.sender)
+                                      : (activeConversation.type === 'direct' && activeConversation.participants.length > 0
+                                        ? formatUserName(activeConversation.participants[0])
+                                        : formatUserName(activeConversation.participants.find(p => p.id === msg.senderId) || 
+                                          { id: '', email: '', role: '' })
+                                      )
+                                    )}
+                                  </div>
+                                )}
+                                
+                                <div className={`group relative flex items-end gap-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+                                  <div
+                                    className={`px-4 py-2.5 rounded-2xl shadow-sm text-sm break-words ${
+                                      isMe 
+                                        ? 'bg-aps-teal text-white rounded-tr-none' 
+                                        : isDeletedUserMessage
+                                          ? 'bg-gray-200 text-gray-500 italic rounded-tl-none'
+                                          : 'bg-white text-gray-800 rounded-tl-none border border-gray-100'
+                                    }`}
+                                  >
+                                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                                  </div>
+                                  
+                                  <span className="text-[10px] text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap mb-1">
+                                    {formatTimestamp(msg.timestamp)}
+                                  </span>
+                                </div>
+                              </div>
                             </div>
-                            
-                            <div className="text-xs text-gray-500 mx-2 flex-shrink-0">
-                              {formatTimestamp(msg.timestamp)}
+                          );
+                        })}
+                      </div>
+                    )}
+                    <div ref={messageEndRef} className="h-4"></div>
+                  </ScrollArea>
+
+                  {/* Pied de page (input) */}
+                  <div className="p-4 border-t bg-white">
+                    <form onSubmit={handleSendMessage} className="flex items-center gap-2 bg-gray-50 p-1.5 rounded-full border border-gray-200 focus-within:border-aps-teal focus-within:ring-1 focus-within:ring-aps-teal transition-all">
+                      <Input
+                        placeholder="Votre message..."
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        className="flex-1 border-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 h-10 px-4"
+                      />
+                      <Button 
+                        type="submit" 
+                        disabled={newMessage.trim() === "" || messagesLoading}
+                        className="rounded-full h-10 w-10 p-0 bg-aps-teal hover:bg-aps-teal/90 flex-shrink-0"
+                      >
+                        <Send className="h-4 w-4" />
+                      </Button>
+                    </form>
+                  </div>
+                </div>
+
+                {/* Panneau latéral des détails du groupe */}
+                {showGroupDetails && (activeConversation.type === 'group' || activeConversation.type === 'workgroup') && (
+                  <div className="w-80 border-l bg-white flex flex-col animate-in slide-in-from-right duration-300">
+                    <div className="p-4 border-b flex justify-between items-center">
+                      <h3 className="font-bold text-gray-900">Détails du groupe</h3>
+                      <Button variant="ghost" size="sm" onClick={() => setShowGroupDetails(false)} className="h-8 w-8 p-0">
+                        <Plus className="h-4 w-4 rotate-45" />
+                      </Button>
+                    </div>
+                    
+                    <ScrollArea className="flex-1">
+                      <div className="p-6 flex flex-col items-center text-center border-b">
+                        <Avatar className="h-20 w-20 mb-3 border-4 border-gray-50">
+                          <AvatarFallback className="bg-aps-navy text-white text-2xl">
+                            <Users className="h-10 w-10" />
+                          </AvatarFallback>
+                        </Avatar>
+                        <h4 className="font-bold text-lg text-gray-900">{activeConversation.name}</h4>
+                        <Badge variant="secondary" className="mt-1 bg-aps-navy/10 text-aps-navy border-none">
+                          {activeConversation.type === 'workgroup' ? 'Groupe de travail' : 'Groupe'}
+                        </Badge>
+                      </div>
+
+                      <div className="p-4">
+                        <div className="flex items-center justify-between mb-4">
+                          <h5 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Membres ({activeConversation.participants.length + 1})</h5>
+                        </div>
+                        
+                        <div className="space-y-4">
+                          {/* Moi-même */}
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-9 w-9 border border-gray-100">
+                              <AvatarImage src={user?.user_metadata?.avatar_url} />
+                              <AvatarFallback className="bg-aps-teal text-white text-xs">Moi</AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0 text-left">
+                              <p className="text-sm font-medium text-gray-900 truncate">Vous</p>
+                              <p className="text-xs text-gray-500 capitalize">{role || 'Utilisateur'}</p>
                             </div>
+                            <Badge variant="outline" className="text-[10px] bg-gray-50">Admin</Badge>
                           </div>
+
+                          {/* Les autres participants */}
+                          {activeConversation.participants.map((participant) => (
+                            <div key={participant.id} className="flex items-center gap-3">
+                              <Avatar className="h-9 w-9 border border-gray-100">
+                                <AvatarImage src={participant.avatar_url} />
+                                <AvatarFallback className="bg-aps-teal text-white text-xs">
+                                  {getInitials(participant)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1 min-w-0 text-left">
+                                <p className="text-sm font-medium text-gray-900 truncate">
+                                  {formatUserName(participant)}
+                                </p>
+                                <p className="text-xs text-gray-500 capitalize">{participant.role}</p>
+                              </div>
+                              {participant.status === 'online' && (
+                                <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                              )}
+                            </div>
+                          ))}
                         </div>
                       </div>
-                    );
-                  })
-                )}
-                {(isPolling || messagesLoading) && (
-                  <div className="text-center py-2">
-                    <span className="inline-flex items-center gap-1 text-xs text-gray-500">
-                      <RefreshCw className="h-3 w-3 animate-spin" />
-                      Actualisation...
-                    </span>
+
+                    </ScrollArea>
                   </div>
                 )}
-                <div ref={messageEndRef}></div>
-              </ScrollArea>
-              
-              {/* Pied de page (input) */}
-              <form onSubmit={handleSendMessage} className="p-4 border-t bg-white flex items-center gap-2">
-                <Input
-                  placeholder="Écrivez votre message..."
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  className="flex-1"
-                />
-                <Button type="submit" disabled={newMessage.trim() === "" || messagesLoading}>
-                  <Send className="h-4 w-4 mr-2" />
-                  Envoyer
-                </Button>
-              </form>
+              </div>
             </>
           ) : (
             // État vide (aucune conversation sélectionnée)

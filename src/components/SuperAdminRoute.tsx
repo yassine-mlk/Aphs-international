@@ -3,7 +3,11 @@ import { Navigate, Outlet } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
-const SuperAdminRoute: React.FC = () => {
+interface SuperAdminRouteProps {
+  children?: React.ReactNode;
+}
+
+const SuperAdminRoute: React.FC<SuperAdminRouteProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
@@ -48,7 +52,7 @@ const SuperAdminRoute: React.FC = () => {
     return <Navigate to="/super-admin-login" replace />;
   }
 
-  return <Outlet />;
+  return children ? <>{children}</> : <Outlet />;
 };
 
 export default SuperAdminRoute;

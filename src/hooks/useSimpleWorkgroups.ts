@@ -127,6 +127,22 @@ export const useSimpleWorkgroups = () => {
   const deleteGroup = async (groupId: string) => {
     setError(null);
     try {
+      // 1. D'abord supprimer la conversation associée au workgroup si elle existe
+      const { data: convData } = await supabase
+        .from('conversations')
+        .select('id')
+        .eq('workgroup_id', groupId)
+        .eq('type', 'workgroup')
+        .maybeSingle();
+
+      if (convData) {
+        await supabase
+          .from('conversations')
+          .delete()
+          .eq('id', convData.id);
+      }
+
+      // 2. Supprimer le workgroup
       const { error } = await supabase
         .from('workgroups')
         .delete()

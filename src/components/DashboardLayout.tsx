@@ -25,7 +25,8 @@ import {
   BarChart3,
   FileText,
   FileCheck,
-  Video
+  Video,
+  LifeBuoy
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -48,6 +49,7 @@ type DashboardUser = {
   email: string;
   role: string;
   id?: string;
+  is_super_admin?: boolean;
 }
 
 // Traductions françaises intégrées
@@ -62,6 +64,8 @@ const dashboardTranslations = {
     workgroups: "Groupes de travail",
     messages: "Messages",
     videoconference: "Visioconférence",
+    support: "Support",
+    adminSupport: "Gestion Support",
     settings: "Paramètres",
     tasks: "Tâches",
     logout: "Déconnexion",
@@ -77,62 +81,16 @@ const DashboardLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const [user, setUser] = useState<DashboardUser | null>(null);
-  const { user: authUser, signOut } = useAuth();
-  const [loading, setLoading] = useState(true);
+  const { user: authUser, role, isSuperAdmin: authIsSuperAdmin, loading: authLoading, signOut } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const { count: pendingDocsCount } = usePendingDocuments();
 
+  // Rediriger si non connecté après la fin du chargement
   useEffect(() => {
-    // Fonction pour charger les données utilisateur
-    const loadUser = () => {
-      // D'abord, vérifier si l'utilisateur est déjà défini
-      if (user) {
-        setLoading(false);
-        return;
-      }
-      
-      // Récupérer le rôle depuis profiles (source de vérité)
-      if (authUser) {
-        supabase
-          .from('profiles')
-          .select('role')
-          .eq('user_id', authUser.id)
-          .maybeSingle()
-          .then(({ data }) => {
-            const role = data?.role || authUser.user_metadata?.role || 'intervenant';
-            const userData = { email: authUser.email || '', role, id: authUser.id };
-            localStorage.setItem('user', JSON.stringify(userData));
-            setUser(userData);
-            setLoading(false);
-          });
-        return;
-      }
-      
-      // Fallback localStorage
-      const storedUser = localStorage.getItem('user');
-      if (storedUser) {
-        try {
-          const parsedUser = JSON.parse(storedUser);
-          if (parsedUser.email === 'admin@aps.com') {
-            parsedUser.role = 'admin';
-            localStorage.setItem('user', JSON.stringify(parsedUser));
-          }
-          setUser(parsedUser);
-          setLoading(false);
-        } catch (error) {
-          localStorage.removeItem('user');
-          navigate('/login');
-        }
-      } else {
-        // Si aucun utilisateur n'est trouvé, rediriger vers login
-        navigate('/login');
-      }
-    };
-    
-    // Charger l'utilisateur
-    loadUser();
-  }, [user, authUser, navigate]);
+    if (!authLoading && !authUser) {
+      navigate('/login');
+    }
+  }, [authUser, authLoading, navigate]);
 
   const handleLogout = async () => {
     // Éviter les déconnexions multiples
@@ -140,31 +98,13 @@ const DashboardLayout: React.FC = () => {
     setIsLoggingOut(true);
 
     try {
-      // Utiliser la fonction signOut de AuthContext pour déconnecter de Supabase
       await signOut();
-      
-      // Nettoyage supplémentaire pour garantir la déconnexion
-      localStorage.removeItem('user');
-      sessionStorage.clear();
-      
-      // Réinitialiser l'état local
-      setUser(null);
-      
-      // Notifier l'utilisateur
-      toast({
-        title: "Déconnexion réussie",
-        description: "À bientôt !",
-        duration: 3000,
-      });
-      
-      // Introduire un bref délai avant la navigation pour éviter les problèmes
-      setTimeout(() => {
-        navigate('/login', { replace: true });
-      }, 100);
+      navigate('/login');
     } catch (error) {
+      console.error("Logout error:", error);
       toast({
-        title: "Erreur de déconnexion",
-        description: "Un problème est survenu pendant la déconnexion.",
+        title: "Erreur",
+        description: "Une erreur est survenue lors de la déconnexion",
         variant: "destructive",
       });
     } finally {
@@ -172,26 +112,23 @@ const DashboardLayout: React.FC = () => {
     }
   };
 
-
-  // Si l'utilisateur n'est pas défini ou si on est en cours de chargement, on affiche un loader
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="w-16 h-16 border-4 border-t-blue-600 border-r-transparent border-b-blue-600 border-l-transparent rounded-full animate-spin"></div>
-      </div>
-    );
+  if (authLoading) {
+    return <LoadingSpinner />;
   }
 
-  // Make sure we correctly identify admin role
   // Check both the role and directly for admin email
-  const isAdmin = user?.role === 'admin' || user?.email === 'admin@aps.com';
-  const isMaitreOuvrage = user?.role === 'maitre_ouvrage';
+  const isAdmin = role === 'admin' || authUser?.email === 'admin@aps.com';
+  const isSuperAdmin = authIsSuperAdmin;
+  const isMaitreOuvrage = role === 'maitre_ouvrage';
   
   const t = dashboardTranslations.fr;
 
   // Fonction pour vérifier si un lien est actif
   const isLinkActive = (path: string) => {
-    return location.pathname === path;
+    if (path === '/dashboard') {
+      return location.pathname === '/dashboard';
+    }
+    return location.pathname.startsWith(path);
   };
 
   const textDirection = 'ltr';
@@ -219,6 +156,21 @@ const DashboardLayout: React.FC = () => {
               </SidebarMenuItem>
               
               {/* Projet Menu Item - Admin Only */}
+              {isSuperAdmin && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip={t.adminSupport}
+                    isActive={isLinkActive("/dashboard/admin-support")}
+                  >
+                    <Link to="/dashboard/admin-support">
+                      <LifeBuoy className="text-blue-500" />
+                      <span>{t.adminSupport}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+
               {isAdmin && (
                 <SidebarMenuItem>
                   <SidebarMenuButton
@@ -237,7 +189,7 @@ const DashboardLayout: React.FC = () => {
 
               
               {/* Projets Menu Item - Intervenant and Maitre d'ouvrage access */}
-              {(!isAdmin && (user?.role === 'intervenant' || user?.role === 'maitre_ouvrage')) && (
+              {(!isAdmin && (role === 'intervenant' || role === 'maitre_ouvrage')) && (
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
@@ -314,6 +266,21 @@ const DashboardLayout: React.FC = () => {
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+
+              {!isSuperAdmin && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip={t.support}
+                    isActive={isLinkActive("/dashboard/support")}
+                  >
+                    <Link to="/dashboard/support">
+                      <LifeBuoy />
+                      <span>{t.support}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
               
               {isAdmin && (
                 <SidebarMenuItem>
@@ -377,12 +344,12 @@ const DashboardLayout: React.FC = () => {
             <div className="mt-4 text-xs text-center space-y-1">
               <div className="flex items-center justify-center gap-1 text-gray-500">
                 <User size={12} />
-                <p>{user?.email}</p>
+                <p>{authUser?.email}</p>
               </div>
               <div className="px-3 py-2 text-center">
                 <div className="text-sm text-gray-600">
                   {isAdmin ? t.administrator : 
-                   user?.role === 'maitre_ouvrage' ? t.masterOwner : 
+                   role === 'maitre_ouvrage' ? t.masterOwner : 
                    t.specialist}
                 </div>
               </div>

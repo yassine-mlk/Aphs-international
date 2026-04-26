@@ -8,12 +8,10 @@ export interface WorkGroupWithMessaging {
   id: string;
   name: string;
   description?: string;
-  status: 'active' | 'inactive';
   created_by: string;
   created_at: string;
   updated_at: string;
   members: WorkGroupMember[];
-  projects: WorkGroupProject[]; // Gardé pour compatibilité mais sera vide
   conversation?: WorkGroupConversation;
   unreadCount?: number;
 }
@@ -34,13 +32,6 @@ export interface WorkGroupMember {
     specialty?: string;
     company?: string;
   };
-}
-
-export interface WorkGroupProject {
-  id: string;
-  workgroup_id: string;
-  project_name: string;
-  created_at: string;
 }
 
 export interface WorkGroupConversation {
@@ -174,24 +165,25 @@ export function useWorkGroups() {
       if (!user?.id) return [];
 
       // Récupérer le tenant_id de l'utilisateur connecté
-      const { data: myProfile } = await supabase
+      const { data: myProfile, error: profileError } = await supabase
         .from('profiles')
         .select('tenant_id')
         .eq('user_id', user.id)
         .maybeSingle();
 
-      let query = supabase
+      if (profileError || !myProfile?.tenant_id) {
+        console.error("Impossible de récupérer le tenant_id de l'utilisateur");
+        return [];
+      }
+
+      // Récupérer uniquement les membres du même tenant, hors admins (comme dans Intervenants.tsx)
+      const { data: profilesData, error } = await supabase
         .from('profiles')
         .select('user_id, email, first_name, last_name, role, specialty, status')
+        .eq('tenant_id', myProfile.tenant_id)
         .eq('status', 'active')
         .neq('role', 'admin')
         .neq('is_super_admin', true);
-
-      if (myProfile?.tenant_id) {
-        query = query.eq('tenant_id', myProfile.tenant_id);
-      }
-
-      const { data: profilesData, error } = await query;
 
       if (error) {
         throw error;
@@ -213,6 +205,7 @@ export function useWorkGroups() {
       return availableUsers;
       
     } catch (error) {
+      console.error('Error in getAvailableUsers:', error);
       return [];
     }
   }, [supabase, user?.id]);
@@ -221,9 +214,9 @@ export function useWorkGroups() {
   const createWorkGroup = useCallback(async (
     name: string,
     description?: string,
-    status: 'active' | 'inactive' = 'active'
-  ): Promise<boolean> => {
-    if (!user) return false;
+    initialMemberIds: string[] = []
+  ): Promise<string | null> => {
+    if (!user) return null;
     
     try {
       setLoading(true);
@@ -232,12 +225,25 @@ export function useWorkGroups() {
         .rpc('create_workgroup_simple', {
           p_name: name,
           p_description: description || '',
-          p_creator_id: user.id,
-          p_status: status
+          p_creator_id: user.id
         });
 
       if (workgroupError) {
         throw workgroupError;
+      }
+
+      // Si des membres initiaux sont fournis, les ajouter
+      if (initialMemberIds.length > 0) {
+        const { error: membersError } = await supabase
+          .rpc('add_members_to_workgroup', {
+            p_workgroup_id: workgroupId,
+            p_user_ids: initialMemberIds
+          });
+        
+        if (membersError) {
+          console.error("Erreur lors de l'ajout des membres initiaux:", membersError);
+          // On ne bloque pas la création du groupe si l'ajout des membres échoue
+        }
       }
 
       toast({
@@ -246,14 +252,14 @@ export function useWorkGroups() {
       });
 
       await fetchWorkGroups();
-      return true;
+      return workgroupId;
     } catch (error) {
       toast({
         title: "Erreur",
         description: "Impossible de créer le groupe de travail",
         variant: "destructive",
       });
-      return false;
+      return null;
     } finally {
       setLoading(false);
     }
@@ -302,6 +308,23 @@ export function useWorkGroups() {
     try {
       setLoading(true);
 
+      // 1. D'abord supprimer la conversation associée au workgroup si elle existe
+      // pour s'assurer que les messages sont nettoyés (même si le cascade DB devrait le faire)
+      const { data: convData } = await supabase
+        .from('conversations')
+        .select('id')
+        .eq('workgroup_id', workgroupId)
+        .eq('type', 'workgroup')
+        .maybeSingle();
+
+      if (convData) {
+        await supabase
+          .from('conversations')
+          .delete()
+          .eq('id', convData.id);
+      }
+
+      // 2. Supprimer le workgroup (ceci devrait aussi supprimer les membres via cascade)
       const { error } = await supabase
         .from('workgroups')
         .delete()
@@ -311,7 +334,7 @@ export function useWorkGroups() {
 
       toast({
         title: "Succès",
-        description: "Groupe de travail supprimé",
+        description: "Groupe de travail supprimé ainsi que sa conversation",
       });
 
       await fetchWorkGroups();

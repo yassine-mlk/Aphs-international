@@ -30,12 +30,11 @@ export interface RecentActivity {
 }
 
 export function useRecentActivities() {
+  const { user, role } = useAuth();
+  const { toast } = useToast();
   const [activities, setActivities] = useState<RecentActivity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
-  const { user } = useAuth();
-  const { toast } = useToast();
 
   // Fonction pour formater les messages avec paramètres
   const formatMessage = useCallback((template: string, params: Record<string, any> = {}): string => {
@@ -206,25 +205,6 @@ export function useRecentActivities() {
     }
   }, [enrichNotifications]);
 
-  // Fonction pour déterminer si l'utilisateur est admin
-  const isAdmin = useCallback(async () => {
-    if (!user?.id) return false;
-
-    try {
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (error && error.code !== 'PGRST116') {
-      }
-      return profile?.role === 'admin';
-    } catch (error) {
-      return false;
-    }
-  }, [user?.id]);
-
   // Fonction principale pour récupérer les activités
   const fetchActivities = useCallback(async () => {
     if (!user?.id) return;
@@ -233,7 +213,7 @@ export function useRecentActivities() {
     setError(null);
 
     try {
-      const adminStatus = await isAdmin();
+      const adminStatus = role === 'admin' || user?.email === 'admin@aps.com';
       
       if (adminStatus) {
         await fetchAdminActivities();
@@ -250,7 +230,7 @@ export function useRecentActivities() {
     } finally {
       setLoading(false);
     }
-  }, [user?.id, isAdmin, fetchAdminActivities, fetchIntervenantActivities, toast]);
+  }, [user?.id, role, fetchAdminActivities, fetchIntervenantActivities, toast]);
 
   // Fonction pour marquer une activité comme lue
   const markAsRead = useCallback(async (activityId: string) => {

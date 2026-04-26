@@ -15,7 +15,7 @@ const Login: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const { signIn, user, loading: authLoading } = useAuth();
+  const { signIn, user, role, isSuperAdmin, loading: authLoading } = useAuth();
     const redirectedRef = useRef(false);
   
   // Redirect if user is already logged in
@@ -26,16 +26,14 @@ const Login: React.FC = () => {
     if (user) {
       redirectedRef.current = true;
       
-      // Check if super admin for redirect
-      const userData = JSON.parse(localStorage.getItem('user') || '{}');
-      const redirectPath = userData?.isSuperAdmin ? '/super-admin' : '/dashboard';
+      const redirectPath = isSuperAdmin ? '/super-admin' : '/dashboard';
       
       // Utiliser un délai minimal pour éviter le throttling
       setTimeout(() => {
         navigate(redirectPath, { replace: true });
       }, 100);
     }
-  }, [user, navigate, authLoading]);
+  }, [user, isSuperAdmin, navigate, authLoading]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,68 +44,28 @@ const Login: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const { user, error } = await signIn(email, password);
+      const { user: signInUser, error } = await signIn(email, password);
       
       if (error) {
         throw error;
       }
       
-      if (user) {
-        // Store user data in localStorage including the role
-        
-        // Récupérer le rôle depuis la table profiles (source de vérité pour SaaS)
-        
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('role, is_super_admin, user_id, email')
-          .eq('user_id', user.id)
-          .maybeSingle();
-        
-        
-        if (profileError && profileError.code !== 'PGRST116') {
-        }
-        
-        let userRole = profileData?.role || user.user_metadata?.role || 'intervenant';
-        
-        // Force admin role for admin@aps.com
-        if (email === 'admin@aps.com') {
-          userRole = 'admin';
-        }
-        
-        const userData = {
-          email: user.email,
-          role: userRole,
-          isSuperAdmin: profileData?.is_super_admin || false,
-          id: user.id
-        };
-        
-        
-        // Définir le localStorage avant la navigation
-        localStorage.setItem('user', JSON.stringify(userData));
-        
+      if (signInUser) {
         toast({
           title: "Connexion réussie",
           description: "Bienvenue sur votre espace",
           duration: 3000,
         });
         
-        // Marquer comme redirigé avant de naviguer
-        redirectedRef.current = true;
-        
-        // Redirection selon le rôle
-        const redirectPath = userData.isSuperAdmin ? '/super-admin' : '/dashboard';
-        
-        // Utiliser replace: true et un délai minimal pour éviter le throttling
-        setTimeout(() => {
-          navigate(redirectPath, { replace: true });
-        }, 100);
+        // La redirection sera gérée par l'useEffect suite au changement d'état d'auth
       } else {
         throw new Error("Connexion échouée");
       }
     } catch (error) {
+      console.error("Login error:", error);
       toast({
         title: "Erreur de connexion",
-        description: "Email ou mot de passe incorrect",
+        description: error instanceof Error ? error.message : "Email ou mot de passe incorrect",
         variant: "destructive",
         duration: 3000,
       });

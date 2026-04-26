@@ -26,6 +26,7 @@ import ProjectInfoTab from '@/components/project/ProjectInfoTab';
 import ProjectStructureTab from '@/components/project/ProjectStructureTab';
 import ProjectMembersTab from '@/components/project/ProjectMembersTab';
 import { useSupabase } from '@/hooks/useSupabase';
+import { useAuth } from '@/contexts/AuthContext';
 import { useProjectStructure } from '@/hooks/useProjectStructure';
 
 interface Project {
@@ -75,6 +76,7 @@ const ProjectDetails: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
+  const { user, role } = useAuth();
   const { supabase } = useSupabase();
 
   const [project, setProject] = useState<Project | null>(null);
@@ -93,7 +95,7 @@ const ProjectDetails: React.FC = () => {
 
   const [tenantId, setTenantId] = useState<string | null>(null);
 
-  const isAdmin = true;
+  const isAdmin = role === 'admin' || user?.email === 'admin@aps.com';
 
   const {
     customProjectStructure,

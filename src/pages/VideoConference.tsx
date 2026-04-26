@@ -23,7 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 // Composant principal pour la gestion des visioconférences
 export default function VideoConference() {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const { 
     meetings, 
     effectiveTenantId,
@@ -39,7 +39,6 @@ export default function VideoConference() {
   const { workGroups, fetchWorkGroups } = useWorkGroups();
   
   const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [currentUserProfile, setCurrentUserProfile] = useState<Profile | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [activeMeetingId, setActiveMeetingId] = useState<string | null>(null);
@@ -63,12 +62,6 @@ export default function VideoConference() {
       setProfiles(data);
     };
 
-    const fetchCurrentUserProfile = async () => {
-      if (!user?.id) return;
-      const profile = await getProfileById(user.id);
-      setCurrentUserProfile(profile);
-    };
-
     // Vérifier si une réunion était en cours (après rafraîchissement)
     const savedMeetingId = localStorage.getItem('active_video_meeting');
     if (savedMeetingId) {
@@ -77,11 +70,10 @@ export default function VideoConference() {
     }
 
     fetchProfiles();
-    fetchCurrentUserProfile();
     fetchWorkGroups();
-  }, [getProfiles, getProfileById, fetchWorkGroups, effectiveTenantId, user?.id]);
+  }, [getProfiles, fetchWorkGroups, effectiveTenantId, user?.id]);
 
-  const isAdmin = currentUserProfile?.role === 'admin' || user?.email === 'admin@aps.com';
+  const isAdmin = role === 'admin' || user?.email === 'admin@aps.com';
 
   const handleCreateMeeting = async (status: 'scheduled' | 'active' | 'pending' = 'scheduled') => {
     console.log("handleCreateMeeting triggered with status:", status);

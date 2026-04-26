@@ -28,7 +28,7 @@ export interface User {
   role: string;
   specialty?: string;
   status?: 'online' | 'offline' | 'away';
-  avatar?: string;
+  avatar_url?: string;
 }
 
 export interface Conversation {
@@ -59,6 +59,7 @@ export interface Contact {
   last_name?: string;
   role: string;
   specialty?: string;
+  avatar_url?: string;
 }
 
 export function useMessages() {
@@ -69,64 +70,63 @@ export function useMessages() {
   const { notifyNewMessage } = useNotificationTriggers();
 
   // Récupérer les contacts disponibles pour l'utilisateur
-  // SYSTÈME SIMPLE : Filtre selon les contacts autorisés dans la table user_contacts
-  const getAvailableContacts = useCallback(async (): Promise<Contact[]> => {
+  const getAvailableContacts = useCallback(async (silent = false): Promise<Contact[]> => {
     if (!user) return [];
     
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       
       
-      // Récupérer les IDs des contacts autorisés
-      const { data: authorizedContactIds, error: contactsError } = await supabase
-        .rpc('get_user_contacts', { user_id: user.id });
+      // Récupérer les contacts autorisés (ceux dans ses workgroups ou autorisés par admin)
+      const { data: contacts, error: contactsError } = await supabase
+        .rpc('get_available_contacts', { p_user_id: user.id });
       
       if (contactsError) {
-        // En cas d'erreur, retourner tous les contacts (mode fallback)
-        const userData = await getUsers();
-        if (userData && userData.users) {
-          return userData.users
-            .filter((authUser: any) => authUser.id !== user.id)
-            .map((authUser: any) => ({
-              id: authUser.id,
-              email: authUser.email || '',
-              first_name: authUser.user_metadata?.first_name || '',
-              last_name: authUser.user_metadata?.last_name || '',
-              role: authUser.user_metadata?.role || 'intervenant',
-              specialty: authUser.user_metadata?.specialty || ''
+        console.error("Erreur RPC get_available_contacts:", contactsError);
+        // Fallback sécurisé: uniquement les utilisateurs du même tenant
+        const { data: myProfile } = await supabase
+          .from('profiles')
+          .select('tenant_id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+          
+        if (myProfile?.tenant_id) {
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('user_id, email, first_name, last_name, role, specialty, avatar_url')
+            .eq('tenant_id', myProfile.tenant_id)
+            .neq('user_id', user.id)
+            .eq('status', 'active');
+            
+          if (profiles) {
+            return profiles.map(p => ({
+              id: p.user_id,
+              email: p.email || '',
+              first_name: p.first_name || '',
+              last_name: p.last_name || '',
+              role: p.role || 'intervenant',
+              specialty: p.specialty || '',
+              avatar_url: p.avatar_url
             }));
+          }
         }
         return [];
       }
       
-      // Récupérer les détails des contacts autorisés
-      const authorizedIds = authorizedContactIds?.map((row: any) => row.contact_id) || [];
-      
-      if (authorizedIds.length === 0) {
+      if (!contacts || contacts.length === 0) {
         return [];
       }
       
-      // Récupérer les détails des utilisateurs autorisés
-      const { data: users, error: usersError } = await supabase
-        .from('auth.users')
-        .select('id, email, raw_user_meta_data')
-        .in('id', authorizedIds);
-      
-      if (usersError) {
-        return [];
-      }
-      
-      // Mapper les utilisateurs en contacts
-      const contacts: Contact[] = users?.map((authUser: any) => ({
-        id: authUser.id,
-        email: authUser.email || '',
-        first_name: authUser.raw_user_meta_data?.first_name || '',
-        last_name: authUser.raw_user_meta_data?.last_name || '',
-        role: authUser.raw_user_meta_data?.role || 'intervenant',
-        specialty: authUser.raw_user_meta_data?.specialty || ''
-      })) || [];
-      
-      return contacts;
+      // Mapper les contacts retournés par la fonction RPC
+      return contacts.map((c: any) => ({
+        id: c.contact_id,
+        email: c.contact_email || '',
+        first_name: c.contact_first_name || '',
+        last_name: c.contact_last_name || '',
+        role: c.contact_role || 'intervenant',
+        specialty: c.contact_specialty || '',
+        avatar_url: c.contact_avatar_url // Note: Assurez-vous que la fonction SQL retourne avatar_url si disponible
+      }));
       
     } catch (error) {
       return [];
@@ -136,11 +136,11 @@ export function useMessages() {
   }, [user, supabase]);
 
   // Récupérer toutes les conversations de l'utilisateur
-  const getConversations = useCallback(async (): Promise<Conversation[]> => {
+  const getConversations = useCallback(async (silent = false): Promise<Conversation[]> => {
     if (!user) return [];
     
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       
       // Instead of using the direct query that's failing, use our new function
       const rpcCall = supabase
@@ -224,6 +224,7 @@ export function useMessages() {
                               authUser.user_metadata?.name?.split(' ').slice(1).join(' ') || '',
                     role: authUser.user_metadata?.role || 'intervenant',
                     specialty: authUser.user_metadata?.specialty || '',
+                    avatar_url: authUser.user_metadata?.avatar_url,
                     status: 'offline'
                   }));
                 } else {
@@ -242,7 +243,7 @@ export function useMessages() {
                 
                 const { data: profilesData, error: profilesError } = await supabase
                   .from('profiles')
-                  .select('user_id, role, first_name, last_name, email, specialty')
+                  .select('user_id, role, first_name, last_name, email, specialty, avatar_url')
                   .in('user_id', participantIds);
                 
                 if (!profilesError && profilesData && profilesData.length > 0) {
@@ -254,6 +255,7 @@ export function useMessages() {
                     last_name: profile.last_name || '',
                     role: profile.role || 'intervenant',
                     specialty: profile.specialty || '',
+                    avatar_url: profile.avatar_url,
                     status: 'offline'
                   }));
                 } else {
@@ -349,11 +351,11 @@ export function useMessages() {
   }, [user, supabase, toast]);
 
   // Récupérer les messages d'une conversation
-  const getMessages = useCallback(async (conversationId: string): Promise<Message[]> => {
+  const getMessages = useCallback(async (conversationId: string, silent = false): Promise<Message[]> => {
     if (!user) return [];
     
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       
       // Get messages for the conversation with timeout
       const messagesCall = supabase
