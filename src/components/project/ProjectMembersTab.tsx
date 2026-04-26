@@ -152,7 +152,7 @@ const ProjectMembersTab: React.FC<ProjectMembersTabProps> = ({
       try {
         const { data, error } = await supabase
           .from('profiles')
-          .select('user_id, first_name, last_name, email, company, specialty')
+          .select('user_id, first_name, last_name, email, company, specialty, avatar_url')
           .neq('role', 'admin')
           .neq('is_super_admin', true);
 
@@ -165,7 +165,7 @@ const ProjectMembersTab: React.FC<ProjectMembersTabProps> = ({
           email: p.email || '',
           company: p.company,
           specialty: p.specialty,
-          avatar_url: undefined
+          avatar_url: (p as any).avatar_url
         }));
         setTenantIntervenants(mapped);
       } catch (error) {
@@ -185,7 +185,7 @@ const ProjectMembersTab: React.FC<ProjectMembersTabProps> = ({
       // Récupérer les intervenants du tenant via la colonne tenant_id
       const { data, error } = await supabase
         .from('profiles')
-        .select('user_id, first_name, last_name, email, company, specialty')
+        .select('user_id, first_name, last_name, email, company, specialty, avatar_url')
         .eq('tenant_id', tenantId)
         .neq('role', 'admin')
         .neq('is_super_admin', true);
@@ -199,7 +199,7 @@ const ProjectMembersTab: React.FC<ProjectMembersTabProps> = ({
         email: p.email || '',
         company: p.company,
         specialty: p.specialty,
-        avatar_url: undefined
+        avatar_url: (p as any).avatar_url
       }));
       setTenantIntervenants(mapped);
     } catch (error) {

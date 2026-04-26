@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -11,16 +11,20 @@ import { useToast } from '@/components/ui/use-toast';
 import { useSupabase } from '../hooks/useSupabase';
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { uploadToR2 } from "@/lib/r2";
 
 const ProfilePage: React.FC = () => {
   const { toast } = useToast();
   const { getUserSettings, updateUserSettings, updateUserPassword, uploadFile, getFileUrl } = useSupabase();
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, role } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [profileForm, setProfileForm] = useState({ firstName: '', lastName: '', email: '', phone: '', bio: '' });
+  const [profileForm, setProfileForm] = useState({ firstName: '', lastName: '', email: '', phone: '', bio: '', avatarUrl: '' });
   const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
 
   const [userSettingsState, setUserSettingsState] = useState<any>(null);
@@ -32,7 +36,7 @@ const ProfilePage: React.FC = () => {
     trialEndsAt: string | null;
   } | null>(null);
 
-  const isAdmin = JSON.parse(localStorage.getItem('user') || '{}')?.role === 'admin';
+  const isAdmin = role === 'admin' || currentUser?.email === 'admin@aps.com';
 
   useEffect(() => {
     if (!currentUser?.id) return;
@@ -47,7 +51,8 @@ const ProfilePage: React.FC = () => {
             lastName: settings.last_name || '',
             email: currentUser.email || '',
             phone: settings.phone || '',
-            bio: settings.bio || ''
+            bio: settings.bio || '',
+            avatarUrl: settings.avatar_url || ''
           });
         }
       } finally {
@@ -88,11 +93,61 @@ const ProfilePage: React.FC = () => {
         first_name: profileForm.firstName,
         last_name: profileForm.lastName,
         phone: profileForm.phone,
-        bio: profileForm.bio
+        bio: profileForm.bio,
+        avatar_url: profileForm.avatarUrl
       });
       toast({ title: "Succès", description: "Profil mis à jour" });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !currentUser?.id) return;
+
+    // Validation du type de fichier
+    if (!file.type.startsWith('image/')) {
+      toast({ title: "Erreur", description: "Veuillez sélectionner une image", variant: "destructive" });
+      return;
+    }
+
+    // Validation de la taille (max 5 Mo)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "Erreur", description: "L'image ne doit pas dépasser 5 Mo", variant: "destructive" });
+      return;
+    }
+
+    setAvatarUploading(true);
+    setUploadProgress(0);
+
+    try {
+      const extension = file.name.split('.').pop();
+      const fileName = `avatars/${currentUser.id}_${Date.now()}.${extension}`;
+      
+      const publicUrl = await uploadToR2(file, fileName, (progress) => {
+        setUploadProgress(progress);
+      });
+
+      // Mettre à jour les paramètres utilisateur avec la nouvelle URL
+      await updateUserSettings(currentUser.id, {
+        avatar_url: publicUrl
+      });
+
+      setProfileForm(prev => ({ ...prev, avatarUrl: publicUrl }));
+      setUserSettingsState(prev => prev ? { ...prev, avatar_url: publicUrl } : null);
+      
+      toast({ title: "Succès", description: "Photo de profil mise à jour" });
+    } catch (error) {
+      console.error("Erreur lors de l'upload de l'avatar:", error);
+      toast({ title: "Erreur", description: "Impossible d'importer l'image", variant: "destructive" });
+    } finally {
+      setAvatarUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -143,6 +198,38 @@ const ProfilePage: React.FC = () => {
               <CardDescription>Modifiez votre profil et votre photo.</CardDescription>
             </CardHeader>
             <CardContent>
+              <div className="flex flex-col items-center mb-8">
+                <div className="relative group cursor-pointer" onClick={handleAvatarClick}>
+                  <Avatar className="h-32 w-32 border-4 border-background shadow-xl">
+                    <AvatarImage src={profileForm.avatarUrl} />
+                    <AvatarFallback className="bg-teal-50 text-teal-600 text-3xl font-bold">
+                      {profileForm.firstName[0]}{profileForm.lastName[0]}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Camera className="h-8 w-8 text-white" />
+                  </div>
+                  {avatarUploading && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-full">
+                      <Loader2 className="h-8 w-8 text-white animate-spin" />
+                    </div>
+                  )}
+                </div>
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={handleAvatarChange} 
+                  className="hidden" 
+                  accept="image/*" 
+                />
+                <p className="mt-2 text-sm text-muted-foreground">Cliquez pour changer votre photo</p>
+                {avatarUploading && uploadProgress > 0 && (
+                  <div className="w-48 mt-2">
+                    <Progress value={uploadProgress} className="h-1" />
+                  </div>
+                )}
+              </div>
+
               <form onSubmit={handleProfileSubmit} className="space-y-5">
                 <div className="grid gap-4">
                   <div className="grid grid-cols-2 gap-4">

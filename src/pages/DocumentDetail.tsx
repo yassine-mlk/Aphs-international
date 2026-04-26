@@ -21,6 +21,7 @@ import {
   Download,
   User
 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 import { 
   ProjectDocument, 
   ValidationComment, 
@@ -76,14 +77,15 @@ const MOCK_COMMENTS: ValidationComment[] = [
 const DocumentDetail: React.FC = () => {
   const { documentId } = useParams<{ documentId: string }>();
   const navigate = useNavigate();
+  const { user, role } = useAuth();
   const [document, setDocument] = useState<ProjectDocument>(MOCK_DOCUMENT);
   const [comments, setComments] = useState<ValidationComment[]>(MOCK_COMMENTS);
   const [newComment, setNewComment] = useState('');
   const [validationComment, setValidationComment] = useState('');
   
-  // Mock current user - à remplacer par auth context
-  const currentUserId = 'user-2';
-  const isAdmin = false;
+  // Current user info from AuthContext
+  const currentUserId = user?.id || '';
+  const isAdmin = role === 'admin' || user?.email === 'admin@aps.com';
 
   // Find active step
   const activeStep = document.workflow.find(step => step.status === 'en_attente');

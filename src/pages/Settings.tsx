@@ -17,8 +17,7 @@ const Settings: React.FC = () => {
   const { toast } = useToast();
   const { getUserSettings, updateUserSettings, updateUserPassword } = useSupabase();
   const { setTheme } = useTheme();
-  const { user: currentUser } = useAuth();
-  const [user, setUser] = useState<{ email: string, role: string, id: string } | null>(null);
+  const { user: currentUser, role, isSuperAdmin } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [userSettings, setUserSettings] = useState<UserSettingsType | null>(null);
@@ -47,36 +46,30 @@ const Settings: React.FC = () => {
   });
 
   // Vérifier si l'utilisateur est admin
-  const isAdmin = user?.role === 'admin' || currentUser?.user_metadata?.role === 'admin';
+  const isAdmin = role === 'admin' || currentUser?.email === 'admin@aps.com';
 
   // Charger les infos utilisateur et ses paramètres
   useEffect(() => {
     const loadUserData = async () => {
+      if (!currentUser) return;
+      
       setLoading(true);
       try {
-        const storedUser = localStorage.getItem('user');
-        if (!storedUser) return;
-        
-        const parsedUser = JSON.parse(storedUser);
-        setUser(parsedUser);
-        
         // Charger les paramètres utilisateur depuis Supabase
-        if (parsedUser.id) {
-          const settings = await getUserSettings(parsedUser.id);
-          if (settings) {
-            setUserSettings(settings);
-            
-            // Mettre à jour les formulaires avec les données
-            setProfileForm({
-              firstName: settings.first_name || "",
-              lastName: settings.last_name || "",
-              email: parsedUser.email,
-              phone: settings.phone || "",
-              bio: settings.bio || ""
-            });
-            
-            setNotifications(settings.notifications);
-          }
+        const settings = await getUserSettings(currentUser.id);
+        if (settings) {
+          setUserSettings(settings);
+          
+          // Mettre à jour les formulaires avec les données
+          setProfileForm({
+            firstName: settings.first_name || "",
+            lastName: settings.last_name || "",
+            email: currentUser.email || "",
+            phone: settings.phone || "",
+            bio: settings.bio || ""
+          });
+          
+          setNotifications(settings.notifications);
         }
       } catch (error) {
         toast({
@@ -90,7 +83,7 @@ const Settings: React.FC = () => {
     };
     
     loadUserData();
-  }, [getUserSettings, toast]);
+  }, [currentUser, getUserSettings, toast]);
 
   // Charger le tenantId de l'admin connecté
   useEffect(() => {
@@ -106,12 +99,12 @@ const Settings: React.FC = () => {
   // Mettre à jour le profil
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user?.id) return;
+    if (!currentUser?.id) return;
     
     setSaving(true);
     try {
       // Mettre à jour les paramètres dans Supabase
-      await updateUserSettings(user.id, {
+      await updateUserSettings(currentUser.id, {
         first_name: profileForm.firstName,
         last_name: profileForm.lastName,
         phone: profileForm.phone,
@@ -187,11 +180,11 @@ const Settings: React.FC = () => {
 
   // Mettre à jour les notifications
   const handleNotificationsSubmit = async () => {
-    if (!user?.id || !userSettings) return;
+    if (!currentUser?.id || !userSettings) return;
     
     setSaving(true);
     try {
-      await updateUserSettings(user.id, {
+      await updateUserSettings(currentUser.id, {
         notifications
       });
       
@@ -220,7 +213,7 @@ const Settings: React.FC = () => {
     );
   }
 
-  if (!user) return <p>Veuillez vous connecter pour accéder à vos paramètres.</p>;
+  if (!currentUser) return <p>Veuillez vous connecter pour accéder à vos paramètres.</p>;
 
   return (
     <div className="space-y-6">

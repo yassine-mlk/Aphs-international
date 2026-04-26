@@ -1,68 +1,126 @@
-import { createContext, useContext, useEffect, useState } from 'react';
-import { Session, User } from '@supabase/supabase-js';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 
-type AuthContextType = {
-  session: Session | null;
+interface AuthContextType {
   user: User | null;
+  session: Session | null;
+  role: string | null;
+  isSuperAdmin: boolean;
   loading: boolean;
+  initialized: boolean;
   signIn: (email: string, password: string) => Promise<{ user: User | null; error: Error | null }>;
   signOut: () => Promise<void>;
-};
+}
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [role, setRole] = useState<string | null>(null);
+  const [isSuperAdmin, setIsSuperAdmin] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
   const [initialized, setInitialized] = useState(false);
+  const roleRef = React.useRef<string | null>(null);
+
+  const fetchUserProfile = async (userId: string) => {
+    if (!supabase) return null;
+    
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('role, is_super_admin')
+        .eq('user_id', userId)
+        .maybeSingle();
+      
+      if (!error && data) {
+        setRole(data.role);
+        roleRef.current = data.role;
+        setIsSuperAdmin(data.is_super_admin === true);
+        return data;
+      }
+    } catch (err) {
+      console.error("Error fetching profile:", err);
+    }
+    return null;
+  };
 
   useEffect(() => {
-    // Récupérer la session en cours
-    async function getSession() {
-      if (initialized) return; // Prevent multiple initializations
-      
-      setLoading(true);
+    let mounted = true;
+
+    async function initializeAuth() {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          setSession(session);
-          setUser(session.user);
-        } else {
-          // Ne pas utiliser le localStorage comme fallback pour éviter les reconnexions automatiques
+        // 1. Récupérer la session initiale
+        const { data: { session: initialSession } } = await supabase.auth.getSession();
+        
+        if (!mounted) return;
+
+        if (initialSession) {
+          setSession(initialSession);
+          setUser(initialSession.user);
+          await fetchUserProfile(initialSession.user.id);
         }
-      } catch (error) {
-      } finally {
+
         setLoading(false);
         setInitialized(true);
+
+        // 2. Écouter les changements d'état
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+          if (!mounted) return;
+
+          console.log("Auth event:", event);
+
+          if (currentSession) {
+            setSession(currentSession);
+            setUser(currentSession.user);
+            
+            // On récupère le profil sur les événements importants
+            // On ne met loading à true que si on n'a pas encore de rôle (initialisation ou nouvelle connexion)
+            const shouldFetchProfile = event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED';
+            const needsLoading = !roleRef.current && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED');
+
+            if (shouldFetchProfile) {
+              if (needsLoading) setLoading(true);
+              await fetchUserProfile(currentSession.user.id);
+              if (needsLoading) setLoading(false);
+            } else {
+              setLoading(false);
+            }
+          } else {
+            setSession(null);
+            setUser(null);
+            setRole(null);
+            setIsSuperAdmin(false);
+            setLoading(false);
+          }
+        });
+
+        return subscription;
+      } catch (error) {
+        console.error("Error in initializeAuth:", error);
+        if (mounted) {
+          setLoading(false);
+          setInitialized(true);
+        }
+        return null;
       }
     }
 
-    getSession();
+    const subscriptionPromise = initializeAuth();
 
-    // Écouter les changements d'authentification
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      
-      if (session) {
-        setSession(session);
-        setUser(session.user);
-      } else {
-        setSession(null);
-        setUser(null); // Toujours réinitialiser l'utilisateur quand la session est nulle
-      }
-      
-      // Make sure loading is always set to false after auth state changes
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
-  }, [initialized]);
+    return () => {
+      mounted = false;
+      subscriptionPromise.then(sub => sub?.unsubscribe());
+    };
+  }, []);
 
   const signIn = async (email: string, password: string) => {
     try {
-      setLoading(true);
-      
+      if (!supabase) {
+        throw new Error('Supabase client not initialized');
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -71,73 +129,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error) throw error;
       
       if (data.user && data.session) {
-        setUser(data.user);
-        setSession(data.session);
+        // Les états seront mis à jour par onAuthStateChange
         return { user: data.user, error: null };
       }
       
       return { user: null, error: new Error('Utilisateur ou session non disponible') };
     } catch (error) {
+      console.error("SignIn error in AuthContext:", error);
       return { user: null, error: error as Error };
-    } finally {
-      setLoading(false);
     }
   };
 
   const signOut = async () => {
     try {
       setLoading(true);
-      
-      // Marquer comme déconnecté pour éviter la réinitialisation automatique
-      setInitialized(true);
-      
-      // Réinitialiser immédiatement les états pour l'interface
-      setUser(null);
-      setSession(null);
-      
-      // Nettoyer toutes les données utilisateur locales
-      localStorage.removeItem('user');
-      sessionStorage.clear();
-      
-      // Essayer de vider les cookies (pour Safari et autres navigateurs)
-      document.cookie.split(';').forEach(cookie => {
-        const [name] = cookie.trim().split('=');
-        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
-      });
-      
-      // Déconnexion Supabase
-      const { error } = await supabase.auth.signOut();
-      
-      if (error) {
-        // Malgré l'erreur, on a déjà nettoyé l'état local
+      if (supabase) {
+        await supabase.auth.signOut();
       }
-      
     } catch (error) {
+      console.error("Logout error:", error);
     } finally {
-      // Définir comme non chargé pour éviter les écrans de chargement bloqués
+      setSession(null);
+      setUser(null);
+      setRole(null);
+      roleRef.current = null;
+      setIsSuperAdmin(false);
       setLoading(false);
     }
   };
 
-  const value = {
-    session,
-    user,
-    loading,
-    signIn,
-    signOut
-  };
-
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={{ 
+      user, 
+      session, 
+      role, 
+      isSuperAdmin, 
+      loading, 
+      initialized,
+      signIn, 
+      signOut 
+    }}>
       {children}
     </AuthContext.Provider>
   );
-}
+};
 
-export function useAuth() {
+export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth doit être utilisé à l\'intérieur d\'un AuthProvider');
+    throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-} 
+};

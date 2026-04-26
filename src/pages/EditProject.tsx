@@ -42,7 +42,7 @@ const EditProject: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const { fetchData, updateData } = useSupabase();
 
   // États
@@ -61,9 +61,8 @@ const EditProject: React.FC = () => {
   });
 
   // Vérifier si l'utilisateur est admin
-  const isAdmin = user?.user_metadata?.role === 'admin' || 
-                 user?.email === 'admin@aps.com' || 
-                 JSON.parse(localStorage.getItem('user') || '{}')?.role === 'admin';
+  const isAdmin = role === 'admin' || 
+                 user?.email === 'admin@aps.com';
 
   // Rediriger si pas admin
   useEffect(() => {

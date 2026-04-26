@@ -311,6 +311,7 @@ export function useSupabase() {
         theme: data.theme || 'light',
         language: data.language || 'fr',
         specialty: data.specialty,
+        avatar_url: data.avatar_url,
         notifications: {
           email: data.email_notifications ?? true,
           push: data.push_notifications ?? true,
@@ -347,6 +348,7 @@ export function useSupabase() {
       if (settings.specialty !== undefined) profileUpdate.specialty = settings.specialty;
       if (settings.theme !== undefined) profileUpdate.theme = settings.theme as any; // Cast for compatibility
       if (settings.language !== undefined) profileUpdate.language = settings.language as any; // Cast for compatibility
+      if (settings.avatar_url !== undefined) profileUpdate.avatar_url = settings.avatar_url;
 
       const { data, error } = await supabase
         .from('profiles')

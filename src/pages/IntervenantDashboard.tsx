@@ -98,7 +98,7 @@ const IntervenantDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { fetchData, supabase } = useSupabase();
-  const { user } = useAuth();
+  const { user, role } = useAuth();
     const { tenant, isLoading: isTenantLoading } = useTenant();
 
   const [stats, setStats] = useState<IntervenantStats>({
@@ -170,8 +170,7 @@ const IntervenantDashboard: React.FC = () => {
   const { count: pendingDocsCount, loading: pendingDocsLoading } = usePendingDocuments();
 
   // Déterminer le rôle de l'utilisateur pour l'affichage
-  const userRole = user?.user_metadata?.role || JSON.parse(localStorage.getItem('user') || '{}')?.role;
-  const isMaitreOuvrage = userRole === 'maitre_ouvrage';
+  const isMaitreOuvrage = role === 'maitre_ouvrage';
   
   
 
