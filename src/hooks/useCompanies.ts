@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useToast } from '@/components/ui/use-toast';
 import { useSupabase } from './useSupabase';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   Company,
   CreateCompanyData,
@@ -15,11 +16,13 @@ import { Profile } from '../types/profile';
 export function useCompanies() {
   const [loading, setLoading] = useState(false);
   const [companies, setCompanies] = useState<Company[]>([]);
+  const { status } = useAuth();
   const { toast } = useToast();
   const { fetchData, insertData, updateData, deleteData, supabase, getUsers } = useSupabase();
 
   // Récupérer toutes les entreprises
   const getCompanies = useCallback(async (filters?: CompanyFilters, sort?: CompanySortOptions): Promise<Company[]> => {
+    if (status !== 'authenticated') return [];
     setLoading(true);
     try {
       const queryFilters = [];
@@ -59,6 +62,7 @@ export function useCompanies() {
 
   // Rechercher des entreprises par terme général
   const searchCompanies = useCallback(async (searchTerm: string): Promise<Company[]> => {
+    if (status !== 'authenticated') return [];
     if (!searchTerm.trim()) {
       return getCompanies();
     }
@@ -90,6 +94,7 @@ export function useCompanies() {
 
   // Récupérer une entreprise par ID
   const getCompanyById = useCallback(async (id: string): Promise<Company | null> => {
+    if (status !== 'authenticated') return null;
     setLoading(true);
     try {
       const companies = await fetchData<Company>('companies', {
@@ -111,6 +116,7 @@ export function useCompanies() {
 
   // Créer une nouvelle entreprise
   const createCompany = useCallback(async (companyData: CreateCompanyData): Promise<Company | null> => {
+    if (status !== 'authenticated') return null;
     // Validation des données
     const validationErrors = validateCompanyData(companyData);
     if (validationErrors.length > 0) {
@@ -151,6 +157,7 @@ export function useCompanies() {
 
   // Mettre à jour une entreprise
   const updateCompany = useCallback(async (id: string, updateData: UpdateCompanyData): Promise<Company | null> => {
+    if (status !== 'authenticated') return null;
     // Validation des données si des champs obligatoires sont modifiés
     if (updateData.name !== undefined) {
       const validationErrors = validateCompanyData({ ...updateData, name: updateData.name || '' });
@@ -204,6 +211,7 @@ export function useCompanies() {
 
   // Supprimer une entreprise
   const deleteCompany = useCallback(async (id: string): Promise<boolean> => {
+    if (status !== 'authenticated') return false;
     setLoading(true);
     try {
       // Vérifier d'abord si l'entreprise est utilisée par des profils
@@ -271,6 +279,7 @@ export function useCompanies() {
 
   // Récupérer les statistiques des entreprises
   const getCompanyStats = useCallback(async (): Promise<CompanyStats | null> => {
+    if (status !== 'authenticated') return null;
     setLoading(true);
     try {
       const allCompanies = await fetchData<Company>('companies', {
@@ -333,6 +342,7 @@ export function useCompanies() {
 
   // Uploader un logo d'entreprise
   const uploadCompanyLogo = useCallback(async (file: File, companyId?: string): Promise<string | null> => {
+    if (status !== 'authenticated') return null;
     try {
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}-${companyId || 'new'}.${fileExt}`;
@@ -357,10 +367,11 @@ export function useCompanies() {
       });
       return null;
     }
-  }, [supabase, toast]);
+  }, [supabase, toast, status]);
 
   // Récupérer tous les employés d'une entreprise
   const getCompanyEmployees = useCallback(async (companyId: string): Promise<Profile[]> => {
+    if (status !== 'authenticated') return [];
     setLoading(true);
     try {
       // Méthode 1: Essayer d'abord avec la table profiles

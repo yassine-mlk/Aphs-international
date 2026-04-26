@@ -76,7 +76,7 @@ const ProjectDetails: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
-  const { user, role } = useAuth();
+  const { user, role, status } = useAuth();
   const { supabase } = useSupabase();
 
   const [project, setProject] = useState<Project | null>(null);
@@ -103,18 +103,19 @@ const ProjectDetails: React.FC = () => {
   } = useProjectStructure(id || '');
 
   useEffect(() => {
-    if (!id) return;
+    if (!id || status !== 'authenticated') return;
     fetchProjectDetails();
     fetchProjectMembers();
-  }, [id]);
+  }, [id, status]);
 
   useEffect(() => {
-    if (!id) return;
+    if (!id || status !== 'authenticated') return;
     supabase.from('projects').select('tenant_id').eq('id', id).maybeSingle()
       .then(({ data }) => { if (data?.tenant_id) setTenantId(data.tenant_id); });
-  }, [id]);
+  }, [id, status]);
 
   const fetchProjectDetails = async () => {
+    if (status !== 'authenticated') return;
     try {
       const { data, error } = await supabase
         .from('projects')
@@ -138,7 +139,7 @@ const ProjectDetails: React.FC = () => {
   };
 
   const fetchProjectMembers = async () => {
-    if (!id) return;
+    if (!id || status !== 'authenticated') return;
 
     try {
       const { data, error } = await supabase
@@ -156,7 +157,7 @@ const ProjectDetails: React.FC = () => {
   };
 
   const fetchIntervenantsInfo = async (userIds: string[]) => {
-    if (userIds.length === 0) return;
+    if (userIds.length === 0 || status !== 'authenticated') return;
 
     try {
       const { data, error } = await supabase

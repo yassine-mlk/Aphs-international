@@ -30,6 +30,22 @@ export const getConfigValue = (key: string, defaultValue: string = '') => {
   return defaultValue;
 };
 
+const createTimedFetch = (timeoutMs: number): typeof fetch => {
+  return async (input: RequestInfo | URL, init?: RequestInit) => {
+    const controller = new AbortController();
+    if (init?.signal) {
+      if (init.signal.aborted) controller.abort();
+      else init.signal.addEventListener('abort', () => controller.abort(), { once: true });
+    }
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(input, { ...init, signal: controller.signal });
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  };
+};
+
 // Fonction pour initialiser Supabase
 const initializeSupabase = () => {
   // URL de Supabase et clé anonyme depuis les variables d'environnement
@@ -41,8 +57,18 @@ const initializeSupabase = () => {
     return null;
   }
 
+  const timedFetch = createTimedFetch(15000);
+
   // Client Supabase standard pour les opérations côté client
   const client = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+    global: {
+      fetch: timedFetch,
+    },
     realtime: {
       params: {
         eventsPerSecond: 10,
@@ -53,6 +79,14 @@ const initializeSupabase = () => {
   // Client Supabase admin pour les opérations d'administration
   const supabaseServiceKey = getConfigValue('VITE_SUPABASE_SERVICE_ROLE_KEY');
   const adminClient = supabaseServiceKey ? createClient(supabaseUrl, supabaseServiceKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+    global: {
+      fetch: timedFetch,
+    },
     realtime: {
       params: {
         eventsPerSecond: 10,

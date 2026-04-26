@@ -1,21 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
-import { NOTIFICATIONS, DASHBOARD } from '@/lib/constants';
-import { 
-  Briefcase, 
-  CheckCircle, 
-  Users, 
-  ClipboardCheck, 
-  AlertTriangle,
-  FileUp,
-  Clock,
-  UserPlus,
-  MessageSquare,
-  Video,
-  Target
-} from 'lucide-react';
+import { NOTIFICATIONS } from '@/lib/constants';
 
 export interface RecentActivity {
   id: string;
@@ -30,7 +17,7 @@ export interface RecentActivity {
 }
 
 export function useRecentActivities() {
-  const { user, role } = useAuth();
+  const { user, role, status } = useAuth();
   const { toast } = useToast();
   const [activities, setActivities] = useState<RecentActivity[]>([]);
   const [loading, setLoading] = useState(true);
@@ -168,7 +155,7 @@ export function useRecentActivities() {
 
   // Fonction pour récupérer les activités récentes pour un intervenant
   const fetchIntervenantActivities = useCallback(async () => {
-    if (!user?.id) return;
+    if (status !== 'authenticated' || !user?.id) return;
 
     try {
       const { data: notifications, error } = await supabase
@@ -185,10 +172,11 @@ export function useRecentActivities() {
     } catch (error) {
       setError('Impossible de charger les activités');
     }
-  }, [user?.id, enrichNotifications]);
+  }, [status, user?.id, enrichNotifications]);
 
   // Fonction pour récupérer toutes les activités récentes pour un admin
   const fetchAdminActivities = useCallback(async () => {
+    if (status !== 'authenticated') return;
     try {
       const { data: notifications, error } = await supabase
         .from('notifications')
@@ -207,7 +195,10 @@ export function useRecentActivities() {
 
   // Fonction principale pour récupérer les activités
   const fetchActivities = useCallback(async () => {
-    if (!user?.id) return;
+    if (status !== 'authenticated' || !user?.id) {
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -230,10 +221,11 @@ export function useRecentActivities() {
     } finally {
       setLoading(false);
     }
-  }, [user?.id, role, fetchAdminActivities, fetchIntervenantActivities, toast]);
+  }, [status, user?.id, role, fetchAdminActivities, fetchIntervenantActivities, toast]);
 
   // Fonction pour marquer une activité comme lue
   const markAsRead = useCallback(async (activityId: string) => {
+    if (status !== 'authenticated') return;
     try {
       const { error } = await supabase
         .from('notifications')

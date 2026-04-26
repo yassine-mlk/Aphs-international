@@ -28,6 +28,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { useSupport } from '@/hooks/useSupport';
+import { useAuth } from '@/contexts/AuthContext';
 import { SupportTicket, TicketStatus } from '@/types/support';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { format } from 'date-fns';
@@ -35,6 +36,7 @@ import { fr } from 'date-fns/locale';
 import { Input } from '@/components/ui/input';
 
 const AdminSupport: React.FC = () => {
+  const { status } = useAuth();
   const { loading, getAllTickets, updateTicketStatus } = useSupport();
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [filteredTickets, setFilteredTickets] = useState<SupportTicket[]>([]);
@@ -48,8 +50,10 @@ const AdminSupport: React.FC = () => {
   const [isUpdating, setIsUpdating] = useState(false);
 
   useEffect(() => {
-    loadAllTickets();
-  }, []);
+    if (status === 'authenticated') {
+      loadAllTickets();
+    }
+  }, [status]);
 
   useEffect(() => {
     let result = tickets;

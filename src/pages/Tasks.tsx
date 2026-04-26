@@ -27,18 +27,20 @@ interface Task {
 const Tasks: React.FC = () => {
   const navigate = useNavigate();
   const { fetchData } = useSupabase();
-  const { user } = useAuth();
+  const { user, status } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
   useEffect(() => {
-    loadTasks();
-  }, [user?.id]);
+    if (status === 'authenticated' && user?.id) {
+      loadTasks();
+    }
+  }, [user?.id, status]);
 
   const loadTasks = async () => {
-    if (!user?.id) return;
+    if (status !== 'authenticated' || !user?.id) return;
     
     try {
       setLoading(true);

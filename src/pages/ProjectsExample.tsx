@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { useProjects } from '../hooks/useProjects';
 import { Project, ProjectFormData } from '../types/project';
 import { Button } from '@/components/ui/button';
@@ -12,6 +13,7 @@ import { Plus, Search, Edit, Trash2, Calendar } from 'lucide-react';
 
 // Exemple d'utilisation du hook useProjects
 const ProjectsExample: React.FC = () => {
+  const { status } = useAuth();
   const {
     loading,
     getProjects,
@@ -35,15 +37,19 @@ const ProjectsExample: React.FC = () => {
     end_date: '',
     image_url: '',
     company_id: '',
-    status: 'active'
+    status: 'active',
+    show_info_sheets: true
   });
 
   // Charger les projets au montage du composant
   useEffect(() => {
-    loadProjects();
-  }, []);
+    if (status === 'authenticated') {
+      loadProjects();
+    }
+  }, [status]);
 
   const loadProjects = async () => {
+    if (status !== 'authenticated') return;
     const projectsData = await getProjects();
     setProjects(projectsData);
   };
@@ -51,6 +57,7 @@ const ProjectsExample: React.FC = () => {
   // Gérer la recherche
   const handleSearch = async (term: string) => {
     setSearchTerm(term);
+    if (status !== 'authenticated') return;
     if (term.trim()) {
       const searchResults = await searchProjects(term);
       setProjects(searchResults);
@@ -74,7 +81,8 @@ const ProjectsExample: React.FC = () => {
         end_date: '',
         image_url: '',
         company_id: '',
-        status: 'active'
+        status: 'active',
+        show_info_sheets: true
       });
       loadProjects();
     }

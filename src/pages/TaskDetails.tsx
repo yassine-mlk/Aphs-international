@@ -29,7 +29,7 @@ const TaskDetails: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { supabase } = useSupabase();
-  const { user } = useAuth();
+  const { user, status: authStatus } = useAuth();
   
   const [task, setTask] = useState<Task | null>(null);
   const [project, setProject] = useState<Project | null>(null);
@@ -38,7 +38,7 @@ const TaskDetails: React.FC = () => {
 
   // Charger les détails de la tâche
   const loadTaskDetails = useCallback(async () => {
-    if (!id || !user?.id) return;
+    if (!id || !user?.id || authStatus !== 'authenticated') return;
     
     try {
       setLoading(true);
@@ -87,11 +87,13 @@ const TaskDetails: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [id, user?.id, supabase, toast, navigate]);
+  }, [id, user?.id, authStatus, supabase, toast, navigate]);
 
   useEffect(() => {
-    loadTaskDetails();
-  }, [loadTaskDetails]);
+    if (authStatus === 'authenticated') {
+      loadTaskDetails();
+    }
+  }, [loadTaskDetails, authStatus]);
 
   // Mettre à jour le statut de la tâche
   const handleUpdateStatus = async (newStatus: string) => {

@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { useSupabase } from './useSupabase';
+import { useAuth } from '@/contexts/AuthContext';
 import { ProjectTask } from '../types/project';
 import { LegacyTaskAssignment, convertProjectTaskToLegacy } from '../types/legacy-migration';
 
@@ -44,6 +45,7 @@ export interface UseTaskMigrationReturn {
 
 export const useTaskMigration = (): UseTaskMigrationReturn => {
   const { fetchData, updateData } = useSupabase();
+  const { status } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -76,6 +78,7 @@ export const useTaskMigration = (): UseTaskMigrationReturn => {
 
   // Fonction pour récupérer les tâches depuis task_assignments
   const fetchLegacyTasks = useCallback(async (userId?: string): Promise<LegacyTaskAssignment[]> => {
+    if (status !== 'authenticated') return [];
     setLoading(true);
     setError(null);
     
@@ -133,6 +136,7 @@ export const useTaskMigration = (): UseTaskMigrationReturn => {
 
   // Fonction spécifique pour récupérer les tâches d'un utilisateur
   const fetchTasksForUser = useCallback(async (userId: string): Promise<LegacyTaskAssignment[]> => {
+    if (status !== 'authenticated') return [];
     setLoading(true);
     setError(null);
     
@@ -212,9 +216,11 @@ export const useTaskMigration = (): UseTaskMigrationReturn => {
   // Fonction pour mettre à jour le statut d'une tâche
   const updateTaskStatus = useCallback(async (
     taskId: string, 
-    status: ProjectTask['status'], 
+    taskStatus: ProjectTask['status'], 
     comments?: string
   ): Promise<boolean> => {
+    if (status !== 'authenticated') return false;
+    
     setLoading(true);
     setError(null);
     
@@ -228,7 +234,7 @@ export const useTaskMigration = (): UseTaskMigrationReturn => {
         'rejected': 'rejected'
       };
 
-      const mappedStatus = statusMapping[status];
+      const mappedStatus = statusMapping[taskStatus];
       
       const updateData_obj: Partial<TaskAssignment> & { id: string } = {
         id: taskId,
@@ -266,7 +272,7 @@ export const useTaskMigration = (): UseTaskMigrationReturn => {
     } finally {
       setLoading(false);
     }
-  }, [updateData]);
+  }, [status, updateData]);
 
   return {
     loading,

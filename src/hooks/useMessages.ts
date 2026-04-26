@@ -64,14 +64,14 @@ export interface Contact {
 
 export function useMessages() {
   const { supabase, getUsers } = useSupabase();
-  const { user } = useAuth();
+  const { user, status } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState<boolean>(false);
   const { notifyNewMessage } = useNotificationTriggers();
 
   // Récupérer les contacts disponibles pour l'utilisateur
   const getAvailableContacts = useCallback(async (silent = false): Promise<Contact[]> => {
-    if (!user) return [];
+    if (status !== 'authenticated' || !user || !supabase) return [];
     
     try {
       if (!silent) setLoading(true);
@@ -133,11 +133,11 @@ export function useMessages() {
     } finally {
       setLoading(false);
     }
-  }, [user, supabase]);
+  }, [status, user, supabase]);
 
   // Récupérer toutes les conversations de l'utilisateur
   const getConversations = useCallback(async (silent = false): Promise<Conversation[]> => {
-    if (!user) return [];
+    if (status !== 'authenticated' || !user || !supabase) return [];
     
     try {
       if (!silent) setLoading(true);
@@ -348,11 +348,11 @@ export function useMessages() {
     } finally {
       setLoading(false);
     }
-  }, [user, supabase, toast]);
+  }, [status, user, supabase, toast]);
 
   // Récupérer les messages d'une conversation
   const getMessages = useCallback(async (conversationId: string, silent = false): Promise<Message[]> => {
-    if (!user) return [];
+    if (status !== 'authenticated' || !user || !supabase) return [];
     
     try {
       if (!silent) setLoading(true);
@@ -527,11 +527,11 @@ export function useMessages() {
     } finally {
       setLoading(false);
     }
-  }, [user, supabase, toast]);
+  }, [status, user, supabase, toast]);
 
   // Envoyer un message
   const sendMessage = useCallback(async (conversationId: string, content: string): Promise<Message | null> => {
-    if (!user) return null;
+    if (status !== 'authenticated' || !user || !supabase) return null;
     
     try {
       setLoading(true);
@@ -616,13 +616,13 @@ export function useMessages() {
     } finally {
       setLoading(false);
     }
-  }, [user, supabase, toast, notifyNewMessage]);
+  }, [status, user, supabase, getUsers, toast, notifyNewMessage]);
 
   // Fonctions de création de conversations supprimées - seules les conversations de groupes de travail sont autorisées
 
   // Supprimer une conversation (admin uniquement)
   const deleteConversation = useCallback(async (conversationId: string): Promise<boolean> => {
-    if (!user) return false;
+    if (status !== 'authenticated' || !user || !supabase) return false;
     
     try {
       setLoading(true);
@@ -652,11 +652,11 @@ export function useMessages() {
     } finally {
       setLoading(false);
     }
-  }, [user, supabase, toast]);
+  }, [status, user, supabase, toast]);
 
   // Obtenir les statistiques de conversation (admin uniquement)
   const getConversationStats = useCallback(async () => {
-    if (!user) return [];
+    if (status !== 'authenticated' || !user) return [];
     
     try {
       setLoading(true);
@@ -679,7 +679,7 @@ export function useMessages() {
     } finally {
       setLoading(false);
     }
-  }, [user, supabase, toast]);
+  }, [status, user, supabase, toast]);
 
   return {
     loading,

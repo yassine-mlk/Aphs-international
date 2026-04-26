@@ -52,7 +52,7 @@ const IntervenantProjects: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { fetchData } = useSupabase();
-  const { user } = useAuth();
+  const { user, status } = useAuth();
   
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,7 +63,7 @@ const IntervenantProjects: React.FC = () => {
   
   // Charger les projets auxquels l'intervenant est assigné
   const loadProjects = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
-    if (!user?.id) {
+    if (status !== 'authenticated' || !user?.id) {
       return;
     }
 
@@ -135,7 +135,7 @@ const IntervenantProjects: React.FC = () => {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [user?.id, fetchData, supabase, toast]);
+  }, [user?.id, status, fetchData, supabase, toast]);
 
   // Ref pour stabiliser sans recréer la subscription
   const loadProjectsRef = useRef(loadProjects);
@@ -145,14 +145,15 @@ const IntervenantProjects: React.FC = () => {
 
   const projectsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scheduleSilentReload = useCallback(() => {
+    if (status !== 'authenticated') return;
     if (projectsTimerRef.current) clearTimeout(projectsTimerRef.current);
     projectsTimerRef.current = setTimeout(() => {
       loadProjectsRef.current({ silent: true });
     }, 600);
-  }, []);
+  }, [status]);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (status !== 'authenticated' || !user?.id) return;
     loadProjects();
 
     const channel = supabase
@@ -167,7 +168,7 @@ const IntervenantProjects: React.FC = () => {
       supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [user?.id, status]);
 
   // Filtrer les projets selon la recherche
   const filteredProjects = projects.filter(project =>

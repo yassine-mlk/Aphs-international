@@ -19,6 +19,7 @@ import {
   Shield
 } from 'lucide-react';
 import { useWorkGroups, WorkGroupWithMessaging, AvailableUser } from '../hooks/useWorkGroups';
+import { useAuth } from '@/contexts/AuthContext';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -28,6 +29,7 @@ import { Separator } from '@/components/ui/separator';
 
 const WorkGroups: React.FC = () => {
   const { toast } = useToast();
+  const { user, status } = useAuth();
   const { 
     workGroups, 
     loading, 
@@ -64,12 +66,14 @@ const WorkGroups: React.FC = () => {
 
   // Charger les utilisateurs disponibles
   useEffect(() => {
-    const loadUsers = async () => {
-      const users = await getAvailableUsers();
-      setAvailableUsers(users);
-    };
-    loadUsers();
-  }, [getAvailableUsers]);
+    if (status === 'authenticated') {
+      const loadUsers = async () => {
+        const users = await getAvailableUsers();
+        setAvailableUsers(users);
+      };
+      loadUsers();
+    }
+  }, [getAvailableUsers, status]);
 
   // Filtrer les utilisateurs disponibles pour la recherche
   const filteredAvailableUsers = useMemo(() => {

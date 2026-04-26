@@ -23,7 +23,7 @@ const queryClient = new QueryClient({
 });
 
 const App = () => {
-  const { user } = useAuth();
+  const { user, status } = useAuth();
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -34,7 +34,7 @@ const App = () => {
                 <Toaster />
                 <Sonner />
                 {/* Initialisation du stockage Supabase */}
-                {user && <StorageInitializer />}
+                {status === 'authenticated' && user && <StorageInitializer />}
                 <AppRoutes />
               </UploadProvider>
           </TooltipProvider>

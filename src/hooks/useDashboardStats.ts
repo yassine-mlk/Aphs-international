@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Interface pour les statistiques du tableau de bord
 export interface DashboardStats {
@@ -44,6 +45,7 @@ export interface RecentActivity {
 }
 
 export function useDashboardStats() {
+  const { status } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [chartData, setChartData] = useState<ChartData[]>([]);
@@ -54,6 +56,12 @@ export function useDashboardStats() {
   const { toast } = useToast();
 
   const fetchProjectStats = useCallback(async () => {
+    if (status !== 'authenticated') return {
+      totalProjects: 0,
+      activeProjects: 0,
+      completedProjects: 0,
+      pendingProjects: 0
+    };
     try {
       // Récupérer tous les projets
       const { data: projects, error: projectsError } = await supabase
@@ -84,6 +92,10 @@ export function useDashboardStats() {
   }, []);
 
   const fetchIntervenantStats = useCallback(async () => {
+    if (status !== 'authenticated') return {
+      totalIntervenants: 0,
+      activeIntervenants: 0
+    };
     try {
       // Récupérer depuis la table profiles
       let users: any[] = [];
@@ -135,6 +147,12 @@ export function useDashboardStats() {
   }, []);
 
   const fetchTaskStats = useCallback(async () => {
+    if (status !== 'authenticated') return {
+      totalTasks: 0,
+      completedTasks: 0,
+      pendingTasks: 0,
+      overdueTasks: 0
+    };
     try {
       // Récupérer toutes les tâches assignées
       const { data: tasks, error: tasksError } = await supabase
@@ -172,6 +190,7 @@ export function useDashboardStats() {
   }, []);
 
   const fetchUpcomingEvents = useCallback(async () => {
+    if (status !== 'authenticated') return [];
     try {
       // Récupérer les projets avec des dates importantes
       const { data: projects, error: projectsError } = await supabase
@@ -223,6 +242,7 @@ export function useDashboardStats() {
   }, []);
 
   const fetchChartData = useCallback(async () => {
+    if (status !== 'authenticated') return [];
     try {
       // Récupérer les tâches terminées dans les 12 derniers mois
       const oneYearAgo = new Date();
@@ -269,6 +289,7 @@ export function useDashboardStats() {
   }, []);
 
   const fetchRecentActivities = useCallback(async () => {
+    if (status !== 'authenticated') return [];
     try {
       const activities: RecentActivity[] = [];
 
@@ -335,6 +356,7 @@ export function useDashboardStats() {
   }, []);
 
   const fetchAllStats = useCallback(async () => {
+    if (status !== 'authenticated') return;
     setLoading(true);
     setError(null);
 

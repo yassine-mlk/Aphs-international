@@ -17,6 +17,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 import { useSuperAdmin } from '@/contexts/TenantContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import type { Tenant, TenantPlan, TenantStatus } from '@/types/tenant';
 import { formatStorage } from '@/types/tenant';
@@ -24,6 +25,7 @@ import { formatStorage } from '@/types/tenant';
 const SuperAdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { status } = useAuth();
   const {
     isSuperAdmin,
     isLoading: isAuthLoading,
@@ -48,15 +50,15 @@ const SuperAdminDashboard: React.FC = () => {
   };
 
   useEffect(() => {
-    if (!isAuthLoading && !isSuperAdmin) {
+    if (!isAuthLoading && !isSuperAdmin && status !== 'loading') {
       navigate('/super-admin-login');
       return;
     }
-    if (isSuperAdmin) {
+    if (isSuperAdmin && status === 'authenticated') {
       setIsLoading(true);
       getAllTenants().then(data => { setTenants(data); setIsLoading(false); });
     }
-  }, [isSuperAdmin, isAuthLoading]);
+  }, [isSuperAdmin, isAuthLoading, status]);
 
   const filteredTenants = tenants.filter(t =>
     t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -72,8 +74,8 @@ const SuperAdminDashboard: React.FC = () => {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    localStorage.removeItem('userRole');
-    localStorage.removeItem('isSuperAdmin');
+    localStorage.setItem('userRole', '');
+    localStorage.setItem('isSuperAdmin', '');
     navigate('/super-admin-login');
   };
 

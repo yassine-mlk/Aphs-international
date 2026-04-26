@@ -30,7 +30,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const Messages: React.FC = () => {
   const { toast } = useToast();
-  const { user, role } = useAuth();
+  const { user, role, status } = useAuth();
     const { supabase } = useSupabase();
     const { 
     getAvailableContacts, 
@@ -153,11 +153,11 @@ const Messages: React.FC = () => {
   }, [getAvailableContacts, loadConversations]);
 
   useEffect(() => {
-    if (user?.id) {
+    if (status === 'authenticated' && user?.id) {
       loadContacts();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [user?.id, status]);
 
   // Stabilisation des callbacks et state pour realtime sans re-subscription
   const loadConversationsRef = useRef(loadConversations);
@@ -175,6 +175,7 @@ const Messages: React.FC = () => {
   // Debounced reload for realtime updates
   const messagesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scheduleSilentReload = useCallback(() => {
+    if (status !== 'authenticated') return;
     if (messagesTimerRef.current) clearTimeout(messagesTimerRef.current);
     messagesTimerRef.current = setTimeout(() => {
       loadConversationsRef.current(false);
@@ -182,11 +183,11 @@ const Messages: React.FC = () => {
         loadMessagesRef.current(activeConversationRef.current.id, false);
       }
     }, 600);
-  }, []);
+  }, [status]);
 
   // Realtime subscription for messages and conversations
   useEffect(() => {
-    if (!user?.id) return;
+    if (status !== 'authenticated' || !user?.id) return;
 
     const channel = supabase
       .channel(`messages-all-${user.id}`)
@@ -207,13 +208,14 @@ const Messages: React.FC = () => {
       supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [user?.id, status]);
 
   // Polling de secours très espacé (5 minutes) en cas de défaillance realtime
   useEffect(() => {
-    if (!user?.id) return;
+    if (status !== 'authenticated' || !user?.id) return;
 
     const pollForUpdates = async () => {
+      if (status !== 'authenticated') return;
       try {
         await loadConversationsRef.current(false);
         if (activeConversationRef.current) {
@@ -229,7 +231,7 @@ const Messages: React.FC = () => {
     return () => {
       clearInterval(pollingInterval);
     };
-  }, [user?.id]);
+  }, [user?.id, status]);
 
   // Fonction manuelle pour rafraîchir les données (erreur uniquement)
   const handleRefresh = async () => {

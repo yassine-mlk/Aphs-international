@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -7,11 +7,11 @@ interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-  const { user, loading } = useAuth();
+  const { user, status } = useAuth();
   const location = useLocation();
 
   // Attendre que l'authentification soit vérifiée
-  if (loading) {
+  if (status === 'loading') {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="w-16 h-16 border-4 border-t-teal-500 border-r-transparent border-b-teal-500 border-l-transparent rounded-full animate-spin"></div>
@@ -20,7 +20,7 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   }
 
   // Rediriger vers la page de connexion si non authentifié
-  if (!user) {
+  if (status === 'unauthenticated' || !user) {
     return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   }
 

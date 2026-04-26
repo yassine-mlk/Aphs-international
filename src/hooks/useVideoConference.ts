@@ -6,13 +6,11 @@ import { useToast } from '@/components/ui/use-toast';
 import { useNotificationTriggers } from '@/hooks/useNotificationTriggers';
 import type { 
   VideoMeeting, 
-  VideoMeetingParticipant, 
-  VideoMeetingMessage,
   CreateVideoMeetingData 
 } from '@/types/videoconference';
 
 export function useVideoConference() {
-  const { user } = useAuth();
+  const { user, status: authStatus } = useAuth();
   const { tenant } = useTenant();
   const { toast } = useToast();
   const { createNotification, createAdminNotification } = useNotificationTriggers();
@@ -23,6 +21,7 @@ export function useVideoConference() {
   // Déterminer l'ID du tenant de manière robuste
   useEffect(() => {
     const resolveTenantId = async () => {
+      if (authStatus !== 'authenticated') return;
       if (tenant?.id) {
         setEffectiveTenantId(tenant.id);
         return;
@@ -43,10 +42,10 @@ export function useVideoConference() {
     };
 
     resolveTenantId();
-  }, [tenant?.id, user?.id]);
+  }, [authStatus, tenant?.id, user?.id]);
 
   const fetchMeetings = useCallback(async () => {
-    if (!effectiveTenantId) return;
+    if (authStatus !== 'authenticated' || !effectiveTenantId) return;
     
     try {
       setLoading(true);
@@ -67,11 +66,13 @@ export function useVideoConference() {
     } finally {
       setLoading(false);
     }
-  }, [effectiveTenantId, toast]);
+  }, [authStatus, effectiveTenantId, toast]);
 
   useEffect(() => {
-    fetchMeetings();
-  }, [fetchMeetings]);
+    if (authStatus === 'authenticated') {
+      fetchMeetings();
+    }
+  }, [fetchMeetings, authStatus]);
 
   const createMeeting = async (data: CreateVideoMeetingData) => {
     console.log("createMeeting called with data:", data);
@@ -79,12 +80,12 @@ export function useVideoConference() {
     // Utiliser effectiveTenantId ou tenant?.id ou chercher une dernière fois
     let tId = effectiveTenantId || tenant?.id;
     
-    if (!tId && user?.id) {
+    if (!tId && authStatus === 'authenticated' && user?.id) {
       const { data: prof } = await supabase.from('profiles').select('tenant_id').eq('user_id', user.id).single();
       tId = prof?.tenant_id;
     }
 
-    if (!user?.id || !tId) {
+    if (authStatus !== 'authenticated' || !user?.id || !tId) {
       console.warn("Missing user or tenant ID", { userId: user?.id, tenantId: tId });
       toast({
         variant: "destructive",
@@ -196,6 +197,7 @@ export function useVideoConference() {
   };
 
   const updateMeetingStatus = async (meetingId: string, status: VideoMeeting['status']) => {
+    if (authStatus !== 'authenticated') return;
     try {
       const { data: meeting, error: fetchError } = await supabase
         .from('video_meetings')
@@ -241,13 +243,13 @@ export function useVideoConference() {
   };
 
   const joinMeeting = async (meetingId: string) => {
-    if (!user?.id || !effectiveTenantId) return;
+    if (authStatus !== 'authenticated' || !user?.id || !effectiveTenantId) return;
 
     try {
       const now = new Date().toISOString();
       
       // 1. Mettre à jour le statut du participant
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('video_meeting_participants')
         .update({ 
           status: 'present',
@@ -286,13 +288,13 @@ export function useVideoConference() {
   };
 
   const leaveMeeting = async (meetingId: string) => {
-    if (!user?.id) return;
+    if (authStatus !== 'authenticated' || !user?.id) return;
 
     try {
       const now = new Date().toISOString();
       
       // 1. Mettre à jour le statut du participant (temps de sortie)
-      const { data: participant, error: partError } = await supabase
+      const { error: partError } = await supabase
         .from('video_meeting_participants')
         .update({ 
           status: 'absent',
@@ -334,6 +336,7 @@ export function useVideoConference() {
   };
 
   const getMeetingDetails = async (meetingId: string) => {
+     if (authStatus !== 'authenticated') return [];
      try {
        // 1. Récupérer les participants
        const { data: participants, error: pError } = await supabase
@@ -365,6 +368,7 @@ export function useVideoConference() {
    };
 
   const updateMeetingParticipants = async (meetingId: string, participantIds: string[]) => {
+    if (authStatus !== 'authenticated') return;
     const tId = effectiveTenantId || tenant?.id;
     if (!tId) return;
 
@@ -405,6 +409,7 @@ export function useVideoConference() {
   };
 
   const getMeetingParticipants = async (meetingId: string) => {
+    if (authStatus !== 'authenticated') return [];
     try {
       const { data, error } = await supabase
         .from('video_meeting_participants')

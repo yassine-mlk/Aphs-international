@@ -31,6 +31,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useCompanies } from '../hooks/useCompanies';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   Company,
   CreateCompanyData,
@@ -56,6 +57,7 @@ import {
 
 const CompaniesExample: React.FC = () => {
   const { toast } = useToast();
+  const { status } = useAuth();
   const {
     loading,
     companies,
@@ -92,20 +94,25 @@ const CompaniesExample: React.FC = () => {
   const [logoFile, setLogoFile] = useState<File | null>(null);
 
   useEffect(() => {
-    loadCompanies();
-  }, []);
+    if (status === 'authenticated') {
+      loadCompanies();
+    }
+  }, [status]);
 
   const loadCompanies = async () => {
+    if (status !== 'authenticated') return;
     await getCompanies(undefined, { field: sortField, order: sortOrder });
   };
 
   const loadStats = async () => {
+    if (status !== 'authenticated') return;
     const companyStats = await getCompanyStats();
     setStats(companyStats);
     setIsStatsDialogOpen(true);
   };
 
   const handleSearch = async () => {
+    if (status !== 'authenticated') return;
     if (searchTerm.trim()) {
       await searchCompanies(searchTerm);
     } else {

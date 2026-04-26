@@ -17,7 +17,7 @@ const Settings: React.FC = () => {
   const { toast } = useToast();
   const { getUserSettings, updateUserSettings, updateUserPassword } = useSupabase();
   const { setTheme } = useTheme();
-  const { user: currentUser, role, isSuperAdmin } = useAuth();
+  const { user: currentUser, role, isSuperAdmin, status } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [userSettings, setUserSettings] = useState<UserSettingsType | null>(null);
@@ -51,7 +51,10 @@ const Settings: React.FC = () => {
   // Charger les infos utilisateur et ses paramètres
   useEffect(() => {
     const loadUserData = async () => {
-      if (!currentUser) return;
+      if (status !== 'authenticated' || !currentUser) {
+        if (status !== 'loading') setLoading(false);
+        return;
+      }
       
       setLoading(true);
       try {
@@ -83,18 +86,18 @@ const Settings: React.FC = () => {
     };
     
     loadUserData();
-  }, [currentUser, getUserSettings, toast]);
+  }, [status, currentUser, getUserSettings, toast]);
 
   // Charger le tenantId de l'admin connecté
   useEffect(() => {
-    if (!currentUser?.id) return;
+    if (status !== 'authenticated' || !currentUser?.id) return;
     supabase
       .from('profiles')
       .select('tenant_id')
       .eq('user_id', currentUser.id)
       .maybeSingle()
       .then(({ data }) => { if (data?.tenant_id) setTenantId(data.tenant_id); });
-  }, [currentUser?.id]);
+  }, [status, currentUser?.id]);
 
   // Mettre à jour le profil
   const handleProfileSubmit = async (e: React.FormEvent) => {
