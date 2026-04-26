@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Types ultra-simples
 export interface SimpleWorkgroup {
@@ -22,13 +23,15 @@ export interface SimpleWorkgroupMember {
 }
 
 export const useSimpleWorkgroups = () => {
+  const { status } = useAuth();
   const [workgroups, setWorkgroups] = useState<SimpleWorkgroup[]>([]);
   const [members, setMembers] = useState<SimpleWorkgroupMember[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Charger les groupes
-  const loadWorkgroups = async () => {
+  const loadWorkgroups = useCallback(async () => {
+    if (status !== 'authenticated') return;
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -43,10 +46,11 @@ export const useSimpleWorkgroups = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [status]);
 
   // Charger les membres
-  const loadMembers = async () => {
+  const loadMembers = useCallback(async () => {
+    if (status !== 'authenticated') return;
     try {
       const { data, error } = await supabase
         .from('workgroup_members_simple')
@@ -56,10 +60,11 @@ export const useSimpleWorkgroups = () => {
       setMembers(data || []);
     } catch (err) {
     }
-  };
+  }, [status]);
 
   // Créer un groupe
-  const createGroup = async (name: string, description?: string) => {
+  const createGroup = useCallback(async (name: string, description?: string) => {
+    if (status !== 'authenticated') throw new Error('Non authentifié');
     setError(null);
     try {
       const { data: user } = await supabase.auth.getUser();
@@ -81,10 +86,11 @@ export const useSimpleWorkgroups = () => {
       setError(err instanceof Error ? err.message : 'Erreur création');
       throw err;
     }
-  };
+  }, [status, loadWorkgroups, loadMembers]);
 
   // Ajouter un membre
-  const addMember = async (groupId: string, userId: string) => {
+  const addMember = useCallback(async (groupId: string, userId: string) => {
+    if (status !== 'authenticated') return;
     setError(null);
     try {
       const { data, error } = await supabase.rpc('add_user_to_workgroup', {
@@ -101,10 +107,11 @@ export const useSimpleWorkgroups = () => {
       setError(err instanceof Error ? err.message : 'Erreur ajout');
       throw err;
     }
-  };
+  }, [status, loadMembers, loadWorkgroups]);
 
   // Retirer un membre
-  const removeMember = async (groupId: string, userId: string) => {
+  const removeMember = useCallback(async (groupId: string, userId: string) => {
+    if (status !== 'authenticated') return;
     setError(null);
     try {
       const { data, error } = await supabase.rpc('remove_user_from_workgroup', {
@@ -121,10 +128,11 @@ export const useSimpleWorkgroups = () => {
       setError(err instanceof Error ? err.message : 'Erreur retrait');
       throw err;
     }
-  };
+  }, [status, loadMembers, loadWorkgroups]);
 
   // Supprimer un groupe
-  const deleteGroup = async (groupId: string) => {
+  const deleteGroup = useCallback(async (groupId: string) => {
+    if (status !== 'authenticated') return;
     setError(null);
     try {
       // 1. D'abord supprimer la conversation associée au workgroup si elle existe
@@ -156,18 +164,20 @@ export const useSimpleWorkgroups = () => {
       setError(err instanceof Error ? err.message : 'Erreur suppression');
       throw err;
     }
-  };
+  }, [status, loadWorkgroups, loadMembers]);
 
   // Obtenir les membres d'un groupe
-  const getGroupMembers = (groupId: string) => {
+  const getGroupMembers = useCallback((groupId: string) => {
     return members.filter(m => m.workgroup_id === groupId);
-  };
+  }, [members]);
 
   // Charger au démarrage
   useEffect(() => {
-    loadWorkgroups();
-    loadMembers();
-  }, []);
+    if (status === 'authenticated') {
+      loadWorkgroups();
+      loadMembers();
+    }
+  }, [status, loadWorkgroups, loadMembers]);
 
   return {
     workgroups,

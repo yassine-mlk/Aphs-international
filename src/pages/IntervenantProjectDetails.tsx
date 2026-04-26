@@ -136,7 +136,7 @@ const IntervenantProjectDetails: React.FC = () => {
   // Vérifier l'accès au projet
   useEffect(() => {
     const checkProjectAccess = async () => {
-      if (!id || !user) return;
+      if (!id || !user || status !== 'authenticated') return;
       
       setLoadingMembership(true);
       try {
@@ -179,10 +179,10 @@ const IntervenantProjectDetails: React.FC = () => {
     };
     
     checkProjectAccess();
-  }, [id, user, fetchData]);
+  }, [id, user, status, fetchData]);
 
   useEffect(() => {
-    if (!isViewerRole) return;
+    if (status !== 'authenticated' || !isViewerRole) return;
     toast({
       title: "Accès limité",
       description: "Votre accès aux détails de ce projet est désactivé. Contactez un administrateur.",
@@ -194,7 +194,7 @@ const IntervenantProjectDetails: React.FC = () => {
   // Charger les détails du projet
   useEffect(() => {
     const fetchProjectDetails = async () => {
-      if (!id || !isMember) return;
+      if (!id || !isMember || status !== 'authenticated') return;
       
       setLoading(true);
       try {
@@ -225,12 +225,12 @@ const IntervenantProjectDetails: React.FC = () => {
     };
     
     fetchProjectDetails();
-  }, [id, isMember, fetchData, navigate, toast]);
+  }, [id, isMember, status, fetchData, navigate, toast]);
 
   // Charger les assignations de tâches
   useEffect(() => {
     const fetchTaskAssignments = async () => {
-      if (!id || !isMember) return;
+      if (!id || !isMember || status !== 'authenticated') return;
       
       setLoadingTasks(true);
       try {
@@ -250,11 +250,12 @@ const IntervenantProjectDetails: React.FC = () => {
     };
     
     fetchTaskAssignments();
-  }, [id, isMember, fetchData]);
+  }, [id, isMember, status, fetchData]);
 
   // Charger les intervenants
   useEffect(() => {
     const fetchIntervenants = async () => {
+      if (status !== 'authenticated') return;
       try {
         const userData = await getUsers();
         
@@ -283,7 +284,7 @@ const IntervenantProjectDetails: React.FC = () => {
     };
     
     fetchIntervenants();
-  }, [getUsers]);
+  }, [getUsers, status]);
 
   // Obtenir les noms des intervenants
   const getIntervenantNames = (userIds: string | string[]) => {

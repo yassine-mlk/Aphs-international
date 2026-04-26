@@ -40,7 +40,7 @@ export const invalidateTenantStructureCache = (tenantId?: string) => {
 
 export const useProjectStructure = (projectId: string) => {
   const { supabase, fetchData } = useSupabase();
-  const { user } = useAuth();
+  const { user, status } = useAuth();
   const { toast } = useToast();
   
   const [customStructures, setCustomStructures] = useState<CustomStructureItem[]>([]);
@@ -51,6 +51,7 @@ export const useProjectStructure = (projectId: string) => {
 
   // ── Charger la structure tenant en 3 requêtes plates (toutes phases confondues) ──
   const loadTenantStructure = useCallback(async (tenantId: string): Promise<{ hasTenantStructure: boolean }> => {
+    if (status !== 'authenticated') return { hasTenantStructure: false };
     // Cache hit
     if (tenantStructureCache[tenantId]) {
       const cached = tenantStructureCache[tenantId];
@@ -125,6 +126,7 @@ export const useProjectStructure = (projectId: string) => {
 
   // ── Charger la structure snapshot du projet (figée à la création) ──
   const loadSnapshotStructure = useCallback(async (): Promise<boolean> => {
+    if (status !== 'authenticated') return false;
     try {
       const { data: sections, error } = await supabase
         .from('project_sections_snapshot')
@@ -184,6 +186,7 @@ export const useProjectStructure = (projectId: string) => {
 
   // ── Créer un snapshot pour un projet existant sans snapshot ──
   const createSnapshotForExistingProject = useCallback(async (tenantId: string) => {
+    if (status !== 'authenticated') return false;
     try {
       // 1. Récupérer la structure tenant actuelle
       const { data: sections } = await supabase
@@ -276,7 +279,10 @@ export const useProjectStructure = (projectId: string) => {
 
   // ── Charger la structure du projet (snapshot figé uniquement) ──
   const loadCustomStructures = useCallback(async () => {
-    if (!projectId) return;
+    if (status !== 'authenticated' || !user?.id || !projectId) {
+      setLoading(false);
+      return;
+    }
     
     try {
       setLoading(true);
@@ -318,7 +324,7 @@ export const useProjectStructure = (projectId: string) => {
     } finally {
       setLoading(false);
     }
-  }, [projectId, supabase, loadSnapshotStructure, createSnapshotForExistingProject]);
+  }, [status, user?.id, projectId, supabase, loadSnapshotStructure, createSnapshotForExistingProject]);
 
   // Appliquer les personnalisations (suppressions) aux structures
   const applyCustomizations = useCallback((deletions: CustomStructureItem[]) => {
@@ -386,7 +392,7 @@ export const useProjectStructure = (projectId: string) => {
 
   // Supprimer une section complète
   const deleteSection = useCallback(async (sectionId: string, phase: 'conception' | 'realisation') => {
-    if (!user || !projectId) return false;
+    if (status !== 'authenticated' || !user || !projectId) return false;
 
     try {
       

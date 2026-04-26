@@ -1,10 +1,12 @@
 import { useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 import { NotificationType } from '@/hooks/useNotifications';
 import { useTenant } from '@/contexts/TenantContext';
 
 export function useNotificationTriggers() {
   const { tenant } = useTenant();
+  const { status } = useAuth();
   
   // Créer une notification pour un utilisateur spécifique avec paramètres
   const createNotification = useCallback(async (
@@ -14,6 +16,7 @@ export function useNotificationTriggers() {
     messageParams: Record<string, any> = {},
     data: Record<string, any> = {}
   ) => {
+    if (status !== 'authenticated') return;
     try {
       const defaultTitle = getDefaultTitle(type, titleParams);
       const defaultMessage = getDefaultMessage(type, messageParams);
@@ -47,6 +50,7 @@ export function useNotificationTriggers() {
     data: Record<string, any> = {},
     tenantId?: string
   ) => {
+    if (status !== 'authenticated') return;
     try {
       // Récupérer tous les admins (filtrer par tenant si spécifié)
       let query = supabase
@@ -218,6 +222,7 @@ export function useNotificationTriggers() {
     messageParams: Record<string, any> = {},
     data: Record<string, any> = {}
   ) => {
+    if (status !== 'authenticated') return;
     try {
       // Récupérer tous les membres du projet
       const { data: members, error: membersError } = await supabase

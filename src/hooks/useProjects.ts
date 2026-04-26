@@ -1,15 +1,18 @@
 import { useState, useCallback } from 'react';
 import { useSupabase } from './useSupabase';
+import { useAuth } from '@/contexts/AuthContext';
 import { Project, ProjectFormData, ProjectFilters } from '../types/project';
 import { useToast } from '@/components/ui/use-toast';
 
 export function useProjects() {
+  const { status } = useAuth();
   const { fetchData, insertData, updateData, deleteData, supabase } = useSupabase();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
   // Récupérer tous les projets avec filtres optionnels
   const getProjects = useCallback(async (filters?: ProjectFilters): Promise<Project[]> => {
+    if (status !== 'authenticated') return [];
     setLoading(true);
     try {
       const queryFilters = [];
@@ -58,6 +61,7 @@ export function useProjects() {
 
   // Récupérer un projet par son ID
   const getProjectById = useCallback(async (id: string): Promise<Project | null> => {
+    if (status !== 'authenticated') return null;
     try {
       const projects = await fetchData<Project>('projects', {
         filters: [{ column: 'id', operator: 'eq', value: id }],
@@ -77,6 +81,7 @@ export function useProjects() {
 
   // Snapshot la structure tenant + fiches dans les tables projet (version optimisée parallèle)
   const snapshotTenantStructure = async (projectId: string, tenantId: string) => {
+    if (status !== 'authenticated') return;
     try {
       // 1. Charger toute la structure tenant en parallèle
       const [{ data: sections }, { data: allItems }, { data: allTasks }] = await Promise.all([
@@ -169,6 +174,7 @@ export function useProjects() {
     projectData: ProjectFormData,
     currentUserId: string
   ): Promise<Project | null> => {
+    if (status !== 'authenticated') return null;
     setLoading(true);
     try {
       // Validation des champs obligatoires
@@ -231,10 +237,8 @@ export function useProjects() {
   }, [insertData, toast]);
 
   // Mettre à jour un projet
-  const updateProject = useCallback(async (
-    id: string,
-    projectData: Partial<ProjectFormData>
-  ): Promise<Project | null> => {
+  const updateProject = useCallback(async (id: string, projectData: Partial<ProjectFormData>): Promise<Project | null> => {
+    if (status !== 'authenticated') return null;
     setLoading(true);
     try {
       // Validation des champs obligatoires s'ils sont fournis
@@ -284,6 +288,7 @@ export function useProjects() {
 
   // Supprimer un projet
   const deleteProject = useCallback(async (id: string): Promise<boolean> => {
+    if (status !== 'authenticated') return false;
     setLoading(true);
     try {
       try {
@@ -325,6 +330,7 @@ export function useProjects() {
 
   // Récupérer les projets créés par un utilisateur
   const getProjectsByUser = useCallback(async (userId: string): Promise<Project[]> => {
+    if (status !== 'authenticated') return [];
     try {
       const projects = await fetchData<Project>('projects', {
         filters: [{ column: 'created_by', operator: 'eq', value: userId }],
@@ -344,6 +350,7 @@ export function useProjects() {
 
   // Rechercher des projets par nom ou description
   const searchProjects = useCallback(async (searchTerm: string): Promise<Project[]> => {
+    if (status !== 'authenticated') return [];
     try {
       const projects = await fetchData<Project>('projects', {
         order: { column: 'created_at', ascending: false }

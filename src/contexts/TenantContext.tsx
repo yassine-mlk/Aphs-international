@@ -23,14 +23,14 @@ export function useTenant() {
 
 // Hook séparé pour les fonctions Super Admin
 export function useSuperAdmin() {
-  const { user } = useAuth();
+  const { user, status } = useAuth();
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
     const checkSuperAdmin = async () => {
-      if (!user?.id) {
+      if (status !== 'authenticated' || !user?.id) {
         setIsSuperAdmin(false);
         setIsLoading(false);
         return;
@@ -54,7 +54,7 @@ export function useSuperAdmin() {
     };
 
     checkSuperAdmin();
-  }, [user?.id]);
+  }, [status, user?.id]);
 
   // Fonctions Super Admin
 
@@ -609,8 +609,8 @@ export function useSuperAdmin() {
           // Si l'utilisateur existe déjà dans auth
           if (authError.status === 409 || authError.message?.includes('already registered')) {
             // Récupérer l'UUID depuis auth.users via la liste des users
-            const { data: authUsers } = await supabase.auth.admin.listUsers();
-            const existingUser = authUsers?.users?.find(u => u.email === userData.email);
+            const { data: authUsers } = await (supabase as any).auth.admin.listUsers();
+            const existingUser = (authUsers?.users as any[] | undefined)?.find(u => u?.email === userData.email);
             
             if (existingUser) {
               userId = existingUser.id;
@@ -762,7 +762,7 @@ export function useSuperAdmin() {
 
 // Provider principal
 export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
+  const { user, status } = useAuth();
   const { toast } = useToast();
   
   const [tenant, setTenant] = useState<Tenant | null>(null);
@@ -804,7 +804,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Charger le tenant courant
   useEffect(() => {
     const loadTenant = async () => {
-      if (!user?.id) {
+      if (status !== 'authenticated' || !user?.id) {
         setTenant(null);
         setMember(null);
         setIsLoading(false);
@@ -897,7 +897,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
 
     loadTenant();
-  }, [user?.id, updateUsage]);
+  }, [status, user?.id, toast, updateUsage]);
 
   // Fonctions de vérification des quotas
   const canAddProject = useCallback(() => {

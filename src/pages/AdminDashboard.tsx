@@ -62,7 +62,7 @@ const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { fetchData, supabase } = useSupabase();
-  const { user } = useAuth();
+  const { user, status } = useAuth();
 
   const noResponseThresholdHours = 24;
 
@@ -94,10 +94,9 @@ const AdminDashboard: React.FC = () => {
   // Hook pour les documents en attente (admin)
   const { pendingCount: adminPendingDocsCount, loading: adminPendingDocsLoading } = useAdminDocuments();
 
-
-
   // Charger les statistiques
   const loadStats = async () => {
+    if (status !== 'authenticated') return;
     setLoading(true);
     try {
       const now = new Date();
@@ -314,39 +313,41 @@ const AdminDashboard: React.FC = () => {
   };
 
   useEffect(() => {
-    loadStats();
+    if (status === 'authenticated') {
+      loadStats();
 
-    // S'abonner aux changements de la table task_assignments
-    const channel = supabase
-      .channel('admin-dashboard-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'task_assignments'
-        },
-        () => {
-          loadStats();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'projects'
-        },
-        () => {
-          loadStats();
-        }
-      )
-      .subscribe();
+      // S'abonner aux changements de la table task_assignments
+      const channel = supabase
+        .channel('admin-dashboard-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'task_assignments'
+          },
+          () => {
+            loadStats();
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'projects'
+          },
+          () => {
+            loadStats();
+          }
+        )
+        .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [status]);
 
   // Fonction pour formater la date
   const formatTimeAgo = (timestamp: string) => {

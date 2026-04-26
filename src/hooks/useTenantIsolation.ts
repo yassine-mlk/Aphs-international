@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { useTenant } from '@/contexts/TenantContext';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 
 /**
  * Hook pour gérer l'isolation des données par tenant
@@ -8,6 +9,7 @@ import { supabase } from '@/lib/supabase';
  */
 export function useTenantIsolation() {
   const { tenant, usage } = useTenant();
+  const { status } = useAuth();
 
   const tenantId = tenant?.id;
 
@@ -40,7 +42,7 @@ export function useTenantIsolation() {
    * Récupère les projets du tenant courant
    */
   const getProjects = useCallback(async () => {
-    if (!tenantId) return [];
+    if (status !== 'authenticated' || !tenantId) return [];
     
     const { data, error } = await supabase
       .from('projects')
@@ -56,7 +58,7 @@ export function useTenantIsolation() {
    * Crée un projet (avec vérification quota)
    */
   const createProject = useCallback(async (projectData: any) => {
-    if (!tenantId) throw new Error('No tenant selected');
+    if (status !== 'authenticated' || !tenantId) throw new Error('No tenant selected or not authenticated');
     if (!canCreateProject()) throw new Error('Quota projets atteint');
 
     const { data, error } = await supabase
@@ -70,13 +72,13 @@ export function useTenantIsolation() {
 
     if (error) throw error;
     return data;
-  }, [tenantId, canCreateProject]);
+  }, [tenantId, canCreateProject, status]);
 
   /**
    * Récupère les intervenants/membres du tenant courant
    */
   const getIntervenants = useCallback(async () => {
-    if (!tenantId) return [];
+    if (status !== 'authenticated' || !tenantId) return { membres: [], tenantMembers: [] };
     
     // Combine membre table et tenant_members
     const [{ data: membres }, { data: tenantMembres }] = await Promise.all([
@@ -88,13 +90,13 @@ export function useTenantIsolation() {
       membres: membres || [],
       tenantMembers: tenantMembres || []
     };
-  }, [tenantId]);
+  }, [tenantId, status]);
 
   /**
    * Ajoute un intervenant (avec vérification quota)
    */
   const addIntervenant = useCallback(async (intervenantData: any) => {
-    if (!tenantId) throw new Error('No tenant selected');
+    if (status !== 'authenticated' || !tenantId) throw new Error('No tenant selected or not authenticated');
     if (!canAddIntervenant()) throw new Error('Quota intervenants atteint');
 
     const { data, error } = await supabase
@@ -108,13 +110,13 @@ export function useTenantIsolation() {
 
     if (error) throw error;
     return data;
-  }, [tenantId, canAddIntervenant]);
+  }, [tenantId, canAddIntervenant, status]);
 
   /**
    * Récupère les tâches du tenant courant
    */
   const getTasks = useCallback(async () => {
-    if (!tenantId) return [];
+    if (status !== 'authenticated' || !tenantId) return [];
     
     const { data, error } = await supabase
       .from('task_assignments')
@@ -124,13 +126,13 @@ export function useTenantIsolation() {
 
     if (error) throw error;
     return data || [];
-  }, [tenantId]);
+  }, [tenantId, status]);
 
   /**
    * Crée une tâche
    */
   const createTask = useCallback(async (taskData: any) => {
-    if (!tenantId) throw new Error('No tenant selected');
+    if (status !== 'authenticated' || !tenantId) throw new Error('No tenant selected or not authenticated');
 
     const { data, error } = await supabase
       .from('task_assignments')
@@ -143,7 +145,7 @@ export function useTenantIsolation() {
 
     if (error) throw error;
     return data;
-  }, [tenantId]);
+  }, [tenantId, status]);
 
   return {
     tenantId,

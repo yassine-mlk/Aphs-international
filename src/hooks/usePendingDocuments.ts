@@ -21,11 +21,11 @@ export function usePendingDocuments() {
   const [pendingDocs, setPendingDocs] = useState<PendingDocument[]>([]);
   const [signedDocs, setSignedDocs] = useState<PendingDocument[]>([]);
   const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
+  const { user, status } = useAuth();
   const { toast } = useToast();
 
   const fetchPendingDocuments = useCallback(async () => {
-    if (!user?.id) return;
+    if (status !== 'authenticated' || !user?.id) return;
 
     try {
       setLoading(true);
@@ -60,8 +60,16 @@ export function usePendingDocuments() {
         return;
       }
 
+      const typedRecipients = recipients as any[];
+
       // Récupérer les noms des projets
-      const projectIds = [...new Set(recipients.map(r => r.project_documents.project_id))];
+      const projectIds = [
+        ...new Set(
+          typedRecipients
+            .map(r => r?.project_documents?.project_id)
+            .filter((id): id is string => typeof id === 'string' && id.length > 0)
+        )
+      ];
       const { data: projects, error: projectsError } = await supabase
         .from('projects')
         .select('id, name')
@@ -72,7 +80,7 @@ export function usePendingDocuments() {
       const projectMap = new Map(projects?.map(p => [p.id, p.name]) || []);
 
       // Formatter les données
-      const formattedDocs: PendingDocument[] = recipients.map(r => ({
+      const formattedDocs: PendingDocument[] = typedRecipients.map((r: any) => ({
         id: r.id,
         document_id: r.document_id,
         document_name: r.project_documents.name,
@@ -98,11 +106,11 @@ export function usePendingDocuments() {
     } finally {
       setLoading(false);
     }
-  }, [user?.id, toast]);
+  }, [status, user?.id, toast]);
 
   // Souscription temps réel aux changements
   useEffect(() => {
-    if (!user?.id) return;
+    if (status !== 'authenticated' || !user?.id) return;
 
     fetchPendingDocuments();
 
@@ -125,10 +133,11 @@ export function usePendingDocuments() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id, fetchPendingDocuments]);
+  }, [status, user?.id, fetchPendingDocuments]);
 
   // Signer un document
   const signDocument = useCallback(async (recipientId: string, comment?: string) => {
+    if (status !== 'authenticated' || !user?.id) return false;
     try {
       // Récupérer les infos du document avant de le signer
       const { data: recipientData, error: fetchError } = await supabase
@@ -143,6 +152,9 @@ export function usePendingDocuments() {
 
       if (fetchError) throw fetchError;
 
+      const rawProjectDoc = (recipientData as any)?.project_documents;
+      const projectDoc = Array.isArray(rawProjectDoc) ? rawProjectDoc[0] : rawProjectDoc;
+
       // Mettre à jour le statut
       const { error } = await supabase
         .from('document_recipients')
@@ -156,19 +168,19 @@ export function usePendingDocuments() {
       if (error) throw error;
 
       // Envoyer une notification à l'admin
-      if (recipientData?.project_documents?.uploaded_by) {
-        const { error: notifError } = await supabase
+      if (projectDoc?.uploaded_by) {
+        await supabase
           .from('notifications')
           .insert({
-            user_id: recipientData.project_documents.uploaded_by,
+            user_id: projectDoc.uploaded_by,
             type: 'document_signed',
             title: 'Document signé',
-            message: `${user?.user_metadata?.first_name || ''} ${user?.user_metadata?.last_name || ''} a signé le document "${recipientData.project_documents.name}"`,
+            message: `${user?.user_metadata?.first_name || ''} ${user?.user_metadata?.last_name || ''} a signé le document "${projectDoc.name}"`,
             data: {
               documentId: recipientData.document_id,
-              projectId: recipientData.project_documents.project_id,
+              projectId: projectDoc.project_id,
               signerName: `${user?.user_metadata?.first_name || ''} ${user?.user_metadata?.last_name || ''}`.trim(),
-              documentName: recipientData.project_documents.name
+              documentName: projectDoc.name
             },
             read: false
           });
@@ -178,10 +190,10 @@ export function usePendingDocuments() {
         try {
           await supabase.functions.invoke('send-document-signed-email', {
             body: {
-              adminId: recipientData.project_documents.uploaded_by,
-              documentName: recipientData.project_documents.name,
+              adminId: projectDoc.uploaded_by,
+              documentName: projectDoc.name,
               signerName: `${user?.user_metadata?.first_name || ''} ${user?.user_metadata?.last_name || ''}`.trim(),
-              projectId: recipientData.project_documents.project_id,
+              projectId: projectDoc.project_id,
               comment: comment
             }
           });
@@ -206,10 +218,11 @@ export function usePendingDocuments() {
       });
       return false;
     }
-  }, [fetchPendingDocuments, toast, user]);
+  }, [status, user?.id, fetchPendingDocuments, toast, user]);
 
   // Refuser un document
   const rejectDocument = useCallback(async (recipientId: string, reason: string) => {
+    if (status !== 'authenticated' || !user?.id) return false;
     try {
       const { error } = await supabase
         .from('document_recipients')
@@ -238,7 +251,7 @@ export function usePendingDocuments() {
       });
       return false;
     }
-  }, [fetchPendingDocuments, toast]);
+  }, [status, user?.id, fetchPendingDocuments, toast]);
 
   return {
     pendingDocs,

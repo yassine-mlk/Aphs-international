@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useSupabase } from './useSupabase';
+import { useAuth } from '@/contexts/AuthContext';
 import { 
   Profile, 
   ProfileFormData, 
@@ -12,7 +13,8 @@ import {
 import { useToast } from '@/components/ui/use-toast';
 
 export function useProfiles() {
-  const { fetchData, insertData, updateData, deleteData, adminCreateUser } = useSupabase();
+  const { fetchData, insertData, updateData, deleteData, adminCreateUser, supabase } = useSupabase();
+  const { status } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
@@ -21,6 +23,7 @@ export function useProfiles() {
     filters?: ProfileFilters,
     sort?: ProfileSortOptions
   ): Promise<Profile[]> => {
+    if (status !== 'authenticated' || !supabase) return [];
     setLoading(true);
     try {
       const queryFilters = [];
@@ -70,7 +73,8 @@ export function useProfiles() {
 
   // Récupérer un profil par son ID (user_id)
   const getProfileById = useCallback(async (id: string): Promise<Profile | null> => {
-    try {
+    if (status !== 'authenticated') return null;
+    setLoading(true);try {
       const profiles = await fetchData<Profile>('profiles', {
         filters: [{ column: 'user_id', operator: 'eq', value: id }],
         limit: 1
@@ -89,6 +93,7 @@ export function useProfiles() {
 
   // Récupérer un profil par email
   const getProfileByEmail = useCallback(async (email: string): Promise<Profile | null> => {
+    if (status !== 'authenticated') return null;
     try {
       const profiles = await fetchData<Profile>('profiles', {
         filters: [{ column: 'email', operator: 'eq', value: email }],
@@ -103,6 +108,7 @@ export function useProfiles() {
 
   // Récupérer un profil par user_id
   const getProfileByUserId = useCallback(async (userId: string): Promise<Profile | null> => {
+    if (status !== 'authenticated') return null;
     try {
       const profiles = await fetchData<Profile>('profiles', {
         filters: [{ column: 'user_id', operator: 'eq', value: userId }],
@@ -117,6 +123,7 @@ export function useProfiles() {
 
   // Créer un nouveau profil simple
   const createProfile = useCallback(async (profileData: ProfileFormData): Promise<Profile | null> => {
+    if (status !== 'authenticated') return null;
     setLoading(true);
     try {
       // Validation des champs obligatoires
@@ -195,6 +202,7 @@ export function useProfiles() {
   const createIntervenant = useCallback(async (
     intervenantData: IntervenantFormData
   ): Promise<{ profile: Profile | null; authUser: any | null }> => {
+    if (status !== 'authenticated') return { profile: null, authUser: null };
     setLoading(true);
     try {
       // Validation des champs obligatoires
@@ -309,6 +317,7 @@ export function useProfiles() {
     id: string,
     profileData: ProfileUpdateData
   ): Promise<Profile | null> => {
+    if (status !== 'authenticated') return null;
     setLoading(true);
     try {
       // Validation des champs obligatoires s'ils sont fournis
@@ -367,6 +376,7 @@ export function useProfiles() {
 
   // Supprimer un profil
   const deleteProfile = useCallback(async (id: string): Promise<boolean> => {
+    if (status !== 'authenticated') return false;
     setLoading(true);
     try {
       const success = await deleteData('profiles', id, 'user_id');
@@ -393,6 +403,7 @@ export function useProfiles() {
 
   // Rechercher des profils par nom ou email
   const searchProfiles = useCallback(async (searchTerm: string): Promise<Profile[]> => {
+    if (status !== 'authenticated') return [];
     try {
       const profiles = await fetchData<Profile>('profiles', {
         order: { column: 'name', ascending: true }

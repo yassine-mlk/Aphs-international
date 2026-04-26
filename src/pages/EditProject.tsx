@@ -42,7 +42,7 @@ const EditProject: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, role } = useAuth();
+  const { user, role, status } = useAuth();
   const { fetchData, updateData } = useSupabase();
 
   // États
@@ -79,6 +79,7 @@ const EditProject: React.FC = () => {
   // Charger les données initiales
   useEffect(() => {
     const loadData = async () => {
+      if (status !== 'authenticated') return;
       if (!id) {
         toast({
           title: "Erreur",
@@ -141,10 +142,10 @@ const EditProject: React.FC = () => {
       }
     };
 
-    if (id && isAdmin) {
+    if (id && isAdmin && status === 'authenticated') {
       loadData();
     }
-  }, [id, isAdmin, fetchData, navigate, toast]);
+  }, [id, isAdmin, status, fetchData, navigate, toast]);
 
   // Gérer les changements de formulaire
   const handleInputChange = (field: string, value: string) => {
@@ -198,7 +199,7 @@ const EditProject: React.FC = () => {
 
   // Sauvegarder les modifications
   const handleSave = async () => {
-    if (!project || !validateForm()) return;
+    if (status !== 'authenticated' || !project || !validateForm()) return;
 
     try {
       setSaving(true);

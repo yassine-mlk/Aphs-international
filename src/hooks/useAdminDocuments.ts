@@ -25,11 +25,11 @@ export function useAdminDocuments() {
   const [pendingDocs, setPendingDocs] = useState<AdminPendingDocument[]>([]);
   const [signedDocs, setSignedDocs] = useState<AdminPendingDocument[]>([]);
   const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
+  const { user, status } = useAuth();
   const { toast } = useToast();
 
   const fetchDocuments = useCallback(async () => {
-    if (!user?.id) return;
+    if (status !== 'authenticated' || !user?.id) return;
 
     try {
       setLoading(true);
@@ -66,8 +66,16 @@ export function useAdminDocuments() {
         return;
       }
 
+      const typedRecipients = recipients as any[];
+
       // Récupérer les noms des projets
-      const projectIds = [...new Set(recipients.map(r => r.project_documents.project_id))];
+      const projectIds = [
+        ...new Set(
+          typedRecipients
+            .map(r => r?.project_documents?.project_id)
+            .filter((id): id is string => typeof id === 'string' && id.length > 0)
+        )
+      ];
       const { data: projects, error: projectsError } = await supabase
         .from('projects')
         .select('id, name')
@@ -78,7 +86,7 @@ export function useAdminDocuments() {
       const projectMap = new Map(projects?.map(p => [p.id, p.name]) || []);
 
       // Formatter les données
-      const formattedDocs: AdminPendingDocument[] = recipients.map(r => ({
+      const formattedDocs: AdminPendingDocument[] = typedRecipients.map((r: any) => ({
         id: r.id,
         document_id: r.document_id,
         document_name: r.project_documents.name,
@@ -107,11 +115,11 @@ export function useAdminDocuments() {
     } finally {
       setLoading(false);
     }
-  }, [user?.id, toast]);
+  }, [status, user?.id, toast]);
 
   // Souscription temps réel
   useEffect(() => {
-    if (!user?.id) return;
+    if (status !== 'authenticated' || !user?.id) return;
 
     fetchDocuments();
 
@@ -133,7 +141,7 @@ export function useAdminDocuments() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id, fetchDocuments]);
+  }, [status, user?.id, fetchDocuments]);
 
   return {
     pendingDocs,

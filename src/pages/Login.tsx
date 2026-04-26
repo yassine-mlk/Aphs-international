@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '@/lib/supabase';
 import PasswordInput from '@/components/ui/password-input';
 
 const Login: React.FC = () => {
@@ -13,15 +12,14 @@ const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const location = useLocation();
   const { toast } = useToast();
-  const { signIn, user, role, isSuperAdmin, loading: authLoading } = useAuth();
+  const { signIn, user, isSuperAdmin, status } = useAuth();
     const redirectedRef = useRef(false);
   
   // Redirect if user is already logged in
   useEffect(() => {
     // Empêcher les redirections multiples
-    if (redirectedRef.current || authLoading) return;
+    if (redirectedRef.current || status === 'loading') return;
     
     if (user) {
       redirectedRef.current = true;
@@ -33,7 +31,7 @@ const Login: React.FC = () => {
         navigate(redirectPath, { replace: true });
       }, 100);
     }
-  }, [user, isSuperAdmin, navigate, authLoading]);
+  }, [user, isSuperAdmin, navigate, status]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

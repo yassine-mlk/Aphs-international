@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { supabase, supabaseAdmin } from '../lib/supabase';
 import { useToast } from '@/components/ui/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import { UserRole, SPECIALTIES, Profile } from '../types/profile';
 import { Company } from '../types/company';
 import { Workgroup as WorkGroup, WorkgroupMember as WorkGroupMember } from '../types/workgroup';
@@ -34,6 +35,7 @@ export interface Intervenant extends Partial<Profile> {
 
 export function useSupabase() {
   const { toast } = useToast();
+  const { status } = useAuth();
 
   /**
    * Récupère les données d'une table
@@ -49,6 +51,7 @@ export function useSupabase() {
       timeout?: number;
     }
   ): Promise<T[]> => {
+    if (status !== 'authenticated') return [];
     try {
       const timeout = options?.timeout || 5000;
       const timeoutPromise = new Promise<null>((_, reject) => {
@@ -132,7 +135,7 @@ export function useSupabase() {
       });
       return [];
     }
-  }, [toast]);
+  }, [status, toast]);
 
   /**
    * Insère une nouvelle ligne dans une table
@@ -141,6 +144,7 @@ export function useSupabase() {
     tableName: string, 
     data: Partial<T>
   ): Promise<T | null> => {
+    if (status !== 'authenticated') return null;
     try {
       const { data: result, error } = await supabase
         .from(tableName)
@@ -174,7 +178,7 @@ export function useSupabase() {
       });
       return null;
     }
-  }, [toast]);
+  }, [status, toast]);
 
   /**
    * Met à jour une ligne dans une table
@@ -184,6 +188,7 @@ export function useSupabase() {
     data: Partial<T> & { id: string },
     filters?: { column: string; operator: string; value: any }[]
   ): Promise<T | null> => {
+    if (status !== 'authenticated') return null;
     try {
       let query = supabase
         .from(tableName)
@@ -232,7 +237,7 @@ export function useSupabase() {
       });
       return null;
     }
-  }, [toast]);
+  }, [status, toast]);
 
   /**
    * Supprime une ligne d'une table
@@ -242,6 +247,7 @@ export function useSupabase() {
     id: string | number,
     idColumn: string = 'id'
   ): Promise<boolean> => {
+    if (status !== 'authenticated') return false;
     try {
       const { error } = await supabase
         .from(tableName)
@@ -266,12 +272,13 @@ export function useSupabase() {
       });
       return false;
     }
-  }, [toast]);
+  }, [status, toast]);
 
   /**
    * Récupère les paramètres d'un utilisateur depuis la table profiles
    */
   const getUserSettings = useCallback(async (userId: string): Promise<UserSettings | null> => {
+    if (status !== 'authenticated') return null;
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -329,7 +336,7 @@ export function useSupabase() {
       });
       return null;
     }
-  }, [toast]);
+  }, [status, toast]);
 
   /**
    * Met à jour les paramètres d'un utilisateur dans la table profiles
@@ -338,6 +345,7 @@ export function useSupabase() {
     userId: string, 
     settings: Partial<UserSettings>
   ): Promise<UserSettings | null> => {
+    if (status !== 'authenticated') return null;
     try {
       // Mapper les champs UserSettings vers les champs profiles
       const profileUpdate: Partial<Profile> = {};
@@ -396,7 +404,7 @@ export function useSupabase() {
       });
       return null;
     }
-  }, [toast]);
+  }, [status, toast]);
 
   /**
    * Met à jour le mot de passe d'un utilisateur
@@ -405,6 +413,7 @@ export function useSupabase() {
     currentPassword: string,
     newPassword: string
   ): Promise<boolean> => {
+    if (status !== 'authenticated') return false;
     try {
       // D'abord vérifier le mot de passe actuel
       const { error: signInError } = await supabase.auth.signInWithPassword({
@@ -442,7 +451,7 @@ export function useSupabase() {
       });
       return false;
     }
-  }, [toast]);
+  }, [status, toast]);
 
   /**
    * Crée un nouvel utilisateur avec un rôle spécifique (par l'administrateur)
@@ -454,6 +463,7 @@ export function useSupabase() {
     role: UserRole = 'intervenant',
     additionalData: Record<string, any> = {}
   ): Promise<{ success: boolean; userId?: string; error?: Error }> => {
+    if (status !== 'authenticated') return { success: false, error: new Error('Non authentifié') };
     try {
       if (!supabaseAdmin) {
         throw new Error("VITE_SUPABASE_SERVICE_ROLE_KEY manquante dans .env.local");
@@ -590,12 +600,13 @@ export function useSupabase() {
       });
       return { success: false, error: error as Error };
     }
-  }, [toast]);
+  }, [status, toast]);
 
   /**
    * Récupère tous les utilisateurs (pour l'admin uniquement)
    */
   const getUsers = useCallback(async () => {
+    if (status !== 'authenticated') return null;
     try {
       if (!supabaseAdmin) {
         throw new Error("L'API d'administration n'est pas disponible. Contactez votre administrateur système.");
@@ -615,7 +626,7 @@ export function useSupabase() {
       });
       return null;
     }
-  }, [toast]);
+  }, [status, toast]);
 
   /**
    * Met à jour un utilisateur existant (par l'administrateur)
@@ -632,6 +643,7 @@ export function useSupabase() {
       [key: string]: any;
     }
   ): Promise<{ success: boolean; error?: Error }> => {
+    if (status !== 'authenticated') return { success: false, error: new Error('Non authentifié') };
     try {
       if (!supabaseAdmin) {
         throw new Error("L'API d'administration n'est pas disponible. Contactez votre administrateur système.");
@@ -687,7 +699,7 @@ export function useSupabase() {
       });
       return { success: false, error: error as Error };
     }
-  }, [toast]);
+  }, [status, toast]);
 
   /**
    * Supprime un utilisateur (par l'administrateur)
@@ -695,6 +707,7 @@ export function useSupabase() {
   const adminDeleteUser = useCallback(async (
     userId: string
   ): Promise<{ success: boolean; error?: Error }> => {
+    if (status !== 'authenticated') return { success: false, error: new Error('Non authentifié') };
     try {
       if (!supabaseAdmin) {
         throw new Error("L'API d'administration n'est pas disponible. Contactez votre administrateur système.");
@@ -789,7 +802,7 @@ export function useSupabase() {
       });
       return { success: false, error: error as Error };
     }
-  }, [toast]);
+  }, [status, toast]);
 
   /**
    * Récupère toutes les entreprises

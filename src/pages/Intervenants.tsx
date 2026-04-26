@@ -123,7 +123,7 @@ type SortOrder = 'asc' | 'desc';
 const Intervenants: React.FC = () => {
   const { toast } = useToast();
   const { adminDeleteUser, supabase: supabaseHook } = useSupabase();
-  const { user: authUser } = useAuth();
+  const { user: authUser, status } = useAuth();
   const [intervenants, setIntervenants] = useState<Intervenant[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -146,13 +146,15 @@ const Intervenants: React.FC = () => {
   const [specialtyFilter, setSpecialtyFilter] = useState<string>('');
 
   useEffect(() => {
-    if (authUser?.id) fetchIntervenants();
-  }, [authUser?.id]);
+    if (status === 'authenticated' && authUser?.id) {
+      fetchIntervenants();
+    }
+  }, [authUser?.id, status]);
 
   const fetchIntervenants = async () => {
+    if (status !== 'authenticated' || !authUser) return;
     setLoading(true);
     try {
-      if (!authUser) return;
 
       // Récupérer le tenant_id du user connecté
       const { data: myProfile } = await supabase

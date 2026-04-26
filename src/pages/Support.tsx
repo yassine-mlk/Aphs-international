@@ -35,6 +35,7 @@ import {
   Clock
 } from 'lucide-react';
 import { useSupport } from '@/hooks/useSupport';
+import { useAuth } from '@/contexts/AuthContext';
 import { SupportTicket, TicketPriority, TicketCategory } from '@/types/support';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { format } from 'date-fns';
@@ -60,6 +61,7 @@ const FAQ_ITEMS = [
 ];
 
 const SupportPage: React.FC = () => {
+  const { status } = useAuth();
   const { loading, getMyTickets, createTicket } = useSupport();
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [activeTab, setActiveTab] = useState("faq");
@@ -72,8 +74,10 @@ const SupportPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    loadTickets();
-  }, []);
+    if (status === 'authenticated') {
+      loadTickets();
+    }
+  }, [status]);
 
   const loadTickets = async () => {
     const data = await getMyTickets();

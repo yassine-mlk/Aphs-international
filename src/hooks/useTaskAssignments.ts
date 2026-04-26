@@ -3,6 +3,7 @@
 
 import { useState, useCallback } from 'react';
 import { useSupabase } from './useSupabase';
+import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { notifyTaskAssigned } from '@/lib/notifications';
 import {
@@ -22,6 +23,7 @@ import {
 
 export const useTaskAssignments = () => {
   const { fetchData, insertData, updateData, deleteData, getUsers } = useSupabase();
+  const { status } = useAuth();
   const { toast } = useToast();
   
   const [taskAssignments, setTaskAssignments] = useState<TaskAssignment[]>([]);
@@ -30,6 +32,7 @@ export const useTaskAssignments = () => {
 
   // Récupérer tous les assignements de tâches
   const fetchAllTaskAssignments = useCallback(async (filters?: TaskAssignmentFilters) => {
+    if (status !== 'authenticated') return [];
     setLoading(true);
     setError(null);
     

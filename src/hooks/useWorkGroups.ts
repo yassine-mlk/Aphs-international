@@ -63,14 +63,14 @@ export interface AvailableUser {
 
 export function useWorkGroups() {
   const { supabase } = useSupabase();
-  const { user } = useAuth();
+  const { user, status } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState<boolean>(false);
   const [workGroups, setWorkGroups] = useState<WorkGroupWithMessaging[]>([]);
 
   // Récupérer tous les groupes de travail (version simple)
   const fetchWorkGroups = useCallback(async () => {
-    if (!user) return;
+    if (status !== 'authenticated' || !user) return;
     
     try {
       setLoading(true);
@@ -152,17 +152,19 @@ export function useWorkGroups() {
     } finally {
       setLoading(false);
     }
-  }, [user, supabase]);
+  }, [status, user, supabase]);
 
   // Charger les groupes au montage
   useEffect(() => {
-    fetchWorkGroups();
-  }, [fetchWorkGroups]);
+    if (status === 'authenticated') {
+      fetchWorkGroups();
+    }
+  }, [fetchWorkGroups, status]);
 
   // Récupérer les utilisateurs disponibles directement depuis profiles (filtrés par tenant)
   const getAvailableUsers = useCallback(async (): Promise<AvailableUser[]> => {
     try {
-      if (!user?.id) return [];
+      if (status !== 'authenticated' || !user?.id) return [];
 
       // Récupérer le tenant_id de l'utilisateur connecté
       const { data: myProfile, error: profileError } = await supabase
@@ -208,7 +210,7 @@ export function useWorkGroups() {
       console.error('Error in getAvailableUsers:', error);
       return [];
     }
-  }, [supabase, user?.id]);
+  }, [status, supabase, user?.id]);
 
   // Créer un groupe de travail (version corrigée)
   const createWorkGroup = useCallback(async (
@@ -216,7 +218,7 @@ export function useWorkGroups() {
     description?: string,
     initialMemberIds: string[] = []
   ): Promise<string | null> => {
-    if (!user) return null;
+    if (status !== 'authenticated' || !user) return null;
     
     try {
       setLoading(true);
@@ -263,7 +265,7 @@ export function useWorkGroups() {
     } finally {
       setLoading(false);
     }
-  }, [user, supabase, toast, fetchWorkGroups]);
+  }, [status, user, supabase, toast, fetchWorkGroups]);
 
   // Mettre à jour un groupe de travail
   const updateWorkGroup = useCallback(async (
@@ -274,6 +276,7 @@ export function useWorkGroups() {
       status?: 'active' | 'inactive';
     }
   ): Promise<boolean> => {
+    if (status !== 'authenticated') return false;
     try {
       setLoading(true);
 
@@ -301,10 +304,11 @@ export function useWorkGroups() {
     } finally {
       setLoading(false);
     }
-  }, [supabase, toast, fetchWorkGroups]);
+  }, [status, supabase, toast, fetchWorkGroups]);
 
   // Supprimer un groupe de travail
   const deleteWorkGroup = useCallback(async (workgroupId: string): Promise<boolean> => {
+    if (status !== 'authenticated') return false;
     try {
       setLoading(true);
 
@@ -349,13 +353,14 @@ export function useWorkGroups() {
     } finally {
       setLoading(false);
     }
-  }, [supabase, toast, fetchWorkGroups]);
+  }, [status, supabase, toast, fetchWorkGroups]);
 
   // Ajouter des membres à un groupe (corrigé)
   const addMembersToWorkGroup = useCallback(async (
     workgroupId: string,
     userIds: string[]
   ): Promise<boolean> => {
+    if (status !== 'authenticated') return false;
     try {
       setLoading(true);
 
@@ -384,12 +389,13 @@ export function useWorkGroups() {
     } finally {
       setLoading(false);
     }
-  }, [supabase, toast, fetchWorkGroups]);
+  }, [status, supabase, toast, fetchWorkGroups]);
 
   // Supprimer un membre d'un groupe
   const removeMemberFromWorkGroup = useCallback(async (
     memberId: string
   ): Promise<boolean> => {
+    if (status !== 'authenticated') return false;
     try {
       setLoading(true);
 
@@ -412,7 +418,7 @@ export function useWorkGroups() {
     } finally {
       setLoading(false);
     }
-  }, [supabase, toast, fetchWorkGroups]);
+  }, [status, supabase, toast, fetchWorkGroups]);
 
   return {
     workGroups,

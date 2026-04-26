@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, Suspense } from 'react';
 import { useNavigate, Outlet, Link, useLocation } from 'react-router-dom';
 import {
   SidebarProvider,
@@ -22,8 +22,6 @@ import {
   Settings,
   User,
   CheckSquare,
-  BarChart3,
-  FileText,
   FileCheck,
   Video,
   LifeBuoy
@@ -36,21 +34,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/lib/supabase';
 import NotificationBell from '@/components/NotificationBell';
 import { usePendingDocuments } from '@/hooks/usePendingDocuments';
 import LoadingSpinner from '@/components/LoadingSpinner';
-
-
-// Type pour l'utilisateur du dashboard
-type DashboardUser = {
-  email: string;
-  role: string;
-  id?: string;
-  is_super_admin?: boolean;
-}
 
 // Traductions françaises intégrées
 const dashboardTranslations = {
@@ -81,16 +68,9 @@ const DashboardLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const { user: authUser, role, isSuperAdmin: authIsSuperAdmin, loading: authLoading, signOut } = useAuth();
+  const { user: authUser, role, isSuperAdmin: authIsSuperAdmin, signOut } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const { count: pendingDocsCount } = usePendingDocuments();
-
-  // Rediriger si non connecté après la fin du chargement
-  useEffect(() => {
-    if (!authLoading && !authUser) {
-      navigate('/login');
-    }
-  }, [authUser, authLoading, navigate]);
 
   const handleLogout = async () => {
     // Éviter les déconnexions multiples
@@ -111,10 +91,6 @@ const DashboardLayout: React.FC = () => {
       setIsLoggingOut(false);
     }
   };
-
-  if (authLoading) {
-    return <LoadingSpinner />;
-  }
 
   // Check both the role and directly for admin email
   const isAdmin = role === 'admin' || authUser?.email === 'admin@aps.com';

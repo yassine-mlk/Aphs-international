@@ -39,7 +39,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 
 import { useNavigate } from 'react-router-dom';
-import ProjectsLanguageSelector from '@/components/ProjectsLanguageSelector';
 import ImageUpload from '@/components/ImageUpload';
 import { Project, ProjectFormData, PROJECT_STATUSES } from '../types/project';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -67,7 +66,7 @@ type ProjectStatItem = {
 const Projects: React.FC = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, status } = useAuth();
   const { deleteData, updateData } = useSupabase();
   const { createProject } = useProjects();
   const [projects, setProjects] = useState<Project[]>([]);
@@ -93,7 +92,7 @@ const Projects: React.FC = () => {
   
   // Charger tenant_id de l'admin connecté
   useEffect(() => {
-    if (!user?.id) return;
+    if (status !== 'authenticated' || !user?.id) return;
     supabase
       .from('profiles')
       .select('tenant_id')
@@ -111,15 +110,16 @@ const Projects: React.FC = () => {
             if (tenant?.max_projects) setMaxProjects(tenant.max_projects);
           });
       });
-  }, [user?.id]);
+  }, [user?.id, status]);
 
   // Charger les projets au chargement de la page
   useEffect(() => {
-    if (user?.id) fetchProjects();
-  }, [tenantId, user?.id]);
+    if (status === 'authenticated' && user?.id) fetchProjects();
+  }, [tenantId, user?.id, status]);
 
   // Récupérer les projets depuis Supabase
   const fetchProjects = async () => {
+    if (status !== 'authenticated') return;
     setLoading(true);
     try {
       let query = supabase

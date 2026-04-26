@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { supabase } from '@/lib/supabase';
-import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSupabase } from './useSupabase';
+import { useToast } from '@/components/ui/use-toast';
 
 export interface Notification {
   id: string;
@@ -55,18 +55,18 @@ export function useNotifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [isConnected, setIsConnected] = useState(true);
   
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, status } = useAuth();
+  const { supabase } = useSupabase();
   const channelRef = useRef<any>(null);
 
   // Charger les notifications
-  const fetchNotifications = useCallback(async () => {
-    if (!user?.id) return;
+  const fetchNotifications = useCallback(async (silent = false) => {
+    if (status !== 'authenticated' || !user || !supabase) return;
     
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
@@ -83,10 +83,12 @@ export function useNotifications() {
     } finally {
       setLoading(false);
     }
-  }, [user?.id]);
+  }, [status, user?.id]);
 
   // Marquer comme lu
   const markAsRead = useCallback(async (notificationId: string) => {
+    if (status !== 'authenticated' || !user || !supabase) return;
+
     try {
       const { error } = await supabase
         .from('notifications')
@@ -102,11 +104,11 @@ export function useNotifications() {
     } catch (error) {
       console.error('Erreur lors du marquage comme lu:', error);
     }
-  }, []);
+  }, [status, user, supabase]);
 
   // Marquer tout comme lu
   const markAllAsRead = useCallback(async () => {
-    if (!user?.id) return;
+    if (status !== 'authenticated' || !user || !supabase) return;
     
     try {
       const { error } = await supabase
@@ -127,7 +129,7 @@ export function useNotifications() {
     } catch (error) {
       console.error('Erreur lors du marquage de tout comme lu:', error);
     }
-  }, [user?.id, toast]);
+  }, [status, user?.id, toast]);
 
   // Créer une notification
   const createNotification = useCallback(async (
@@ -137,6 +139,7 @@ export function useNotifications() {
     message: string,
     data: Record<string, any> = {}
   ) => {
+    if (status !== 'authenticated') return;
     try {
       const { error } = await supabase
         .from('notifications')
@@ -159,7 +162,12 @@ export function useNotifications() {
 
   // Écouter les nouvelles notifications en temps réel
   useEffect(() => {
-    if (!user?.id) return;
+    if (status !== 'authenticated' || !user?.id) {
+      setNotifications([]);
+      setUnreadCount(0);
+      setLoading(false);
+      return;
+    }
 
     // Charger les notifications initiales
     fetchNotifications();
@@ -191,16 +199,37 @@ export function useNotifications() {
     return () => {
       channel.unsubscribe();
     };
-  }, [user?.id, fetchNotifications, toast]);
+  }, [status, user?.id, fetchNotifications, toast]);
+
+  const deleteNotification = useCallback(async (id: string) => {
+    if (status !== 'authenticated' || !user || !supabase) return;
+
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      
+      setNotifications(prev => prev.filter(n => n.id !== id));
+      setUnreadCount(prev => {
+        const deleted = notifications.find(n => n.id === id);
+        return deleted && !deleted.read ? Math.max(0, prev - 1) : prev;
+      });
+    } catch (error) {
+      console.error('Erreur lors de la suppression de la notification:', error);
+    }
+  }, [status, user, supabase, notifications]);
 
   return {
     notifications,
     unreadCount,
     loading,
-    isConnected,
     fetchNotifications,
     markAsRead,
     markAllAsRead,
+    deleteNotification,
     createNotification
   };
 }

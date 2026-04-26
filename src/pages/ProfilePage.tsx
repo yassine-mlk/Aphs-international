@@ -16,7 +16,7 @@ import { uploadToR2 } from "@/lib/r2";
 const ProfilePage: React.FC = () => {
   const { toast } = useToast();
   const { getUserSettings, updateUserSettings, updateUserPassword, uploadFile, getFileUrl } = useSupabase();
-  const { user: currentUser, role } = useAuth();
+  const { user: currentUser, role, status } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -39,7 +39,10 @@ const ProfilePage: React.FC = () => {
   const isAdmin = role === 'admin' || currentUser?.email === 'admin@aps.com';
 
   useEffect(() => {
-    if (!currentUser?.id) return;
+    if (status !== 'authenticated' || !currentUser?.id) {
+      if (status !== 'loading') setLoading(false);
+      return;
+    }
     const load = async () => {
       setLoading(true);
       try {
@@ -60,10 +63,10 @@ const ProfilePage: React.FC = () => {
       }
     };
     load();
-  }, [currentUser?.id]);
+  }, [currentUser?.id, status]);
 
   useEffect(() => {
-    if (!isAdmin || !currentUser?.id) return;
+    if (status !== 'authenticated' || !isAdmin || !currentUser?.id) return;
     const loadTenantPlan = async () => {
       const { data: profile } = await supabase.from('profiles').select('tenant_id').eq('user_id', currentUser.id).maybeSingle();
       if (!profile?.tenant_id) return;
@@ -81,7 +84,7 @@ const ProfilePage: React.FC = () => {
       });
     };
     loadTenantPlan();
-  }, [isAdmin, currentUser?.id]);
+  }, [isAdmin, currentUser?.id, status]);
 
 
   const handleProfileSubmit = async (e: React.FormEvent) => {

@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { notifyWorkflowStatusChange } from '@/lib/notifications';
 import {
@@ -17,9 +18,11 @@ import {
 
 export const useVisaWorkflow = () => {
   const { toast } = useToast();
+  const { status } = useAuth();
 
   // Récupérer le workflow complet pour une assignation
   const fetchWorkflow = useCallback(async (taskAssignmentId: string): Promise<VisaWorkflowFull | null> => {
+    if (status !== 'authenticated') return null;
     try {
       // 1. Récupérer le workflow
       const { data: workflow, error: workflowError } = await supabase
@@ -107,7 +110,7 @@ export const useVisaWorkflow = () => {
     } catch (error) {
       return null;
     }
-  }, []);
+  }, [status]);
 
   // Soumettre un fichier (par l'exécutant)
   const submitDocument = useCallback(async (
@@ -115,6 +118,7 @@ export const useVisaWorkflow = () => {
     data: CreateVisaSubmissionData,
     executorId: string
   ): Promise<boolean> => {
+    if (status !== 'authenticated') return false;
     try {
       // 1. Récupérer le workflow pour connaître la version
       const { data: workflow } = await supabase
@@ -182,7 +186,7 @@ export const useVisaWorkflow = () => {
       });
       return false;
     }
-  }, [toast]);
+  }, [status, toast]);
 
   // Donner un avis (par un validateur)
   const submitValidation = useCallback(async (
@@ -190,6 +194,9 @@ export const useVisaWorkflow = () => {
     data: CreateVisaValidationData,
     validatorId: string
   ): Promise<VisaValidationResult> => {
+    if (status !== 'authenticated') {
+      return { success: false, nextStatus: 'pending_validation', nextValidatorIdx: 0, allValidated: false, message: 'Non authentifié' };
+    }
     try {
       // 1. Récupérer le workflow
       const { data: workflow } = await supabase
@@ -328,7 +335,7 @@ export const useVisaWorkflow = () => {
       });
       return { success: false, nextStatus: 'pending_validation', nextValidatorIdx: 0, allValidated: false, message: 'Erreur technique' };
     }
-  }, [toast]);
+  }, [status, toast]);
 
   return {
     fetchWorkflow,

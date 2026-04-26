@@ -23,7 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 // Composant principal pour la gestion des visioconférences
 export default function VideoConference() {
-  const { user, role } = useAuth();
+  const { user, role, status } = useAuth();
   const { 
     meetings, 
     effectiveTenantId,
@@ -57,21 +57,23 @@ export default function VideoConference() {
 
   useEffect(() => {
     const fetchProfiles = async () => {
-      if (!effectiveTenantId) return;
+      if (!effectiveTenantId || status !== 'authenticated') return;
       const data = await getProfiles({ tenant_id: effectiveTenantId } as any);
       setProfiles(data);
     };
 
     // Vérifier si une réunion était en cours (après rafraîchissement)
     const savedMeetingId = localStorage.getItem('active_video_meeting');
-    if (savedMeetingId) {
+    if (savedMeetingId && status === 'authenticated') {
       setMeetingToJoin(savedMeetingId);
       setIsJoining(true);
     }
 
-    fetchProfiles();
-    fetchWorkGroups();
-  }, [getProfiles, fetchWorkGroups, effectiveTenantId, user?.id]);
+    if (status === 'authenticated') {
+      fetchProfiles();
+      fetchWorkGroups();
+    }
+  }, [getProfiles, fetchWorkGroups, effectiveTenantId, user?.id, status]);
 
   const isAdmin = role === 'admin' || user?.email === 'admin@aps.com';
 
@@ -161,7 +163,7 @@ export default function VideoConference() {
   const cancelJoin = () => {
     setIsJoining(false);
     setMeetingToJoin(null);
-    localStorage.removeItem('active_video_meeting');
+    localStorage.setItem('active_video_meeting', '');
   };
 
   if (activeMeetingId) {
@@ -170,7 +172,7 @@ export default function VideoConference() {
         roomId={activeMeetingId} 
         onLeave={() => {
           setActiveMeetingId(null);
-          localStorage.removeItem('active_video_meeting');
+          localStorage.setItem('active_video_meeting', '');
         }} 
         isAdmin={isAdmin}
       />
@@ -633,4 +635,3 @@ function MeetingCard({ meeting, isAdmin, onJoin, onComplete, onCancel, onEdit }:
     </Card>
   );
 }
-

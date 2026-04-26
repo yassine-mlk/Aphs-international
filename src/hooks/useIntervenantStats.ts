@@ -56,7 +56,7 @@ interface IntervenantStats {
 }
 
 export function useIntervenantStats() {
-  const { user } = useAuth();
+  const { user, status } = useAuth();
   const { fetchData, supabase } = useSupabase();
   const { toast } = useToast();
 
@@ -69,7 +69,7 @@ export function useIntervenantStats() {
 
   // Récupérer les tâches de l'intervenant
   const fetchTasks = useCallback(async () => {
-    if (!user?.id) return [];
+    if (status !== 'authenticated' || !user?.id || !supabase) return [];
 
     try {
       // Récupérer d'abord les task_assignments
@@ -101,11 +101,11 @@ export function useIntervenantStats() {
     } catch (error) {
       return [];
     }
-  }, [user?.id, supabase]);
+  }, [status, user?.id, supabase]);
 
   // Récupérer les projets de l'intervenant
   const fetchProjects = useCallback(async () => {
-    if (!user?.id) return [];
+    if (status !== 'authenticated' || !user?.id || !supabase) return [];
 
     try {
       // Récupérer les projets via les tâches assignées
@@ -166,7 +166,7 @@ export function useIntervenantStats() {
     } catch (error) {
       return [];
     }
-  }, [user?.id, supabase]);
+  }, [status, user?.id, supabase]);
 
   // Générer les activités récentes
   const generateRecentActivities = useCallback((tasks: IntervenantTask[], projects: IntervenantProject[]) => {
@@ -252,11 +252,11 @@ export function useIntervenantStats() {
   }, []);
 
   // Charger toutes les données
-  const loadData = useCallback(async () => {
-    if (!user?.id) return;
+  const fetchAllStats = useCallback(async () => {
+    if (status !== 'authenticated' || !user?.id) return;
+    setLoading(true);
 
     try {
-      setLoading(true);
       setError(null);
 
       const [tasksData, projectsData] = await Promise.all([
@@ -283,17 +283,17 @@ export function useIntervenantStats() {
     } finally {
       setLoading(false);
     }
-  }, [user?.id, fetchTasks, fetchProjects, calculateStats, generateRecentActivities, toast]);
+  }, [status, user?.id, fetchTasks, fetchProjects, calculateStats, generateRecentActivities, toast]);
 
   // Actualiser les données
   const refetch = useCallback(() => {
-    loadData();
-  }, [loadData]);
+    fetchAllStats();
+  }, [fetchAllStats]);
 
   // Charger les données au montage du composant
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    fetchAllStats();
+  }, [fetchAllStats]);
 
   return {
     loading,

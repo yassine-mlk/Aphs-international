@@ -98,7 +98,7 @@ const IntervenantDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { fetchData, supabase } = useSupabase();
-  const { user, role } = useAuth();
+  const { user, role, status } = useAuth();
     const { tenant, isLoading: isTenantLoading } = useTenant();
 
   const [stats, setStats] = useState<IntervenantStats>({
@@ -141,7 +141,7 @@ const IntervenantDashboard: React.FC = () => {
   // Charger le profil utilisateur pour afficher le nom
   useEffect(() => {
     const loadUserProfile = async () => {
-      if (!user?.id) return;
+      if (status !== 'authenticated' || !user?.id) return;
       try {
         const profile = await fetchData('profiles', {
           columns: 'first_name,last_name',
@@ -155,7 +155,7 @@ const IntervenantDashboard: React.FC = () => {
       }
     };
     loadUserProfile();
-  }, [user?.id, fetchData]);
+  }, [user?.id, status, fetchData]);
 
   // Sauvegarder les préférences
   const savePreferences = (newPrefs: typeof preferences) => {
@@ -339,31 +339,33 @@ const IntervenantDashboard: React.FC = () => {
     }, 600);
   }, []);
 
+  // Charger les statistiques au montage ou changement d'utilisateur
   useEffect(() => {
-    if (!user?.id) return;
-    loadStats();
+    if (status === 'authenticated' && user?.id) {
+      loadStats();
 
-    // S'abonner aux changements (tâches + appartenance aux projets)
-    const channel = supabase
-      .channel(`intervenant-dashboard-${user.id}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'task_assignments' },
-        scheduleSilentReload
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'membre', filter: `user_id=eq.${user.id}` },
-        scheduleSilentReload
-      )
-      .subscribe();
+      // S'abonner aux changements (tâches + appartenance aux projets)
+      const channel = supabase
+        .channel(`intervenant-dashboard-${user.id}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'task_assignments' },
+          scheduleSilentReload
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'membre', filter: `user_id=eq.${user.id}` },
+          scheduleSilentReload
+        )
+        .subscribe();
 
-    return () => {
-      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-      supabase.removeChannel(channel);
-    };
+      return () => {
+        if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+        supabase.removeChannel(channel);
+      };
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [user?.id, status, loadStats, supabase]);
 
   // Fonctions utilitaires
   // Fonction pour formater la date

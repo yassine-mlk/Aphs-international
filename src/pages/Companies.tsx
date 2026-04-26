@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useSupabase } from '../hooks/useSupabase';
 import { useCompanies } from '../hooks/useCompanies';
+import { useAuth } from '@/contexts/AuthContext';
 import { Company, COMPANY_SPECIALITIES } from '../types/company';
 import { Profile } from '../types/profile';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -34,6 +35,7 @@ type SortOrder = 'asc' | 'desc';
 
 const Companies: React.FC = () => {
   const { toast } = useToast();
+  const { status } = useAuth();
   const { getCompanies, deleteCompany } = useSupabase();
   const { getCompanyEmployees, loading: loadingEmployees } = useCompanies();
   
@@ -53,10 +55,13 @@ const Companies: React.FC = () => {
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
 
   useEffect(() => {
-    fetchCompanies();
-  }, []);
+    if (status === 'authenticated') {
+      fetchCompanies();
+    }
+  }, [status]);
 
   const fetchCompanies = async () => {
+    if (status !== 'authenticated') return;
     setLoading(true);
     try {
       const companiesData = await getCompanies();
@@ -86,6 +91,7 @@ const Companies: React.FC = () => {
 
   // Charger les employés d'une entreprise
   const loadCompanyEmployees = async (companyId: string) => {
+    if (status !== 'authenticated') return;
     try {
       const employees = await getCompanyEmployees(companyId);
       setCompanyEmployees(employees);
@@ -113,6 +119,7 @@ const Companies: React.FC = () => {
 
   // Gérer la suppression d'une entreprise
   const handleDelete = async (id: string) => {
+    if (status !== 'authenticated') return;
     try {
       const { success, error } = await deleteCompany(id);
       

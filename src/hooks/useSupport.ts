@@ -7,11 +7,11 @@ import { useToast } from '@/components/ui/use-toast';
 
 export const useSupport = () => {
   const [loading, setLoading] = useState(false);
-  const { user } = useAuth();
+  const { user, status } = useAuth();
   const { toast } = useToast();
 
   const getMyTickets = useCallback(async (): Promise<SupportTicket[]> => {
-    if (!user) return [];
+    if (status !== 'authenticated' || !user) return [];
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -33,9 +33,10 @@ export const useSupport = () => {
     } finally {
       setLoading(false);
     }
-  }, [user, toast]);
+  }, [status, user, toast]);
 
   const getAllTickets = useCallback(async (): Promise<SupportTicket[]> => {
+    if (status !== 'authenticated') return [];
     setLoading(true);
     try {
       // On récupère aussi les infos des profils pour l'admin
@@ -60,10 +61,10 @@ export const useSupport = () => {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [status, toast]);
 
   const createTicket = async (data: CreateTicketData): Promise<boolean> => {
-    if (!user) return false;
+    if (status !== 'authenticated' || !user) return false;
     setLoading(true);
     try {
       const { error } = await supabase
@@ -96,12 +97,13 @@ export const useSupport = () => {
     }
   };
 
-  const updateTicketStatus = async (ticketId: string, status: TicketStatus, adminNotes?: string): Promise<boolean> => {
+  const updateTicketStatus = async (ticketId: string, nextStatus: TicketStatus, adminNotes?: string): Promise<boolean> => {
+    if (status !== 'authenticated') return false;
     setLoading(true);
     try {
-      const updates: any = { status };
+      const updates: any = { status: nextStatus };
       if (adminNotes !== undefined) updates.admin_notes = adminNotes;
-      if (status === 'resolved') updates.resolved_at = new Date().toISOString();
+      if (nextStatus === 'resolved') updates.resolved_at = new Date().toISOString();
 
       const { error } = await supabase
         .from('support_tickets')

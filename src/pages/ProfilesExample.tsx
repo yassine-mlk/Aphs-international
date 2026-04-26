@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { useProfiles } from '../hooks/useProfiles';
 import { Profile, IntervenantFormData, SPECIALTIES, USER_ROLES, USER_STATUSES } from '../types/profile';
 import { Button } from '@/components/ui/button';
@@ -12,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Search, Edit, Trash2, Mail, Phone, Building } from 'lucide-react';
 
 const ProfilesExample: React.FC = () => {
+  const { status } = useAuth();
   const {
     loading,
     getProfiles,
@@ -40,16 +42,20 @@ const ProfilesExample: React.FC = () => {
   });
 
   useEffect(() => {
-    loadProfiles();
-  }, []);
+    if (status === 'authenticated') {
+      loadProfiles();
+    }
+  }, [status]);
 
   const loadProfiles = async () => {
+    if (status !== 'authenticated') return;
     const profilesData = await getProfiles();
     setProfiles(profilesData);
   };
 
   const handleSearch = async (term: string) => {
     setSearchTerm(term);
+    if (status !== 'authenticated') return;
     if (term.trim()) {
       const searchResults = await searchProfiles(term);
       setProfiles(searchResults);
