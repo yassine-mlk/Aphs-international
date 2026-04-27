@@ -1,4 +1,8 @@
 import React, { useState, useEffect } from 'react';
+
+// Composant de contournement pour éviter les avertissements sur data-lov-id avec React.Fragment
+const SafeFragment = ({ children }: { children: React.ReactNode }) => <>{children}</>;
+
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -310,7 +314,7 @@ export const VisaWorkflowPanel: React.FC<VisaWorkflowPanelProps> = ({
                   );
                   
                   return (
-                    <React.Fragment key={validatorId}>
+                    <SafeFragment key={validatorId}>
                       <div className={`flex-shrink-0 flex flex-col items-center gap-1 p-2 rounded-lg border min-w-[80px] ${
                         isCurrent ? 'bg-blue-50 border-blue-400 ring-2 ring-blue-200' :
                         isPast ? 'bg-green-50 border-green-300' :
@@ -344,7 +348,7 @@ export const VisaWorkflowPanel: React.FC<VisaWorkflowPanelProps> = ({
                           isPast ? 'text-green-500' : 'text-gray-300'
                         }`} />
                       )}
-                    </React.Fragment>
+                    </SafeFragment>
                   );
                 })
               )}
