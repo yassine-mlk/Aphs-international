@@ -241,12 +241,6 @@ const Settings: React.FC = () => {
             <Bell className="h-4 w-4 mr-2" />
             Notifications
           </TabsTrigger>
-          {isAdmin && (
-            <TabsTrigger value="project-management" className="data-[state=active]:bg-white">
-              <ClipboardList className="h-4 w-4 mr-2" />
-              Gestion structure des projets
-            </TabsTrigger>
-          )}
         </TabsList>
 
         {/* Onglet Profil */}
@@ -442,32 +436,6 @@ const Settings: React.FC = () => {
             </CardFooter>
           </Card>
         </TabsContent>
-
-        {/* Onglet Gestion structure des projets (admin seulement) */}
-        {isAdmin && (
-          <TabsContent value="project-management">
-            <Card className="border-0 shadow-md">
-              <CardHeader>
-                <CardTitle>Gestion structure des projets</CardTitle>
-                <CardDescription>
-                  Personnalisez la structure par défaut des projets et définissez les fiches informatives pour chaque tâche.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {tenantId && (
-                  <div className="mb-8">
-                    <h3 className="text-lg font-semibold mb-1">Structure par défaut des projets</h3>
-                    <p className="text-sm text-gray-500 mb-4">
-                      Modifiez ici la structure appliquée à tous les nouveaux projets de votre espace.
-                    </p>
-                    <ProjectStructureTab tenantId={tenantId} />
-                  </div>
-                )}
-
-              </CardContent>
-            </Card>
-          </TabsContent>
-        )}
       </Tabs>
     </div>
   );

@@ -17,18 +17,27 @@ interface CustomStructureItem {
 interface ProjectSection {
   id: string;
   title: string;
+  phase: string;
+  order_index: number;
   items: ProjectSubsection[];
+  deadline?: string;
+  start_date?: string;
+  end_date?: string;
 }
 
 interface ProjectSubsection {
   id: string;
+  section_id: string;
   title: string;
-  tasks: string[];
+  order_index: number;
+  tasks: { id: string; title: string; order_index: number }[];
+  deadline?: string;
+  start_date?: string;
+  end_date?: string;
 }
 
 // ── Caches module-level ──
 const tenantStructureCache: Record<string, { conception: ProjectSection[]; realisation: ProjectSection[] }> = {};
-const projectTenantCache: Record<string, string | null> = {};
 
 export const invalidateTenantStructureCache = (tenantId?: string) => {
   if (tenantId) {
@@ -39,7 +48,7 @@ export const invalidateTenantStructureCache = (tenantId?: string) => {
 };
 
 export const useProjectStructure = (projectId: string) => {
-  const { supabase, fetchData } = useSupabase();
+  const { supabase } = useSupabase();
   const { user, status } = useAuth();
   const { toast } = useToast();
   
@@ -63,7 +72,7 @@ export const useProjectStructure = (projectId: string) => {
     // 1. Toutes les sections du tenant (les deux phases d'un coup)
     const { data: allSections } = await supabase
       .from('tenant_project_sections')
-      .select('id, title, phase, order_index')
+      .select('id, title, phase, order_index, deadline, start_date, end_date')
       .eq('tenant_id', tenantId)
       .order('order_index');
 
@@ -74,7 +83,7 @@ export const useProjectStructure = (projectId: string) => {
     // 2. Tous les items des sections
     const { data: allItems } = await supabase
       .from('tenant_project_items')
-      .select('id, title, section_id, order_index')
+      .select('*')
       .in('section_id', sectionIds)
       .order('order_index');
 
@@ -84,7 +93,7 @@ export const useProjectStructure = (projectId: string) => {
     if (itemIds.length > 0) {
       const { data: tasksData } = await supabase
         .from('tenant_project_tasks')
-        .select('title, item_id, order_index')
+        .select('id, title, item_id, order_index')
         .in('item_id', itemIds)
         .order('order_index');
       allTasks = tasksData || [];
@@ -102,13 +111,27 @@ export const useProjectStructure = (projectId: string) => {
           .sort((a: any, b: any) => a.order_index - b.order_index)
           .map((item: any) => ({
             id: item.id,
+            section_id: item.section_id,
             title: item.title,
+            order_index: item.order_index,
+            deadline: item.deadline,
+            start_date: item.start_date,
+            end_date: item.end_date,
             tasks: allTasks
               .filter((t: any) => t.item_id === item.id)
               .sort((a: any, b: any) => a.order_index - b.order_index)
-              .map((t: any) => t.title),
+              .map((t: any) => ({ id: t.id, title: t.title, order_index: t.order_index })),
           }));
-        return { id: sec.id, title: sec.title, items };
+        return { 
+          id: sec.id, 
+          title: sec.title, 
+          phase: sec.phase,
+          order_index: sec.order_index,
+          items, 
+          deadline: sec.deadline,
+          start_date: sec.start_date,
+          end_date: sec.end_date
+        };
       });
     };
 
@@ -130,7 +153,7 @@ export const useProjectStructure = (projectId: string) => {
     try {
       const { data: sections, error } = await supabase
         .from('project_sections_snapshot')
-        .select('id, title, phase, order_index')
+        .select('*')
         .eq('project_id', projectId)
         .order('order_index');
 
@@ -139,7 +162,7 @@ export const useProjectStructure = (projectId: string) => {
       const sectionIds = sections.map((s: any) => s.id);
       const { data: items } = await supabase
         .from('project_items_snapshot')
-        .select('id, title, section_id, order_index')
+        .select('*')
         .in('section_id', sectionIds)
         .order('order_index');
 
@@ -161,16 +184,26 @@ export const useProjectStructure = (projectId: string) => {
           .map((sec: any) => ({
             id: sec.id,
             title: sec.title,
+            phase: sec.phase,
+            order_index: sec.order_index,
+            deadline: sec.deadline,
+            start_date: sec.start_date,
+            end_date: sec.end_date,
             items: (items || [])
               .filter((i: any) => i.section_id === sec.id)
               .sort((a: any, b: any) => a.order_index - b.order_index)
               .map((item: any) => ({
                 id: item.id,
+                section_id: item.section_id,
                 title: item.title,
+                order_index: item.order_index,
+                deadline: item.deadline,
+                start_date: item.start_date,
+                end_date: item.end_date,
                 tasks: tasks
                   .filter((t: any) => t.item_id === item.id)
                   .sort((a: any, b: any) => a.order_index - b.order_index)
-                  .map((t: any) => t.title),
+                  .map((t: any) => ({ id: t.id, title: t.title, order_index: t.order_index })),
               })),
           }));
 
@@ -188,10 +221,19 @@ export const useProjectStructure = (projectId: string) => {
   const createSnapshotForExistingProject = useCallback(async (tenantId: string) => {
     if (status !== 'authenticated') return false;
     try {
+      // 0. Vérifier si un snapshot existe déjà pour éviter les doublons
+      const { data: existing } = await supabase
+        .from('project_sections_snapshot')
+        .select('id')
+        .eq('project_id', projectId)
+        .limit(1);
+      
+      if (existing && existing.length > 0) return true;
+
       // 1. Récupérer la structure tenant actuelle
       const { data: sections } = await supabase
         .from('tenant_project_sections')
-        .select('id, title, phase, order_index')
+        .select('*')
         .eq('tenant_id', tenantId)
         .order('order_index');
 
@@ -207,7 +249,10 @@ export const useProjectStructure = (projectId: string) => {
             title: sec.title,
             phase: sec.phase,
             order_index: sec.order_index,
-            tenant_section_id: sec.id
+            tenant_section_id: sec.id,
+            deadline: sec.deadline,
+            start_date: sec.start_date,
+            end_date: sec.end_date
           })
           .select('id')
           .single();
@@ -217,7 +262,7 @@ export const useProjectStructure = (projectId: string) => {
       // 3. Récupérer et créer les items
       const { data: items } = await supabase
         .from('tenant_project_items')
-        .select('id, title, section_id, order_index')
+        .select('*')
         .in('section_id', sections.map((s: any) => s.id))
         .order('order_index');
 
@@ -233,7 +278,10 @@ export const useProjectStructure = (projectId: string) => {
             section_id: newSectionId,
             title: item.title,
             order_index: item.order_index,
-            tenant_item_id: item.id
+            tenant_item_id: item.id,
+            deadline: item.deadline,
+            start_date: item.start_date,
+            end_date: item.end_date
           })
           .select('id')
           .single();
@@ -329,7 +377,7 @@ export const useProjectStructure = (projectId: string) => {
   // Appliquer les personnalisations (suppressions) aux structures
   const applyCustomizations = useCallback((deletions: CustomStructureItem[]) => {
     // Appliquer aux structures de conception
-    const filteredConceptionStructure = projectStructure.map(section => {
+    const filteredConceptionStructure = (projectStructure as any[]).map(section => {
       // Vérifier si la section complète est supprimée
       const isSectionDeleted = deletions.some(
         del => del.phase_id === 'conception' && 
@@ -342,23 +390,28 @@ export const useProjectStructure = (projectId: string) => {
       }
       
       // Filtrer les sous-sections supprimées
-      const filteredItems = section.items.filter(item => {
+      const filteredItems = section.items.filter((item: any) => {
         const isSubsectionDeleted = deletions.some(
           del => del.phase_id === 'conception' && 
                  del.section_id === section.id && 
                  del.subsection_id === item.id
         );
         return !isSubsectionDeleted;
-      });
+      }).map((item: any) => ({
+        ...item,
+        tasks: item.tasks.map((t: string) => ({ id: t, title: t, order_index: 0 }))
+      }));
       
       return {
         ...section,
+        phase: 'conception',
+        order_index: (section as any).order_index || 0,
         items: filteredItems
       };
     }).filter(section => section !== null) as ProjectSection[];
 
     // Appliquer aux structures de réalisation
-    const filteredRealizationStructure = realizationStructure.map(section => {
+    const filteredRealizationStructure = (realizationStructure as any[]).map(section => {
       // Vérifier si la section complète est supprimée
       const isSectionDeleted = deletions.some(
         del => del.phase_id === 'realisation' && 
@@ -371,17 +424,22 @@ export const useProjectStructure = (projectId: string) => {
       }
       
       // Filtrer les sous-sections supprimées
-      const filteredItems = section.items.filter(item => {
+      const filteredItems = section.items.filter((item: any) => {
         const isSubsectionDeleted = deletions.some(
           del => del.phase_id === 'realisation' && 
                  del.section_id === section.id && 
                  del.subsection_id === item.id
         );
         return !isSubsectionDeleted;
-      });
+      }).map((item: any) => ({
+        ...item,
+        tasks: item.tasks.map((t: string) => ({ id: t, title: t, order_index: 0 }))
+      }));
       
       return {
         ...section,
+        phase: 'realisation',
+        order_index: (section as any).order_index || 0,
         items: filteredItems
       };
     }).filter(section => section !== null) as ProjectSection[];
@@ -566,6 +624,6 @@ export const useProjectStructure = (projectId: string) => {
     deleteSubsection,
     restoreStructure,
     isDeleted,
-    refreshStructures: loadCustomStructures
+    refreshStructure: loadSnapshotStructure
   };
 }; 

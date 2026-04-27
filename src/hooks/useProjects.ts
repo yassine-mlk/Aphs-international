@@ -169,10 +169,95 @@ export function useProjects() {
     }
   };
 
+  // Snapshot la structure personnalisée dans les tables projet
+  const snapshotCustomStructure = async (projectId: string, customStructure: any[]) => {
+    if (status !== 'authenticated') return;
+    try {
+      // 1. Insérer toutes les sections
+      const { data: newSections } = await supabase
+        .from('project_sections_snapshot')
+        .insert(customStructure.map((sec: any) => ({
+          project_id: projectId,
+          title: sec.title,
+          phase: sec.phase,
+          order_index: sec.order_index,
+          tenant_section_id: (sec.id.startsWith('new-section-') || sec.id.startsWith('new-sec-')) ? null : sec.id // Garder l'ID original pour référence si besoin
+        })))
+        .select();
+
+      if (!newSections || newSections.length === 0) return;
+
+      const sectionIdMap = new Map(newSections.map((s: any, idx: number) => [customStructure[idx].id, s.id]));
+
+      // 2. Préparer les items
+      const itemsWithOriginalId: any[] = [];
+
+      customStructure.forEach((sec: any) => {
+        const newSectionId = sectionIdMap.get(sec.id);
+        if (newSectionId && sec.items) {
+          sec.items.forEach((item: any) => {
+            itemsWithOriginalId.push({
+              itemToInsert: {
+                project_id: projectId,
+                section_id: newSectionId,
+                title: item.title,
+                order_index: item.order_index,
+                tenant_item_id: item.id.startsWith('new-item-') ? null : item.id
+              },
+              originalId: item.id
+            });
+          });
+        }
+      });
+
+      if (itemsWithOriginalId.length === 0) return;
+
+      const { data: newItems } = await supabase
+        .from('project_items_snapshot')
+        .insert(itemsWithOriginalId.map(x => x.itemToInsert))
+        .select();
+
+      if (!newItems || newItems.length === 0) return;
+
+      // Créer une map pour retrouver l'ID de l'item original
+      const itemIdMap = new Map(newItems.map((newItem: any, idx: number) => [itemsWithOriginalId[idx].originalId, newItem.id]));
+
+      // 3. Préparer les tâches
+      const tasksToInsert: any[] = [];
+      customStructure.forEach((sec: any) => {
+        if (sec.items) {
+          sec.items.forEach((item: any) => {
+            const newItemId = itemIdMap.get(item.id);
+            if (newItemId && item.tasks) {
+              item.tasks.forEach((task: any) => {
+                tasksToInsert.push({
+                  project_id: projectId,
+                  item_id: newItemId,
+                  title: task.title,
+                  order_index: task.order_index,
+                  tenant_task_id: task.id.startsWith('new-task-') ? null : task.id,
+                  info_sheet: task.info_sheet || ''
+                });
+              });
+            }
+          });
+        }
+      });
+
+      if (tasksToInsert.length > 0) {
+        await supabase.from('project_tasks_snapshot').insert(tasksToInsert);
+      }
+
+    } catch (e) {
+      console.error("Error snapshotting custom structure:", e);
+    }
+  };
+
   // Créer un nouveau projet
   const createProject = useCallback(async (
     projectData: ProjectFormData,
-    currentUserId: string
+    currentUserId: string,
+    customStructure?: any[]
   ): Promise<Project | null> => {
     if (status !== 'authenticated') return null;
     setLoading(true);
@@ -214,13 +299,13 @@ export function useProjects() {
       if (newProject) {
         // Snapshot de la structure et fiches tenant vers le projet
         const tenantId = (projectData as any).tenant_id;
-        if (tenantId && newProject.id) {
+        if (customStructure && customStructure.length > 0) {
+          // Utiliser la structure personnalisée si fournie
+          await snapshotCustomStructure(newProject.id, customStructure);
+        } else if (tenantId && newProject.id) {
+          // Sinon utiliser la structure par défaut du tenant
           await snapshotTenantStructure(newProject.id, tenantId);
         }
-        toast({
-          title: "Succès",
-          description: "Projet créé avec succès",
-        });
       }
 
       return newProject;

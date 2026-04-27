@@ -9,7 +9,8 @@ import {
   ArrowLeft, 
   Users,
   FileCheck,
-  Loader2
+  Loader2,
+  TrendingUp
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -25,6 +26,8 @@ import ProjectDocumentsTab from '@/components/project/ProjectDocumentsTab';
 import ProjectInfoTab from '@/components/project/ProjectInfoTab';
 import ProjectStructureTab from '@/components/project/ProjectStructureTab';
 import ProjectMembersTab from '@/components/project/ProjectMembersTab';
+import ProjectGanttTab from '@/components/project/ProjectGanttTab';
+import { ProjectStructureManager } from '@/components/project/ProjectStructureManager';
 import { useSupabase } from '@/hooks/useSupabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectStructure } from '@/hooks/useProjectStructure';
@@ -100,6 +103,7 @@ const ProjectDetails: React.FC = () => {
   const {
     customProjectStructure,
     customRealizationStructure,
+    refreshStructure
   } = useProjectStructure(id || '');
 
   useEffect(() => {
@@ -252,9 +256,6 @@ const ProjectDetails: React.FC = () => {
       <div className="mb-6">
         <h1 className="text-3xl font-bold mb-2">{project.name}</h1>
         <div className="flex items-center gap-2">
-          <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusColors[project.status]}`}>
-            {statusLabels[project.status] || project.status}
-          </span>
           <span className="text-gray-500">
             Créé le {new Date(project.created_at).toLocaleDateString('fr-FR')}
           </span>
@@ -267,15 +268,25 @@ const ProjectDetails: React.FC = () => {
             <Info className="h-4 w-4 mr-2" />
             Informations
           </TabsTrigger>
+          <TabsTrigger value="avancement" className="data-[state=active]:bg-white">
+            <TrendingUp className="h-4 w-4 mr-2" />
+            Avancement
+          </TabsTrigger>
           <TabsTrigger value="structure" className="data-[state=active]:bg-white">
             <Layers className="h-4 w-4 mr-2" />
             Assignement des tâches
           </TabsTrigger>
           {isAdmin && (
-            <TabsTrigger value="members" className="data-[state=active]:bg-white">
-              <Users className="h-4 w-4 mr-2" />
-              Membres
-            </TabsTrigger>
+            <>
+              <TabsTrigger value="members" className="data-[state=active]:bg-white">
+                <Users className="h-4 w-4 mr-2" />
+                Membres
+              </TabsTrigger>
+              <TabsTrigger value="manage-structure" className="data-[state=active]:bg-white">
+                <Layers className="h-4 w-4 mr-2" />
+                Structure du projet
+              </TabsTrigger>
+            </>
           )}
           <TabsTrigger value="documents" className="data-[state=active]:bg-white">
             <FileCheck className="h-4 w-4 mr-2" />
@@ -289,6 +300,16 @@ const ProjectDetails: React.FC = () => {
             isAdmin={isAdmin}
             onEdit={() => {}}
             onDelete={() => setIsDeleteDialogOpen(true)}
+            conceptionStructure={customProjectStructure}
+            realizationStructure={customRealizationStructure}
+          />
+        </TabsContent>
+
+        <TabsContent value="avancement">
+          <ProjectGanttTab 
+            project={project}
+            conceptionStructure={customProjectStructure}
+            realizationStructure={customRealizationStructure}
           />
         </TabsContent>
 
@@ -302,15 +323,23 @@ const ProjectDetails: React.FC = () => {
         </TabsContent>
 
         {isAdmin && (
-          <TabsContent value="members">
-            <ProjectMembersTab 
-              projectId={id || ''}
-              members={members}
-              intervenantsInfo={intervenantsInfo}
-              tenantId={tenantId}
-              onMembersChanged={handleMembersChanged}
-            />
-          </TabsContent>
+          <>
+            <TabsContent value="members">
+              <ProjectMembersTab 
+                projectId={id || ''}
+                members={members}
+                intervenantsInfo={intervenantsInfo}
+                tenantId={tenantId}
+                onMembersChanged={handleMembersChanged}
+              />
+            </TabsContent>
+            <TabsContent value="manage-structure">
+              <ProjectStructureManager 
+                projectId={id || ''} 
+                onStructureChange={refreshStructure}
+              />
+            </TabsContent>
+          </>
         )}
 
         <TabsContent value="documents">

@@ -42,12 +42,15 @@ import {
 import { useToast } from '@/components/ui/use-toast';
 import { Layers, ChevronRight, User, ExternalLink, Loader2, Plus, Trash2, X, ChevronUp, ChevronDown, FileCheck } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/AuthContext';
 
 interface StructureSectionInput {
   id: string;
   title: string;
-  items: { id: string; title: string; tasks: string[] }[];
+  items: { 
+    id: string; 
+    title: string; 
+    tasks: { id: string; title: string; order_index: number }[] 
+  }[];
 }
 
 interface TaskAssignment {
@@ -80,6 +83,8 @@ interface FullTaskAssignment extends TaskAssignment {
   project_id: string;
   deadline: string;
   validation_deadline: string;
+  start_date?: string;
+  end_date?: string;
   file_extension: string;
   comment?: string;
   created_at?: string;
@@ -125,7 +130,6 @@ const ProjectStructureTab: React.FC<ProjectStructureTabProps> = ({
 }) => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user } = useAuth();
   const [activePhase, setActivePhase] = useState<'conception' | 'realisation'>('conception');
   const [assignments, setAssignments] = useState<FullTaskAssignment[]>([]);
   const [loadingAssignments, setLoadingAssignments] = useState(false);
@@ -148,6 +152,8 @@ const ProjectStructureTab: React.FC<ProjectStructureTabProps> = ({
     assigned_to: string[];
     deadline: string;
     validation_deadline: string;
+    start_date: string;
+    end_date: string;
     validators: string[];
     file_extension: string;
     comment: string;
@@ -156,6 +162,8 @@ const ProjectStructureTab: React.FC<ProjectStructureTabProps> = ({
     assigned_to: [],
     deadline: '',
     validation_deadline: '',
+    start_date: new Date().toISOString().split('T')[0],
+    end_date: '',
     validators: [],
     file_extension: 'pdf',
     comment: '',
@@ -174,7 +182,7 @@ const ProjectStructureTab: React.FC<ProjectStructureTabProps> = ({
     setLoadingAssignments(true);
     supabase
       .from('task_assignments')
-      .select('id, phase_id, section_id, subsection_id, task_name, status, assigned_to, validators')
+      .select('*')
       .eq('project_id', projectId)
       .then(async ({ data }) => {
         const list: FullTaskAssignment[] = (data || []) as FullTaskAssignment[];
@@ -281,6 +289,8 @@ const ProjectStructureTab: React.FC<ProjectStructureTabProps> = ({
         assigned_to: existingAssignment.assigned_to || [],
         deadline: existingAssignment.deadline ? existingAssignment.deadline.split('T')[0] : '',
         validation_deadline: existingAssignment.validation_deadline ? existingAssignment.validation_deadline.split('T')[0] : '',
+        start_date: existingAssignment.start_date ? existingAssignment.start_date.split('T')[0] : new Date().toISOString().split('T')[0],
+        end_date: existingAssignment.end_date ? existingAssignment.end_date.split('T')[0] : '',
         validators: existingAssignment.validators || [],
         file_extension: existingAssignment.file_extension || 'pdf',
         comment: existingAssignment.comment || '',
@@ -292,6 +302,8 @@ const ProjectStructureTab: React.FC<ProjectStructureTabProps> = ({
         assigned_to: [],
         deadline: '',
         validation_deadline: '',
+        start_date: new Date().toISOString().split('T')[0],
+        end_date: '',
         validators: [],
         file_extension: 'pdf',
         comment: '',
@@ -341,6 +353,37 @@ const ProjectStructureTab: React.FC<ProjectStructureTabProps> = ({
       return;
     }
 
+    if (assignmentForm.validation_deadline < assignmentForm.deadline) {
+      toast({
+        title: 'Erreur',
+        description: 'La date limite de validation ne peut pas être antérieure à la date limite de réalisation',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (assignmentForm.start_date && assignmentForm.deadline) {
+      if (assignmentForm.deadline < assignmentForm.start_date) {
+        toast({
+          title: 'Erreur',
+          description: 'La date limite ne peut pas être antérieure à la date de début',
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
+    if (assignmentForm.start_date && assignmentForm.end_date) {
+      if (assignmentForm.end_date < assignmentForm.start_date) {
+        toast({
+          title: 'Erreur',
+          description: 'La date de fin ne peut pas être antérieure à la date de début',
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
     if (assignmentForm.validators.length === 0) {
       toast({
         title: 'Erreur',
@@ -384,7 +427,9 @@ const ProjectStructureTab: React.FC<ProjectStructureTabProps> = ({
           p_use_visa_workflow: assignmentForm.use_visa_workflow,
           p_id: existingAssignment?.id || null,
           p_comment: assignmentForm.comment || null,
-          p_status: existingAssignment?.status || 'assigned'
+          p_status: existingAssignment?.status || 'assigned',
+          p_start_date: assignmentForm.start_date || null,
+          p_end_date: assignmentForm.end_date || null
         });
 
       if (error) throw error;
@@ -501,7 +546,7 @@ const ProjectStructureTab: React.FC<ProjectStructureTabProps> = ({
                 const sectionLabel = String.fromCharCode(65 + si);
                 // Compter les tâches assignées dans cette section
                 const assignedCount = section.items.reduce((acc, item) =>
-                  acc + item.tasks.filter(t => getAssignment(activePhase, section.id, item.id, t)).length, 0);
+                  acc + item.tasks.filter(t => getAssignment(activePhase, section.id, item.id, t.title)).length, 0);
                 const totalTasks = section.items.reduce((acc, item) => acc + item.tasks.length, 0);
 
                 return (
@@ -524,7 +569,7 @@ const ProjectStructureTab: React.FC<ProjectStructureTabProps> = ({
                       <Accordion type="multiple" className="w-full">
                         {section.items.map((item, ii) => {
                           const itemLabel = `${sectionLabel}${ii + 1}`;
-                          const itemAssigned = item.tasks.filter(t => getAssignment(activePhase, section.id, item.id, t)).length;
+                          const itemAssigned = item.tasks.filter(t => getAssignment(activePhase, section.id, item.id, t.title)).length;
 
                           return (
                             <AccordionItem
@@ -546,8 +591,8 @@ const ProjectStructureTab: React.FC<ProjectStructureTabProps> = ({
 
                               <AccordionContent className="px-6 pb-3 pt-1">
                                 <div className="space-y-2">
-                                  {item.tasks.map((taskName, ti) => {
-                                    const assignment = getAssignment(activePhase, section.id, item.id, taskName);
+                                  {item.tasks.map((task, ti) => {
+                                    const assignment = getAssignment(activePhase, section.id, item.id, task.title);
                                     return (
                                       <div
                                         key={ti}
@@ -555,7 +600,7 @@ const ProjectStructureTab: React.FC<ProjectStructureTabProps> = ({
                                       >
                                         <div className="flex items-center gap-2 min-w-0">
                                           <span className="text-xs text-gray-400 shrink-0">{itemLabel}.{ti + 1}</span>
-                                          <span className="text-sm truncate">{taskName}</span>
+                                          <span className="text-sm truncate">{task.title}</span>
                                         </div>
 
                                         <div className="flex items-center gap-2 shrink-0">
@@ -600,7 +645,7 @@ const ProjectStructureTab: React.FC<ProjectStructureTabProps> = ({
                                                 size="sm"
                                                 variant="outline"
                                                 className="h-7 px-2 text-xs gap-1"
-                                                onClick={() => handleOpenAssignTask(activePhase, section.id, item.id, taskName)}
+                                                onClick={() => handleOpenAssignTask(activePhase, section.id, item.id, task.title)}
                                               >
                                                 <Plus className="h-3 w-3" />
                                                 Assigner
@@ -724,6 +769,28 @@ const ProjectStructureTab: React.FC<ProjectStructureTabProps> = ({
                   })}
                 </div>
               )}
+            </div>
+
+            {/* Dates de début et fin */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="start_date">Date de début *</Label>
+                <Input
+                  id="start_date"
+                  type="date"
+                  value={assignmentForm.start_date}
+                  onChange={(e) => setAssignmentForm(prev => ({ ...prev, start_date: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="end_date">Date de fin prévue *</Label>
+                <Input
+                  id="end_date"
+                  type="date"
+                  value={assignmentForm.end_date}
+                  onChange={(e) => setAssignmentForm(prev => ({ ...prev, end_date: e.target.value }))}
+                />
+              </div>
             </div>
 
             {/* Date limite */}
