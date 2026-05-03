@@ -101,7 +101,7 @@ const AdminDashboard: React.FC = () => {
 
   // Charger les statistiques
   const loadStats = async () => {
-    if (status !== 'authenticated') return;
+    if (status !== 'authenticated' || !tenant?.id) return;
     setLoading(true);
     try {
       const now = new Date();
@@ -109,7 +109,7 @@ const AdminDashboard: React.FC = () => {
       // Charger les projets
       const projects = await fetchData<any>('projects', {
         columns: 'id, name, status, deadline',
-        filters: tenant?.id ? [{ column: 'tenant_id', operator: 'eq', value: tenant.id }] : []
+        filters: [{ column: 'tenant_id', operator: 'eq', value: tenant.id }]
       }) || [];
 
       const projectsById = new Map<string, any>(projects.map((p: any) => [p.id, p]));
@@ -126,14 +126,14 @@ const AdminDashboard: React.FC = () => {
         columns: 'user_id, role, company',
         filters: [
           { column: 'role', operator: 'neq', value: 'admin' },
-          ...(tenant?.id ? [{ column: 'tenant_id', operator: 'eq', value: tenant.id }] : [])
+          { column: 'tenant_id', operator: 'eq', value: tenant.id }
         ]
       }) || [];
 
       // Charger les tâches depuis task_assignments_view (vue consolidée)
       const taskAssignmentsData = await fetchData<any>('task_assignments_view', {
         columns: 'id, status, deadline, validation_deadline, assigned_to, project_id, task_name, assignment_type',
-        filters: tenant?.id ? [{ column: 'tenant_id', operator: 'eq', value: tenant.id }] : []
+        filters: [{ column: 'tenant_id', operator: 'eq', value: tenant.id }]
       }) || [];
 
       // Filtrer pour ne garder que les tâches dont le projet existe
@@ -272,7 +272,7 @@ const AdminDashboard: React.FC = () => {
   };
 
   useEffect(() => {
-    if (status === 'authenticated') {
+    if (status === 'authenticated' && tenant?.id) {
       loadStats();
 
       // S'abonner aux changements de la table task_assignments
@@ -283,7 +283,18 @@ const AdminDashboard: React.FC = () => {
           {
             event: '*',
             schema: 'public',
-            table: 'task_assignments'
+            table: 'standard_task_assignments'
+          },
+          () => {
+            loadStats();
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'workflow_task_assignments'
           },
           () => {
             loadStats();
@@ -306,7 +317,7 @@ const AdminDashboard: React.FC = () => {
         supabase.removeChannel(channel);
       };
     }
-  }, [status]);
+  }, [status, tenant?.id]);
 
   // Fonction pour formater la date
   const formatTimeAgo = (timestamp: string) => {

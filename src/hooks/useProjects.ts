@@ -84,13 +84,30 @@ export function useProjects() {
     if (status !== 'authenticated') return;
     try {
       // 1. Charger toute la structure tenant en parallèle
-      const [{ data: sections }, { data: allItems }, { data: allTasks }] = await Promise.all([
+      let [{ data: sections, error: secFetchError }, { data: allItems, error: itemFetchError }, { data: allTasks, error: taskFetchError }] = await Promise.all([
         supabase.from('tenant_project_sections').select('*').eq('tenant_id', tenantId).order('order_index'),
         supabase.from('tenant_project_items').select('*').order('order_index'),
         supabase.from('tenant_project_tasks').select('*').order('order_index')
       ]);
 
-      if (!sections || sections.length === 0) return;
+      if (secFetchError) throw secFetchError;
+      if (itemFetchError) throw itemFetchError;
+      if (taskFetchError) throw taskFetchError;
+
+      // SI LE TENANT N'A PAS DE STRUCTURE (Nouveau compte)
+      // On va utiliser la structure par défaut (hardcoded)
+      if (!sections || sections.length === 0) {
+        console.log("Tenant has no structure, using hardcoded defaults...");
+        // On importe dynamiquement pour éviter les cycles ou charger inutilement
+        const { projectStructure, realizationStructure } = await import('@/data/project-structure');
+        
+        const defaultStructure: any[] = [
+          ...projectStructure.map((s, i) => ({ ...s, phase: 'conception', order_index: i })),
+          ...realizationStructure.map((s, i) => ({ ...s, phase: 'realisation', order_index: i }))
+        ];
+        
+        return snapshotCustomStructure(projectId, defaultStructure);
+      }
 
       // Filtrer les items et tâches pour ce tenant
       const sectionIds = sections.map((s: any) => s.id);
@@ -102,15 +119,16 @@ export function useProjects() {
       const taskIds = tasks.map((t: any) => t.id);
       let infoSheets: any[] = [];
       if (taskIds.length > 0) {
-        const { data: s } = await supabase
+        const { data: s, error: sheetError } = await supabase
           .from('tenant_task_info_sheets').select('*').in('tenant_task_id', taskIds);
+        if (sheetError) throw sheetError;
         infoSheets = s || [];
       }
       const infoSheetMap: Record<string, string> = {};
       infoSheets.forEach((s: any) => { infoSheetMap[s.tenant_task_id] = s.info_sheet; });
 
       // 3. Insérer toutes les sections en UNE SEULE REQUÊTE
-      const { data: newSections } = await supabase
+      const { data: newSections, error: secInsError } = await supabase
         .from('project_sections_snapshot')
         .insert(sections.map((sec: any) => ({
           project_id: projectId,
@@ -121,6 +139,7 @@ export function useProjects() {
         })))
         .select();
 
+      if (secInsError) throw secInsError;
       if (!newSections || newSections.length === 0) return;
 
       // Map: old_section_id -> new_section_id
@@ -139,11 +158,12 @@ export function useProjects() {
 
       if (itemsToInsert.length === 0) return;
 
-      const { data: newItems } = await supabase
+      const { data: newItems, error: itemInsError } = await supabase
         .from('project_items_snapshot')
         .insert(itemsToInsert)
         .select();
 
+      if (itemInsError) throw itemInsError;
       if (!newItems || newItems.length === 0) return;
 
       // Map: old_item_id -> new_item_id
@@ -162,32 +182,58 @@ export function useProjects() {
         }));
 
       if (tasksToInsert.length > 0) {
-        await supabase.from('project_tasks_snapshot').insert(tasksToInsert);
+        const { error: taskInsError } = await supabase.from('project_tasks_snapshot').insert(tasksToInsert);
+        if (taskInsError) throw taskInsError;
       }
 
     } catch (e) {
+      console.error("Error snapshotting tenant structure:", e);
+      toast({
+        title: "Erreur de structure",
+        description: "Le projet a été créé mais sa structure n'a pas pu être initialisée correctement.",
+        variant: "destructive"
+      });
     }
   };
 
   // Snapshot la structure personnalisée dans les tables projet
   const snapshotCustomStructure = async (projectId: string, customStructure: any[]) => {
     if (status !== 'authenticated') return;
+    
+    // Helper pour vérifier si un ID est un UUID valide
+    const isValidUUID = (id: string) => {
+      if (!id || typeof id !== 'string') return false;
+      return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    };
+
     try {
       // 1. Insérer toutes les sections
-      const { data: newSections } = await supabase
+      const sectionsToInsert = customStructure.map((sec: any) => ({
+        project_id: projectId,
+        title: sec.title,
+        phase: sec.phase || 'conception', // Fallback au cas où
+        order_index: sec.order_index || 0,
+        tenant_section_id: isValidUUID(sec.id) ? sec.id : null
+      }));
+
+      const { data: newSections, error: secError } = await supabase
         .from('project_sections_snapshot')
-        .insert(customStructure.map((sec: any) => ({
-          project_id: projectId,
-          title: sec.title,
-          phase: sec.phase,
-          order_index: sec.order_index,
-          tenant_section_id: (sec.id.startsWith('new-section-') || sec.id.startsWith('new-sec-')) ? null : sec.id // Garder l'ID original pour référence si besoin
-        })))
+        .insert(sectionsToInsert)
         .select();
 
+      if (secError) {
+        console.error("Error inserting project sections snapshot:", secError);
+        throw secError;
+      }
       if (!newSections || newSections.length === 0) return;
 
-      const sectionIdMap = new Map(newSections.map((s: any, idx: number) => [customStructure[idx].id, s.id]));
+      const sectionIdMap = new Map();
+      // On utilise l'index pour mapper car l'ordre est conservé par Supabase sur un insert en masse
+      newSections.forEach((s: any, idx: number) => {
+        if (customStructure[idx]) {
+          sectionIdMap.set(customStructure[idx].id, s.id);
+        }
+      });
 
       // 2. Préparer les items
       const itemsWithOriginalId: any[] = [];
@@ -201,8 +247,8 @@ export function useProjects() {
                 project_id: projectId,
                 section_id: newSectionId,
                 title: item.title,
-                order_index: item.order_index,
-                tenant_item_id: item.id.startsWith('new-item-') ? null : item.id
+                order_index: item.order_index || 0,
+                tenant_item_id: isValidUUID(item.id) ? item.id : null
               },
               originalId: item.id
             });
@@ -212,15 +258,24 @@ export function useProjects() {
 
       if (itemsWithOriginalId.length === 0) return;
 
-      const { data: newItems } = await supabase
+      const { data: newItems, error: itemError } = await supabase
         .from('project_items_snapshot')
         .insert(itemsWithOriginalId.map(x => x.itemToInsert))
         .select();
 
+      if (itemError) {
+        console.error("Error inserting project items snapshot:", itemError);
+        throw itemError;
+      }
       if (!newItems || newItems.length === 0) return;
 
       // Créer une map pour retrouver l'ID de l'item original
-      const itemIdMap = new Map(newItems.map((newItem: any, idx: number) => [itemsWithOriginalId[idx].originalId, newItem.id]));
+      const itemIdMap = new Map();
+      newItems.forEach((newItem: any, idx: number) => {
+        if (itemsWithOriginalId[idx]) {
+          itemIdMap.set(itemsWithOriginalId[idx].originalId, newItem.id);
+        }
+      });
 
       // 3. Préparer les tâches
       const tasksToInsert: any[] = [];
@@ -234,8 +289,8 @@ export function useProjects() {
                   project_id: projectId,
                   item_id: newItemId,
                   title: task.title,
-                  order_index: task.order_index,
-                  tenant_task_id: task.id.startsWith('new-task-') ? null : task.id,
+                  order_index: task.order_index || 0,
+                  tenant_task_id: isValidUUID(task.id) ? task.id : null,
                   info_sheet: task.info_sheet || ''
                 });
               });
@@ -245,11 +300,21 @@ export function useProjects() {
       });
 
       if (tasksToInsert.length > 0) {
-        await supabase.from('project_tasks_snapshot').insert(tasksToInsert);
+        const { error: taskError } = await supabase.from('project_tasks_snapshot').insert(tasksToInsert);
+        if (taskError) {
+          console.error("Error inserting project tasks snapshot:", taskError);
+          throw taskError;
+        }
       }
 
     } catch (e) {
       console.error("Error snapshotting custom structure:", e);
+      toast({
+        title: "Erreur de structure",
+        description: "Le projet a été créé mais sa structure n'a pas pu être initialisée correctement.",
+        variant: "destructive"
+      });
+      throw e; // Relancer pour que createProject le sache
     }
   };
 

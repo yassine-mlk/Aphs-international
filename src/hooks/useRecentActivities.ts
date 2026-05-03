@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTenant } from '@/contexts/TenantContext';
 import { useToast } from '@/components/ui/use-toast';
 import { NOTIFICATIONS } from '@/lib/constants';
 
@@ -18,6 +19,7 @@ export interface RecentActivity {
 
 export function useRecentActivities() {
   const { user, role, status } = useAuth();
+  const { tenant } = useTenant();
   const { toast } = useToast();
   const [activities, setActivities] = useState<RecentActivity[]>([]);
   const [loading, setLoading] = useState(true);
@@ -176,11 +178,12 @@ export function useRecentActivities() {
 
   // Fonction pour récupérer toutes les activités récentes pour un admin
   const fetchAdminActivities = useCallback(async () => {
-    if (status !== 'authenticated') return;
+    if (status !== 'authenticated' || !tenant?.id) return;
     try {
       const { data: notifications, error } = await supabase
         .from('notifications')
         .select('*')
+        .eq('tenant_id', tenant.id)
         .order('created_at', { ascending: false })
         .limit(20);
 
@@ -191,7 +194,7 @@ export function useRecentActivities() {
     } catch (error) {
       setError('Impossible de charger les activités');
     }
-  }, [enrichNotifications]);
+  }, [status, enrichNotifications, tenant?.id]);
 
   // Fonction principale pour récupérer les activités
   const fetchActivities = useCallback(async () => {
@@ -252,8 +255,10 @@ export function useRecentActivities() {
 
   // Charger les activités au montage
   useEffect(() => {
-    fetchActivities();
-  }, [fetchActivities]);
+    if (status === 'authenticated' && tenant?.id) {
+      fetchActivities();
+    }
+  }, [fetchActivities, status, tenant?.id]);
 
   return {
     activities,

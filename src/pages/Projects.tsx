@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, MoreHorizontal, Users, BarChart3, Clock as ClockIcon, Loader2, Trash2, ChevronDown, ChevronRight, Pencil, Check, X, FileText, Save, ArrowLeft, ArrowRight } from 'lucide-react';
+import { 
+  Plus, Search, MoreHorizontal, Users, BarChart3, Clock as ClockIcon, 
+  Loader2, Trash2, ChevronDown, ChevronRight, Pencil, Check, X, 
+  FileText, Save, ArrowLeft, ArrowRight, Layers, Target, Circle, 
+  CheckCircle2, AlertTriangle, PlusCircle 
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
@@ -1061,209 +1066,270 @@ const Projects: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <div className="py-4 space-y-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex gap-2 p-1 bg-gray-100 rounded-lg">
-                    <Button 
-                      variant={structurePhase === 'conception' ? 'secondary' : 'ghost'} 
-                      size="sm" 
-                      onClick={() => setStructurePhase('conception')}
-                      className={structurePhase === 'conception' ? 'shadow-sm bg-white' : ''}
-                    >
-                      Conception
-                    </Button>
-                    <Button 
-                      variant={structurePhase === 'realisation' ? 'secondary' : 'ghost'} 
-                      size="sm" 
-                      onClick={() => setStructurePhase('realisation')}
-                      className={structurePhase === 'realisation' ? 'shadow-sm bg-white' : ''}
-                    >
-                      Réalisation
-                    </Button>
+              <div className="py-6 space-y-6">
+                <div className="flex items-center justify-between sticky top-0 bg-white z-10 pb-4 border-b">
+                  <div className="flex items-center gap-4">
+                    <div className="flex gap-1 p-1 bg-gray-100 rounded-lg">
+                      <Button 
+                        variant={structurePhase === 'conception' ? 'secondary' : 'ghost'} 
+                        size="sm" 
+                        onClick={() => setStructurePhase('conception')}
+                        className={`text-xs h-8 ${structurePhase === 'conception' ? 'shadow-sm bg-white font-bold' : ''}`}
+                      >
+                        <Layers className="h-3.5 w-3.5 mr-1.5" /> Phase Conception
+                      </Button>
+                      <Button 
+                        variant={structurePhase === 'realisation' ? 'secondary' : 'ghost'} 
+                        size="sm" 
+                        onClick={() => setStructurePhase('realisation')}
+                        className={`text-xs h-8 ${structurePhase === 'realisation' ? 'shadow-sm bg-white font-bold' : ''}`}
+                      >
+                        <Target className="h-3.5 w-3.5 mr-1.5" /> Phase Réalisation
+                      </Button>
+                    </div>
                   </div>
-                  <Button size="sm" onClick={() => { setAddingType('section'); setAddingToId(null); setNewValue(''); }}>
-                    <Plus className="h-4 w-4 mr-1" /> Ajouter une étape
+                  <Button 
+                    size="sm" 
+                    className="bg-aps-teal hover:bg-aps-navy h-8"
+                    onClick={() => { setAddingType('section'); setAddingToId(null); setNewValue(''); }}
+                  >
+                    <PlusCircle className="h-4 w-4 mr-1.5" /> Ajouter une étape
                   </Button>
                 </div>
 
                 {loadingStructure ? (
                   <div className="flex flex-col items-center justify-center py-12 space-y-4">
                     <Loader2 className="h-8 w-8 animate-spin text-aps-teal" />
-                    <p className="text-sm text-muted-foreground">Chargement de la structure par défaut...</p>
+                    <p className="text-sm text-muted-foreground italic font-medium">Initialisation de la structure...</p>
                   </div>
                 ) : (
-                  <div className="space-y-3">
-                    {customStructure.filter(s => s.phase === structurePhase).map(sec => (
-                      <div key={sec.id} className="border rounded-xl overflow-hidden bg-white shadow-sm">
-                        {/* Section Header */}
-                        <div className="flex items-center gap-2 bg-gray-50/80 px-4 py-3 border-b">
-                          <button
-                            className="flex items-center gap-2 flex-1 text-left font-bold text-gray-800"
-                            onClick={() => toggleSection(sec.id)}
-                          >
-                            {expandedSections.has(sec.id)
-                              ? <ChevronDown className="h-5 w-5 text-aps-teal" />
-                              : <ChevronRight className="h-5 w-5 text-aps-teal" />}
-                            
-                            {editingId === sec.id ? (
-                              <Input 
-                                value={editValue} 
-                                onChange={e => setEditValue(e.target.value)} 
-                                className="h-8 text-sm"
-                                autoFocus 
-                                onClick={e => e.stopPropagation()} 
-                                onKeyDown={e => e.key === 'Enter' && saveEdit()} 
-                                onBlur={saveEdit}
-                              />
-                            ) : (
-                              <span>{sec.title}</span>
-                            )}
-                          </button>
-                          
-                          <div className="flex items-center gap-1">
-                            <Button size="icon" variant="ghost" className="h-8 w-8 text-gray-400 hover:text-aps-teal" onClick={() => { setEditingId(sec.id); setEditValue(sec.title); }}>
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button size="icon" variant="ghost" className="h-8 w-8 text-gray-400 hover:text-red-500" onClick={() => deleteSection(sec.id)}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                            <Button size="icon" variant="ghost" className="h-8 w-8 text-gray-400 hover:text-aps-teal" onClick={() => { setAddingType('item'); setAddingToId(sec.id); setNewValue(''); }}>
-                              <Plus className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-
-                        {/* Items */}
-                        {expandedSections.has(sec.id) && (
-                          <div className="p-3 space-y-3 bg-white">
-                            {sec.items.map(item => (
-                              <div key={item.id} className="border rounded-lg overflow-hidden ml-6">
-                                <div className="flex items-center gap-2 bg-gray-50/50 px-3 py-2 border-b">
-                                  <button className="flex items-center gap-2 flex-1 text-left font-semibold text-sm text-gray-700" onClick={() => toggleItem(item.id)}>
-                                    {expandedItems.has(item.id)
-                                      ? <ChevronDown className="h-4 w-4 text-aps-teal/70" />
-                                      : <ChevronRight className="h-4 w-4 text-aps-teal/70" />}
-                                    
-                                    {editingId === item.id ? (
-                                      <Input 
-                                        value={editValue} 
-                                        onChange={e => setEditValue(e.target.value)} 
-                                        className="h-7 text-xs"
-                                        autoFocus 
-                                        onClick={e => e.stopPropagation()} 
-                                        onKeyDown={e => e.key === 'Enter' && saveEdit()} 
-                                        onBlur={saveEdit}
-                                      />
-                                    ) : (
-                                      <span>{item.title}</span>
-                                    )}
-                                  </button>
-                                  <div className="flex items-center gap-1">
-                                    <Button size="icon" variant="ghost" className="h-7 w-7 text-gray-400 hover:text-aps-teal" onClick={() => { setEditingId(item.id); setEditValue(item.title); }}>
-                                      <Pencil className="h-3.5 w-3.5" />
-                                    </Button>
-                                    <Button size="icon" variant="ghost" className="h-7 w-7 text-gray-400 hover:text-red-500" onClick={() => deleteItem(sec.id, item.id)}>
-                                      <Trash2 className="h-3.5 w-3.5" />
-                                    </Button>
-                                    <Button size="icon" variant="ghost" className="h-7 w-7 text-gray-400 hover:text-aps-teal" onClick={() => { setAddingType('task'); setAddingToId(item.id); setNewValue(''); }}>
-                                      <Plus className="h-3.5 w-3.5" />
-                                    </Button>
-                                  </div>
-                                </div>
-
-                                {/* Tasks */}
-                                {expandedItems.has(item.id) && (
-                                  <div className="p-2 ml-4 space-y-1">
-                                    {item.tasks.map(task => (
-                                      <div key={task.id} className="flex items-center gap-2 py-1.5 px-3 rounded-md text-sm hover:bg-gray-50 group">
-                                        <div className="flex-1 text-gray-600">
-                                          {editingId === task.id ? (
-                                            <Input 
-                                              value={editValue} 
-                                              onChange={e => setEditValue(e.target.value)} 
-                                              className="h-7 text-xs"
-                                              autoFocus 
-                                              onKeyDown={e => e.key === 'Enter' && saveEdit()} 
-                                              onBlur={saveEdit}
-                                            />
-                                          ) : (
-                                            task.title
-                                          )}
-                                        </div>
-                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                          <Button size="icon" variant="ghost" className="h-6 w-6 text-gray-400 hover:text-aps-teal" onClick={() => { setEditingId(task.id); setEditValue(task.title); }}>
-                                            <Pencil className="h-3 w-3" />
-                                          </Button>
-                                          <Button size="icon" variant="ghost" className="h-6 w-6 text-gray-400 hover:text-red-500" onClick={() => deleteTask(sec.id, item.id, task.id)}>
-                                            <Trash2 className="h-3 w-3" />
-                                          </Button>
-                                        </div>
-                                      </div>
-                                    ))}
-
-                                    {addingType === 'task' && addingToId === item.id && (
-                                      <div className="flex items-center gap-2 p-2 bg-aps-teal/5 rounded-md">
-                                        <Input 
-                                          value={newValue} 
-                                          onChange={e => setNewValue(e.target.value)} 
-                                          placeholder="Nouvelle tâche..."
-                                          className="h-8 text-xs focus-visible:ring-aps-teal"
-                                          autoFocus
-                                          onKeyDown={e => e.key === 'Enter' && addTask(sec.id, item.id)}
-                                        />
-                                        <Button size="sm" className="h-8 px-2 bg-aps-teal" onClick={() => addTask(sec.id, item.id)}>
-                                          <Check className="h-4 w-4" />
-                                        </Button>
-                                        <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => setAddingType(null)}>
-                                          <X className="h-4 w-4" />
-                                        </Button>
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-
-                            {addingType === 'item' && addingToId === sec.id && (
-                              <div className="flex items-center gap-2 p-3 bg-aps-teal/5 rounded-lg ml-6">
+                  <div className="space-y-4">
+                    {customStructure.filter(s => s.phase === structurePhase).map((sec, si) => {
+                      const sectionLabel = String.fromCharCode(65 + si);
+                      const isExpanded = expandedSections.has(sec.id);
+                      
+                      return (
+                        <div key={sec.id} className="border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow bg-white border-gray-100">
+                          {/* Section Header - Style IntervenantDetails */}
+                          <div className={`flex items-center gap-3 px-4 py-3 cursor-pointer select-none ${isExpanded ? 'bg-gray-50 border-b' : 'bg-[#F8F9FA]'}`}>
+                            <div 
+                              className="flex items-center gap-3 flex-1"
+                              onClick={() => toggleSection(sec.id)}
+                            >
+                              <Badge className="bg-[#1A237E] text-white font-bold min-w-[1.8rem] h-6 flex items-center justify-center rounded">
+                                {sectionLabel}
+                              </Badge>
+                              
+                              {editingId === sec.id ? (
                                 <Input 
-                                  value={newValue} 
-                                  onChange={e => setNewValue(e.target.value)} 
-                                  placeholder="Nouvelle sous-étape..."
-                                  className="h-9 text-sm focus-visible:ring-aps-teal"
-                                  autoFocus
-                                  onKeyDown={e => e.key === 'Enter' && addItem(sec.id)}
+                                  value={editValue} 
+                                  onChange={e => setEditValue(e.target.value)} 
+                                  className="h-8 text-sm font-bold bg-white focus-visible:ring-aps-teal"
+                                  autoFocus 
+                                  onClick={e => e.stopPropagation()} 
+                                  onKeyDown={e => e.key === 'Enter' && saveEdit()} 
+                                  onBlur={saveEdit}
                                 />
-                                <Button size="sm" className="bg-aps-teal" onClick={() => addItem(sec.id)}>
-                                  <Check className="h-4 w-4 mr-1" /> Ajouter
-                                </Button>
-                                <Button size="sm" variant="ghost" onClick={() => setAddingType(null)}>
-                                  <X className="h-4 w-4" />
-                                </Button>
+                              ) : (
+                                <span className="font-bold text-[15px] text-gray-900">{sec.title}</span>
+                              )}
+                              
+                              <div className="ml-auto flex items-center gap-2">
+                                <Badge variant="outline" className="text-[10px] bg-white text-gray-400 font-medium">
+                                  {sec.items.length} lots
+                                </Badge>
+                                {isExpanded ? <ChevronDown className="h-4 w-4 text-gray-400" /> : <ChevronRight className="h-4 w-4 text-gray-400" />}
                               </div>
-                            )}
+                            </div>
+
+                            <div className="flex items-center gap-1 pl-2 border-l ml-2">
+                              <Button size="icon" variant="ghost" className="h-8 w-8 text-gray-400 hover:text-aps-teal" onClick={() => { setEditingId(sec.id); setEditValue(sec.title); }}>
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button size="icon" variant="ghost" className="h-8 w-8 text-gray-400 hover:text-red-500" onClick={() => deleteSection(sec.id)}>
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button size="icon" variant="ghost" className="h-8 w-8 text-aps-teal hover:bg-aps-teal/10" onClick={() => { setAddingType('item'); setAddingToId(sec.id); setNewValue(''); }}>
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
-                        )}
-                      </div>
-                    ))}
+
+                          {/* Items (Lots) */}
+                          <AnimatePresence>
+                            {isExpanded && (
+                              <motion.div 
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                className="overflow-hidden"
+                              >
+                                <div className="p-1 space-y-[1px] bg-gray-50/50">
+                                  {sec.items.map((item, ii) => {
+                                    const itemLabel = `${sectionLabel}${ii + 1}`;
+                                    const isItemExpanded = expandedItems.has(item.id);
+                                    
+                                    return (
+                                      <div key={item.id} className="bg-white border-l-[3px] border-l-gray-200 hover:border-l-aps-teal/50 transition-colors">
+                                        <div className="flex items-center gap-3 px-4 py-2.5 group">
+                                          <div 
+                                            className="flex items-center gap-3 flex-1 cursor-pointer"
+                                            onClick={() => toggleItem(item.id)}
+                                          >
+                                            <span className="font-semibold text-gray-400 text-xs min-w-[2.2rem]">{itemLabel}</span>
+                                            
+                                            {editingId === item.id ? (
+                                              <Input 
+                                                value={editValue} 
+                                                onChange={e => setEditValue(e.target.value)} 
+                                                className="h-7 text-sm font-semibold bg-white"
+                                                autoFocus 
+                                                onClick={e => e.stopPropagation()} 
+                                                onKeyDown={e => e.key === 'Enter' && saveEdit()} 
+                                                onBlur={saveEdit}
+                                              />
+                                            ) : (
+                                              <span className="text-sm font-semibold text-gray-700">{item.title}</span>
+                                            )}
+
+                                            <div className="ml-auto flex items-center gap-2">
+                                              <span className="text-[10px] text-gray-300 font-medium">
+                                                {item.tasks.length} tâches
+                                              </span>
+                                              {isItemExpanded ? <ChevronDown className="h-3.5 w-3.5 text-gray-300" /> : <ChevronRight className="h-3.5 w-3.5 text-gray-300" />}
+                                            </div>
+                                          </div>
+
+                                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity pl-2 border-l border-gray-100">
+                                            <Button size="icon" variant="ghost" className="h-7 w-7 text-gray-400 hover:text-aps-teal" onClick={() => { setEditingId(item.id); setEditValue(item.title); }}>
+                                              <Pencil className="h-3 w-3" />
+                                            </Button>
+                                            <Button size="icon" variant="ghost" className="h-7 w-7 text-gray-400 hover:text-red-500" onClick={() => deleteItem(sec.id, item.id)}>
+                                              <Trash2 className="h-3 w-3" />
+                                            </Button>
+                                            <Button size="icon" variant="ghost" className="h-7 w-7 text-aps-teal hover:bg-aps-teal/10" onClick={() => { setAddingType('task'); setAddingToId(item.id); setNewValue(''); }}>
+                                              <Plus className="h-3.5 w-3.5" />
+                                            </Button>
+                                          </div>
+                                        </div>
+
+                                        {/* Tasks */}
+                                        <AnimatePresence>
+                                          {isItemExpanded && (
+                                            <motion.div 
+                                              initial={{ height: 0, opacity: 0 }}
+                                              animate={{ height: 'auto', opacity: 1 }}
+                                              exit={{ height: 0, opacity: 0 }}
+                                              className="bg-gray-50/30 overflow-hidden"
+                                            >
+                                              <div className="py-1 space-y-[1px]">
+                                                {item.tasks.map((task, ti) => (
+                                                  <div key={task.id} className="flex items-center gap-3 py-2 px-4 pl-14 hover:bg-white group transition-colors">
+                                                    <div className="flex-1 min-w-0">
+                                                      <div className="flex items-center gap-2">
+                                                        <span className="text-[10px] text-gray-300 font-medium shrink-0">{itemLabel}.{ti + 1}</span>
+                                                        {editingId === task.id ? (
+                                                          <Input 
+                                                            value={editValue} 
+                                                            onChange={e => setEditValue(e.target.value)} 
+                                                            className="h-7 text-xs bg-white"
+                                                            autoFocus 
+                                                            onKeyDown={e => e.key === 'Enter' && saveEdit()} 
+                                                            onBlur={saveEdit}
+                                                          />
+                                                        ) : (
+                                                          <span className="text-[13px] text-gray-600 truncate">{task.title}</span>
+                                                        )}
+                                                      </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                                      <Button size="icon" variant="ghost" className="h-6 w-6 text-gray-400 hover:text-aps-teal" onClick={() => { setEditingId(task.id); setEditValue(task.title); }}>
+                                                        <Pencil className="h-3 w-3" />
+                                                      </Button>
+                                                      <Button size="icon" variant="ghost" className="h-6 w-6 text-gray-400 hover:text-red-500" onClick={() => deleteTask(sec.id, item.id, task.id)}>
+                                                        <Trash2 className="h-3 w-3" />
+                                                      </Button>
+                                                    </div>
+                                                  </div>
+                                                ))}
+
+                                                {addingType === 'task' && addingToId === item.id && (
+                                                  <div className="flex items-center gap-2 p-2 pl-14 bg-aps-teal/5">
+                                                    <Input 
+                                                      value={newValue} 
+                                                      onChange={e => setNewValue(e.target.value)} 
+                                                      placeholder="Nom de la tâche..."
+                                                      className="h-8 text-xs focus-visible:ring-aps-teal bg-white"
+                                                      autoFocus
+                                                      onKeyDown={e => e.key === 'Enter' && addTask(sec.id, item.id)}
+                                                    />
+                                                    <div className="flex gap-1">
+                                                      <Button size="sm" className="h-8 w-8 p-0 bg-aps-teal" onClick={() => addTask(sec.id, item.id)}>
+                                                        <Check className="h-4 w-4" />
+                                                      </Button>
+                                                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setAddingType(null)}>
+                                                        <X className="h-4 w-4" />
+                                                      </Button>
+                                                    </div>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </motion.div>
+                                          )}
+                                        </AnimatePresence>
+                                      </div>
+                                    );
+                                  })}
+
+                                  {addingType === 'item' && addingToId === sec.id && (
+                                    <div className="flex items-center gap-2 p-3 bg-aps-teal/5 ml-4">
+                                      <Input 
+                                        value={newValue} 
+                                        onChange={e => setNewValue(e.target.value)} 
+                                        placeholder="Nom du nouveau lot..."
+                                        className="h-9 text-sm focus-visible:ring-aps-teal bg-white"
+                                        autoFocus
+                                        onKeyDown={e => e.key === 'Enter' && addItem(sec.id)}
+                                      />
+                                      <Button size="sm" className="bg-aps-teal" onClick={() => addItem(sec.id)}>
+                                        <Plus className="h-4 w-4 mr-1.5" /> Ajouter le lot
+                                      </Button>
+                                      <Button size="sm" variant="ghost" onClick={() => setAddingType(null)}>
+                                        <X className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  )}
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      );
+                    })}
 
                     {addingType === 'section' && (
-                      <div className="flex items-center gap-2 p-4 border-2 border-dashed border-aps-teal/30 bg-aps-teal/5 rounded-xl">
+                      <motion.div 
+                        initial={{ scale: 0.95, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        className="flex items-center gap-3 p-4 border-2 border-dashed border-aps-teal/30 bg-aps-teal/5 rounded-xl"
+                      >
                         <Input 
                           value={newValue} 
                           onChange={e => setNewValue(e.target.value)} 
-                          placeholder="Nom de la nouvelle étape..."
-                          className="h-10 focus-visible:ring-aps-teal"
+                          placeholder="Nom de l'étape (A, B, C...)"
+                          className="h-10 focus-visible:ring-aps-teal bg-white font-bold"
                           autoFocus
                           onKeyDown={e => e.key === 'Enter' && addSection()}
                         />
-                        <Button className="bg-aps-teal" onClick={addSection}>
-                          <Check className="h-4 w-4 mr-1" /> Ajouter l'étape
-                        </Button>
-                        <Button variant="ghost" onClick={() => setAddingType(null)}>
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
+                        <div className="flex gap-2">
+                          <Button className="bg-aps-teal" onClick={addSection}>
+                            <Check className="h-4 w-4 mr-1.5" /> Valider
+                          </Button>
+                          <Button variant="ghost" onClick={() => setAddingType(null)}>
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </motion.div>
                     )}
                   </div>
                 )}

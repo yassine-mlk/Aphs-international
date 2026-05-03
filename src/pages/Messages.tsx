@@ -778,9 +778,8 @@ const Messages: React.FC = () => {
                               {!isMe && showSender && (
                                 <Avatar className="h-8 w-8 mr-2 flex-shrink-0">
                                   <AvatarImage src={
-                                    msg.sender 
-                                    ? msg.sender.avatar_url 
-                                    : (activeConversation.type === 'direct'
+                                    msg.sender?.avatar_url || 
+                                    (activeConversation.type === 'direct'
                                       ? activeConversation.participants[0].avatar_url
                                       : activeConversation.participants.find(p => p.id === msg.senderId)?.avatar_url)
                                   } />
@@ -798,7 +797,23 @@ const Messages: React.FC = () => {
                                 </Avatar>
                               )}
                               
-                              <div className={`max-w-[75%] min-w-0 ${!isMe && !showSender ? 'ml-10' : ''}`}>
+                              {isMe && showSender && (
+                                <div className="order-last ml-2 shrink-0">
+                                  <Avatar className="h-8 w-8">
+                                    <AvatarImage src={user?.user_metadata?.avatar_url} />
+                                    <AvatarFallback className="bg-blue-600 text-white text-[10px] font-bold">
+                                      {getInitials({ 
+                                        id: user?.id || '', 
+                                        email: user?.email || '', 
+                                        first_name: user?.user_metadata?.first_name, 
+                                        last_name: user?.user_metadata?.last_name 
+                                      } as Contact)}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                </div>
+                              )}
+                              
+                              <div className={`max-w-[75%] min-w-0 ${!isMe && !showSender ? 'ml-10' : ''} ${isMe && !showSender ? 'mr-10' : ''}`}>
                                 {!isMe && showSender && (
                                   <div className="mb-1 ml-1 text-[11px] font-medium text-gray-500 uppercase tracking-wider">
                                     {isDeletedUserMessage ? "Utilisateur supprimé" : (
@@ -813,11 +828,17 @@ const Messages: React.FC = () => {
                                   </div>
                                 )}
                                 
+                                {isMe && showSender && (
+                                  <div className="mb-1 mr-1 text-[11px] font-medium text-blue-600 uppercase tracking-wider text-right">
+                                    Vous
+                                  </div>
+                                )}
+                                
                                 <div className={`group relative flex items-end gap-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
                                   <div
                                     className={`px-4 py-2.5 rounded-2xl shadow-sm text-sm break-words ${
                                       isMe 
-                                        ? 'bg-aps-teal text-white rounded-tr-none' 
+                                        ? 'bg-blue-600 text-white rounded-tr-none' 
                                         : isDeletedUserMessage
                                           ? 'bg-gray-200 text-gray-500 italic rounded-tl-none'
                                           : 'bg-white text-gray-800 rounded-tl-none border border-gray-100'
@@ -892,13 +913,20 @@ const Messages: React.FC = () => {
                           <div className="flex items-center gap-3">
                             <Avatar className="h-9 w-9 border border-gray-100">
                               <AvatarImage src={user?.user_metadata?.avatar_url} />
-                              <AvatarFallback className="bg-aps-teal text-white text-xs">Moi</AvatarFallback>
+                              <AvatarFallback className="bg-aps-teal text-white text-xs">
+                                {getInitials({ 
+                                  id: user?.id || '', 
+                                  email: user?.email || '', 
+                                  first_name: user?.user_metadata?.first_name, 
+                                  last_name: user?.user_metadata?.last_name 
+                                } as Contact)}
+                              </AvatarFallback>
                             </Avatar>
                             <div className="flex-1 min-w-0 text-left">
                               <p className="text-sm font-medium text-gray-900 truncate">Vous</p>
                               <p className="text-xs text-gray-500 capitalize">{role || 'Utilisateur'}</p>
                             </div>
-                            <Badge variant="outline" className="text-[10px] bg-gray-50">Admin</Badge>
+                            <Badge variant="outline" className="text-[10px] bg-gray-50">Moi</Badge>
                           </div>
 
                           {/* Les autres participants */}

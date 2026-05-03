@@ -176,7 +176,7 @@ const IntervenantDashboard: React.FC = () => {
   const loadStats = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
     if (!silent) setLoading(true);
     try {
-      if (!user?.id) {
+      if (!user?.id || !tenant?.id) {
         if (!silent) setLoading(false);
         return;
       }
@@ -184,7 +184,10 @@ const IntervenantDashboard: React.FC = () => {
       // 1. Récupérer les projets dont l'utilisateur est membre
       const memberData = await fetchData('membre', {
         columns: '*',
-        filters: [{ column: 'user_id', operator: 'eq', value: user.id }]
+        filters: [
+          { column: 'user_id', operator: 'eq', value: user.id },
+          { column: 'tenant_id', operator: 'eq', value: tenant.id }
+        ]
       }) || [];
       
 
@@ -200,6 +203,7 @@ const IntervenantDashboard: React.FC = () => {
           const { data: projectsData, error } = await supabase
             .from('projects')
             .select('id, name, status')
+            .eq('tenant_id', tenant.id)
             .in('id', projectIds);
           
           if (error) {
@@ -215,7 +219,8 @@ const IntervenantDashboard: React.FC = () => {
       // 2. Récupérer toutes les tâches utiles via la vue normalisée
       const { data: rawTasks, error: tasksError } = await supabase
         .from('task_assignments_view')
-        .select('*');
+        .select('*')
+        .eq('tenant_id', tenant.id);
       
       if (tasksError) throw tasksError;
 
@@ -316,7 +321,7 @@ const IntervenantDashboard: React.FC = () => {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [user?.id, supabase, fetchData, toast]);
+  }, [user?.id, tenant?.id, supabase, fetchData, toast]);
 
   // Refs pour stabiliser les callbacks sans recréer la subscription
   const loadStatsRef = useRef(loadStats);
@@ -334,7 +339,7 @@ const IntervenantDashboard: React.FC = () => {
 
   // Charger les statistiques au montage ou changement d'utilisateur
   useEffect(() => {
-    if (status === 'authenticated' && user?.id) {
+    if (status === 'authenticated' && user?.id && tenant?.id) {
       loadStats();
 
       // S'abonner aux changements (tâches + appartenance aux projets)
@@ -342,7 +347,12 @@ const IntervenantDashboard: React.FC = () => {
         .channel(`intervenant-dashboard-${user.id}`)
         .on(
           'postgres_changes',
-          { event: '*', schema: 'public', table: 'task_assignments' },
+          { event: '*', schema: 'public', table: 'standard_task_assignments' },
+          scheduleSilentReload
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'workflow_task_assignments' },
           scheduleSilentReload
         )
         .on(

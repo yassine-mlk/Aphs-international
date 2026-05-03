@@ -180,7 +180,8 @@ const IntervenantProjects: React.FC = () => {
       .channel(`intervenant-projects-${user.id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'membre', filter: `user_id=eq.${user.id}` }, scheduleSilentReload)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, scheduleSilentReload)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_assignments' }, scheduleSilentReload)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'standard_task_assignments' }, scheduleSilentReload)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'workflow_task_assignments' }, scheduleSilentReload)
       .subscribe();
 
     return () => {

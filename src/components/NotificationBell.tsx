@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bell, Check, CheckCheck, Trash2, Clock, FileText, UserPlus, Video, MessageSquare, Target, Filter } from 'lucide-react';
+import { Bell, Check, CheckCheck, Clock, FileText, UserPlus, Video, MessageSquare, Target, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,42 +14,6 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { useNotifications, Notification } from '@/hooks/useNotifications';
-
-// Types de notifications importantes à afficher dans la barre
-const IMPORTANT_NOTIFICATION_TYPES: string[] = [
-  'task_assigned',
-  'task_validator_assigned',
-  'file_submitted',
-  'all_submitted',
-  'review_submitted',
-  'ready_for_decision',
-  'task_closed',
-  'task_relaunched',
-  'task_validation_request',
-  'file_validation_request',
-  'message_received',
-  'project_added',
-  'document_signed',
-  'document_rejected',
-  'workflow_submission',
-  'workflow_submission_admin',
-  'task_status_changed',
-  'task_validated',
-  'validator_turn',
-  'visa_vso',
-  'visa_vso_admin',
-  'visa_var',
-  'visa_vao',
-  'visa_result_admin',
-  'visa_revision_required',
-  'meeting_request',
-  'meeting_accepted',
-  'meeting_refused',
-  'meeting_reminder'
-];
-
-// Limite du nombre de notifications à afficher
-const MAX_NOTIFICATIONS_DISPLAY = 3;
 
 const getNotificationIcon = (type: string) => {
   switch (type) {
@@ -93,36 +57,7 @@ const getNotificationIcon = (type: string) => {
     case 'meeting_reminder':
       return <Video className="h-4 w-4 text-orange-500" />;
     default:
-      return <Clock className="h-4 w-4 text-gray-500" />;
-  }
-};
-
-const getNotificationColor = (type: string, isRead: boolean) => {
-  if (isRead) return "text-gray-500";
-  
-  switch (type) {
-    case 'task_assigned':
-    case 'task_validation_request':
-    case 'task_status_changed':
-    case 'task_validated':
-    case 'workflow_submission':
-    case 'workflow_submission_admin':
-    case 'validator_turn':
-      return "text-green-700";
-    case 'message_received':
-      return "text-purple-700";
-    case 'visa_revision_required':
-    case 'visa_var':
-    case 'visa_vao':
-    case 'visa_result_admin':
-      return "text-red-700";
-    case 'meeting_request':
-    case 'meeting_accepted':
-    case 'meeting_refused':
-    case 'meeting_reminder':
-      return "text-orange-700";
-    default:
-      return "text-blue-700";
+      return <Bell className="h-4 w-4 text-gray-500" />;
   }
 };
 
@@ -130,87 +65,15 @@ const formatTimeAgo = (dateString: string) => {
   if (!dateString) return 'Récemment';
   const date = new Date(dateString);
   const now = new Date();
-  
-  // Vérifier si la date est valide
   if (isNaN(date.getTime())) return 'Récemment';
   
   const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-  
   if (diffInSeconds < 60) return 'À l\'instant';
   if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m`;
   if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h`;
   if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}j`;
   
-  return date.toLocaleDateString('fr-FR', { 
-    day: 'numeric', 
-    month: 'short' 
-  });
-};
-
-interface NotificationItemProps {
-  notification: Notification;
-  onMarkAsRead: (id: string) => void;
-  onClick: (notification: Notification) => void;
-}
-
-const NotificationItem: React.FC<NotificationItemProps> = ({
-  notification,
-  onMarkAsRead,
-  onClick
-}) => {
-  return (
-    <div
-      onClick={() => onClick(notification)}
-      className={cn(
-        "flex items-start space-x-3 p-3 hover:bg-gray-50 transition-colors relative group cursor-pointer",
-        !notification.is_read && "bg-blue-50/50"
-      )}
-    >
-      <div className="flex-shrink-0 mt-1">
-        {getNotificationIcon(notification.type as any)}
-      </div>
-      
-      <div className="flex-1 min-w-0">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <p className={cn(
-              "text-sm font-medium",
-              getNotificationColor(notification.type as any, notification.is_read)
-            )}>
-              {notification.title}
-            </p>
-            <p className="text-xs text-gray-600 mt-1 line-clamp-2">
-              {notification.message}
-            </p>
-            <p className="text-xs text-gray-400 mt-1">
-              {formatTimeAgo(notification.created_at)}
-            </p>
-          </div>
-          
-          {!notification.is_read && (
-            <div className="w-2 h-2 bg-blue-500 rounded-full ml-2 mt-1"></div>
-          )}
-        </div>
-      </div>
-      
-      <div className="opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1">
-        {!notification.is_read && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 w-6 p-0"
-            onClick={(e) => {
-              e.stopPropagation();
-              onMarkAsRead(notification.id);
-            }}
-            title="Marquer comme lu"
-          >
-            <Check className="h-3 w-3" />
-          </Button>
-        )}
-      </div>
-    </div>
-  );
+  return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
 };
 
 const NotificationBell: React.FC = () => {
@@ -225,7 +88,6 @@ const NotificationBell: React.FC = () => {
     if (notification.link) {
       navigate(notification.link);
     } else {
-      // Fallback si pas de lien direct
       const { type } = notification;
       switch (type) {
         case 'new_message':
@@ -249,145 +111,118 @@ const NotificationBell: React.FC = () => {
         case 'project_added':
           navigate('/dashboard/projets');
           break;
-        case 'videoconf_request':
-        case 'videoconf_scheduled':
-        case 'videoconf_accepted':
-        case 'meeting_request':
-          navigate('/dashboard/videoconference?tab=pending');
-          break;
-        case 'meeting_accepted':
-        case 'meeting_refused':
-        case 'meeting_reminder':
-          navigate('/dashboard/videoconference');
-          break;
         default:
           break;
       }
     }
   };
 
-  // Filtrer pour n'afficher que les notifications importantes dans la cloche
-  const filteredNotifications = notifications
-    .filter(n => IMPORTANT_NOTIFICATION_TYPES.includes(n.type))
-    .slice(0, MAX_NOTIFICATIONS_DISPLAY);
-
-  // Compter toutes les notifications non lues importantes
-  const totalUnreadCount = notifications.filter(n => !n.is_read && IMPORTANT_NOTIFICATION_TYPES.includes(n.type)).length;
-
-  // Vérifier s'il y a d'autres notifications non affichées
-  const hasMoreNotifications = notifications.filter(n => IMPORTANT_NOTIFICATION_TYPES.includes(n.type)).length > filteredNotifications.length;
-  const hiddenNotificationsCount = notifications.filter(n => IMPORTANT_NOTIFICATION_TYPES.includes(n.type)).length - filteredNotifications.length;
+  // Afficher les 3 dernières notifications (toutes catégories confondues pour harmoniser)
+  const recentNotifications = notifications.slice(0, 3);
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
-          size="sm"
-          className="relative h-8 w-8 rounded-full hover:bg-gray-100"
+          size="icon"
+          className="relative h-10 w-10 rounded-2xl bg-gray-50 p-0 hover:bg-blue-50 group transition-all"
         >
           <Bell className={cn(
-            "h-4 w-4 transition-colors",
-            totalUnreadCount > 0 ? "text-blue-600" : "text-gray-600"
+            "h-5 w-5 transition-colors",
+            unreadCount > 0 ? "text-blue-600" : "text-gray-400 group-hover:text-blue-600"
           )} />
-          {totalUnreadCount > 0 && (
-            <Badge
-              variant="destructive"
-              className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs font-bold border-2 border-white shadow-sm animate-pulse"
-            >
-              {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
-            </Badge>
+          {unreadCount > 0 && (
+            <span className="absolute top-2.5 right-2.5 h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-white animate-pulse" />
           )}
         </Button>
       </DropdownMenuTrigger>
       
       <DropdownMenuContent 
         align="end" 
-        className="w-80 p-0"
-        sideOffset={5}
+        className="w-80 p-0 rounded-2xl shadow-xl border-gray-100 overflow-hidden"
+        sideOffset={8}
       >
-        <div className="flex items-center justify-between p-4 border-b">
-          <DropdownMenuLabel className="p-0 font-semibold">
+        <div className="flex items-center justify-between p-4 bg-white border-b border-gray-50">
+          <DropdownMenuLabel className="p-0 text-sm font-black text-gray-900 uppercase tracking-tight">
             Notifications
-            {totalUnreadCount > 0 && (
-              <Badge variant="secondary" className="ml-2">
-                {totalUnreadCount}
-              </Badge>
-            )}
           </DropdownMenuLabel>
-          
-          <div className="flex items-center gap-2">
-            {hasMoreNotifications && (
-              <div className="flex items-center text-xs text-gray-500">
-                <Filter className="h-3 w-3 mr-1" />
-                <span>Principales</span>
-              </div>
-            )}
-            
-            {totalUnreadCount > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 text-xs"
-                onClick={markAllAsRead}
-              >
-                <CheckCheck className="h-3 w-3 mr-1" />
-                Tout marquer comme lu
-              </Button>
-            )}
-          </div>
+          {unreadCount > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-[10px] font-bold text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-2 rounded-lg uppercase tracking-wider"
+              onClick={(e) => {
+                e.stopPropagation();
+                markAllAsRead();
+              }}
+            >
+              Tout marquer lu
+            </Button>
+          )}
         </div>
         
-        {filteredNotifications.length === 0 ? (
-          <div className="p-4 text-center text-sm text-gray-500">
-            <Bell className="h-8 w-8 mx-auto mb-2 text-gray-300" />
-            <p>Aucune notification</p>
-            {hasMoreNotifications && (
-              <p className="text-xs text-gray-400 mt-1">
-                {hiddenNotificationsCount} autres notifications masquées
-              </p>
-            )}
-          </div>
-        ) : (
-          <ScrollArea className="max-h-96">
-            <div className="divide-y">
-              {filteredNotifications.map((notification) => (
-                <NotificationItem
-                  key={notification.id}
-                  notification={notification}
-                  onMarkAsRead={markAsRead}
-                  onClick={handleNotificationClick}
-                />
-              ))}
-              
-              {hasMoreNotifications && (
-                <div className="p-3 text-center border-t bg-gray-50">
-                  <p className="text-xs text-gray-500">
-                    {hiddenNotificationsCount} autres notifications
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    Consultez l'activité récente pour voir toutes les notifications
+        <div className="divide-y divide-gray-50">
+          {recentNotifications.length === 0 ? (
+            <div className="p-8 text-center">
+              <div className="h-12 w-12 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                <Bell className="h-6 w-6 text-gray-300" />
+              </div>
+              <p className="text-sm font-bold text-gray-900">Tout est à jour !</p>
+              <p className="text-xs text-gray-500 mt-1">Aucune nouvelle notification pour le moment.</p>
+            </div>
+          ) : (
+            recentNotifications.map((notification) => (
+              <div
+                key={notification.id}
+                onClick={() => handleNotificationClick(notification)}
+                className={cn(
+                  "flex items-start gap-3 p-4 hover:bg-gray-50 transition-colors cursor-pointer relative",
+                  !notification.is_read && "bg-blue-50/30"
+                )}
+              >
+                <div className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg bg-white border border-gray-100 shadow-sm mt-0.5">
+                  {getNotificationIcon(notification.type)}
+                </div>
+                
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2 mb-0.5">
+                    <p className={cn(
+                      "text-xs font-black truncate",
+                      !notification.is_read ? "text-gray-900" : "text-gray-500"
+                    )}>
+                      {notification.title}
+                    </p>
+                    <span className="text-[10px] font-medium text-gray-400 shrink-0">
+                      {formatTimeAgo(notification.created_at)}
+                    </span>
+                  </div>
+                  <p className={cn(
+                    "text-[11px] line-clamp-2 leading-relaxed",
+                    !notification.is_read ? "text-gray-700 font-medium" : "text-gray-400"
+                  )}>
+                    {notification.message}
                   </p>
                 </div>
-              )}
-            </div>
-          </ScrollArea>
-        )}
+                
+                {!notification.is_read && (
+                  <div className="absolute top-4 right-2 w-1.5 h-1.5 bg-blue-600 rounded-full" />
+                )}
+              </div>
+            ))
+          )}
+        </div>
         
-        {filteredNotifications.length > 0 && (
-          <>
-            <DropdownMenuSeparator />
-            <div className="p-2">
-              <Button 
-                variant="ghost" 
-                className="w-full text-xs h-8"
-                onClick={() => navigate('/dashboard/notifications')}
-              >
-                Voir tout
-              </Button>
-            </div>
-          </>
-        )}
+        <div className="p-2 bg-gray-50/50 border-t border-gray-100">
+          <Button 
+            variant="ghost" 
+            className="w-full text-[11px] font-black text-gray-500 hover:text-blue-600 hover:bg-white h-9 rounded-xl transition-all group"
+            onClick={() => navigate('/dashboard/notifications')}
+          >
+            Voir toutes les notifications
+            <ArrowRight className="h-3 w-3 ml-2 transition-transform group-hover:translate-x-1" />
+          </Button>
+        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   );

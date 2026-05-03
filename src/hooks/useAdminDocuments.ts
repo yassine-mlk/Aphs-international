@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTenant } from '@/contexts/TenantContext';
 import { useToast } from '@/components/ui/use-toast';
 
 export interface AdminPendingDocument {
@@ -26,15 +27,16 @@ export function useAdminDocuments() {
   const [signedDocs, setSignedDocs] = useState<AdminPendingDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const { user, status } = useAuth();
+  const { tenant } = useTenant();
   const { toast } = useToast();
 
   const fetchDocuments = useCallback(async () => {
-    if (status !== 'authenticated' || !user?.id) return;
+    if (status !== 'authenticated' || !user?.id || !tenant?.id) return;
 
     try {
       setLoading(true);
       
-      // Récupérer tous les documents avec leurs destinataires
+      // Récupérer tous les documents avec leurs destinataires du tenant actuel
       const { data: recipients, error: recipientsError } = await supabase
         .from('document_recipients')
         .select(`
@@ -52,10 +54,12 @@ export function useAdminDocuments() {
             file_url,
             file_name,
             project_id,
+            tenant_id,
             uploaded_by_name,
             created_at
           )
         `)
+        .eq('project_documents.tenant_id', tenant.id)
         .order('created_at', { ascending: false });
 
       if (recipientsError) throw recipientsError;
@@ -115,11 +119,11 @@ export function useAdminDocuments() {
     } finally {
       setLoading(false);
     }
-  }, [status, user?.id, toast]);
+  }, [status, user?.id, tenant?.id, toast]);
 
   // Souscription temps réel
   useEffect(() => {
-    if (status !== 'authenticated' || !user?.id) return;
+    if (status !== 'authenticated' || !user?.id || !tenant?.id) return;
 
     fetchDocuments();
 

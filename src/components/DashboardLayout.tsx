@@ -1,5 +1,6 @@
 import React, { useState, Suspense } from 'react';
 import { useNavigate, Outlet, Link, useLocation } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import {
   SidebarProvider,
   Sidebar,
@@ -13,19 +14,24 @@ import {
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
+import { cn } from '@/lib/utils';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { 
   LayoutDashboard, 
   Users, 
-  Briefcase, 
-  MessageSquare, 
   LogOut,
   Settings,
   User,
   CheckSquare,
-  FileCheck,
   Video,
-  LifeBuoy,
-  Bell
+  Bell,
+  ShieldCheck,
+  Building2,
+  Users2,
+  Mail,
+  HelpCircle,
+  FolderKanban,
+  FileSignature
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -65,7 +71,11 @@ const dashboardTranslations = {
     administrator: "Administrateur",
     specialist: "Intervenant",
     masterOwner: "Maître d'ouvrage",
-    notifications: "Notifications"
+    notifications: "Notifications",
+    mainMenu: "MENU PRINCIPAL",
+    collaboration: "COLLABORATION",
+    administration: "ADMINISTRATION",
+    system: "SYSTÈME"
   }
 };
 
@@ -114,252 +124,195 @@ const DashboardLayout: React.FC = () => {
     return location.pathname.startsWith(path);
   };
 
-  const textDirection = 'ltr';
+  const NavItem = ({ to, icon: Icon, label, isActive, badge }: { to: string, icon: any, label: string, isActive: boolean, badge?: number }) => (
+    <SidebarMenuItem>
+      <SidebarMenuButton
+        asChild
+        tooltip={label}
+        isActive={isActive}
+        className={cn(
+          "transition-all duration-200 group relative py-6 px-4",
+          isActive 
+            ? "bg-blue-50 text-blue-600 font-bold" 
+            : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+        )}
+      >
+        <Link to={to} className="flex items-center gap-3">
+          <Icon className={cn(
+            "h-5 w-5 transition-colors",
+            isActive ? "text-blue-600" : "text-gray-400 group-hover:text-gray-600"
+          )} />
+          <span className="text-sm tracking-tight">{label}</span>
+          {badge !== undefined && badge > 0 && (
+            <span className={cn(
+              "ml-auto flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold",
+              isActive ? "bg-blue-600 text-white" : "bg-red-500 text-white"
+            )}>
+              {badge > 9 ? '9+' : badge}
+            </span>
+          )}
+          {isActive && (
+            <motion.div 
+              layoutId="active-bar"
+              className="absolute left-0 w-1 h-8 bg-blue-600 rounded-r-full"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.2 }}
+            />
+          )}
+        </Link>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
+
+  const SectionLabel = ({ label }: { label: string }) => (
+    <div className="px-4 py-3 mt-4 text-[10px] font-black text-gray-400 tracking-[0.15em] uppercase">
+      {label}
+    </div>
+  );
 
   return (
     <SidebarProvider>
-      <Sidebar side="left">
-        <SidebarHeader className="flex items-center justify-center py-5 border-b">
-          <img src="/aps-logo.svg" alt="APS" className="h-12" />
+      <Sidebar side="left" className="border-r border-gray-100">
+        <SidebarHeader className="flex items-center justify-center py-8">
+          <Link to="/dashboard" className="transition-transform hover:scale-105 active:scale-95">
+            <img src="/aps-logo.svg" alt="APS" className="h-14" />
+          </Link>
         </SidebarHeader>
-        <SidebarContent>
+        
+        <SidebarContent className="px-2">
           <SidebarMenu>
-            {/* 1. Tableau de bord - Tous les rôles */}
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                asChild
-                tooltip={t.dashboard}
-                isActive={isLinkActive("/dashboard")}
-              >
-                <Link to="/dashboard">
-                  <LayoutDashboard />
-                  <span>{t.dashboard}</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
+            <SectionLabel label={t.mainMenu} />
+            <NavItem 
+              to="/dashboard" 
+              icon={LayoutDashboard} 
+              label={t.dashboard} 
+              isActive={isLinkActive("/dashboard")} 
+            />
+            <NavItem 
+              to={isAdmin ? "/dashboard/projets" : (isMaitreOuvrage ? "/dashboard/maitre-ouvrage/projets" : "/dashboard/intervenant/projets")} 
+              icon={FolderKanban} 
+              label={t.projects} 
+              isActive={isAdmin ? isLinkActive("/dashboard/projets") : (isLinkActive("/dashboard/intervenant/projets") || isLinkActive("/dashboard/maitre-ouvrage/projets"))} 
+            />
+            <NavItem 
+              to={isAdmin ? "/dashboard/admin/tasks" : "/dashboard/tasks"} 
+              icon={CheckSquare} 
+              label={t.tasks} 
+              isActive={isAdmin ? isLinkActive("/dashboard/admin/tasks") : (isLinkActive("/dashboard/tasks") || isLinkActive("/dashboard/intervenant/taches-standard") || isLinkActive("/dashboard/intervenant/workflows") || isLinkActive("/dashboard/maitre-ouvrage/taches-standard") || isLinkActive("/dashboard/maitre-ouvrage/workflows"))} 
+            />
 
-            {/* 2. Projets */}
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                asChild
-                tooltip={t.projects}
-                isActive={isAdmin ? isLinkActive("/dashboard/projets") : (isLinkActive("/dashboard/intervenant/projets") || isLinkActive("/dashboard/maitre-ouvrage/projets"))}
-              >
-                <Link to={isAdmin ? "/dashboard/projets" : (isMaitreOuvrage ? "/dashboard/maitre-ouvrage/projets" : "/dashboard/intervenant/projets")}>
-                  <Briefcase />
-                  <span>{t.projects}</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-
-            {/* 3. Tâches */}
-            {/* Admin */}
-            {isAdmin && (
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  tooltip={t.tasks}
-                  isActive={isLinkActive("/dashboard/admin/tasks")}
-                >
-                  <Link to="/dashboard/admin/tasks">
-                    <CheckSquare />
-                    <span>{t.tasks}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            )}
-            {/* Intervenant / MO */}
+            <SectionLabel label={t.collaboration} />
             {!isAdmin && (
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  tooltip={t.tasks}
-                  isActive={isLinkActive("/dashboard/tasks") || isLinkActive("/dashboard/intervenant/taches-standard") || isLinkActive("/dashboard/intervenant/workflows") || isLinkActive("/dashboard/maitre-ouvrage/taches-standard") || isLinkActive("/dashboard/maitre-ouvrage/workflows")}
-                >
-                  <Link to="/dashboard/tasks">
-                    <CheckSquare />
-                    <span>{t.tasks}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              <NavItem 
+                to="/dashboard/mes-signatures" 
+                icon={FileSignature} 
+                label="Mes signatures" 
+                isActive={isLinkActive("/dashboard/mes-signatures")}
+                badge={pendingDocsCount}
+              />
             )}
-
-            {/* 4. Admin: Intervenants | Intervenant: Mes Signatures */}
-            {isAdmin ? (
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  tooltip={t.intervenants}
-                  isActive={isLinkActive("/dashboard/intervenants")}
-                >
-                  <Link to="/dashboard/intervenants">
-                    <Users />
-                    <span>{t.intervenants}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ) : (
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  tooltip="Mes signatures"
-                  isActive={isLinkActive("/dashboard/mes-signatures")}
-                >
-                  <Link to="/dashboard/mes-signatures">
-                    <FileCheck />
-                    <span>Mes signatures</span>
-                    {pendingDocsCount > 0 && (
-                      <span className="ml-auto bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                        {pendingDocsCount > 9 ? '9+' : pendingDocsCount}
-                      </span>
-                    )}
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            )}
-
-            {/* 5. Messages - Tous les rôles */}
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                asChild
-                tooltip={t.messages}
-                isActive={isLinkActive("/dashboard/messages")}
-              >
-                <Link to="/dashboard/messages">
-                  <MessageSquare />
-                  <span>{t.messages}</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-
-            {/* 6. Visioconférence - Tous les rôles (si permis) */}
+            <NavItem 
+              to="/dashboard/messages" 
+              icon={Mail} 
+              label={t.messages} 
+              isActive={isLinkActive("/dashboard/messages")} 
+            />
             {can('videoconference') && (
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  tooltip={t.videoconference}
-                  isActive={isLinkActive("/dashboard/videoconference")}
-                >
-                  <Link to="/dashboard/videoconference">
-                    <Video />
-                    <span>{t.videoconference}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              <NavItem 
+                to="/dashboard/videoconference" 
+                icon={Video} 
+                label={t.videoconference} 
+                isActive={isLinkActive("/dashboard/videoconference")} 
+              />
             )}
 
-            {/* 7. Admin: Groupes de travail */}
             {isAdmin && (
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  tooltip={t.workgroups}
-                  isActive={isLinkActive("/dashboard/groupes-travail")}
-                >
-                  <Link to="/dashboard/groupes-travail">
-                    <Users />
-                    <span>{t.workgroups}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              <>
+                <SectionLabel label={t.administration} />
+                <NavItem 
+                  to="/dashboard/intervenants" 
+                  icon={Users2} 
+                  label={t.intervenants} 
+                  isActive={isLinkActive("/dashboard/intervenants")} 
+                />
+                <NavItem 
+                  to="/dashboard/groupes-travail" 
+                  icon={Users} 
+                  label={t.workgroups} 
+                  isActive={isLinkActive("/dashboard/groupes-travail")} 
+                />
+                <NavItem 
+                  to="/dashboard/entreprises" 
+                  icon={Building2} 
+                  label={t.companies} 
+                  isActive={isLinkActive("/dashboard/entreprises")} 
+                />
+              </>
             )}
 
-            {/* 8. Admin: Entreprises */}
-            {isAdmin && (
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  tooltip={t.companies}
-                  isActive={isLinkActive("/dashboard/entreprises")}
-                >
-                  <Link to="/dashboard/entreprises">
-                    <Briefcase />
-                    <span>{t.companies}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            )}
-
-            {/* 9. Notifications - Tous les rôles */}
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                asChild
-                tooltip={t.notifications}
-                isActive={isLinkActive("/dashboard/notifications")}
-              >
-                <Link to="/dashboard/notifications">
-                  <Bell />
-                  <span>{t.notifications}</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-
-            {/* 10. Support - Tous les rôles */}
+            <SectionLabel label={t.system} />
+            <NavItem 
+              to="/dashboard/notifications" 
+              icon={Bell} 
+              label={t.notifications} 
+              isActive={isLinkActive("/dashboard/notifications")}
+            />
             {!isSuperAdmin && (
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  tooltip={t.support}
-                  isActive={isLinkActive("/dashboard/support")}
-                >
-                  <Link to="/dashboard/support">
-                    <LifeBuoy />
-                    <span>{t.support}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              <NavItem 
+                to="/dashboard/support" 
+                icon={HelpCircle} 
+                label={t.support} 
+                isActive={isLinkActive("/dashboard/support")} 
+              />
             )}
-
-            {/* Super Admin Support (Optionnel, conservé au cas où) */}
             {isSuperAdmin && (
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  tooltip={t.adminSupport}
-                  isActive={isLinkActive("/dashboard/admin-support")}
-                >
-                  <Link to="/dashboard/admin-support">
-                    <LifeBuoy className="text-blue-500" />
-                    <span>{t.adminSupport}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              <NavItem 
+                to="/dashboard/admin-support" 
+                icon={ShieldCheck} 
+                label={t.adminSupport} 
+                isActive={isLinkActive("/dashboard/admin-support")} 
+              />
             )}
           </SidebarMenu>
         </SidebarContent>
         
-        <div className="mt-auto p-4 border-t">
-          <Button 
-            variant="outline" 
-            className="w-full flex items-center justify-center gap-2 hover:bg-red-50 hover:text-red-600 hover:border-red-200"
-            onClick={handleLogout}
-            disabled={isLoggingOut}
-          >
-            <LogOut size={16} />
-            <span>{isLoggingOut ? 'Déconnexion...' : t.logout}</span>
-          </Button>
-          
-          <div className="mt-4 text-xs text-center space-y-1">
-            <div className="flex items-center justify-center gap-1 text-gray-500">
-              <User size={12} />
-              <p>{authUser?.email}</p>
-            </div>
-            <div className="px-3 py-2 text-center">
-              <div className="text-sm text-gray-600">
-                {isAdmin ? t.administrator : 
-                 role === 'maitre_ouvrage' ? t.masterOwner : 
-                 t.specialist}
+        <div className="mt-auto p-4 space-y-4">
+          <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
+            <div className="flex items-center gap-3 mb-3">
+              <Avatar className="h-10 w-10 border border-blue-100">
+                <AvatarImage src={authUser?.user_metadata?.avatar_url} />
+                <AvatarFallback className="bg-blue-100 text-blue-600 font-bold">
+                  {authUser?.email?.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold text-gray-900 truncate">{authUser?.email}</p>
+                <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">
+                  {isAdmin ? t.administrator : role === 'maitre_ouvrage' ? t.masterOwner : t.specialist}
+                </p>
               </div>
             </div>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              className="w-full justify-start gap-2 text-gray-500 hover:text-red-600 hover:bg-red-50 h-9 rounded-xl"
+              onClick={handleLogout}
+              disabled={isLoggingOut}
+            >
+              <LogOut size={14} />
+              <span className="text-xs font-bold">{isLoggingOut ? '...' : t.logout}</span>
+            </Button>
           </div>
         </div>
       </Sidebar>
       
-      <SidebarInset className="bg-gray-50">
-        <div className="h-16 border-b flex items-center justify-between px-4 bg-white shadow-sm">
+      <SidebarInset className="bg-[#F8F9FA]">
+        <div className="h-16 border-b flex items-center justify-between px-6 bg-white/80 backdrop-blur-md sticky top-0 z-20">
           <div className="flex items-center">
-            <SidebarTrigger />
-            <h2 className="text-xl font-semibold ml-4">
+            <SidebarTrigger className="text-gray-400 hover:text-blue-600" />
+            <div className="h-6 w-[1px] bg-gray-200 mx-4 hidden md:block" />
+            <h2 className="text-lg font-black text-gray-900 tracking-tight">
               {location.pathname === "/dashboard" ? t.dashboard :
                location.pathname === "/dashboard/projets" ? t.projects :
                location.pathname === "/dashboard/intervenants" ? t.intervenants :
@@ -367,65 +320,66 @@ const DashboardLayout: React.FC = () => {
                location.pathname === "/dashboard/groupes-travail" ? t.workgroups :
                location.pathname === "/dashboard/messages" ? t.messages :
                location.pathname === "/dashboard/tasks" ? t.tasks :
-               location.pathname === "/dashboard/intervenant/taches-standard" ? "Tâches standard" :
-               location.pathname.startsWith("/dashboard/intervenant/taches-standard/") ? "Détail tâche standard" :
-               location.pathname === "/dashboard/intervenant/workflows" ? "Workflows" :
-               location.pathname.startsWith("/dashboard/intervenant/workflows/") ? "Détail workflow" :
-               location.pathname === "/dashboard/intervenant/projets" ? t.myProjects :
-               location.pathname.startsWith("/dashboard/intervenant/projets/") ? t.projectDetails :
-               location.pathname === "/dashboard/maitre-ouvrage/taches-standard" ? "Tâches standard" :
-               location.pathname.startsWith("/dashboard/maitre-ouvrage/taches-standard/") ? "Détail tâche standard" :
-               location.pathname === "/dashboard/maitre-ouvrage/workflows" ? "Workflows" :
-               location.pathname.startsWith("/dashboard/maitre-ouvrage/workflows/") ? "Détail workflow" :
-               location.pathname === "/dashboard/maitre-ouvrage/projets" ? t.myProjects :
-               location.pathname.startsWith("/dashboard/maitre-ouvrage/projets/") ? t.projectDetails :
+               location.pathname.includes("/tasks/") ? "Détails de la tâche" :
+               location.pathname.includes("/projets/") ? "Détails du projet" :
                location.pathname === "/dashboard/parametres" ? t.settings :
-               location.pathname === "/dashboard/profil" ? t.profile : ""
+               location.pathname === "/dashboard/profil" ? t.profile : 
+               location.pathname === "/dashboard/notifications" ? t.notifications :
+               location.pathname === "/dashboard/mes-signatures" ? "Mes signatures" :
+               location.pathname === "/dashboard/support" ? t.support :
+               "Application"
               }
             </h2>
           </div>
+          
           <div className="flex items-center gap-4">
-            {/* Notifications */}
             <NotificationBell />
             
-            {/* Menu utilisateur */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-full bg-purple-100 h-9 w-9 text-purple-700">
-                  <User className="h-4 w-4" />
+                <Button variant="ghost" className="relative h-10 w-10 rounded-2xl p-0 hover:bg-blue-50 group transition-all overflow-hidden border border-gray-100">
+                  <Avatar className="h-full w-full rounded-none">
+                    <AvatarImage src={authUser?.user_metadata?.avatar_url} />
+                    <AvatarFallback className="bg-gray-50 text-gray-400 group-hover:text-blue-600">
+                      <User className="h-5 w-5" />
+                    </AvatarFallback>
+                  </Avatar>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>{t.myAccount}</DropdownMenuLabel>
-                <DropdownMenuSeparator />
+              <DropdownMenuContent align="end" className="w-64 p-2 rounded-2xl shadow-xl border-gray-100">
+                <DropdownMenuLabel className="px-3 py-2 text-xs font-black text-gray-400 uppercase tracking-widest">
+                  {t.myAccount}
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator className="bg-gray-50" />
                 <DropdownMenuItem 
-                  className="cursor-pointer"
+                  className="cursor-pointer rounded-xl py-3 focus:bg-blue-50 focus:text-blue-600 transition-colors"
                   onClick={() => navigate('/dashboard/profil')}
                 >
-                  <User className="mr-2 h-4 w-4" />
-                  <span>{t.profile}</span>
+                  <User className="mr-3 h-4 w-4" />
+                  <span className="font-bold">{t.profile}</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem 
-                  className="cursor-pointer"
+                  className="cursor-pointer rounded-xl py-3 focus:bg-blue-50 focus:text-blue-600 transition-colors"
                   onClick={() => navigate('/dashboard/parametres')}
                 >
-                  <Settings className="mr-2 h-4 w-4" />
-                  <span>{t.settings}</span>
+                  <Settings className="mr-3 h-4 w-4" />
+                  <span className="font-bold">{t.settings}</span>
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
+                <DropdownMenuSeparator className="bg-gray-50" />
                 <DropdownMenuItem 
-                  className="cursor-pointer"
+                  className="cursor-pointer rounded-xl py-3 focus:text-red-600 focus:bg-red-50 text-gray-500 transition-colors"
                   onClick={handleLogout}
                   disabled={isLoggingOut}
                 >
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>{isLoggingOut ? 'Déconnexion...' : t.logout}</span>
+                  <LogOut className="mr-3 h-4 w-4" />
+                  <span className="font-bold">{isLoggingOut ? 'Déconnexion...' : t.logout}</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
         </div>
-        <div className="p-6 min-h-[calc(100vh-64px)]">
+        
+        <div className="p-4 md:p-8">
           <Suspense fallback={<LoadingSpinner />}>
             <Outlet />
           </Suspense>
