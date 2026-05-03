@@ -20,13 +20,28 @@ export function useCompanies() {
   const { toast } = useToast();
   const { fetchData, insertData, updateData, deleteData, supabase, getUsers } = useSupabase();
 
-  // Récupérer toutes les entreprises
+  // Récupérer toutes les entreprises du tenant
   const getCompanies = useCallback(async (filters?: CompanyFilters, sort?: CompanySortOptions): Promise<Company[]> => {
     if (status !== 'authenticated') return [];
     setLoading(true);
     try {
       const queryFilters = [];
       
+      // Récupérer le profil pour avoir le tenant_id
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tenant_id, is_super_admin')
+        .eq('user_id', user.id)
+        .single();
+
+      // Si ce n'est pas un super admin, on filtre par tenant
+      if (profile && !profile.is_super_admin && profile.tenant_id) {
+        queryFilters.push({ column: 'tenant_id', operator: 'eq', value: profile.tenant_id });
+      }
+
       // Ajouter les filtres si fournis
       if (filters?.name) {
         queryFilters.push({ column: 'name', operator: 'ilike', value: `%${filters.name}%` });
@@ -58,9 +73,9 @@ export function useCompanies() {
     } finally {
       setLoading(false);
     }
-  }, [fetchData, toast]);
+  }, [fetchData, toast, status, supabase]);
 
-  // Rechercher des entreprises par terme général
+  // Rechercher des entreprises du tenant par terme général
   const searchCompanies = useCallback(async (searchTerm: string): Promise<Company[]> => {
     if (status !== 'authenticated') return [];
     if (!searchTerm.trim()) {
@@ -69,11 +84,27 @@ export function useCompanies() {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      // Récupérer le profil pour avoir le tenant_id
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tenant_id, is_super_admin')
+        .eq('user_id', user.id)
+        .single();
+
+      let query = supabase
         .from('companies')
         .select('*')
-        .or(`name.ilike.%${searchTerm}%,pays.ilike.%${searchTerm}%,secteur.ilike.%${searchTerm}%,specialite.ilike.%${searchTerm}%`)
-        .order('name');
+        .or(`name.ilike.%${searchTerm}%,pays.ilike.%${searchTerm}%,secteur.ilike.%${searchTerm}%,specialite.ilike.%${searchTerm}%`);
+
+      // Si ce n'est pas un super admin, on filtre par tenant
+      if (profile && !profile.is_super_admin && profile.tenant_id) {
+        query = query.eq('tenant_id', profile.tenant_id);
+      }
+
+      const { data, error } = await query.order('name');
 
       if (error) throw error;
 
@@ -90,15 +121,32 @@ export function useCompanies() {
     } finally {
       setLoading(false);
     }
-  }, [supabase, toast, getCompanies]);
+  }, [supabase, toast, getCompanies, status]);
 
-  // Récupérer une entreprise par ID
+  // Récupérer une entreprise par ID (avec vérification tenant)
   const getCompanyById = useCallback(async (id: string): Promise<Company | null> => {
     if (status !== 'authenticated') return null;
     setLoading(true);
     try {
+      // Récupérer le profil pour avoir le tenant_id
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tenant_id, is_super_admin')
+        .eq('user_id', user.id)
+        .single();
+
+      const queryFilters = [{ column: 'id', operator: 'eq', value: id }];
+
+      // Si ce n'est pas un super admin, on vérifie le tenant
+      if (profile && !profile.is_super_admin && profile.tenant_id) {
+        queryFilters.push({ column: 'tenant_id', operator: 'eq', value: profile.tenant_id });
+      }
+
       const companies = await fetchData<Company>('companies', {
-        filters: [{ column: 'id', operator: 'eq', value: id }]
+        filters: queryFilters
       });
 
       return companies.length > 0 ? companies[0] : null;
@@ -112,9 +160,9 @@ export function useCompanies() {
     } finally {
       setLoading(false);
     }
-  }, [fetchData, toast]);
+  }, [fetchData, toast, status, supabase]);
 
-  // Créer une nouvelle entreprise
+  // Créer une nouvelle entreprise associée au tenant
   const createCompany = useCallback(async (companyData: CreateCompanyData): Promise<Company | null> => {
     if (status !== 'authenticated') return null;
     // Validation des données
@@ -130,7 +178,22 @@ export function useCompanies() {
 
     setLoading(true);
     try {
-      const newCompany = await insertData<Company>('companies', companyData);
+      // Récupérer le tenant_id
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!profile?.tenant_id) throw new Error("Aucun tenant associé à votre compte");
+
+      const newCompany = await insertData<Company>('companies', {
+        ...companyData,
+        tenant_id: profile.tenant_id
+      } as any);
 
       if (newCompany) {
         toast({
@@ -153,7 +216,7 @@ export function useCompanies() {
     } finally {
       setLoading(false);
     }
-  }, [insertData, toast]);
+  }, [insertData, toast, status, supabase]);
 
   // Mettre à jour une entreprise
   const updateCompany = useCallback(async (id: string, updateData: UpdateCompanyData): Promise<Company | null> => {
@@ -217,7 +280,7 @@ export function useCompanies() {
       // Vérifier d'abord si l'entreprise est utilisée par des profils
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
-        .select('id, first_name, last_name')
+        .select('user_id, first_name, last_name')
         .eq('company_id', id);
 
       if (profilesError) throw profilesError;

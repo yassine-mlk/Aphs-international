@@ -203,7 +203,7 @@ Cet email a été envoyé automatiquement par APS.
           title: 'Document à signer',
           message: `${uploadedByName} vous demande de signer "${documentName}"`,
           data: { documentId, projectId, signatureToken: token, signatureLink },
-          read: false
+          is_read: false
         });
 
       if (notifError) {

@@ -27,6 +27,7 @@ export type CompanySpeciality = typeof COMPANY_SPECIALITIES[number];
 export interface Company {
   id: string;
   name: string;
+  tenant_id?: string;
   pays?: string;
   secteur?: string;
   specialite?: string;
@@ -38,6 +39,7 @@ export interface Company {
 // Interface pour la création d'une entreprise (sans les champs auto-générés)
 export interface CreateCompanyData {
   name: string;
+  tenant_id?: string;
   pays?: string;
   secteur?: string;
   specialite?: string;
@@ -47,6 +49,7 @@ export interface CreateCompanyData {
 // Interface pour la mise à jour d'une entreprise (tous les champs optionnels sauf id)
 export interface UpdateCompanyData {
   name?: string;
+  tenant_id?: string;
   pays?: string;
   secteur?: string;
   specialite?: string;

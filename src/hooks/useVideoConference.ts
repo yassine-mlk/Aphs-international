@@ -3,7 +3,8 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/contexts/TenantContext';
 import { useToast } from '@/components/ui/use-toast';
-import { useNotificationTriggers } from '@/hooks/useNotificationTriggers';
+import { sendNotification } from '@/lib/notifications';
+import { getTenantAdmins } from '@/lib/notifications/sendNotification';
 import type { 
   VideoMeeting, 
   CreateVideoMeetingData 
@@ -13,7 +14,6 @@ export function useVideoConference() {
   const { user, status: authStatus } = useAuth();
   const { tenant } = useTenant();
   const { toast } = useToast();
-  const { createNotification, createAdminNotification } = useNotificationTriggers();
   const [meetings, setMeetings] = useState<VideoMeeting[]>([]);
   const [loading, setLoading] = useState(true);
   const [effectiveTenantId, setEffectiveTenantId] = useState<string | null>(null);
@@ -76,6 +76,16 @@ export function useVideoConference() {
 
   const createMeeting = async (data: CreateVideoMeetingData) => {
     console.log("createMeeting called with data:", data);
+    
+    // Vérifier s'il y a des participants
+    if (!data.participants || data.participants.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: "Veuillez sélectionner au moins un participant pour la réunion."
+      });
+      return null;
+    }
     
     // Utiliser effectiveTenantId ou tenant?.id ou chercher une dernière fois
     let tId = effectiveTenantId || tenant?.id;
@@ -159,23 +169,55 @@ export function useVideoConference() {
         // Notifier les participants si la réunion est programmée
         if (data.status === 'scheduled') {
           console.log("Sending notifications to participants...");
-          const notificationPromises = data.participants.map(userId => 
-            createNotification(userId, 'videoconf_scheduled', {}, {
-              title: data.title,
-              date: scheduledAt ? new Date(scheduledAt).toLocaleString('fr-FR') : 'bientôt'
-            }, { meetingId: meeting.id })
-          );
-          await Promise.all(notificationPromises);
+          for (const userId of data.participants) {
+            await sendNotification({
+              userId,
+              type: 'meeting_reminder',
+              title: `📅 Visioconférence programmée`,
+              message: `Vous êtes invité à la réunion "${data.title}" prévue pour le ${scheduledAt ? new Date(scheduledAt).toLocaleString('fr-FR') : 'bientôt'}.`,
+              sendEmail: true,
+              emailData: {
+                to: '', // Auto
+                subject: `Invitation: ${data.title}`,
+                template: 'meeting_reminder',
+                variables: {
+                  title: data.title,
+                  dateText: scheduledAt ? new Date(scheduledAt).toLocaleString('fr-FR') : 'bientôt',
+                  link: 'https://aps-v3.vercel.app/dashboard/videoconference'
+                }
+              }
+            });
+          }
         }
       }
 
       // Notifier l'admin si c'est une demande (pending)
       if (data.status === 'pending') {
         console.log("Sending notification to admin...");
-        await createAdminNotification('videoconf_request', {}, {
-          intervenantName: `${user.user_metadata?.first_name || ''} ${user.user_metadata?.last_name || ''}`.trim() || user.email,
-          title: data.title
-        }, { meetingId: meeting.id }, tId);
+        const adminIds = await getTenantAdmins(tId);
+        const intervenantName = `${user.user_metadata?.first_name || ''} ${user.user_metadata?.last_name || ''}`.trim() || user.email || 'Un intervenant';
+        const dateText = scheduledAt ? new Date(scheduledAt).toLocaleString('fr-FR') : 'Non spécifiée';
+
+        for (const adminId of adminIds) {
+          await sendNotification({
+            userId: adminId,
+            type: 'meeting_request',
+            title: `📹 Demande de visioconférence`,
+            message: `${intervenantName} demande une réunion visio. Objet : ${data.title}. Date souhaitée : ${dateText}`,
+            sendEmail: true,
+            emailData: {
+              to: '', // Auto
+              subject: `Nouvelle demande de visioconférence - ${data.title}`,
+              template: 'meeting_request',
+              variables: {
+                intervenantName,
+                subject: data.title,
+                dateText,
+                link: 'https://aps-v3.vercel.app/dashboard/videoconference'
+              }
+            }
+          });
+        }
       }
 
       toast({
@@ -216,14 +258,43 @@ export function useVideoConference() {
       
       // Notifier l'intervenant si sa demande est acceptée ou refusée
       if (meeting.status === 'pending') {
+        const dateText = meeting.scheduled_at ? new Date(meeting.scheduled_at).toLocaleString('fr-FR') : 'bientôt';
+        
         if (status === 'scheduled') {
-          await createNotification(meeting.created_by, 'videoconf_accepted', {}, {
-            title: meeting.title
-          }, { meetingId });
-        } else if (status === 'cancelled') {
-          await createNotification(meeting.created_by, 'videoconf_rejected', {}, {
-            title: meeting.title
-          }, { meetingId });
+          await sendNotification({
+            userId: meeting.created_by,
+            type: 'meeting_accepted',
+            title: `✅ Visioconférence acceptée`,
+            message: `Votre demande de visioconférence "${meeting.title}" a été acceptée pour le ${dateText}.`,
+            sendEmail: true,
+            emailData: {
+              to: '', // Auto
+              subject: `Visioconférence acceptée: ${meeting.title}`,
+              template: 'meeting_accepted',
+              variables: {
+                subject: meeting.title,
+                dateText,
+                link: 'https://aps-v3.vercel.app/dashboard/videoconference'
+              }
+            }
+          });
+        } else if (status === 'cancelled' || status === 'rejected') {
+          await sendNotification({
+            userId: meeting.created_by,
+            type: 'meeting_refused',
+            title: `❌ Demande de visioconférence refusée`,
+            message: `Votre demande "${meeting.title}" a été refusée.`,
+            sendEmail: true,
+            emailData: {
+              to: '', // Auto
+              subject: `Demande de visioconférence refusée: ${meeting.title}`,
+              template: 'meeting_refused',
+              variables: {
+                subject: meeting.title,
+                reason: 'Non spécifié'
+              }
+            }
+          });
         }
       }
 

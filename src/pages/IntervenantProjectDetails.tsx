@@ -29,6 +29,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useProjectStructure } from "../hooks/useProjectStructure";
 import { projectStructure, realizationStructure } from "../data/project-structure";
 import { projectStructureTranslations } from "../data/project-structure-translations";
+import { supabase } from "@/lib/supabase";
 
 import {
   Dialog,
@@ -56,15 +57,17 @@ interface TaskAssignment {
   project_id: string;
   phase_id: string; // "conception" ou "realisation"
   section_id: string; // "A", "B", "C", etc.
+  section_name?: string;
   subsection_id: string; // "A1", "A2", "B1", etc.
+  subsection_name?: string;
   task_name: string;
   assigned_to: string[]; // IDs des intervenants
   deadline: string;
   validation_deadline: string;
-  validators: string[]; // IDs des intervenants validateurs
+  validators: any[]; // Modifié pour accepter les objets de la vue
   file_extension: string;
   comment?: string;
-  status: 'assigned' | 'in_progress' | 'submitted' | 'validated' | 'rejected';
+  status: string; // Modifié en string pour accepter tous les status de la vue (open, vso, etc.)
   created_at?: string;
   updated_at?: string;
   file_url?: string;
@@ -101,7 +104,7 @@ const IntervenantProjectDetails: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { fetchData, getUsers } = useSupabase();
-  const { user } = useAuth();
+  const { user, status } = useAuth();
 
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
@@ -112,7 +115,7 @@ const IntervenantProjectDetails: React.FC = () => {
   // Vérifier si l'utilisateur est membre du projet
   const [isMember, setIsMember] = useState(false);
   const [loadingMembership, setLoadingMembership] = useState(true);
-  const [isViewerRole, setIsViewerRole] = useState(false);
+  const [isRestricted, setIsRestricted] = useState(false);
 
   // États pour les fiches informatives
   const [taskInfoSheets, setTaskInfoSheets] = useState<{[key: string]: TaskInfoSheet}>({});
@@ -140,56 +143,73 @@ const IntervenantProjectDetails: React.FC = () => {
       
       setLoadingMembership(true);
       try {
-        // Pour les intervenants, permettre l'accès à tous les projets car c'est en lecture seule
-        // Vérifier d'abord si l'utilisateur est membre du projet
-        const memberData = await fetchData<any>('membre', {
-          columns: '*',
-          filters: [
-            { column: 'project_id', operator: 'eq', value: id },
-            { column: 'user_id', operator: 'eq', value: user.id }
-          ]
-        });
+        // Récupérer le membre correspondant à l'utilisateur actuel pour ce projet
+        const { data: memberData, error: memberError } = await supabase
+          .from('membre')
+          .select('role, can_view_project_details')
+          .eq('project_id', id)
+          .eq('user_id', user.id)
+          .single();
         
-        if (memberData && memberData.length > 0) {
-          setIsViewerRole(memberData[0]?.role === 'viewer');
+        if (memberError && memberError.code !== 'PGRST116') {
+          throw memberError;
+        }
+
+        if (memberData) {
+          // Un utilisateur est restreint s'il a le rôle 'viewer' OU si can_view_project_details est explicitement false
+          const restricted = memberData.role === 'viewer' || memberData.can_view_project_details === false;
+          setIsRestricted(restricted);
           setIsMember(true);
         } else {
-          // Si pas membre, vérifier s'il a des tâches assignées dans ce projet
-          const taskData = await fetchData<any>('task_assignments', {
-            columns: '*',
-            filters: [
-              { column: 'project_id', operator: 'eq', value: id },
-              { column: 'assigned_to', operator: 'cs', value: `{${user.id}}` }
-            ]
-          });
+          // Si l'utilisateur n'est pas explicitement membre, on vérifie s'il a des tâches assignées
+          const { data: taskData, error: taskError } = await supabase
+            .from('task_assignments_view')
+            .select('id')
+            .eq('project_id', id)
+            .contains('assigned_to', [user.id])
+            .limit(1);
+
+          if (taskError) throw taskError;
           
           if (taskData && taskData.length > 0) {
-            setIsMember(true); // Permettre l'accès s'il a des tâches assignées
-          } else {
-            // Pour les intervenants, permettre l'accès en lecture seule même sans assignation
             setIsMember(true);
+            setIsRestricted(false); // S'il a des tâches, il a accès (mais peut-être limité par son rôle)
+          } else {
+            // Pas membre et pas de tâches -> Accès refusé par défaut pour la sécurité
+            setIsMember(false);
           }
         }
       } catch (error) {
-        // En cas d'erreur, permettre l'accès pour les intervenants (lecture seule)
-        setIsMember(true);
+        console.error("Erreur lors de la vérification de l'accès:", error);
+        setIsMember(false);
       } finally {
         setLoadingMembership(false);
       }
     };
     
     checkProjectAccess();
-  }, [id, user, status, fetchData]);
+  }, [id, user, status]);
 
   useEffect(() => {
-    if (status !== 'authenticated' || !isViewerRole) return;
+    if (status !== 'authenticated' || !isRestricted) return;
+    
     toast({
       title: "Accès limité",
-      description: "Votre accès aux détails de ce projet est désactivé. Contactez un administrateur.",
+      description: "Vous ne voyez que les tâches qui vous sont assignées.",
+      variant: "default",
+    });
+  }, [isRestricted, status, toast]);
+
+  useEffect(() => {
+    if (loadingMembership || isMember || status !== 'authenticated') return;
+
+    toast({
+      title: "Accès refusé",
+      description: "Vous n'êtes pas membre de ce projet.",
       variant: "destructive",
     });
     navigate('/dashboard/intervenant/projets');
-  }, [isViewerRole, navigate, toast]);
+  }, [isMember, loadingMembership, status, navigate, toast]);
 
   // Charger les détails du projet
   useEffect(() => {
@@ -234,14 +254,23 @@ const IntervenantProjectDetails: React.FC = () => {
       
       setLoadingTasks(true);
       try {
-        // Récupérer TOUTES les tâches du projet (pas seulement celles assignées à l'utilisateur)
-        const data = await fetchData<TaskAssignment>('task_assignments', {
-          columns: '*',
-          filters: [{ column: 'project_id', operator: 'eq', value: id }]
-        });
+        // Récupérer TOUTES les tâches du projet (via la vue task_assignments_view pour avoir les noms)
+        const { data, error } = await supabase
+          .from('task_assignments_view')
+          .select('*')
+          .eq('project_id', id);
+        
+        if (error) throw error;
         
         if (data) {
-          setTaskAssignments(data);
+          // Si l'accès est restreint, on ne garde que les tâches assignées à l'utilisateur
+          let filteredTasks = data as any[];
+          if (isRestricted && user) {
+            filteredTasks = filteredTasks.filter(task => 
+              task.assigned_to && Array.isArray(task.assigned_to) && task.assigned_to.includes(user.id)
+            );
+          }
+          setTaskAssignments(filteredTasks);
         }
       } catch (error) {
       } finally {
@@ -304,15 +333,24 @@ const IntervenantProjectDetails: React.FC = () => {
   const getTotalAvailableTasks = () => {
     let total = 0;
     
+    // Utiliser la structure personnalisée si disponible, sinon la structure par défaut
+    const currentProjectStructure = customProjectStructure && customProjectStructure.length > 0 
+      ? customProjectStructure 
+      : projectStructure;
+    
+    const currentRealizationStructure = customRealizationStructure && customRealizationStructure.length > 0 
+      ? customRealizationStructure 
+      : realizationStructure;
+    
     // Compter les tâches de conception
-    projectStructure.forEach(section => {
+    currentProjectStructure.forEach(section => {
       section.items.forEach(item => {
         total += item.tasks.length;
       });
     });
     
     // Compter les tâches de réalisation
-    realizationStructure.forEach(section => {
+    currentRealizationStructure.forEach(section => {
       section.items.forEach(item => {
         total += item.tasks.length;
       });
@@ -324,7 +362,7 @@ const IntervenantProjectDetails: React.FC = () => {
   // Calculer le pourcentage d'avancement corrigé
   const getProjectProgress = () => {
     const totalTasks = getTotalAvailableTasks();
-    const validatedTasks = taskAssignments.filter(t => t.status === 'validated').length;
+    const validatedTasks = taskAssignments.filter(t => ['validated', 'approved', 'vso', 'vao', 'closed'].includes(t.status)).length;
     
     if (totalTasks === 0) return 0;
     return Math.round((validatedTasks / totalTasks) * 100);
@@ -494,8 +532,6 @@ const IntervenantProjectDetails: React.FC = () => {
     );
   }
 
-  if (isViewerRole) return null;
-
   if (!project) {
     return (
       <div className="text-center py-12">
@@ -507,7 +543,7 @@ const IntervenantProjectDetails: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" style={{ position: 'relative', width: '100%' }}>
       {/* En-tête avec actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -535,10 +571,12 @@ const IntervenantProjectDetails: React.FC = () => {
             <Info className="h-4 w-4 mr-2" />
             Informations
           </TabsTrigger>
-          <TabsTrigger value="structure" className="data-[state=active]:bg-white">
-            <Layers className="h-4 w-4 mr-2" />
-            Structure
-          </TabsTrigger>
+          {!isRestricted && (
+            <TabsTrigger value="structure" className="data-[state=active]:bg-white">
+              <Layers className="h-4 w-4 mr-2" />
+              Structure
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* Onglet Informations */}
@@ -564,126 +602,130 @@ const IntervenantProjectDetails: React.FC = () => {
                   <p className="text-gray-700 whitespace-pre-line">{project.description}</p>
                 </div>
                 
-                {/* Statistiques du projet */}
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h4 className="text-lg font-semibold text-gray-800 mb-4">Statistiques du projet</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-white rounded-lg p-4 shadow-sm">
-                      <Label className="text-sm font-medium text-gray-600">Statut</Label>
-                      <div className="flex items-center gap-2 mt-2">
-                        <Badge 
-                          variant="outline" 
-                          className={`text-sm ${
-                            project.status === 'active' ? 'bg-green-100 text-green-800 border-green-200' :
-                            project.status === 'completed' ? 'bg-blue-100 text-blue-800 border-blue-200' :
-                            project.status === 'paused' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
-                            'bg-red-100 text-red-800 border-red-200'
-                          }`}
-                        >
-                          {project.status === 'active' ? 'Actif' :
-                           project.status === 'completed' ? 'Terminé' :
-                           project.status === 'paused' ? 'En pause' :
-                           project.status === 'cancelled' ? 'Annulé' : project.status}
-                        </Badge>
+                {/* Statistiques du projet - Masquées si accès restreint */}
+                {!isRestricted && (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="text-lg font-semibold text-gray-800 mb-4">Statistiques du projet</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-white rounded-lg p-4 shadow-sm">
+                        <Label className="text-sm font-medium text-gray-600">Statut</Label>
+                        <div className="flex items-center gap-2 mt-2">
+                          <Badge 
+                            variant="outline" 
+                            className={`text-sm ${
+                              project.status === 'active' ? 'bg-green-100 text-green-800 border-green-200' :
+                              project.status === 'completed' ? 'bg-blue-100 text-blue-800 border-blue-200' :
+                              project.status === 'paused' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
+                              'bg-red-100 text-red-800 border-red-200'
+                            }`}
+                          >
+                            {project.status === 'active' ? 'Actif' :
+                             project.status === 'completed' ? 'Terminé' :
+                             project.status === 'paused' ? 'En pause' :
+                             project.status === 'cancelled' ? 'Annulé' : project.status}
+                          </Badge>
+                        </div>
                       </div>
-                    </div>
-                    
-                    <div className="bg-white rounded-lg p-4 shadow-sm">
-                      <Label className="text-sm font-medium text-gray-600">Taux de completion</Label>
-                      <div className="mt-2">
-                        <div className="flex items-center justify-between text-sm mb-1">
-                          <span>Progression</span>
-                          <span className="font-medium text-lg">
-                            {getProjectProgress()}%
-                          </span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div 
-                            className="bg-aps-teal h-2 rounded-full transition-all duration-300" 
-                            style={{ 
-                              width: `${getProjectProgress()}%` 
-                            }}
-                          ></div>
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          {taskAssignments.filter(t => t.status === 'validated').length} / {getTotalAvailableTasks()} tâches validées
+                      
+                      <div className="bg-white rounded-lg p-4 shadow-sm">
+                        <Label className="text-sm font-medium text-gray-600">Taux de completion</Label>
+                        <div className="mt-2">
+                          <div className="flex items-center justify-between text-sm mb-1">
+                            <span>Progression</span>
+                            <span className="font-medium text-lg">
+                              {getProjectProgress()}%
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div 
+                              className="bg-aps-teal h-2 rounded-full transition-all duration-300" 
+                              style={{ 
+                                width: `${getProjectProgress()}%` 
+                              }}
+                            ></div>
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {taskAssignments.filter(t => ['validated', 'approved', 'vso', 'vao', 'closed'].includes(t.status)).length} / {getTotalAvailableTasks()} tâches validées
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                )}
 
-                {/* Vue d'ensemble des tâches du projet */}
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h4 className="text-lg font-semibold text-gray-800 mb-4">Vue d'ensemble des tâches</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {/* Tâches assignées */}
-                    <div className="bg-white rounded-lg p-4 shadow-sm">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Badge className="bg-blue-100 text-blue-800">
-                          {taskAssignments.filter(t => t.status === 'assigned').length}
-                        </Badge>
-                        <span className="text-sm font-medium">Assignées</span>
+                {/* Vue d'ensemble des tâches du projet - Masquée si accès restreint */}
+                {!isRestricted && (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="text-lg font-semibold text-gray-800 mb-4">Vue d'ensemble des tâches</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {/* Tâches assignées */}
+                      <div className="bg-white rounded-lg p-4 shadow-sm">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Badge className="bg-blue-100 text-blue-800">
+                            {taskAssignments.filter(t => (t.status as string) === 'assigned' || (t.status as string) === 'open').length}
+                          </Badge>
+                          <span className="text-sm font-medium">Assignées</span>
+                        </div>
+                        <p className="text-xs text-gray-500">Tâches en attente de démarrage</p>
                       </div>
-                      <p className="text-xs text-gray-500">Tâches en attente de démarrage</p>
-                    </div>
 
-                    {/* Tâches en cours */}
-                    <div className="bg-white rounded-lg p-4 shadow-sm">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Badge className="bg-yellow-100 text-yellow-800">
-                          {taskAssignments.filter(t => t.status === 'in_progress').length}
-                        </Badge>
-                        <span className="text-sm font-medium">En cours</span>
+                      {/* Tâches en cours */}
+                      <div className="bg-white rounded-lg p-4 shadow-sm">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Badge className="bg-yellow-100 text-yellow-800">
+                            {taskAssignments.filter(t => (t.status as string) === 'in_progress' || (t.status as string) === 'started').length}
+                          </Badge>
+                          <span className="text-sm font-medium">En cours</span>
+                        </div>
+                        <p className="text-xs text-gray-500">Tâches en cours de réalisation</p>
                       </div>
-                      <p className="text-xs text-gray-500">Tâches en cours de réalisation</p>
-                    </div>
 
-                    {/* Tâches soumises */}
-                    <div className="bg-white rounded-lg p-4 shadow-sm">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Badge className="bg-purple-100 text-purple-800">
-                          {taskAssignments.filter(t => t.status === 'submitted').length}
-                        </Badge>
-                        <span className="text-sm font-medium">Soumises</span>
+                      {/* Tâches soumises */}
+                      <div className="bg-white rounded-lg p-4 shadow-sm">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Badge className="bg-purple-100 text-purple-800">
+                            {taskAssignments.filter(t => (t.status as string) === 'submitted' || (t.status as string) === 'in_review').length}
+                          </Badge>
+                          <span className="text-sm font-medium">Soumises</span>
+                        </div>
+                        <p className="text-xs text-gray-500">En attente de validation</p>
                       </div>
-                      <p className="text-xs text-gray-500">En attente de validation</p>
-                    </div>
 
-                    {/* Tâches validées */}
-                    <div className="bg-white rounded-lg p-4 shadow-sm">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Badge className="bg-green-100 text-green-800">
-                          {taskAssignments.filter(t => t.status === 'validated').length}
-                        </Badge>
-                        <span className="text-sm font-medium">Validées</span>
+                      {/* Tâches validées */}
+                      <div className="bg-white rounded-lg p-4 shadow-sm">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Badge className="bg-green-100 text-green-800">
+                            {taskAssignments.filter(t => ['validated', 'approved', 'vso', 'vao', 'closed'].includes(t.status as string)).length}
+                          </Badge>
+                          <span className="text-sm font-medium">Validées</span>
+                        </div>
+                        <p className="text-xs text-gray-500">Tâches terminées et validées</p>
                       </div>
-                      <p className="text-xs text-gray-500">Tâches terminées et validées</p>
-                    </div>
 
-                    {/* Tâches rejetées */}
-                    <div className="bg-white rounded-lg p-4 shadow-sm">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Badge className="bg-red-100 text-red-800">
-                          {taskAssignments.filter(t => t.status === 'rejected').length}
-                        </Badge>
-                        <span className="text-sm font-medium">Rejetées</span>
+                      {/* Tâches rejetées */}
+                      <div className="bg-white rounded-lg p-4 shadow-sm">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Badge className="bg-red-100 text-red-800">
+                            {taskAssignments.filter(t => (t.status as string) === 'rejected' || (t.status as string) === 'var').length}
+                          </Badge>
+                          <span className="text-sm font-medium">Rejetées</span>
+                        </div>
+                        <p className="text-xs text-gray-500">Tâches nécessitant des corrections</p>
                       </div>
-                      <p className="text-xs text-gray-500">Tâches nécessitant des corrections</p>
-                    </div>
 
-                    {/* Fichiers uploadés */}
-                    <div className="bg-white rounded-lg p-4 shadow-sm">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Badge className="bg-indigo-100 text-indigo-800">
-                          {taskAssignments.filter(t => t.file_url).length}
-                        </Badge>
-                        <span className="text-sm font-medium">Fichiers</span>
+                      {/* Fichiers uploadés */}
+                      <div className="bg-white rounded-lg p-4 shadow-sm">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Badge className="bg-indigo-100 text-indigo-800">
+                            {taskAssignments.filter(t => t.file_url).length}
+                          </Badge>
+                          <span className="text-sm font-medium">Fichiers</span>
+                        </div>
+                        <p className="text-xs text-gray-500">Documents uploadés</p>
                       </div>
-                      <p className="text-xs text-gray-500">Documents uploadés</p>
                     </div>
                   </div>
-                </div>
+                )}
 
                 {/* Liste détaillée de toutes les tâches */}
                 <div className="bg-gray-50 rounded-lg p-4">
@@ -701,8 +743,8 @@ const IntervenantProjectDetails: React.FC = () => {
                               <h5 className="font-medium text-gray-900 mb-1">{task.task_name}</h5>
                               <div className="flex items-center gap-4 text-sm text-gray-600">
                                 <span>Phase: {task.phase_id === 'conception' ? 'Conception' : 'Réalisation'}</span>
-                                <span>Section: {task.section_id}</span>
-                                <span>Sous-section: {task.subsection_id}</span>
+                                <span>Section: {task.section_name || task.section_id}</span>
+                                <span>Sous-section: {task.subsection_name || task.subsection_id}</span>
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
@@ -842,22 +884,23 @@ const IntervenantProjectDetails: React.FC = () => {
         </TabsContent>
 
         {/* Onglet Structure */}
-        <TabsContent value="structure" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Layers className="h-5 w-5" />
-                Structure du Projet
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
+        {!isRestricted && (
+          <TabsContent value="structure" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Layers className="h-5 w-5" />
+                  Structure du Projet
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
               <Accordion type="single" collapsible className="w-full">
                 {/* Phase de conception */}
                 <AccordionItem value="conception">
                   <AccordionTrigger>{translations.conception}</AccordionTrigger>
                   <AccordionContent>
                     <div className="space-y-4">
-                      {customProjectStructure.map((section, sIdx) => {
+                      {customProjectStructure.map((section: any, sIdx: number) => {
                         const sLabel = String.fromCharCode(65 + sIdx);
                         const sectionKey = section.id as keyof typeof translations.sections;
                         const sectionTranslation: any = (translations.sections as any)[sectionKey];
@@ -882,7 +925,7 @@ const IntervenantProjectDetails: React.FC = () => {
                             {/* Contenu de la section (étapes) */}
                             {isSectionExpanded && (
                               <div className="border-t border-gray-200 p-4 space-y-3">
-                                {section.items.map((subsection, iIdx) => {
+                                {section.items.map((subsection: any, iIdx: number) => {
                                   const iLabel = `${sLabel}${iIdx + 1}`;
                                   const subsectionKey = subsection.id as keyof typeof sectionTranslation.items;
                                   const subsectionTranslation: any = sectionTranslation?.items?.[subsectionKey];
@@ -907,10 +950,12 @@ const IntervenantProjectDetails: React.FC = () => {
                                       {/* Contenu de la sous-section (tâches) */}
                                       {isSubsectionExpanded && (
                                         <div className="border-t border-gray-100 p-3 space-y-2">
-                                          {subsection.tasks.map((task, index) => {
-                                            const translatedTask = subsectionTranslation?.tasks?.[index] || task;
-                                            const taskAssignment = getTaskAssignment('conception', section.id, subsection.id, task);
-                                            const key = `conception-${section.id}-${subsection.id}-${task}`;
+                                          {subsection.tasks.map((task: any, index: number) => {
+                                            const taskTitle = typeof task === 'object' ? task.title : task;
+                                            const translatedTaskRaw = subsectionTranslation?.tasks?.[index] || taskTitle;
+                                            const translatedTask = typeof translatedTaskRaw === 'object' ? (translatedTaskRaw as any).title : translatedTaskRaw;
+                                            const taskAssignment = getTaskAssignment('conception', section.id, subsection.id, taskTitle);
+                                            const key = `conception-${section.id}-${subsection.id}-${taskTitle}`;
                                             const isExpanded = expandedInfoSheets[key];
                                             const isLoading = loadingInfoSheets[key];
                                             const infoSheet = taskInfoSheets[key];
@@ -949,23 +994,13 @@ const IntervenantProjectDetails: React.FC = () => {
                                                               <Download className="h-3 w-3" />
                                                             </Button>
                                                           )}
-                                                          {taskAssignment.file_url && (
-                                                            <Button
-                                                              variant="ghost"
-                                                              size="sm"
-                                                              onClick={() => handleDownloadFile(taskAssignment.file_url, taskAssignment.task_name)}
-                                                              className="h-6 px-2"
-                                                            >
-                                                              <Download className="h-3 w-3" />
-                                                            </Button>
-                                                          )}
                                                         </>
                                                       )}
                                                       {project.show_info_sheets !== false && (
                                                         <Button
                                                           variant="ghost"
                                                           size="sm"
-                                                          onClick={() => toggleInfoSheet('conception', section.id, subsection.id, task)}
+                                                          onClick={() => toggleInfoSheet('conception', section.id, subsection.id, taskTitle)}
                                                           disabled={isLoading}
                                                           className="h-6 px-2"
                                                         >
@@ -1034,7 +1069,7 @@ const IntervenantProjectDetails: React.FC = () => {
                   <AccordionTrigger>{translations.realization}</AccordionTrigger>
                   <AccordionContent>
                     <div className="space-y-4">
-                      {customRealizationStructure.map((section, sIdx) => {
+                      {customRealizationStructure.map((section: any, sIdx: number) => {
                         const sLabel = String.fromCharCode(65 + sIdx);
                         const sectionKey = section.id as keyof typeof translations.sections;
                         const sectionTranslation: any = (translations.sections as any)[sectionKey];
@@ -1059,7 +1094,7 @@ const IntervenantProjectDetails: React.FC = () => {
                             {/* Contenu de la section (étapes) */}
                             {isSectionExpanded && (
                               <div className="border-t border-gray-200 p-4 space-y-3">
-                                {section.items.map((subsection, iIdx) => {
+                                {section.items.map((subsection: any, iIdx: number) => {
                                   const iLabel = `${sLabel}${iIdx + 1}`;
                                   const subsectionKey = subsection.id as keyof typeof sectionTranslation.items;
                                   const subsectionTranslation: any = sectionTranslation?.items?.[subsectionKey];
@@ -1084,10 +1119,12 @@ const IntervenantProjectDetails: React.FC = () => {
                                       {/* Contenu de la sous-section (tâches) */}
                                       {isSubsectionExpanded && (
                                         <div className="border-t border-gray-100 p-3 space-y-2">
-                                          {subsection.tasks.map((task, index) => {
-                                            const translatedTask = subsectionTranslation?.tasks?.[index] || task;
-                                            const taskAssignment = getTaskAssignment('realisation', section.id, subsection.id, task);
-                                            const key = `realisation-${section.id}-${subsection.id}-${task}`;
+                                          {subsection.tasks.map((task: any, index: number) => {
+                                            const taskTitle = typeof task === 'object' ? task.title : task;
+                                            const translatedTaskRaw = subsectionTranslation?.tasks?.[index] || taskTitle;
+                                            const translatedTask = typeof translatedTaskRaw === 'object' ? (translatedTaskRaw as any).title : translatedTaskRaw;
+                                            const taskAssignment = getTaskAssignment('realisation', section.id, subsection.id, taskTitle);
+                                            const key = `realisation-${section.id}-${subsection.id}-${taskTitle}`;
                                             const isExpanded = expandedInfoSheets[key];
                                             const isLoading = loadingInfoSheets[key];
                                             const infoSheet = taskInfoSheets[key];
@@ -1126,23 +1163,13 @@ const IntervenantProjectDetails: React.FC = () => {
                                                               <Download className="h-3 w-3" />
                                                             </Button>
                                                           )}
-                                                          {taskAssignment.file_url && (
-                                                            <Button
-                                                              variant="ghost"
-                                                              size="sm"
-                                                              onClick={() => handleDownloadFile(taskAssignment.file_url, taskAssignment.task_name)}
-                                                              className="h-6 px-2"
-                                                            >
-                                                              <Download className="h-3 w-3" />
-                                                            </Button>
-                                                          )}
                                                         </>
                                                       )}
                                                       {project.show_info_sheets !== false && (
                                                         <Button
                                                           variant="ghost"
                                                           size="sm"
-                                                          onClick={() => toggleInfoSheet('realisation', section.id, subsection.id, task)}
+                                                          onClick={() => toggleInfoSheet('realisation', section.id, subsection.id, taskTitle)}
                                                           disabled={isLoading}
                                                           className="h-6 px-2"
                                                         >
@@ -1209,6 +1236,7 @@ const IntervenantProjectDetails: React.FC = () => {
             </CardContent>
           </Card>
         </TabsContent>
+        )}
       </Tabs>
 
     </div>

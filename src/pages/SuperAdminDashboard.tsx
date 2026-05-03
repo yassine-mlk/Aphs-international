@@ -22,6 +22,10 @@ import { supabase } from '@/lib/supabase';
 import type { Tenant, TenantPlan, TenantStatus } from '@/types/tenant';
 import { formatStorage } from '@/types/tenant';
 
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue
+} from '@/components/ui/select';
+
 const SuperAdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -32,6 +36,7 @@ const SuperAdminDashboard: React.FC = () => {
     deleteTenant,
     getAllTenants,
     updateTenantLimits,
+    updateTenantPlan,
     suspendTenant,
     activateTenant,
   } = useSuperAdmin();
@@ -43,6 +48,7 @@ const SuperAdminDashboard: React.FC = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [editLimits, setEditLimits] = useState({ maxProjects: 0, maxIntervenants: 0, maxStorageGb: 0 });
+  const [editPlan, setEditPlan] = useState<TenantPlan>('starter');
 
   const reload = async () => {
     const data = await getAllTenants();
@@ -86,11 +92,18 @@ const SuperAdminDashboard: React.FC = () => {
       maxIntervenants: tenant.maxIntervenants ?? 10,
       maxStorageGb: tenant.maxStorageGb ?? 10
     });
+    setEditPlan(tenant.plan);
     setIsEditDialogOpen(true);
   };
 
   const handleUpdateLimits = async () => {
     if (!selectedTenant) return;
+    
+    // Update plan if changed
+    if (editPlan !== selectedTenant.plan) {
+      await updateTenantPlan(selectedTenant.id, editPlan);
+    }
+
     const success = await updateTenantLimits(selectedTenant.id, editLimits);
     if (success) { setIsEditDialogOpen(false); reload(); }
   };
@@ -289,6 +302,23 @@ const SuperAdminDashboard: React.FC = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Formule / Plan</Label>
+              <Select value={editPlan} onValueChange={(value: TenantPlan) => setEditPlan(value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choisir un plan" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="starter">Starter — 100€/projet/mois</SelectItem>
+                  <SelectItem value="pro">Pro — 199€/projet/mois</SelectItem>
+                  <SelectItem value="business">Business — 499€/projet/mois</SelectItem>
+                  <SelectItem value="custom">Custom — Sur mesure</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-muted-foreground italic">
+                Changer de plan mettra à jour les limites automatiquement via le trigger SQL.
+              </p>
+            </div>
             <div className="space-y-2">
               <Label>Projets max</Label>
               <Input

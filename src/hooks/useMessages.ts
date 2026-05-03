@@ -18,6 +18,8 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs = 8000, errorMessage = 'O
   return Promise.race([promise, timeoutPromise]);
 }
 
+import { notifyMessageReceived } from '@/lib/notifications/messageNotifications';
+
 // Types
 export interface User {
   id: string;
@@ -323,13 +325,15 @@ export function useMessages() {
           } catch (error) {
           }
           
-          // Construire l'objet conversation
+          // Construire l'objet conversation avec participants dédoublonnés
           return {
             id: conv.id,
             type: conv.type,
             name: conv.name,
             workgroup_id: conv.workgroup_id,
-            participants: participantUsers,
+            participants: participantUsers.filter((u, index, self) => 
+              index === self.findIndex((t) => t.id === u.id)
+            ),
             lastMessage,
             unreadCount,
             updatedAt: new Date(conv.updated_at)
@@ -457,7 +461,7 @@ export function useMessages() {
             
             const { data: profilesData, error: profilesError } = await supabase
               .from('profiles')
-              .select('id, user_id, role, first_name, last_name, email, specialty')
+              .select('user_id, role, first_name, last_name, email, specialty')
               .in('user_id', senderIds);
             
             if (!profilesError && profilesData && profilesData.length > 0) {
@@ -549,54 +553,27 @@ export function useMessages() {
         .single();
       
       if (error) throw error;
-      
-      if (!data) {
-        throw new Error('Aucune donnée retournée après insertion');
-      }
-      
+
       // Mettre à jour le timestamp de la conversation
       await supabase
         .from('conversations')
         .update({ updated_at: new Date().toISOString() })
         .eq('id', conversationId);
+
+      // Notifications aux autres participants
+      const { data: participants } = await supabase
+        .from('conversation_participants')
+        .select('user_id')
+        .eq('conversation_id', conversationId)
+        .neq('user_id', user.id);
       
-      
-      // Envoyer des notifications aux autres participants
-      try {
-        // Récupérer les participants de la conversation (excepté l'expéditeur)
-        const { data: participants, error: participantsError } = await supabase
-          .from('conversation_participants')
-          .select('user_id')
-          .eq('conversation_id', conversationId)
-          .neq('user_id', user.id);
-        
-        if (!participantsError && participants && participants.length > 0) {
-          // Récupérer le nom de l'expéditeur
-          const { data: senderProfile } = await supabase
-            .from('profiles')
-            .select('first_name, last_name, email')
-            .eq('user_id', user.id)
-            .single();
-          
-          const senderName = senderProfile && (senderProfile.first_name || senderProfile.last_name)
-            ? `${senderProfile.first_name} ${senderProfile.last_name}`.trim()
-            : (senderProfile?.email || user.email || 'Un utilisateur');
-          
-          // Envoyer une notification à chaque participant
-          for (const participant of participants) {
-            await notifyNewMessage(
-              participant.user_id,
-              senderName,
-              content.length > 50 ? `${content.substring(0, 47)}...` : content
-            );
-          }
-        }
-      } catch (notificationError) {
-        // Ne pas faire échouer l'envoi du message si les notifications échouent
+      if (participants) {
+        participants.forEach(p => {
+          notifyMessageReceived(p.user_id, user.id, content, conversationId);
+        });
       }
-      
-      // Formater le message
-      const message: Message = {
+
+      return {
         id: data.id,
         conversationId: data.conversation_id,
         senderId: data.sender_id,
@@ -604,8 +581,6 @@ export function useMessages() {
         timestamp: new Date(data.created_at),
         isRead: false
       };
-      
-      return message;
     } catch (error) {
       toast({
         title: 'Erreur',

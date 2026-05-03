@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useVideoConference } from '@/hooks/useVideoConference';
 import { Button } from '@/components/ui/button';
@@ -18,12 +19,31 @@ import { useWorkGroups } from '@/hooks/useWorkGroups';
 import { MultiSelect } from '@/components/ui/multi-select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Profile } from '@/types/profile';
+import { 
+  notifyMeetingRequest, 
+  notifyMeetingAccepted, 
+  notifyMeetingRefused 
+} from '@/lib/notifications/meetingNotifications';
 import MeetingRoom from '@/components/MeetingRoom';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { supabase } from '@/lib/supabase';
+import { showToast } from '@/lib/toast';
+import { FeatureGate } from '@/components/ui/FeatureGate';
 
 // Composant principal pour la gestion des visioconférences
 export default function VideoConference() {
+  return (
+    <FeatureGate feature="videoconference">
+      <VideoConferenceContent />
+    </FeatureGate>
+  );
+}
+
+function VideoConferenceContent() {
   const { user, role, status } = useAuth();
+  const [searchParams] = useSearchParams();
+  const defaultTab = searchParams.get('tab') || 'upcoming';
+  
   const { 
     meetings, 
     effectiveTenantId,
@@ -55,13 +75,13 @@ export default function VideoConference() {
     participants: [] as string[]
   });
 
-  useEffect(() => {
-    const fetchProfiles = async () => {
-      if (!effectiveTenantId || status !== 'authenticated') return;
-      const data = await getProfiles({ tenant_id: effectiveTenantId } as any);
-      setProfiles(data);
-    };
+  const fetchProfiles = useCallback(async () => {
+    if (!effectiveTenantId || status !== 'authenticated') return;
+    const data = await getProfiles({ tenant_id: effectiveTenantId } as any);
+    setProfiles(data);
+  }, [effectiveTenantId, status, getProfiles]);
 
+  useEffect(() => {
     // Vérifier si une réunion était en cours (après rafraîchissement)
     const savedMeetingId = localStorage.getItem('active_video_meeting');
     if (savedMeetingId && status === 'authenticated') {
@@ -72,8 +92,49 @@ export default function VideoConference() {
     if (status === 'authenticated') {
       fetchProfiles();
       fetchWorkGroups();
+      fetchMeetings();
     }
-  }, [getProfiles, fetchWorkGroups, effectiveTenantId, user?.id, status]);
+  }, [fetchProfiles, fetchWorkGroups, fetchMeetings, status]);
+
+  // Realtime subscription for meetings
+  useEffect(() => {
+    if (status !== 'authenticated' || !effectiveTenantId) return;
+
+    const channel = supabase
+      .channel('meetings-realtime')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'video_meetings' 
+      }, (payload) => {
+        fetchMeetings();
+        
+        // Gérer les toasts pour les changements de statut (Accepted/Rejected)
+        if (payload.eventType === 'UPDATE') {
+          const oldMeeting = payload.old as any;
+          const newMeeting = payload.new as any;
+          
+          // Si le statut a changé et que je suis le créateur ou un participant
+          if (oldMeeting.status !== newMeeting.status) {
+            if (newMeeting.status === 'scheduled') {
+              showToast(`✅ La réunion "${newMeeting.title}" a été acceptée`, 'success');
+            } else if (newMeeting.status === 'rejected') {
+              showToast(`❌ La réunion "${newMeeting.title}" a été refusée`, 'error');
+            }
+          }
+        }
+      })
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'video_meeting_participants' 
+      }, () => fetchMeetings())
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [status, effectiveTenantId, fetchMeetings]);
 
   const isAdmin = role === 'admin' || user?.email === 'admin@aps.com';
 
@@ -147,6 +208,21 @@ export default function VideoConference() {
   };
 
   const confirmJoin = (meetingId: string) => {
+    const meeting = meetings.find(m => m.id === meetingId);
+    if (!meeting) return;
+
+    // Si pas admin, vérifier la date et l'heure
+    if (!isAdmin) {
+      const scheduledAt = meeting.scheduled_at ? new Date(meeting.scheduled_at) : null;
+      const now = new Date();
+      
+      // Si la réunion n'a pas encore commencé (statut !== active) et qu'on est avant l'heure
+      if (meeting.status !== 'active' && scheduledAt && scheduledAt > now) {
+        showToast(`Cette réunion n'a pas encore commencé. Elle est prévue pour le ${format(scheduledAt, 'PPP à p', { locale: fr })}`, 'error');
+        return;
+      }
+    }
+
     setMeetingToJoin(meetingId);
     setIsJoining(true);
   };
@@ -181,7 +257,11 @@ export default function VideoConference() {
 
   const pendingMeetings = meetings.filter(m => m.status === 'pending');
   const upcomingMeetings = meetings.filter(m => m.status === 'scheduled' || m.status === 'active');
-  const pastMeetings = meetings.filter(m => m.status === 'completed' || m.status === 'cancelled');
+  const requestsMeetings = meetings.filter(m => 
+    (m.status === 'pending' || m.status === 'scheduled' || m.status === 'rejected') && 
+    m.created_by === user?.id
+  );
+  const pastMeetings = meetings.filter(m => m.status === 'completed');
 
   const participantOptions = profiles
     .filter(p => p.user_id !== user?.id)
@@ -298,11 +378,11 @@ export default function VideoConference() {
               </div>
               <div className="flex justify-end gap-2">
                 {isAdmin && (
-                  <Button variant="outline" onClick={() => handleCreateMeeting('active')} disabled={!newMeeting.title}>
+                  <Button variant="outline" onClick={() => handleCreateMeeting('active')} disabled={!newMeeting.title || newMeeting.participants.length === 0}>
                     <Play className="mr-2 h-4 w-4" /> Lancer maintenant
                   </Button>
                 )}
-                <Button onClick={() => handleCreateMeeting(isAdmin ? 'scheduled' : 'pending')} disabled={!newMeeting.title}>
+                <Button onClick={() => handleCreateMeeting(isAdmin ? 'scheduled' : 'pending')} disabled={!newMeeting.title || newMeeting.participants.length === 0}>
                   {isAdmin ? "Programmer" : "Envoyer la demande"}
                 </Button>
               </div>
@@ -311,7 +391,7 @@ export default function VideoConference() {
         </div>
       </div>
 
-      <Tabs defaultValue="upcoming" className="w-full">
+      <Tabs defaultValue={defaultTab} className="w-full">
         <TabsList className="grid w-full grid-cols-3 lg:w-[400px]">
           <TabsTrigger value="upcoming">À venir</TabsTrigger>
           {isAdmin && <TabsTrigger value="pending">Demandes ({pendingMeetings.length})</TabsTrigger>}
@@ -377,7 +457,7 @@ export default function VideoConference() {
                         <Button size="sm" variant="outline" onClick={() => handleEditMeeting(meeting)}>
                           <Users className="h-4 w-4 mr-1" /> Modifier participants
                         </Button>
-                        <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={() => updateMeetingStatus(meeting.id, 'cancelled')}>
+                        <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={() => updateMeetingStatus(meeting.id, 'rejected')}>
                           <X className="h-4 w-4 mr-1" /> Refuser
                         </Button>
                         <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => updateMeetingStatus(meeting.id, 'scheduled')}>
@@ -431,18 +511,18 @@ export default function VideoConference() {
         {!isAdmin && (
           <TabsContent value="requests" className="mt-6">
             <div className="grid gap-4">
-              {meetings.filter(m => m.created_by === user?.id && m.status === 'pending').length === 0 ? (
+              {requestsMeetings.length === 0 ? (
                 <Card className="py-12">
                   <CardContent className="flex flex-col items-center justify-center text-center space-y-4">
                     <MessageSquare className="h-12 w-12 text-muted-foreground" />
                     <div className="space-y-2">
                       <h3 className="text-xl font-semibold">Aucune demande</h3>
-                      <p className="text-muted-foreground">Vous n'avez pas de demandes de réunion en cours.</p>
+                      <p className="text-muted-foreground">Vous n'avez pas de demandes de réunion pour le moment.</p>
                     </div>
                   </CardContent>
                 </Card>
               ) : (
-                meetings.filter(m => m.created_by === user?.id && m.status === 'pending').map((meeting) => (
+                requestsMeetings.map((meeting) => (
                   <Card key={meeting.id}>
                     <CardHeader>
                       <div className="flex justify-between items-start">
@@ -452,8 +532,16 @@ export default function VideoConference() {
                             Demandé le {format(new Date(meeting.created_at), 'PPP', { locale: fr })}
                           </CardDescription>
                         </div>
-                        <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200">
-                          En attente
+                        <Badge 
+                          variant="outline" 
+                          className={
+                            meeting.status === 'pending' ? "bg-yellow-100 text-yellow-800 border-yellow-200" :
+                            meeting.status === 'scheduled' ? "bg-green-100 text-green-800 border-green-200" :
+                            "bg-red-100 text-red-800 border-red-200"
+                          }
+                        >
+                          {meeting.status === 'pending' ? 'En attente' : 
+                           meeting.status === 'scheduled' ? 'Acceptée' : 'Refusée'}
                         </Badge>
                       </div>
                     </CardHeader>

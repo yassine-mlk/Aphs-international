@@ -75,7 +75,13 @@ const Messages: React.FC = () => {
       setMessagesError(false);
 
       const fetchedMessages = await getMessages(conversationId, !showLoading);
-      setMessages(fetchedMessages);
+      
+      // Éviter les doublons par ID
+      const uniqueMessages = fetchedMessages.filter((msg, index, self) =>
+        index === self.findIndex((m) => m.id === msg.id)
+      );
+      
+      setMessages(uniqueMessages);
 
       setTimeout(() => {
         if (messageEndRef.current) {
@@ -108,7 +114,13 @@ const Messages: React.FC = () => {
       setConversationsError(false);
 
       const fetchedConversations = await getConversations(!showLoading);
-      setConversations(fetchedConversations);
+      
+      // Éviter les doublons par ID
+      const uniqueConversations = fetchedConversations.filter((conv, index, self) =>
+        index === self.findIndex((c) => c.id === conv.id)
+      );
+      
+      setConversations(uniqueConversations);
 
       if (fetchedConversations.length > 0 && !activeConversationRef.current && showLoading) {
         setActiveConversation(fetchedConversations[0]);
@@ -189,23 +201,82 @@ const Messages: React.FC = () => {
   useEffect(() => {
     if (status !== 'authenticated' || !user?.id) return;
 
-    const channel = supabase
-      .channel(`messages-all-${user.id}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
-        const msgConvId = payload.new?.conversation_id;
-        const relevant = conversationsRef.current.some(c => c.id === msgConvId);
-        if (relevant) {
-          scheduleSilentReload();
+    // 1. Écouter les nouveaux messages (INSERT)
+    const messagesChannel = supabase
+      .channel(`messages-realtime-${user.id}`)
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'messages' 
+      }, async (payload) => {
+        const newMessage = payload.new as any;
+        
+        // Si le message appartient à la conversation active, on l'ajoute directement
+        if (activeConversationRef.current && newMessage.conversation_id === activeConversationRef.current.id) {
+          // Transformer le payload en objet Message
+          const formattedMessage: Message = {
+            id: newMessage.id,
+            conversationId: newMessage.conversation_id,
+            senderId: newMessage.sender_id,
+            content: newMessage.content,
+            timestamp: new Date(newMessage.created_at),
+            isRead: false
+          };
+          
+          setMessages(prev => {
+            // Éviter les doublons si le message a été ajouté par handleSendMessage
+            if (prev.some(m => m.id === formattedMessage.id)) return prev;
+            return [...prev, formattedMessage];
+          });
+          
+          // Scroll automatique
+          setTimeout(() => {
+            if (messageEndRef.current) {
+              messageEndRef.current.scrollIntoView({ behavior: 'smooth' });
+            }
+          }, 100);
+
+          // Marquer comme lu si la fenêtre est active
+          if (document.hasFocus()) {
+            await supabase
+              .from('messages')
+              .update({ is_read: true })
+              .eq('id', newMessage.id);
+          }
         }
+        
+        // Dans tous les cas, on rafraîchit la liste des conversations pour mettre à jour les previews et badges
+        loadConversationsRef.current(false);
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => {
-        scheduleSilentReload();
+      // 2. Écouter les mises à jour (ex: marquage comme lu)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'messages'
+      }, (payload) => {
+        const updatedMsg = payload.new as any;
+        if (activeConversationRef.current && updatedMsg.conversation_id === activeConversationRef.current.id) {
+          setMessages(prev => prev.map(m => m.id === updatedMsg.id ? { ...m, isRead: updatedMsg.is_read } : m));
+        }
+        loadConversationsRef.current(false);
+      })
+      .subscribe();
+
+    // 3. Écouter les changements sur les conversations
+    const conversationsChannel = supabase
+      .channel(`conversations-realtime-${user.id}`)
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'conversations' 
+      }, () => {
+        loadConversationsRef.current(false);
       })
       .subscribe();
 
     return () => {
-      if (messagesTimerRef.current) clearTimeout(messagesTimerRef.current);
-      supabase.removeChannel(channel);
+      supabase.removeChannel(messagesChannel);
+      supabase.removeChannel(conversationsChannel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, status]);
@@ -279,8 +350,11 @@ const Messages: React.FC = () => {
       const sentMessage = await sendMessage(activeConversation.id, newMessage);
       
       if (sentMessage) {
-        // Ajouter le message à la liste locale
-        setMessages(prev => [...prev, sentMessage]);
+        // Ajouter le message à la liste locale s'il n'y est pas déjà
+        setMessages(prev => {
+          if (prev.some(m => m.id === sentMessage.id)) return prev;
+          return [...prev, sentMessage];
+        });
         
         // Mettre à jour lastMessage dans la conversation active
         setConversations(prev => 

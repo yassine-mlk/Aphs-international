@@ -1,5 +1,9 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
+
+const GMAIL_USER = Deno.env.get('GMAIL_USER');
+const GMAIL_APP_PASSWORD = Deno.env.get('GMAIL_APP_PASSWORD');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -101,9 +105,37 @@ serve(async (req) => {
 </html>
     `;
 
-    // Envoyer l'email via Supabase Auth (ou votre service d'email)
-    // Pour l'instant, on crée juste une notification dans l'app
-    // TODO: Configurer Resend ou SendGrid pour l'envoi d'emails réel
+    // Envoyer l'email via Gmail SMTP
+    let emailSent = false;
+    if (GMAIL_USER && GMAIL_APP_PASSWORD && admin.email) {
+      try {
+        const smtpClient = new SMTPClient({
+          connection: {
+            hostname: 'smtp.gmail.com',
+            port: 465,
+            tls: true,
+            auth: {
+              username: GMAIL_USER,
+              password: GMAIL_APP_PASSWORD,
+            },
+          },
+        });
+
+        await smtpClient.send({
+          from: GMAIL_USER,
+          to: admin.email,
+          subject: emailSubject,
+          content: emailBody.replace(/<[^>]*>?/gm, ''), // Version texte simple
+          html: emailBody,
+        });
+
+        await smtpClient.close();
+        emailSent = true;
+        console.log(`Email sent to ${admin.email} via Gmail`);
+      } catch (emailError) {
+        console.error(`Failed to send email to ${admin.email}:`, emailError);
+      }
+    }
     
     // Créer une notification pour l'admin
     const { error: notifError } = await supabaseClient
@@ -118,9 +150,9 @@ serve(async (req) => {
           signerName,
           projectId,
           comment,
-          emailSent: true
+          emailSent
         },
-        read: false
+        is_read: false
       });
 
     if (notifError) {

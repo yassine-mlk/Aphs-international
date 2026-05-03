@@ -102,23 +102,22 @@ export function useDashboardStats() {
       
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
-        .select('id, email, first_name, last_name, role, specialty');
+        .select('user_id, email, first_name, last_name, role, specialty');
 
       if (!profilesError && profilesData && profilesData.length > 0) {
         users = profilesData;
       }
 
-      // Si toujours pas de données, essayer avec auth.users via RPC ou la table des utilisateurs
+      // Si toujours pas de données, essayer avec les assignations réelles via la vue
       if (users.length === 0) {
-        // Récupérer les utilisateurs qui ont été créés et sont actifs
+        // Récupérer les utilisateurs uniques depuis task_assignments_view
         const { data: taskUsers, error: taskError } = await supabase
-          .from('task_assignments')
-          .select('assigned_to')
-          .not('assigned_to', 'is', null);
+          .from('task_assignments_view')
+          .select('user_id');
 
         if (!taskError && taskUsers) {
-          // Compter les utilisateurs uniques qui ont des tâches assignées
-          const uniqueUsers = new Set(taskUsers.map(t => t.assigned_to));
+          // Compter les utilisateurs uniques
+          const uniqueUsers = new Set(taskUsers.map(t => t.user_id));
           users = Array.from(uniqueUsers).map(id => ({ id, role: 'intervenant' }));
         }
       }
@@ -154,23 +153,25 @@ export function useDashboardStats() {
       overdueTasks: 0
     };
     try {
-      // Récupérer toutes les tâches assignées
+      // Récupérer toutes les tâches depuis la vue unifiée
       const { data: tasks, error: tasksError } = await supabase
-        .from('task_assignments')
+        .from('task_assignments_view')
         .select('id, status, deadline, created_at');
 
       if (tasksError) throw tasksError;
 
       const totalTasks = tasks?.length || 0;
-      const completedTasks = tasks?.filter(t => t.status === 'validated')?.length || 0;
-      const pendingTasks = tasks?.filter(t => t.status === 'assigned' || t.status === 'in_progress')?.length || 0;
+      // Statuts de succès selon le type (approved pour parallel, vso/vao pour sequential)
+      const completedStatuses = ['approved', 'vso', 'vao'];
+      const completedTasks = tasks?.filter(t => completedStatuses.includes(t.status))?.length || 0;
+      const pendingTasks = tasks?.filter(t => t.status === 'open' || t.status === 'in_review' || t.status === 'var')?.length || 0;
       
       // Calculer les tâches en retard (deadline dépassée et pas encore validées)
       const now = new Date();
       const overdueTasks = tasks?.filter(t => 
         t.deadline && 
         new Date(t.deadline) < now && 
-        t.status !== 'validated'
+        !completedStatuses.includes(t.status)
       )?.length || 0;
 
       return {
@@ -214,20 +215,20 @@ export function useDashboardStats() {
 
       // Récupérer les tâches (pour le calendrier)
       const { data: tasks, error: tasksError } = await supabase
-        .from('tasks')
-        .select('id, name, due_date, project_id, description')
-        .order('due_date', { ascending: true });
+        .from('task_assignments_view')
+        .select('id, task_name, deadline, project_id, comment')
+        .order('deadline', { ascending: true });
 
       if (!tasksError && tasks) {
         const taskEvents: CalendarEvent[] = tasks
-          .filter(task => task.due_date)
+          .filter(task => task.deadline)
           .map(task => ({
             id: task.id,
-            title: task.name,
-            date: task.due_date!,
+            title: task.task_name,
+            date: task.deadline!,
             type: 'deadline' as const,
             project_id: task.project_id,
-            description: task.description || `Échéance de la tâche: ${task.name}`
+            description: task.comment || `Échéance de la tâche: ${task.task_name}`
           }));
         events = [...events, ...taskEvents];
       }
@@ -248,12 +249,14 @@ export function useDashboardStats() {
       const oneYearAgo = new Date();
       oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
+      const completedStatuses = ['approved', 'vso', 'vao'];
+
       const { data: tasks, error: tasksError } = await supabase
-        .from('task_assignments')
-        .select('validated_at, status')
-        .eq('status', 'validated')
-        .not('validated_at', 'is', null)
-        .gt('validated_at', oneYearAgo.toISOString());
+        .from('task_assignments_view')
+        .select('updated_at, status')
+        .in('status', completedStatuses)
+        .not('updated_at', 'is', null)
+        .gt('updated_at', oneYearAgo.toISOString());
 
       if (tasksError) throw tasksError;
 
@@ -271,7 +274,7 @@ export function useDashboardStats() {
 
       // Compter les tâches terminées par mois
       tasks?.forEach(task => {
-        const date = new Date(task.validated_at);
+        const date = new Date(task.updated_at);
         const monthIndex = date.getMonth();
         const monthName = months[monthIndex];
         monthCounts[monthName]++;
@@ -313,35 +316,23 @@ export function useDashboardStats() {
         });
       }
 
-      // Récupérer les tâches récentes
+      // Récupérer les tâches récentes via la vue pour avoir le nom du projet
       const { data: recentTasks } = await supabase
-        .from('task_assignments')
-        .select('id, task_name, status, created_at, project_id')
+        .from('task_assignments_view')
+        .select('id, task_name, status, created_at, project_name')
         .order('created_at', { ascending: false })
         .limit(3);
 
       if (recentTasks) {
-        // Récupérer les noms des projets séparément
-        const projectIds = recentTasks.map(task => task.project_id).filter(Boolean);
-        let projects = null;
-        
-        if (projectIds.length > 0) {
-          const { data: projectsData } = await supabase
-            .from('projects')
-            .select('id, name')
-            .in('id', projectIds);
-          projects = projectsData;
-        }
-
+        const completedStatuses = ['approved', 'vso', 'vao'];
         recentTasks.forEach(task => {
-          const project = projects?.find(p => p.id === task.project_id);
           activities.push({
             id: `task_${task.id}`,
-            type: task.status === 'validated' ? 'task_completed' : 'task_assigned',
-            title: task.status === 'validated' ? 'Tâche terminée' : 'Nouvelle tâche',
+            type: completedStatuses.includes(task.status) ? 'task_completed' : 'task_assigned',
+            title: completedStatuses.includes(task.status) ? 'Tâche terminée' : 'Nouvelle tâche',
             description: `${task.task_name}`,
             timestamp: task.created_at,
-            project_name: project?.name
+            project_name: task.project_name
           });
         });
       }
@@ -355,98 +346,60 @@ export function useDashboardStats() {
     }
   }, []);
 
-  const fetchAllStats = useCallback(async () => {
+  const fetchAllData = useCallback(async (silent = false) => {
     if (status !== 'authenticated') return;
-    setLoading(true);
+    
+    if (!silent) setLoading(true);
     setError(null);
 
     try {
-      const [projectStats, intervenantStats, taskStats, upcomingEvents, chartData, recentActivities] = await Promise.all([
+      const [projStats, userStats, taskStats, upcomingEvents, recentAct, chartStats] = await Promise.all([
         fetchProjectStats(),
         fetchIntervenantStats(),
         fetchTaskStats(),
         fetchUpcomingEvents(),
-        fetchChartData(),
-        fetchRecentActivities()
+        fetchRecentActivities(),
+        fetchChartData()
       ]);
 
-      const combinedStats: DashboardStats = {
-        ...projectStats,
-        ...intervenantStats,
+      setStats({
+        ...projStats,
+        ...userStats,
         ...taskStats
-      };
-
-      setStats(combinedStats);
-      setEvents(upcomingEvents);
-      setChartData(chartData);
-      setRecentActivities(recentActivities);
-      setLastUpdate(new Date());
-    } catch (error) {
-      setError('Impossible de charger les statistiques du tableau de bord');
-      toast({
-        title: "Erreur",
-        description: "Impossible de charger les statistiques du tableau de bord",
-        variant: "destructive",
       });
+      setEvents(upcomingEvents);
+      setRecentActivities(recentAct);
+      setChartData(chartStats);
+      setLastUpdate(new Date());
+    } catch (err) {
+      console.error('Error fetching dashboard stats:', err);
+      setError("Impossible de charger les statistiques.");
     } finally {
       setLoading(false);
     }
-  }, [fetchProjectStats, fetchIntervenantStats, fetchTaskStats, fetchUpcomingEvents, fetchChartData, fetchRecentActivities, toast]);
+  }, [status, fetchProjectStats, fetchIntervenantStats, fetchTaskStats, fetchUpcomingEvents, fetchRecentActivities, fetchChartData]);
 
-  // Auto-refresh every 5 minutes
+  // Initial load
   useEffect(() => {
-    fetchAllStats();
-    
-    const interval = setInterval(() => {
-      fetchAllStats();
-    }, 5 * 60 * 1000); // 5 minutes
-    
-    return () => clearInterval(interval);
-  }, [fetchAllStats]);
+    fetchAllData();
+  }, [fetchAllData]);
 
-  // Real-time subscriptions for important changes
+  // Realtime subscription for dashboard
   useEffect(() => {
-    // Subscribe to projects changes
-    const projectsSubscription = supabase
-      .channel('dashboard_projects')
-      .on('postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'projects' 
-        }, 
-        () => {
-          // Refresh stats when projects change
-          fetchAllStats();
-        }
-      )
-      .subscribe();
+    if (status !== 'authenticated') return;
 
-    // Subscribe to task assignments changes
-    const tasksSubscription = supabase
-      .channel('dashboard_tasks')
-      .on('postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'task_assignments' 
-        }, 
-        () => {
-          // Refresh stats when tasks change
-          fetchAllStats();
-        }
-      )
+    const channel = supabase
+      .channel('dashboard-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, () => fetchAllData(true))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'standard_tasks' }, () => fetchAllData(true))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'workflow_tasks' }, () => fetchAllData(true))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => fetchAllData(true))
       .subscribe();
 
     return () => {
-      projectsSubscription.unsubscribe();
-      tasksSubscription.unsubscribe();
+      supabase.removeChannel(channel);
     };
-  }, [fetchAllStats]);
-
-  const refetch = useCallback(() => {
-    fetchAllStats();
-  }, [fetchAllStats]);
+  }, [status, fetchAllData]);
 
   return {
     stats,
@@ -456,6 +409,6 @@ export function useDashboardStats() {
     loading,
     error,
     lastUpdate,
-    refetch
+    refetch: fetchAllData
   };
 } 

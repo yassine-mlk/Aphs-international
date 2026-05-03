@@ -7,7 +7,7 @@ import { useToast } from '@/components/ui/use-toast';
 interface IntervenantTask {
   id: string;
   task_name: string;
-  status: 'pending' | 'in_progress' | 'validated' | 'rejected';
+  status: 'open' | 'in_review' | 'approved' | 'rejected' | 'vso' | 'vao' | 'var' | 'closed';
   deadline: string;
   validation_deadline: string;
   project_id: string;
@@ -72,32 +72,21 @@ export function useIntervenantStats() {
     if (status !== 'authenticated' || !user?.id || !supabase) return [];
 
     try {
-      // Récupérer d'abord les task_assignments
-      const { data: tasks, error: taskError } = await supabase
-        .from('task_assignments')
+      // Utiliser la vue pour récupérer les tâches et les infos projet
+      const { data: viewTasks, error: viewError } = await supabase
+        .from('task_assignments_view')
         .select('*')
-        .eq('assigned_to', user.id)
         .order('created_at', { ascending: false });
 
-      if (taskError) throw taskError;
+      if (viewError) throw viewError;
 
-      // Récupérer les projets séparément
-      const projectIds = [...new Set(tasks?.map(t => t.project_id).filter(Boolean))];
-      if (projectIds.length === 0) return tasks || [];
+      // Filtrer les tâches où l'utilisateur est impliqué (exécuteur ou validateur)
+      const userTasks = (viewTasks || []).filter((t: any) => 
+        (t.assigned_to || []).includes(user.id) || 
+        (t.validators || []).some((v: any) => v.user_id === user.id)
+      );
 
-      const { data: projects, error: projectError } = await supabase
-        .from('projects')
-        .select('id, name')
-        .in('id', projectIds);
-
-      if (projectError) throw projectError;
-
-      // Combiner les données
-      const projectMap = new Map(projects?.map(p => [p.id, p.name]) || []);
-      return (tasks || []).map(task => ({
-        ...task,
-        project_name: projectMap.get(task.project_id) || 'Projet inconnu'
-      }));
+      return userTasks as unknown as IntervenantTask[];
     } catch (error) {
       return [];
     }
@@ -108,16 +97,21 @@ export function useIntervenantStats() {
     if (status !== 'authenticated' || !user?.id || !supabase) return [];
 
     try {
-      // Récupérer les projets via les tâches assignées
-      const { data: taskData, error: taskError } = await supabase
-        .from('task_assignments')
-        .select('project_id, status')
-        .eq('assigned_to', user.id);
+      // Récupérer les tâches via la vue
+       const { data: viewTasks, error: viewError } = await supabase
+         .from('task_assignments_view')
+         .select('id, project_id, status');
 
-      if (taskError) throw taskError;
+      if (viewError) throw viewError;
 
-      // Récupérer les projets séparément
-      const projectIds = [...new Set(taskData?.map(t => t.project_id).filter(Boolean))];
+      // Filtrer les tâches impliquant l'utilisateur (exécuteur ou validateur)
+      const userProjectsData = (viewTasks || []).filter((t: any) => 
+        (t.assigned_to || []).includes(user.id) || 
+        (t.validators || []).some((v: any) => v.user_id === user.id)
+      );
+
+      // Récupérer les IDs de projets uniques
+      const projectIds = [...new Set(userProjectsData.map(t => t.project_id).filter(Boolean))];
       if (projectIds.length === 0) return [];
 
       const { data: projects, error: projectError } = await supabase
@@ -130,11 +124,12 @@ export function useIntervenantStats() {
        // Grouper par projet et calculer les statistiques
        const projectMap = new Map();
        
-       if (taskData && projects) {
+       if (userProjectsData && projects) {
          // Créer une map des projets par ID
          const projectsById = new Map(projects.map(p => [p.id, p]));
+         const completedStatuses = ['validated', 'approved', 'vso', 'vao', 'closed'];
          
-         for (const task of taskData) {
+         for (const task of userProjectsData) {
            const project = projectsById.get(task.project_id);
            if (!project) continue;
 
@@ -150,7 +145,7 @@ export function useIntervenantStats() {
            projectData.total_tasks++;
            
            // Compter les tâches complétées/validées
-           if (task.status === 'validated' || task.status === 'completed') {
+           if (completedStatuses.includes(task.status)) {
              projectData.completed_tasks++;
            }
          }
@@ -186,7 +181,8 @@ export function useIntervenantStats() {
       });
 
       // Tâche complétée
-      if (task.completed_at && task.status === 'validated') {
+      const completedStatuses = ['approved', 'vso', 'vao'];
+      if (task.completed_at && completedStatuses.includes(task.status)) {
         activities.push({
           id: `task_completed_${task.id}`,
           type: 'task_validated',
@@ -221,15 +217,16 @@ export function useIntervenantStats() {
   const calculateStats = useCallback((tasks: IntervenantTask[], projects: IntervenantProject[]): IntervenantStats => {
     const now = new Date();
     
+    const completedStatuses = ['approved', 'vso', 'vao'];
     const totalTasks = tasks.length;
-    const pendingTasks = tasks.filter(t => t.status === 'pending').length;
-    const inProgressTasks = tasks.filter(t => t.status === 'in_progress').length;
-    const completedTasks = tasks.filter(t => t.status === 'validated').length;
+    const pendingTasks = tasks.filter(t => t.status === 'open' || t.status === 'in_review').length;
+    const inProgressTasks = tasks.filter(t => t.status === 'in_review' || t.status === 'var').length;
+    const completedTasks = tasks.filter(t => completedStatuses.includes(t.status)).length;
     const validatedTasks = completedTasks; // Même chose pour l'instant
     
     // Tâches en retard (deadline dépassée et pas encore validées)
     const overdueTasks = tasks.filter(t => {
-      return t.status !== 'validated' && new Date(t.deadline) < now;
+      return !completedStatuses.includes(t.status) && new Date(t.deadline) < now;
     }).length;
 
     // Taux de completion

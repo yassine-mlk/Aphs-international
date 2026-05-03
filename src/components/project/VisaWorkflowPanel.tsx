@@ -19,16 +19,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
-import {
   CheckCircle2,
   XCircle,
   Clock,
-  AlertTriangle,
   Ban,
   FileUp,
   Download,
@@ -39,11 +32,8 @@ import {
   MessageSquare,
   Route,
   FileCheck,
-  Eye,
-  ChevronDown
+  Eye
 } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
-import { useSupabase } from '@/hooks/useSupabase';
 import { useVisaWorkflow } from '@/hooks/useVisaWorkflow';
 import { uploadToR2 } from '@/lib/r2';
 import {
@@ -51,14 +41,13 @@ import {
   VisaOpinion,
   VISA_OPINION_LABELS,
   VISA_STATUS_LABELS,
-  VisaValidation,
-  VisaSubmission
+  VisaWorkflowStatus,
+  getValidOpinions
 } from '@/types/visaWorkflow';
 
 interface VisaWorkflowPanelProps {
   taskAssignmentId: string;
   currentUserId: string;
-  isAssignedUser: boolean;
   isValidator: boolean;
   isAdmin: boolean;
   fileExtension: string;
@@ -67,13 +56,11 @@ interface VisaWorkflowPanelProps {
 export const VisaWorkflowPanel: React.FC<VisaWorkflowPanelProps> = ({
   taskAssignmentId,
   currentUserId,
-  isAssignedUser,
   isValidator,
   isAdmin,
   fileExtension
 }) => {
-  const { toast } = useToast();
-  const { fetchWorkflow, submitDocument, submitValidation } = useVisaWorkflow();
+  const { fetchWorkflow, submitDocument, submitValidation, submitAdminDecision } = useVisaWorkflow();
   
   const [workflow, setWorkflow] = useState<VisaWorkflowFull | null>(null);
   const [loading, setLoading] = useState(true);
@@ -100,15 +87,25 @@ export const VisaWorkflowPanel: React.FC<VisaWorkflowPanelProps> = ({
     loadWorkflow();
   }, [taskAssignmentId]);
 
+  // State for specific submission being validated
+  const [validatingSubmissionId, setValidatingSubmissionId] = useState<string | null>(null);
+
   // Vérifier si c'est le tour du validateur actuel
   const isCurrentValidator = workflow && 
-    workflow.validator_order[workflow.current_validator_idx] === currentUserId &&
-    workflow.status === 'pending_validation';
+    (workflow.task_type === 'standard' 
+      ? isValidator && workflow.status !== 'approved' && workflow.status !== 'closed'
+      : workflow.current_validator_id === currentUserId && workflow.status === 'in_review');
 
   // Vérifier si l'exécutant peut soumettre
+  const userSubmissions = workflow?.submissions?.filter(sub => sub.executor_id === currentUserId) || [];
+  const latestUserSubmission = userSubmissions.length > 0 ? userSubmissions[0] : null;
+  const hasRejectedSubmission = latestUserSubmission?.reviews?.some(r => r.opinion === 'D');
+
   const canSubmit = workflow && 
-    workflow.executor_id === currentUserId &&
-    (workflow.status === 'pending_execution' || workflow.status === 'revision_required');
+    workflow.executor_ids.includes(currentUserId) &&
+    (workflow.task_type === 'standard' 
+      ? workflow.status !== 'approved' && workflow.status !== 'closed' && (!latestUserSubmission || hasRejectedSubmission)
+      : (workflow.status === 'open' || workflow.status === 'var' || workflow.status === 'revision_required'));
 
   // Handle file selection
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -152,15 +149,21 @@ export const VisaWorkflowPanel: React.FC<VisaWorkflowPanelProps> = ({
     
     setSubmitting(true);
     
-    const result = await submitValidation(workflow.id, {
-      opinion: selectedOpinion,
-      comment: validationComment
-    }, currentUserId);
+    const result = await submitValidation(
+      workflow.id, 
+      {
+        opinion: selectedOpinion,
+        comment: validationComment
+      }, 
+      currentUserId,
+      validatingSubmissionId || undefined
+    );
     
     if (result.success) {
       setIsValidateDialogOpen(false);
       setSelectedOpinion(null);
       setValidationComment('');
+      setValidatingSubmissionId(null);
       loadWorkflow();
     }
     
@@ -209,54 +212,63 @@ export const VisaWorkflowPanel: React.FC<VisaWorkflowPanelProps> = ({
     );
   }
 
-  const statusConfig = VISA_STATUS_LABELS[workflow.status];
+  const isWorkflow = workflow.task_type === 'workflow';
+  const isStandard = workflow.task_type === 'standard';
 
-  // Get validators only (exclude executor if at index 0)
-  const validatorsOnly = workflow.validator_order.filter((id, idx) => 
-    idx > 0 || id !== workflow.executor_id
-  );
-  const executorInChain = workflow.validator_order[0] === workflow.executor_id;
+  // Stats pour le workflow
+  const totalSteps = workflow.validators.length;
+  const latestSubmission = isWorkflow ? workflow.submissions[0] : null;
+  const reviewsCount = latestSubmission?.reviews?.length || 0;
   
-  // Calculate progress percentage based on validators only
-  const totalSteps = validatorsOnly.length;
-  const currentValidatorIndex = executorInChain 
-    ? workflow.current_validator_idx - 1 
-    : workflow.current_validator_idx;
-  const completedSteps = workflow.status === 'validated' 
+  const completedSteps = (workflow.status === 'vso' || workflow.status === 'vao')
     ? totalSteps 
-    : workflow.status === 'pending_validation' && currentValidatorIndex >= 0
-      ? currentValidatorIndex 
-      : 0;
+    : reviewsCount;
+    
   const progressPercent = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
   
-  // Get submissions grouped by version
-  const submissionsByVersion = workflow.submissions.reduce((acc, sub) => {
-    acc[sub.version] = sub;
-    return acc;
-  }, {} as Record<number, VisaSubmission>);
+  // Viewing version state (Workflow only)
+  const currentVersion = isWorkflow ? (workflow.submissions[0]?.version || 1) : 0;
+  const displayVersion = viewingVersion ?? currentVersion;
+  const currentSubmission = isWorkflow 
+    ? workflow.submissions.find(s => s.version === displayVersion)
+    : null;
   
-  // Get validations grouped by version
-  const validationsByVersion = workflow.validations.reduce((acc, val) => {
-    if (!acc[val.version]) acc[val.version] = [];
-    acc[val.version].push(val);
-    return acc;
-  }, {} as Record<number, typeof workflow.validations>);
-  
-  // Viewing version state
-  const displayVersion = viewingVersion ?? workflow.current_version;
-  const currentSubmission = submissionsByVersion[displayVersion];
-  const currentValidations = validationsByVersion[displayVersion] || [];
+  const getStatusConfig = (status: string) => {
+    const mapping: Record<string, VisaWorkflowStatus> = {
+      'open': 'pending_execution',
+      'in_review': 'pending_validation',
+      'var': 'revision_required',
+      'vso': 'validated',
+      'vao': 'validated',
+      'blocked': 'blocked',
+      'rejected': 'revision_required',
+      'approved': 'validated',
+      'closed': 'validated'
+    };
+    const visaStatus = mapping[status] || 'pending_execution';
+    return VISA_STATUS_LABELS[visaStatus];
+  };
+
+  const statusConfig = getStatusConfig(workflow.status);
+
+  // Filtrer les exécuteurs visibles pour l'affichage des soumissions
+  const visibleExecutorIds = isStandard 
+    ? (isAdmin || isValidator 
+        ? workflow.executor_ids 
+        : workflow.executor_ids.filter(id => id === currentUserId))
+    : [];
 
   return (
     <>
       <Card className="border-0 shadow-md bg-gradient-to-br from-white to-gray-50">
+
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle className="text-xl flex items-center gap-2">
               <div className="p-2 bg-blue-100 rounded-lg">
                 <Route className="h-6 w-6 text-blue-600" />
               </div>
-              <span>Workflow VISA</span>
+              <span>{isStandard ? 'Tâche Classique' : 'Workflow VISA'}</span>
             </CardTitle>
             <Badge className={`${statusConfig.color} px-3 py-1 text-sm font-medium`}>
               {statusConfig.label}
@@ -265,17 +277,19 @@ export const VisaWorkflowPanel: React.FC<VisaWorkflowPanelProps> = ({
         </CardHeader>
         
         <CardContent className="space-y-6">
-          {/* Progress Bar */}
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium text-gray-600">Avancement du circuit</span>
-              <span className="text-sm font-bold text-blue-600">{progressPercent}%</span>
+          {/* Progress Bar - Only for Workflow */}
+          {isWorkflow && (
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium text-gray-600">Avancement du circuit</span>
+                <span className="text-sm font-bold text-blue-600">{progressPercent}%</span>
+              </div>
+              <Progress value={progressPercent} className="h-3" />
+              <p className="text-xs text-gray-500">
+                {completedSteps} / {totalSteps} étapes complétées
+              </p>
             </div>
-            <Progress value={progressPercent} className="h-3" />
-            <p className="text-xs text-gray-500">
-              {completedSteps} / {totalSteps} étapes complétées
-            </p>
-          </div>
+          )}
 
           {/* Executor Info - Separate from validation chain */}
           <div className="bg-white border rounded-xl p-4 shadow-sm">
@@ -288,99 +302,92 @@ export const VisaWorkflowPanel: React.FC<VisaWorkflowPanelProps> = ({
                 <User className="h-5 w-5 text-purple-600" />
               </div>
               <div>
-                <p className="font-medium">{workflow.executor_name}</p>
+                <p className="font-medium">
+                  {workflow.executor_ids.map(id => workflow.all_names?.[id]).join(', ')}
+                </p>
                 <p className="text-xs text-gray-500">Responsable de la soumission des documents</p>
               </div>
             </div>
           </div>
 
-          {/* Validation Steps - Visual Flow */}
-          <div className="space-y-4">
-            <Label className="text-sm font-semibold flex items-center gap-2">
-              <FileCheck className="h-4 w-4 text-blue-600" />
-              Circuit de validation ({validatorsOnly.length} validateur{validatorsOnly.length > 1 ? 's' : ''})
-            </Label>
-            <div className="flex items-center gap-1 overflow-x-auto pb-2">
-              {validatorsOnly.length === 0 ? (
-                <span className="text-sm text-gray-500 italic">Aucun validateur configuré</span>
-              ) : (
-                validatorsOnly.map((validatorId, index) => {
-                  const actualIndex = executorInChain ? index + 1 : index;
-                  const isCurrent = actualIndex === workflow.current_validator_idx && workflow.status === 'pending_validation';
-                  const isPast = actualIndex < workflow.current_validator_idx || workflow.status === 'validated';
-                  
-                  const validation = workflow.validations.find(v => 
-                    v.validator_id === validatorId && v.version === workflow.current_version
-                  );
-                  
-                  return (
-                    <SafeFragment key={validatorId}>
-                      <div className={`flex-shrink-0 flex flex-col items-center gap-1 p-2 rounded-lg border min-w-[80px] ${
-                        isCurrent ? 'bg-blue-50 border-blue-400 ring-2 ring-blue-200' :
-                        isPast ? 'bg-green-50 border-green-300' :
-                        'bg-gray-50 border-gray-200'
-                      }`}>
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                          isCurrent ? 'bg-blue-600 text-white animate-pulse' :
-                          isPast ? 'bg-green-600 text-white' :
-                          'bg-gray-300 text-gray-600'
+          {/* Validation Steps - Visual Flow - Only for Workflow */}
+          {isWorkflow && (
+            <div className="space-y-4">
+              <Label className="text-sm font-semibold flex items-center gap-2">
+                <FileCheck className="h-4 w-4 text-blue-600" />
+                Circuit de validation ({workflow.validators.length} validateur{workflow.validators.length > 1 ? 's' : ''})
+              </Label>
+              <div className="flex items-center gap-1 overflow-x-auto pb-2">
+                {workflow.validators.length === 0 ? (
+                  <span className="text-sm text-gray-500 italic">Aucun validateur configuré</span>
+                ) : (
+                  workflow.validators.map((v, index) => {
+                    const isCurrent = workflow.current_validator_id === v.user_id && workflow.status === 'in_review';
+                    const validation = latestSubmission?.reviews?.find(r => r.validator_id === v.user_id);
+                    const isPast = !!validation;
+                    
+                    return (
+                      <SafeFragment key={v.user_id}>
+                        <div className={`flex-shrink-0 flex flex-col items-center gap-1 p-2 rounded-lg border min-w-[80px] ${
+                          isCurrent ? 'bg-blue-50 border-blue-400 ring-2 ring-blue-200' :
+                          isPast ? 'bg-green-50 border-green-300' :
+                          'bg-gray-50 border-gray-200'
                         }`}>
-                          {isPast && validation?.opinion === 'F' ? (
-                            <CheckCircle2 className="h-4 w-4" />
-                          ) : (
-                            index + 1
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                            isCurrent ? 'bg-blue-600 text-white animate-pulse' :
+                            isPast ? 'bg-green-600 text-white' :
+                            'bg-gray-300 text-gray-600'
+                          }`}>
+                            {isPast && validation?.opinion === 'F' ? (
+                              <CheckCircle2 className="h-4 w-4" />
+                            ) : (
+                              index + 1
+                            )}
+                          </div>
+                          <span className="text-xs text-center font-medium truncate max-w-[70px]">
+                            {workflow.all_names?.[v.user_id]?.split(' ')[0] || `Val ${index + 1}`}
+                          </span>
+                          {validation && (
+                            <Badge className={`${VISA_OPINION_LABELS[validation.opinion].color} text-[10px] px-1 py-0 border-none`}>
+                              {VISA_OPINION_LABELS[validation.opinion].label.substring(0, 3)}
+                            </Badge>
+                          )}
+                          {isCurrent && (
+                            <span className="text-[10px] text-blue-600 font-medium bg-blue-100 px-1 rounded">en cours</span>
                           )}
                         </div>
-                        <span className="text-xs text-center font-medium truncate max-w-[70px]">
-                          {workflow.validator_names?.[validatorId]?.split(' ')[0] || `Val ${index + 1}`}
-                        </span>
-                        {validation && (
-                          <Badge className={`${VISA_OPINION_LABELS[validation.opinion].color} text-[10px] px-1 py-0`}>
-                            {VISA_OPINION_LABELS[validation.opinion].label.substring(0, 3)}
-                          </Badge>
+                        {index < workflow.validators.length - 1 && (
+                          <ChevronRight className={`h-5 w-5 flex-shrink-0 ${isPast ? 'text-green-500' : 'text-gray-300'}`} />
                         )}
-                        {isCurrent && (
-                          <span className="text-[10px] text-blue-600 font-medium bg-blue-100 px-1 rounded">en cours</span>
-                        )}
-                      </div>
-                      {index < validatorsOnly.length - 1 && (
-                        <ChevronRight className={`h-5 w-5 flex-shrink-0 ${
-                          isPast ? 'text-green-500' : 'text-gray-300'
-                        }`} />
-                      )}
-                    </SafeFragment>
-                  );
-                })
-              )}
+                      </SafeFragment>
+                    );
+                  })
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Current File Card with Version Selector */}
+          {/* Fichier(s) et Soumissions */}
           <div className="bg-white border rounded-xl p-4 shadow-sm">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <div className="p-2 bg-blue-100 rounded-lg">
-                  <FileUp className="h-5 w-5 text-blue-600" />
+                  {isStandard ? <FileCheck className="h-5 w-5 text-blue-600" /> : <FileUp className="h-5 w-5 text-blue-600" />}
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">
-                    {viewingVersion && viewingVersion !== workflow.current_version 
-                      ? 'Version consultée' 
-                      : 'Version actuelle'}
+                    {isStandard ? 'Soumissions des intervenants' : 'Version du document'}
                   </p>
-                  <div className="flex items-center gap-2">
-                    <p className="text-lg font-bold text-gray-900">v{displayVersion || 1}</p>
-                    {viewingVersion && viewingVersion !== workflow.current_version && (
-                      <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-300">
-                        Archive
-                      </Badge>
-                    )}
-                  </div>
+                  {isWorkflow && (
+                    <div className="flex items-center gap-2">
+                      <p className="text-lg font-bold text-gray-900">v{displayVersion}</p>
+                    </div>
+                  )}
                 </div>
               </div>
+              
               <div className="flex items-center gap-2">
-                {/* Version Selector */}
-                {workflow.submissions.length > 1 && (
+                {isWorkflow && workflow.submissions.length > 1 && (
                   <select
                     value={displayVersion}
                     onChange={(e) => setViewingVersion(Number(e.target.value))}
@@ -388,12 +395,12 @@ export const VisaWorkflowPanel: React.FC<VisaWorkflowPanelProps> = ({
                   >
                     {workflow.submissions.map((sub) => (
                       <option key={sub.id} value={sub.version}>
-                        v{sub.version} {sub.version === workflow.current_version ? '(actuelle)' : ''}
+                        v{sub.version} {sub.version === currentVersion ? '(actuelle)' : ''}
                       </option>
                     ))}
                   </select>
                 )}
-                {currentSubmission && (
+                {isWorkflow && currentSubmission && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -407,44 +414,136 @@ export const VisaWorkflowPanel: React.FC<VisaWorkflowPanelProps> = ({
               </div>
             </div>
             
-            {currentSubmission ? (
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <FileCheck className="h-4 w-4 text-green-600" />
-                  <span className="text-sm font-medium truncate max-w-[200px]">
-                    {currentSubmission.file_name}
-                  </span>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 gap-1"
-                  onClick={() => window.open(currentSubmission.file_url, '_blank')}
-                >
-                  <Download className="h-4 w-4" />
-                  Télécharger
-                </Button>
+            {isStandard ? (
+              <div className="space-y-3">
+                {visibleExecutorIds.map(executorId => {
+                  const latestSub = [...workflow.submissions]
+                    .filter(s => s.executor_id === executorId)
+                    .sort((a, b) => new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime())[0];
+                  
+                  return (
+                    <div key={executorId} className="flex flex-col p-3 bg-gray-50 rounded-lg border border-gray-100">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <User className="h-3.5 w-3.5 text-gray-500" />
+                          <span className="text-sm font-medium">{workflow.all_names?.[executorId] || 'Exécuteur'}</span>
+                        </div>
+                        {latestSub ? (
+                          <Badge className="bg-green-100 text-green-800 hover:bg-green-100 border-none text-[10px]">
+                            Soumis le {formatDate(latestSub.submitted_at)}
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100 border-none text-[10px]">
+                            En attente
+                          </Badge>
+                        )}
+                      </div>
+                      
+                      {latestSub ? (
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 overflow-hidden">
+                              <FileCheck className="h-4 w-4 text-blue-600 shrink-0" />
+                              <span className="text-xs truncate text-gray-600">
+                                {latestSub.file_name}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2 text-[10px] gap-1"
+                                onClick={() => window.open(latestSub.file_url, '_blank')}
+                              >
+                                <Eye className="h-3 w-3" />
+                                Voir
+                              </Button>
+                              {isValidator && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 px-2 text-[10px] gap-1 border-blue-200 text-blue-600 hover:bg-blue-50"
+                                  onClick={() => {
+                                    setValidatingSubmissionId(latestSub.id);
+                                    setIsValidateDialogOpen(true);
+                                  }}
+                                  disabled={latestSub.reviews?.some(r => r.validator_id === currentUserId)}
+                                >
+                                  <CheckCircle2 className="h-3 w-3" />
+                                  {latestSub.reviews?.some(r => r.validator_id === currentUserId) ? 'Déjà validé' : 'Valider'}
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* Affichage des reviews pour cette soumission */}
+                          {latestSub.reviews && latestSub.reviews.length > 0 && (
+                            <div className="mt-2 space-y-1">
+                              <p className="text-[10px] font-medium text-gray-500 uppercase">Avis des validateurs :</p>
+                              {latestSub.reviews.map(review => (
+                                <div key={review.id} className="flex items-center justify-between bg-white/50 p-1.5 rounded border border-gray-100">
+                                  <div className="flex items-center gap-1.5">
+                                    <div className={`w-1.5 h-1.5 rounded-full ${VISA_OPINION_LABELS[review.opinion].color.split(' ')[0]}`} />
+                                    <span className="text-[10px] font-medium text-gray-700">{workflow.all_names?.[review.validator_id]}</span>
+                                  </div>
+                                  <Badge className={`${VISA_OPINION_LABELS[review.opinion].color} text-[9px] px-1 py-0 border-none`}>
+                                    {VISA_OPINION_LABELS[review.opinion].standardLabel || VISA_OPINION_LABELS[review.opinion].label}
+                                  </Badge>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-gray-400 italic">Aucun document déposé par cet intervenant.</p>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             ) : (
-              <div className="flex items-center justify-center p-4 bg-gray-50 rounded-lg text-gray-400">
-                <FileUp className="h-5 w-5 mr-2" />
-                <span className="text-sm">Aucun fichier soumis pour cette version</span>
-              </div>
-            )}
-            
-            {currentSubmission && (
-              <div className="mt-3 pt-3 border-t text-xs text-gray-500">
-                <div className="flex items-center justify-between">
-                  <span>Soumis par: <strong>{currentSubmission.executor_name}</strong></span>
-                  <span>{formatDate(currentSubmission.submitted_at)}</span>
-                </div>
-                {currentSubmission.comment && (
-                  <p className="mt-1 italic">"{currentSubmission.comment}"</p>
+              /* Logic existante pour les workflows type visa */
+              <>
+                {currentSubmission ? (
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <FileCheck className="h-4 w-4 text-green-600" />
+                      <span className="text-sm font-medium truncate max-w-[200px]">
+                        {currentSubmission.file_name}
+                      </span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 gap-1"
+                      onClick={() => window.open(currentSubmission.file_url, '_blank')}
+                    >
+                      <Download className="h-4 w-4" />
+                      Télécharger
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center p-4 bg-gray-50 rounded-lg text-gray-400">
+                    <FileUp className="h-5 w-5 mr-2" />
+                    <span className="text-sm">Aucun fichier soumis pour cette version</span>
+                  </div>
                 )}
-              </div>
+                
+                {currentSubmission && (
+                  <div className="mt-3 pt-3 border-t text-xs text-gray-500">
+                    <div className="flex items-center justify-between">
+                      <span>Soumis par: <strong>{currentSubmission.executor_name}</strong></span>
+                      <span>{formatDate(currentSubmission.submitted_at)}</span>
+                    </div>
+                    {currentSubmission.comment && (
+                      <p className="mt-1 italic">"{currentSubmission.comment}"</p>
+                    )}
+                  </div>
+                )}
+              </>
             )}
             
-            {viewingVersion && viewingVersion !== workflow.current_version && (
+            {workflow.task_type !== 'standard' && viewingVersion && viewingVersion !== workflow.current_version && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -471,21 +570,79 @@ export const VisaWorkflowPanel: React.FC<VisaWorkflowPanelProps> = ({
                   <p className="text-gray-500 text-xs">{formatDate(workflow.created_at)}</p>
                   <div className="flex items-center gap-1 mt-1 text-xs text-gray-600">
                     <User className="h-3 w-3" />
-                    <span>Exécuteur: {workflow.executor_name}</span>
+                    <span>Exécuteur: {workflow.executor_ids.map(id => workflow.all_names?.[id]).join(', ')}</span>
                   </div>
                   <div className="flex items-center gap-1 text-xs text-gray-600">
-                    <span className="font-medium text-xs bg-gray-100 px-1.5 py-0.5 rounded">{validatorsOnly.length}</span>
-                    <span>validateur{validatorsOnly.length > 1 ? 's' : ''}</span>
+                    <span className="font-medium text-xs bg-gray-100 px-1.5 py-0.5 rounded">{workflow.validators.length}</span>
+                    <span>validateur{workflow.validators.length > 1 ? 's' : ''}</span>
                   </div>
                 </div>
               </div>
 
               {/* All events chronologically */}
               {(() => {
-                // Build chronological events list
-                const events = [];
+                if (workflow.history && workflow.history.length > 0) {
+                  return workflow.history.map((event) => {
+                    const isSubmission = event.action === 'submission';
+                    const isValidation = event.action === 'validation';
+                    const isStatusChange = event.action === 'status_change';
+                    
+                    if (isStandard && !isAdmin && !isValidator && event.user_id !== currentUserId && event.action === 'submission') {
+                      return null;
+                    }
+                    
+                    return (
+                      <div key={event.id} className={`relative pl-6 pb-4 border-l-2 ${
+                        isSubmission ? 'border-blue-200' : 
+                        isValidation ? 'border-green-200' : 
+                        'border-gray-200'
+                      }`}>
+                        <div className={`absolute left-[-9px] top-0 w-4 h-4 rounded-full border-4 border-white ${
+                          isSubmission ? 'bg-blue-600' : 
+                          isValidation ? (event.details?.opinion === 'F' ? 'bg-green-600' : 'bg-red-600') : 
+                          'bg-gray-400'
+                        }`}></div>
+                        <div className="text-sm">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium">
+                              {isSubmission ? 'Document soumis' : 
+                               isValidation ? 'Avis de validation' : 
+                               isStatusChange ? 'Changement de statut' : event.action}
+                            </p>
+                            {isValidation && (
+                              <Badge className={`text-[10px] ${VISA_OPINION_LABELS[event.details?.opinion as VisaOpinion]?.color}`}>
+                                {VISA_OPINION_LABELS[event.details?.opinion as VisaOpinion]?.label}
+                              </Badge>
+                            )}
+                            {isStatusChange && (
+                              <Badge variant="outline" className="text-[10px]">
+                                {event.new_status}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-gray-500 text-xs">{formatDate(event.created_at)}</p>
+                          <div className="flex items-center gap-1 mt-1 text-xs text-gray-600">
+                            <User className="h-3 w-3" />
+                            <span>{workflow.all_names?.[event.user_id] || 'Système'}</span>
+                          </div>
+                          {event.details?.file_name && (
+                            <div className="mt-2 p-2 bg-gray-50 rounded border flex items-center justify-between gap-2">
+                              <span className="text-xs truncate">{event.details.file_name}</span>
+                              {event.details.version && (
+                                <Badge variant="secondary" className="text-[9px] px-1 py-0">v{event.details.version}</Badge>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  });
+                }
+
+                // Fallback to local reconstruction if history table is empty
+                const events: any[] = [];
                 
-                // Add submissions
+                // Add submissions and their reviews
                 workflow.submissions.forEach(sub => {
                   events.push({
                     type: 'submission',
@@ -493,25 +650,24 @@ export const VisaWorkflowPanel: React.FC<VisaWorkflowPanelProps> = ({
                     data: sub,
                     version: sub.version
                   });
-                });
-                
-                // Add validations
-                workflow.validations.forEach(val => {
-                  events.push({
-                    type: 'validation',
-                    date: val.created_at,
-                    data: val,
-                    version: val.version
+                  
+                  sub.reviews?.forEach(val => {
+                    events.push({
+                      type: 'validation',
+                      date: val.reviewed_at,
+                      data: val,
+                      version: sub.version
+                    });
                   });
                 });
                 
                 // Sort by date (oldest first)
                 events.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
                 
-                return events.map((event, index) => {
+                return events.map((event) => {
                   if (event.type === 'submission') {
                     const sub = event.data;
-                    const isCurrent = event.version === workflow.current_version;
+                    const isCurrent = event.version === currentVersion;
                     return (
                       <div key={`sub-${sub.id}`} className="relative pl-6 pb-4 border-l-2 border-blue-200">
                         <div className={`absolute left-[-9px] top-0 w-4 h-4 rounded-full border-4 border-white ${
@@ -550,31 +706,24 @@ export const VisaWorkflowPanel: React.FC<VisaWorkflowPanelProps> = ({
                     );
                   } else {
                     const val = event.data;
-                    const colors = {
-                      'F': { bg: 'bg-green-500', border: 'border-green-200', text: 'Favorable' },
-                      'D': { bg: 'bg-red-500', border: 'border-red-200', text: 'Défavorable' },
-                      'S': { bg: 'bg-yellow-500', border: 'border-yellow-200', text: 'Suspendu' },
-                      'HM': { bg: 'bg-gray-500', border: 'border-gray-200', text: 'Hors Mission' }
-                    };
-                    const color = colors[val.opinion] || colors['HM'];
                     return (
                       <div key={`val-${val.id}`} className="relative pl-6 pb-4 border-l-2 border-gray-200">
-                        <div className={`absolute left-[-9px] top-0 w-4 h-4 rounded-full ${color.bg} border-4 border-white`}></div>
+                        <div className={`absolute left-[-9px] top-0 w-4 h-4 rounded-full ${VISA_OPINION_LABELS[val.opinion as VisaOpinion].color.split(' ')[0]} border-4 border-white`}></div>
                         <div className="text-sm">
                           <div className="flex items-center gap-2">
                             <p className="font-medium">Avis de validation</p>
-                            <Badge className={`text-[10px] ${VISA_OPINION_LABELS[val.opinion].color}`}>
-                              {VISA_OPINION_LABELS[val.opinion].label}
+                            <Badge className={`text-[10px] ${VISA_OPINION_LABELS[val.opinion as VisaOpinion].color}`}>
+                              {VISA_OPINION_LABELS[val.opinion as VisaOpinion].label}
                             </Badge>
                           </div>
-                          <p className="text-gray-500 text-xs">{formatDate(val.created_at)}</p>
+                          <p className="text-gray-500 text-xs">{formatDate(val.reviewed_at)}</p>
                           <div className="flex items-center gap-1 mt-1 text-xs text-gray-600">
                             <User className="h-3 w-3" />
                             <span>{val.validator_name}</span>
                           </div>
                           <div className="flex items-center gap-1 text-xs text-gray-500">
                             <FileCheck className="h-3 w-3" />
-                            <span>v{val.version}</span>
+                            <span>v{event.version}</span>
                           </div>
                           {val.comment && (
                             <p className="mt-2 p-2 bg-gray-50 rounded text-xs text-gray-600 italic">
@@ -589,13 +738,77 @@ export const VisaWorkflowPanel: React.FC<VisaWorkflowPanelProps> = ({
               })()}
 
               {/* Empty state */}
-              {workflow.submissions.length === 0 && workflow.validations.length === 0 && (
+              {workflow.submissions.length === 0 && (
                 <div className="text-center py-4 text-gray-500 text-sm">
                   Aucune action effectuée sur ce workflow
                 </div>
               )}
             </div>
           </div>
+
+          {/* Actions Admin (uniquement pour les tâches standard) */}
+          {isAdmin && workflow.task_type === 'standard' && workflow.status !== 'approved' && workflow.status !== 'closed' && (
+            <div className="bg-amber-50 rounded-xl border border-amber-200 p-4 shadow-sm">
+              <h4 className="text-sm font-semibold flex items-center gap-2 text-amber-800 mb-3">
+                <Route className="h-4 w-4" />
+                Décision de l'Administrateur
+              </h4>
+              <p className="text-xs text-amber-700 mb-4">
+              En tant qu'administrateur, vous pouvez trancher sur la validation finale de cette tâche, 
+              même si certains avis sont défavorables ou si des soumissions manquent.
+            </p>
+
+            {workflow.validation_summary && (
+              <div className="mb-4 space-y-2">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-amber-800">Soumissions :</span>
+                  <span className={`font-bold ${workflow.validation_summary.is_fully_submitted ? 'text-green-600' : 'text-amber-600'}`}>
+                    {workflow.validation_summary.submitted_executors} / {workflow.validation_summary.total_executors} exécuteurs
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-amber-800">Avis défavorables :</span>
+                  <span className={`font-bold ${workflow.validation_summary.has_rejections ? 'text-red-600' : 'text-green-600'}`}>
+                    {workflow.validation_summary.has_rejections ? 'OUI' : 'AUCUN'}
+                  </span>
+                </div>
+              </div>
+            )}
+              <div className="flex gap-3">
+                <Button
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white gap-2 h-9 text-xs"
+                  onClick={async () => {
+                    if (confirm('Voulez-vous vraiment valider définitivement cette tâche ?')) {
+                      setSubmitting(true);
+                      const success = await submitAdminDecision(workflow.id, 'approved');
+                      if (success) loadWorkflow();
+                      setSubmitting(false);
+                    }
+                  }}
+                  disabled={submitting}
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                  Valider la tâche
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1 border-amber-300 text-amber-800 hover:bg-amber-100 gap-2 h-9 text-xs"
+                  onClick={async () => {
+                    if (confirm('Voulez-vous relancer la tâche (demander de nouvelles soumissions) ?')) {
+                      setSubmitting(true);
+                      const success = await submitAdminDecision(workflow.id, 'rejected');
+                      if (success) loadWorkflow();
+                      setSubmitting(false);
+                    }
+                  }}
+                  disabled={submitting}
+                >
+                  <Clock className="h-4 w-4" />
+                  Relancer la tâche
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
 
         {/* Actions */}
@@ -606,7 +819,7 @@ export const VisaWorkflowPanel: React.FC<VisaWorkflowPanelProps> = ({
               className="bg-green-600 hover:bg-green-700"
             >
               <FileUp className="h-4 w-4 mr-2" />
-              {workflow.status === 'revision_required' ? 'Resoumettre' : 'Soumettre'}
+              {(workflow.status === 'var' || workflow.status === 'rejected' || hasRejectedSubmission) ? 'Resoumettre' : 'Soumettre'}
             </Button>
           )}
           
@@ -702,15 +915,28 @@ export const VisaWorkflowPanel: React.FC<VisaWorkflowPanelProps> = ({
           <DialogHeader>
             <DialogTitle>Donner votre avis</DialogTitle>
             <DialogDescription>
-              Vous êtes le validateur {workflow.current_validator_idx + 1} sur {workflow.validator_order.length}.
-              Version {workflow.current_version} du document.
+              {workflow.task_type === 'workflow' ? (
+                <>Vous êtes le validateur {(workflow.current_validator_idx ?? 0) + 1} sur {workflow.validator_order?.length || 0}.</>
+              ) : (
+                <>
+                  {validatingSubmissionId ? (
+                    <>Validation de la soumission de <strong>{workflow.submissions.find(s => s.id === validatingSubmissionId)?.executor_name}</strong>.</>
+                  ) : (
+                    <>Validation de la soumission de l'exécuteur.</>
+                  )}
+                </>
+              )}
+              <br />
+              Version {validatingSubmissionId 
+                ? workflow.submissions.find(s => s.id === validatingSubmissionId)?.version 
+                : workflow.current_version} du document.
             </DialogDescription>
           </DialogHeader>
           
           <div className="grid gap-4 py-4">
             {/* Options d'avis */}
             <div className="grid grid-cols-2 gap-3">
-              {(Object.keys(VISA_OPINION_LABELS) as VisaOpinion[]).map((opinion) => {
+              {getValidOpinions(workflow.task_type).map((opinion) => {
                 const config = VISA_OPINION_LABELS[opinion];
                 const isSelected = selectedOpinion === opinion;
                 
@@ -726,7 +952,9 @@ export const VisaWorkflowPanel: React.FC<VisaWorkflowPanelProps> = ({
                   >
                     <div className="flex items-center gap-2">
                       {getOpinionIcon(opinion)}
-                      <span className="font-medium">{config.label}</span>
+                      <span className="font-medium">
+                        {workflow.task_type === 'standard' ? config.standardLabel || config.label : config.label}
+                      </span>
                     </div>
                     <p className="text-xs text-gray-500 mt-1">{config.description}</p>
                   </button>

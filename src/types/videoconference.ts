@@ -1,4 +1,4 @@
-export type VideoMeetingStatus = 'pending' | 'scheduled' | 'active' | 'completed' | 'cancelled';
+export type VideoMeetingStatus = 'pending' | 'scheduled' | 'active' | 'completed' | 'cancelled' | 'rejected';
 export type ParticipantStatus = 'invited' | 'present' | 'absent';
 export type ParticipantRole = 'moderator' | 'participant';
 

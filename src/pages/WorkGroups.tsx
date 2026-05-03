@@ -26,8 +26,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
+import { FeatureGate } from '@/components/ui/FeatureGate';
 
 const WorkGroups: React.FC = () => {
+  return (
+    <FeatureGate feature="groups">
+      <WorkGroupsContent />
+    </FeatureGate>
+  );
+};
+
+const WorkGroupsContent: React.FC = () => {
   const { toast } = useToast();
   const { user, status } = useAuth();
   const { 
@@ -643,5 +652,5 @@ const WorkGroups: React.FC = () => {
     </div>
   );
 };
- 
+
 export default WorkGroups;

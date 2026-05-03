@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { uploadToR2 } from '@/lib/r2';
+import { usePlan } from '@/hooks/usePlan';
 
 interface UploadState {
   progress: number;
@@ -25,8 +26,34 @@ const UploadContext = createContext<UploadContextType | undefined>(undefined);
 
 export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [uploads, setUploads] = useState<Record<string, UploadState>>({});
+  const { limits } = usePlan();
 
   const startUpload = useCallback(async (taskId: string, file: File, path: string): Promise<string> => {
+    // Vérifier la taille maximum autorisée par le plan
+    const maxGb = limits?.max_file_size_gb ?? 0.5;
+    if (maxGb !== -1) {
+      const fileSizeGb = file.size / (1024 ** 3);
+      if (fileSizeGb > maxGb) {
+        const errorMsg = `Fichier trop volumineux. Votre formule autorise ${maxGb} Go maximum. Contactez notre équipe pour passer au plan supérieur.`;
+        setUploads(prev => ({
+          ...prev,
+          [taskId]: { 
+            progress: 0, 
+            isUploading: false, 
+            fileUrl: null, 
+            error: errorMsg,
+            fileName: file.name,
+            fileSize: file.size,
+            uploadedBytes: 0,
+            startTime: null,
+            speedBps: null,
+            etaSec: null
+          }
+        }));
+        throw new Error(errorMsg);
+      }
+    }
+
     // Initialiser l'état de l'upload avec les métadonnées du fichier
     setUploads(prev => ({
       ...prev,

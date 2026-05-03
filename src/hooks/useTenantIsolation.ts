@@ -113,14 +113,14 @@ export function useTenantIsolation() {
   }, [tenantId, canAddIntervenant, status]);
 
   /**
-   * Récupère les tâches du tenant courant
+   * Récupère les tâches du tenant courant via la vue
    */
   const getTasks = useCallback(async () => {
     if (status !== 'authenticated' || !tenantId) return [];
     
     const { data, error } = await supabase
-      .from('task_assignments')
-      .select('*, project:projects(*), assignee:membre(*)')
+      .from('task_assignments_view')
+      .select('*')
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false });
 
@@ -129,16 +129,19 @@ export function useTenantIsolation() {
   }, [tenantId, status]);
 
   /**
-   * Crée une tâche
+   * Crée une tâche (via la table tasks)
    */
   const createTask = useCallback(async (taskData: any) => {
     if (status !== 'authenticated' || !tenantId) throw new Error('No tenant selected or not authenticated');
 
+    // On s'assure que le project_id est fourni
+    if (!taskData.project_id) throw new Error('project_id is required');
+
     const { data, error } = await supabase
-      .from('task_assignments')
+      .from('tasks')
       .insert({
         ...taskData,
-        tenant_id: tenantId
+        created_at: new Date().toISOString()
       })
       .select()
       .single();

@@ -217,7 +217,7 @@ serve(async (req) => {
             signatureToken: token,
             signatureLink
           },
-          read: false
+          is_read: false
         });
 
       if (notifError) {

@@ -209,9 +209,9 @@ const Projects: React.FC = () => {
             .eq('is_deleted', true)
             .then(({ data }) => data || []),
           
-          // Tâches assignées pour ce batch
+          // Tâches pour ce batch
           supabase
-            .from('task_assignments')
+            .from('task_assignments_view')
             .select('status, project_id')
             .in('project_id', batch)
             .then(({ data }) => data || []),
@@ -259,10 +259,10 @@ const Projects: React.FC = () => {
         const members = membersByProject[project.id] || 0;
         const tasks = tasksByProject[project.id] || [];
 
-        const tasksAssigned = tasks.filter((t: any) => t.status === 'assigned').length;
-        const tasksSubmitted = tasks.filter((t: any) => t.status === 'submitted').length;
-        const tasksValidated = tasks.filter((t: any) => t.status === 'validated').length;
-        const tasksRejected = tasks.filter((t: any) => t.status === 'rejected').length;
+        const tasksAssigned = tasks.filter((t: any) => t.status === 'assigned' || t.status === 'open').length;
+        const tasksSubmitted = tasks.filter((t: any) => t.status === 'submitted' || t.status === 'in_review').length;
+        const tasksValidated = tasks.filter((t: any) => ['validated', 'approved', 'vso', 'vao', 'closed'].includes(t.status)).length;
+        const tasksRejected = tasks.filter((t: any) => ['rejected', 'var'].includes(t.status)).length;
 
         // Nombre total de tâches = tâches dans le snapshot (structure figée)
         let totalTasks = snapshotTasksByProject[project.id] || 0;
@@ -753,31 +753,21 @@ const Projects: React.FC = () => {
     if (!selectedProject) return;
     
     try {
-      // 1. Nettoyer les données liées au projet (cascade manuelle)
-      // Suppression des assignations de tâches
-      await deleteData('task_assignments', selectedProject.id, 'project_id');
+      // 1. Nettoyer les données liées au projet (cascade manuelle pour ce qui n'est pas géré par le DB)
+      // Note: Les tâches (standard_tasks, workflow_tasks), documents et snapshots 
+      // sont automatiquement supprimés via ON DELETE CASCADE dans la base de données.
       
       // Suppression des membres du projet
       await deleteData('membre', selectedProject.id, 'project_id');
       
-      // Suppression des soumissions de tâches (via les assignations du projet)
-      const { data: assignments } = await supabase
-        .from('task_assignments')
-        .select('id')
-        .eq('project_id', selectedProject.id);
-      
-      if (assignments && assignments.length > 0) {
-        const assignmentIds = assignments.map(a => a.id);
-        await supabase
-          .from('task_submissions')
-          .delete()
-          .in('assignment_id', assignmentIds);
-      }
-
       // 2. Supprimer le projet lui-même
-      const success = await deleteData('projects', selectedProject.id);
+      // On utilise directement supabase.from('projects') pour plus de clarté
+      const { error: deleteError } = await supabase
+        .from('projects')
+        .delete()
+        .eq('id', selectedProject.id);
       
-      if (success) {
+      if (!deleteError) {
         toast({
           title: "Succès",
           description: "Projet et toutes ses données associées supprimés avec succès",
@@ -786,8 +776,11 @@ const Projects: React.FC = () => {
         setSelectedProject(null);
         // Recharger les projets
         fetchProjects();
+      } else {
+        throw deleteError;
       }
     } catch (error) {
+      console.error("Erreur lors de la suppression du projet:", error);
       toast({
         title: "Erreur",
         description: "Impossible de supprimer le projet ou ses données",

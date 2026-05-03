@@ -1,7 +1,9 @@
 // Types pour les assignements de tâches
 // Basé sur l'interface TaskAssignment de ProjectDetails.tsx
 
-export type TaskStatus = 'assigned' | 'in_progress' | 'submitted' | 'validated' | 'rejected';
+import { TaskStatus as ProjectTaskStatus } from './project';
+
+export type TaskStatus = ProjectTaskStatus;
 export type PhaseId = 'conception' | 'realisation';
 export type FileExtension = 'pdf' | 'doc' | 'docx' | 'xls' | 'xlsx' | 'jpg' | 'png' | 'dwg' | 'other';
 
@@ -16,7 +18,7 @@ export interface TaskAssignment {
   assigned_to: string[]; // Array des UUIDs des intervenants
   deadline: string; // ISO string
   validation_deadline: string; // ISO string
-  validators: string[]; // Array des UUIDs des validateurs
+  validators: { user_id: string; days_limit: number }[]; // Array des UUIDs des validateurs avec limite de jours
   file_extension: FileExtension;
   comment?: string;
   status: TaskStatus;
@@ -40,7 +42,7 @@ export interface CreateTaskAssignmentData {
   assigned_to: string[];
   deadline: string;
   validation_deadline: string;
-  validators: string[];
+  validators: { user_id: string; days_limit: number }[];
   file_extension: FileExtension;
   comment?: string;
 }
@@ -51,7 +53,7 @@ export interface UpdateTaskAssignmentData {
   assigned_to?: string[];
   deadline?: string;
   validation_deadline?: string;
-  validators?: string[];
+  validators?: { user_id: string; days_limit: number }[];
   file_extension?: FileExtension;
   comment?: string;
   status?: TaskStatus;
@@ -113,19 +115,25 @@ export interface TaskAssignmentWithDetails extends TaskAssignment {
 
 // Constantes pour les statuts
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
-  assigned: 'Assignée',
-  in_progress: 'En cours',
-  submitted: 'Soumise',
-  validated: 'Validée',
-  rejected: 'Rejetée'
+  open: 'Ouverte',
+  in_review: 'En revue',
+  approved: 'Approuvée',
+  rejected: 'Rejetée',
+  vso: 'Visa Sans Obs.',
+  vao: 'Visa Avec Obs.',
+  var: 'Visa À Resoumettre',
+  closed: 'Clôturée'
 };
 
 export const TASK_STATUS_COLORS: Record<TaskStatus, string> = {
-  assigned: 'bg-blue-100 text-blue-800',
-  in_progress: 'bg-yellow-100 text-yellow-800',
-  submitted: 'bg-purple-100 text-purple-800',
-  validated: 'bg-green-100 text-green-800',
-  rejected: 'bg-red-100 text-red-800'
+  open: 'bg-blue-100 text-blue-800',
+  in_review: 'bg-yellow-100 text-yellow-800',
+  approved: 'bg-green-100 text-green-800',
+  rejected: 'bg-red-100 text-red-800',
+  vso: 'bg-emerald-100 text-emerald-800',
+  vao: 'bg-orange-100 text-orange-800',
+  var: 'bg-rose-100 text-rose-800',
+  closed: 'bg-gray-100 text-gray-800'
 };
 
 // Constantes pour les phases
@@ -162,7 +170,7 @@ export const validateTaskAssignment = (data: CreateTaskAssignmentData): string[]
   if (data.validators.length === 0) errors.push('Au moins un validateur requis');
   
   // Vérifier que les assignés ne sont pas dans les validateurs
-  if (data.assigned_to && data.assigned_to.some(assignee => data.validators.includes(assignee))) {
+  if (data.assigned_to && data.assigned_to.some(assignee => data.validators.some(v => v.user_id === assignee))) {
     errors.push('Un intervenant assigné ne peut pas être validateur');
   }
   
@@ -180,7 +188,7 @@ export const validateTaskAssignment = (data: CreateTaskAssignmentData): string[]
 
 // Fonction pour vérifier si une tâche est en retard
 export const isTaskOverdue = (assignment: TaskAssignment): boolean => {
-  if (assignment.status === 'validated' || assignment.status === 'rejected') {
+  if (assignment.status === 'approved' || assignment.status === 'rejected' || assignment.status === 'vso' || assignment.status === 'closed') {
     return false;
   }
   
@@ -191,7 +199,7 @@ export const isTaskOverdue = (assignment: TaskAssignment): boolean => {
 
 // Fonction pour vérifier si une tâche est due bientôt (dans les 3 jours)
 export const isTaskDueSoon = (assignment: TaskAssignment): boolean => {
-  if (assignment.status === 'validated' || assignment.status === 'rejected') {
+  if (assignment.status === 'approved' || assignment.status === 'rejected' || assignment.status === 'vso' || assignment.status === 'closed') {
     return false;
   }
   
@@ -207,11 +215,11 @@ export const isTaskDueSoon = (assignment: TaskAssignment): boolean => {
 export const calculateTaskStats = (assignments: TaskAssignment[]): TaskAssignmentStats => {
   return {
     total: assignments.length,
-    assigned: assignments.filter(a => a.status === 'assigned').length,
-    in_progress: assignments.filter(a => a.status === 'in_progress').length,
-    submitted: assignments.filter(a => a.status === 'submitted').length,
-    validated: assignments.filter(a => a.status === 'validated').length,
-    rejected: assignments.filter(a => a.status === 'rejected').length,
+    assigned: assignments.filter(a => a.status === 'open').length,
+    in_progress: assignments.filter(a => a.status === 'in_review').length,
+    submitted: assignments.filter(a => a.status === 'in_review').length, // submitted map to in_review
+    validated: assignments.filter(a => a.status === 'approved' || a.status === 'vso').length,
+    rejected: assignments.filter(a => a.status === 'rejected' || a.status === 'var' || a.status === 'vao').length,
     overdue: assignments.filter(isTaskOverdue).length,
     due_soon: assignments.filter(isTaskDueSoon).length
   };

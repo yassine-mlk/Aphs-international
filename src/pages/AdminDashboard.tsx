@@ -12,13 +12,11 @@ import {
   AlertTriangle,
   CheckCircle,
   Clock,
-  MessageSquare,
-  Video,
-  RefreshCw,
   PenTool
 } from 'lucide-react';
 import { useSupabase } from '@/hooks/useSupabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTenant } from '@/contexts/TenantContext';
 import { useRecentActivities, type RecentActivity } from '@/hooks/useRecentActivities';
 import { useAdminDocuments } from '@/hooks/useAdminDocuments';
 import { ActivityIcon } from '@/components/ActivityIcon';
@@ -32,26 +30,30 @@ interface DashboardStats {
   completedProjects: number;
   overdueProjects: number;
   totalIntervenants: number;
-  totalTasks: number;
-  pendingTasks: number;
-  completedTasks: number;
-  overdueTasks: number;
-  unassignedTasks: number;
-  tasksToValidate: number;
-  unreadMessages: number;
-  staleConversations: number;
+  totalCompanies: number;
+  totalSoloMembers: number;
+  totalStandardTasks: number;
+  standardTasksToAssign: number;
+  standardTasksInProgress: number;
+  standardTasksOverdue: number;
+  standardTasksValidated: number;
+  totalWorkflows: number;
+  workflowsInReview: number;
+  workflowsVSO: number;
+  workflowsBlocked: number;
   activeMeetings: number;
   upcomingMeetings: number;
+  totalAlerts: number;
 }
 
-type AdminUrgencyType = 'task_unassigned' | 'task_overdue' | 'task_to_validate' | 'task_deadline_soon' | 'conversation_stale';
+type AdminUrgencyType = 'task_unassigned' | 'task_overdue' | 'task_to_validate' | 'task_deadline_soon' | 'conversation_stale' | 'project_overdue' | 'workflow_blocked';
 
 interface AdminUrgencyItem {
   id: string;
   type: AdminUrgencyType;
   title: string;
   description: string;
-  score: number;
+  score?: number;
   date?: string;
   action?: { label: string; to: string };
 }
@@ -62,9 +64,8 @@ const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { fetchData, supabase } = useSupabase();
-  const { user, status } = useAuth();
-
-  const noResponseThresholdHours = 24;
+  const { user, role, status } = useAuth();
+  const { tenant } = useTenant();
 
   const [stats, setStats] = useState<DashboardStats>({
     totalProjects: 0,
@@ -72,16 +73,20 @@ const AdminDashboard: React.FC = () => {
     completedProjects: 0,
     overdueProjects: 0,
     totalIntervenants: 0,
-    totalTasks: 0,
-    pendingTasks: 0,
-    completedTasks: 0,
-    overdueTasks: 0,
-    unassignedTasks: 0,
-    tasksToValidate: 0,
-    unreadMessages: 0,
-    staleConversations: 0,
+    totalCompanies: 0,
+    totalSoloMembers: 0,
+    totalStandardTasks: 0,
+    standardTasksToAssign: 0,
+    standardTasksInProgress: 0,
+    standardTasksOverdue: 0,
+    standardTasksValidated: 0,
+    totalWorkflows: 0,
+    workflowsInReview: 0,
+    workflowsVSO: 0,
+    workflowsBlocked: 0,
     activeMeetings: 0,
-    upcomingMeetings: 0
+    upcomingMeetings: 0,
+    totalAlerts: 0
   });
 
   const [urgentItems, setUrgentItems] = useState<AdminUrgencyItem[]>([]);
@@ -103,7 +108,8 @@ const AdminDashboard: React.FC = () => {
 
       // Charger les projets
       const projects = await fetchData<any>('projects', {
-        columns: 'id, name, status, deadline'
+        columns: 'id, name, status, deadline',
+        filters: tenant?.id ? [{ column: 'tenant_id', operator: 'eq', value: tenant.id }] : []
       }) || [];
 
       const projectsById = new Map<string, any>(projects.map((p: any) => [p.id, p]));
@@ -117,75 +123,34 @@ const AdminDashboard: React.FC = () => {
 
       // Charger les intervenants
       const intervenants = await fetchData<any>('profiles', {
-        columns: 'user_id, role',
-        filters: [{ column: 'role', operator: 'neq', value: 'admin' }]
+        columns: 'user_id, role, company',
+        filters: [
+          { column: 'role', operator: 'neq', value: 'admin' },
+          ...(tenant?.id ? [{ column: 'tenant_id', operator: 'eq', value: tenant.id }] : [])
+        ]
       }) || [];
 
-      // Charger les tâches depuis task_assignments
-      const taskAssignmentsData = await fetchData<any>('task_assignments', {
-        columns: 'id, status, deadline, validation_deadline, assigned_to, project_id, task_name'
+      // Charger les tâches depuis task_assignments_view (vue consolidée)
+      const taskAssignmentsData = await fetchData<any>('task_assignments_view', {
+        columns: 'id, status, deadline, validation_deadline, assigned_to, project_id, task_name, assignment_type',
+        filters: tenant?.id ? [{ column: 'tenant_id', operator: 'eq', value: tenant.id }] : []
       }) || [];
 
       // Filtrer pour ne garder que les tâches dont le projet existe
       const projectIds = new Set(projects.map((p: any) => p.id));
       const taskAssignments = taskAssignmentsData.filter((t: any) => projectIds.has(t.project_id));
 
-      // Debug pour vérifier les données
+      const standardTasks = taskAssignments.filter((t: any) => t.assignment_type === 'standard');
+      const workflows = taskAssignments.filter((t: any) => t.assignment_type === 'workflow');
 
-      const tasksToValidate = taskAssignments.filter((t: any) => t.status === 'submitted').length;
+      const standardTasksToAssign = standardTasks.filter((t: any) => !t.assigned_to || t.assigned_to.length === 0).length;
+      const standardTasksInProgress = standardTasks.filter((t: any) => t.status === 'in_progress' || t.status === 'submitted').length;
+      const standardTasksOverdue = standardTasks.filter((t: any) => t.deadline && new Date(t.deadline) < now && t.status !== 'validated' && t.status !== 'finalized').length;
+      const standardTasksValidated = standardTasks.filter((t: any) => t.status === 'validated' || t.status === 'finalized').length;
 
-      // Messages: non lus + conversations sans réponse > X heures (scope: conversations de l'admin)
-      let unreadMessages = 0;
-      let staleConversations = 0;
-      try {
-        if (user?.id) {
-          const { data: participations, error: participationsError } = await supabase
-            .rpc('get_user_conversations', { p_user_id: user.id });
-
-          if (!participationsError && participations && participations.length > 0) {
-            const conversationIds = participations.map((p: any) => p.conversation_id).filter(Boolean);
-            const threshold = new Date(now.getTime() - noResponseThresholdHours * 60 * 60 * 1000);
-
-            if (conversationIds.length > 0) {
-              const { data: recentMessages, error: messagesError } = await supabase
-                .from('messages')
-                .select('id, conversation_id, sender_id, created_at')
-                .in('conversation_id', conversationIds)
-                .order('created_at', { ascending: false })
-                .limit(500);
-
-              if (!messagesError && recentMessages && recentMessages.length > 0) {
-                const messageIds = recentMessages.map(m => m.id);
-
-                const { data: reads, error: readsError } = await supabase
-                  .from('message_reads')
-                  .select('message_id')
-                  .eq('user_id', user.id)
-                  .in('message_id', messageIds);
-
-                if (!readsError) {
-                  const readIds = new Set((reads || []).map(r => r.message_id));
-                  unreadMessages = recentMessages.filter(m => m.sender_id !== user.id && !readIds.has(m.id)).length;
-                }
-
-                const lastByConversation = new Map<string, any>();
-                for (const msg of recentMessages) {
-                  if (!lastByConversation.has(msg.conversation_id)) {
-                    lastByConversation.set(msg.conversation_id, msg);
-                  }
-                }
-
-                staleConversations = Array.from(lastByConversation.values()).filter(msg => {
-                  const createdAt = new Date(msg.created_at);
-                  if (isNaN(createdAt.getTime())) return false;
-                  return createdAt < threshold && msg.sender_id !== user.id;
-                }).length;
-              }
-            }
-          }
-        }
-      } catch (e) {
-      }
+      const workflowsInReview = workflows.filter((t: any) => t.status === 'in_review').length;
+      const workflowsVSO = workflows.filter((t: any) => t.status === 'vso').length;
+      const workflowsBlocked = workflows.filter((t: any) => t.status === 'blocked' || t.status === 'rejected').length;
 
       // Réunions
       let activeMeetings = 0;
@@ -198,106 +163,100 @@ const AdminDashboard: React.FC = () => {
         completedProjects: projects.filter((p: any) => p.status === 'completed' || p.status === 'finalized').length,
         overdueProjects,
         totalIntervenants: intervenants.length,
-        totalTasks: taskAssignments.length,
-        pendingTasks: taskAssignments.filter((t: any) => 
-          t.status === 'assigned' || 
-          t.status === 'in_progress' || 
-          t.status === 'submitted' ||
-          t.status === 'rejected'
-        ).length,
-        completedTasks: taskAssignments.filter((t: any) => t.status === 'validated' || t.status === 'finalized').length,
-        overdueTasks: taskAssignments.filter((t: any) => 
-          t.deadline && 
-          new Date(t.deadline) < now && 
-          t.status !== 'validated' &&
-          t.status !== 'finalized'
-        ).length,
-        unassignedTasks: taskAssignments.filter((t: any) => !t.assigned_to || t.assigned_to.length === 0).length,
-        tasksToValidate,
-        unreadMessages,
-        staleConversations,
+        totalCompanies: new Set(intervenants.map((i: any) => i.company).filter(Boolean)).size,
+        totalSoloMembers: intervenants.filter((i: any) => !i.company).length,
+        totalStandardTasks: standardTasks.length,
+        standardTasksToAssign,
+        standardTasksInProgress,
+        standardTasksOverdue,
+        standardTasksValidated,
+        totalWorkflows: workflows.length,
+        workflowsInReview,
+        workflowsVSO,
+        workflowsBlocked,
         activeMeetings,
-        upcomingMeetings
+        upcomingMeetings,
+        totalAlerts: overdueProjects + standardTasksOverdue + workflowsBlocked
       };
 
 
       setStats(newStats);
 
-      // Construire le bloc "À faire maintenant" (Top 10 urgences)
-      const urgencyItems: AdminUrgencyItem[] = [];
+      // Construire la liste des urgences
+      const urgentItems: AdminUrgencyItem[] = [];
 
-      const formatProjectName = (projectId: string) => {
-        return projectsById.get(projectId)?.name || 'Projet';
-      };
+      // Projets en retard
+      projects.filter((p: any) => p.status !== 'completed' && p.deadline && new Date(p.deadline) < now).forEach((p: any) => {
+        urgentItems.push({
+          id: `project_${p.id}`,
+          type: 'project_overdue',
+          title: 'Projet en retard',
+          description: p.name,
+          date: p.deadline,
+          action: { label: 'Voir projet', to: `/dashboard/projets/${p.id}` }
+        });
+      });
 
-      for (const task of taskAssignments) {
-        const projectName = formatProjectName(task.project_id);
+      // Tâches standards en retard
+      standardTasks.filter((t: any) => t.status !== 'validated' && t.status !== 'finalized' && t.deadline && new Date(t.deadline) < now).forEach((t: any) => {
+        const project = projects.find((p: any) => p.id === t.project_id);
+        urgentItems.push({
+          id: `task_overdue_${t.id}`,
+          type: 'task_overdue',
+          title: 'Tâche en retard',
+          description: `${project?.name || 'Projet inconnu'} • ${t.task_name}`,
+          date: t.deadline,
+          action: { label: 'Voir tâche', to: `/dashboard/tasks/${t.id}` }
+        });
+      });
 
-        const isUnassigned = !task.assigned_to || task.assigned_to.length === 0;
-        const isSubmitted = task.status === 'submitted';
+      // Tâches standards non assignées
+      standardTasks.filter((t: any) => !t.assigned_to || t.assigned_to.length === 0).forEach((t: any) => {
+        const project = projects.find((p: any) => p.id === t.project_id);
+        urgentItems.push({
+          id: `task_unassigned_${t.id}`,
+          type: 'task_unassigned',
+          title: 'Tâche non assignée',
+          description: `${project?.name || 'Projet inconnu'} • ${t.task_name}`,
+          action: { label: 'Assigner', to: `/dashboard/projets/${t.project_id}` }
+        });
+      });
 
-        const deadline = task.deadline ? new Date(task.deadline) : null;
-        const validationDeadline = task.validation_deadline ? new Date(task.validation_deadline) : null;
+      // Tâches standards à valider
+      standardTasks.filter((t: any) => t.status === 'submitted').forEach((t: any) => {
+        const project = projects.find((p: any) => p.id === t.project_id);
+        urgentItems.push({
+          id: `task_validate_${t.id}`,
+          type: 'task_to_validate',
+          title: 'Tâche à valider',
+          description: `${project?.name || 'Projet inconnu'} • ${t.task_name}`,
+          action: { label: 'Valider', to: `/dashboard/tasks/${t.id}` }
+        });
+      });
 
-        const isOverdue = !!deadline && !isNaN(deadline.getTime()) && deadline < now && task.status !== 'validated' && task.status !== 'finalized';
-        const daysToDeadline = deadline && !isNaN(deadline.getTime()) ? Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : null;
+      // Workflows bloqués
+      workflows.filter((t: any) => t.status === 'blocked' || t.status === 'rejected').forEach((t: any) => {
+        const project = projects.find((p: any) => p.id === t.project_id);
+        urgentItems.push({
+          id: `workflow_blocked_${t.id}`,
+          type: 'workflow_blocked',
+          title: 'Workflow bloqué',
+          description: `${project?.name || 'Projet inconnu'} • ${t.task_name}`,
+          action: { label: 'Voir workflow', to: `/dashboard/tasks/${t.id}` }
+        });
+      });
 
-        if (isUnassigned) {
-          urgencyItems.push({
-            id: `task_unassigned_${task.id}`,
-            type: 'task_unassigned',
-            title: 'Tâche à assigner',
-            description: `${projectName} • ${task.task_name}`,
-            score: 100,
-            date: task.deadline,
-            action: { label: 'Ouvrir projet', to: `/dashboard/projets/${task.project_id}` }
-          });
-        }
-
-        if (isSubmitted) {
-          let score = 85;
-          if (validationDeadline && !isNaN(validationDeadline.getTime())) {
-            const daysToValidationDeadline = Math.ceil((validationDeadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-            score += Math.max(0, 10 - Math.min(10, daysToValidationDeadline));
-            if (validationDeadline < now) score = 95;
-          }
-          urgencyItems.push({
-            id: `task_to_validate_${task.id}`,
-            type: 'task_to_validate',
-            title: 'Tâche à valider',
-            description: `${projectName} • ${task.task_name}`,
-            score,
-            date: task.validation_deadline || task.deadline,
-            action: { label: 'Voir tâche', to: `/dashboard/tasks/${task.id}` }
-          });
-        }
-
-        if (isOverdue) {
-          const score = 90 + Math.min(9, Math.max(0, (daysToDeadline || 0) * -1));
-          urgencyItems.push({
-            id: `task_overdue_${task.id}`,
-            type: 'task_overdue',
-            title: 'Tâche en retard',
-            description: `${projectName} • ${task.task_name}`,
-            score,
-            date: task.deadline,
-            action: { label: 'Voir tâche', to: `/dashboard/tasks/${task.id}` }
-          });
-        } else if (daysToDeadline !== null && daysToDeadline >= 0 && daysToDeadline <= 3 && task.status !== 'validated' && task.status !== 'finalized') {
-          urgencyItems.push({
-            id: `task_deadline_soon_${task.id}`,
-            type: 'task_deadline_soon',
-            title: 'Deadline proche',
-            description: `${projectName} • ${task.task_name} (J-${daysToDeadline})`,
-            score: 70 + (3 - daysToDeadline),
-            date: task.deadline,
-            action: { label: 'Voir tâche', to: `/dashboard/tasks/${task.id}` }
-          });
-        }
-      }
-
-      urgencyItems.sort((a, b) => b.score - a.score);
-      setUrgentItems(urgencyItems.slice(0, 10));
+      setUrgentItems(urgentItems.sort((a, b) => {
+        // Priorité: retard > non assigné > à valider
+        const weights: any = {
+          'project_overdue': 1,
+          'task_overdue': 2,
+          'workflow_blocked': 3,
+          'task_unassigned': 4,
+          'task_to_validate': 5
+        };
+        return (weights[a.type] || 99) - (weights[b.type] || 99);
+      }).slice(0, 10));
 
       // Les activités récentes sont maintenant gérées par le hook useRecentActivities
 
@@ -376,6 +335,27 @@ const AdminDashboard: React.FC = () => {
 
 
 
+  // Supabase Realtime pour le refresh auto
+  useEffect(() => {
+    if (!tenant?.id) return;
+
+    const channels = [
+      supabase.channel('projects_changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'projects', filter: `tenant_id=eq.${tenant.id}` }, () => loadStats())
+        .subscribe(),
+      supabase.channel('tasks_changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => loadStats())
+        .subscribe()
+    ];
+
+    const interval = setInterval(() => loadStats(), 60000); // Backup refresh every 60s
+
+    return () => {
+      channels.forEach(channel => supabase.removeChannel(channel));
+      clearInterval(interval);
+    };
+  }, [tenant?.id]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 p-6">
@@ -414,38 +394,50 @@ const AdminDashboard: React.FC = () => {
       initial="hidden"
       animate="visible"
       variants={containerVariants}
-      className="min-h-screen bg-background p-6"
+      className="min-h-screen bg-[#F8F9FA] p-4 md:p-8"
     >
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* En-tête */}
-        <motion.div variants={itemVariants} className="flex justify-between items-center">
+      <div className="max-w-7xl mx-auto space-y-8">
+        {/* SECTION 1: Header personnalisé */}
+        <motion.div variants={itemVariants} className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-4xl font-black text-black tracking-tight">
-              Tableau de Bord
+            <p className="text-sm font-medium text-gray-500 capitalize">
+              {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            </p>
+            <h1 className="text-3xl font-bold text-gray-900 mt-1">
+              Bonjour, {user?.user_metadata?.first_name || 'Admin'} 👋
             </h1>
+            <p className="text-sm text-gray-500 mt-1">
+              Voici un résumé de l'activité de vos projets
+            </p>
           </div>
         </motion.div>
 
-        {/* KPI essentiels */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* SECTION 2: KPI Cards redesignées */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+          {/* Card Projets */}
           <motion.div variants={itemVariants}>
-            <Card className="border-0 shadow-xl bg-white rounded-2xl overflow-hidden hover:shadow-2xl transition-shadow duration-300">
-              <CardHeader className="flex flex-row items-center justify-between pb-2 border-b border-gray-50">
-                <CardTitle className="text-xs font-bold text-gray-400 uppercase tracking-wider">Projets</CardTitle>
-                <div className="p-2 bg-blue-50 rounded-lg">
-                  <Briefcase className="h-5 w-5 text-blue-600" />
+            <Card 
+              className="border-0 shadow-sm bg-white rounded-2xl overflow-hidden hover:shadow-md transition-all cursor-pointer"
+              onClick={() => navigate('/dashboard/projets')}
+            >
+              <CardContent className="p-6">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Projets</p>
+                    <h3 className="text-4xl font-black text-gray-900 mt-2">{stats.totalProjects}</h3>
+                  </div>
+                  <div className="p-3 bg-blue-50 rounded-xl">
+                    <Briefcase className="h-6 w-6 text-[#1976D2]" />
+                  </div>
                 </div>
-              </CardHeader>
-              <CardContent className="pt-6">
-                <div className="text-4xl font-black text-black">{stats.totalProjects}</div>
-                <div className="flex flex-wrap gap-2 mt-4">
-                  <Badge variant="secondary" className="bg-blue-600 text-white hover:bg-blue-700">
+                <div className="flex flex-wrap gap-2 mt-6">
+                  <Badge variant="secondary" className="bg-blue-50 text-[#1976D2] border-blue-100 font-bold text-[10px]">
                     {stats.activeProjects} actifs
                   </Badge>
-                  <Badge variant="secondary" className="bg-red-600 text-white hover:bg-red-700">
-                    {stats.overdueProjects} en retard
+                  <Badge variant="secondary" className="bg-red-50 text-[#D32F2F] border-red-100 font-bold text-[10px]">
+                    {stats.overdueProjects} retards
                   </Badge>
-                  <Badge variant="secondary" className="bg-black text-white hover:bg-gray-800">
+                  <Badge variant="secondary" className="bg-green-50 text-[#388E3C] border-green-100 font-bold text-[10px]">
                     {stats.completedProjects} terminés
                   </Badge>
                 </div>
@@ -453,291 +445,218 @@ const AdminDashboard: React.FC = () => {
             </Card>
           </motion.div>
 
+          {/* Card Intervenants */}
           <motion.div variants={itemVariants}>
-            <Card className="border-0 shadow-xl bg-white rounded-2xl overflow-hidden hover:shadow-2xl transition-shadow duration-300">
-              <CardHeader className="flex flex-row items-center justify-between pb-2 border-b border-gray-50">
-                <CardTitle className="text-xs font-bold text-gray-400 uppercase tracking-wider">Intervenants</CardTitle>
-                <div className="p-2 bg-gray-50 rounded-lg">
-                  <Users className="h-5 w-5 text-black" />
+            <Card 
+              className="border-0 shadow-sm bg-white rounded-2xl overflow-hidden hover:shadow-md transition-all cursor-pointer"
+              onClick={() => navigate('/dashboard/intervenants')}
+            >
+              <CardContent className="p-6">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Intervenants</p>
+                    <h3 className="text-4xl font-black text-gray-900 mt-2">{stats.totalIntervenants}</h3>
+                  </div>
+                  <div className="p-3 bg-green-50 rounded-xl">
+                    <Users className="h-6 w-6 text-[#388E3C]" />
+                  </div>
                 </div>
-              </CardHeader>
-              <CardContent className="pt-6">
-                <div className="text-4xl font-black text-black">{stats.totalIntervenants}</div>
-                <p className="text-sm text-gray-500 mt-2 font-medium">
-                  Spécialistes actifs
-                </p>
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          <motion.div variants={itemVariants}>
-            <Card className="border-0 shadow-xl bg-white rounded-2xl overflow-hidden hover:shadow-2xl transition-shadow duration-300">
-              <CardHeader className="flex flex-row items-center justify-between pb-2 border-b border-gray-50">
-                <CardTitle className="text-xs font-bold text-gray-400 uppercase tracking-wider">Tâches</CardTitle>
-                <div className="p-2 bg-blue-50 rounded-lg">
-                  <ClipboardCheck className="h-5 w-5 text-blue-600" />
-                </div>
-              </CardHeader>
-              <CardContent className="pt-6">
-                <div className="text-4xl font-black text-black">{stats.totalTasks}</div>
-                <div className="flex flex-wrap gap-2 mt-4">
-                  <Badge variant="secondary" className="bg-orange-600 text-white hover:bg-orange-700">
-                    {stats.unassignedTasks} à assigner
+                <div className="flex flex-wrap gap-2 mt-6">
+                  <Badge variant="secondary" className="bg-gray-50 text-gray-600 border-gray-100 font-bold text-[10px]">
+                    {stats.totalCompanies} entreprises
                   </Badge>
-                  <Badge variant="secondary" className="bg-purple-600 text-white hover:bg-purple-700">
-                    {stats.tasksToValidate} à valider
-                  </Badge>
-                  <Badge variant="secondary" className="bg-blue-100 text-blue-700 font-bold">
-                    {stats.pendingTasks} en cours
-                  </Badge>
-                  <Badge variant="secondary" className="bg-gray-100 text-black font-bold">
-                    {stats.completedTasks} validées
+                  <Badge variant="secondary" className="bg-gray-50 text-gray-600 border-gray-100 font-bold text-[10px]">
+                    {stats.totalSoloMembers} membres solo
                   </Badge>
                 </div>
               </CardContent>
             </Card>
           </motion.div>
 
+          {/* Card Tâches Standards */}
           <motion.div variants={itemVariants}>
-            <Card className="border-0 shadow-xl bg-white rounded-2xl overflow-hidden hover:shadow-2xl transition-shadow duration-300">
-              <CardHeader className="flex flex-row items-center justify-between pb-2 border-b border-gray-50">
-                <CardTitle className="text-xs font-bold text-gray-400 uppercase tracking-wider">Alertes</CardTitle>
-                <div className="p-2 bg-red-50 rounded-lg">
-                  <AlertTriangle className="h-5 w-5 text-red-600" />
+            <Card className="border-0 shadow-sm bg-white rounded-2xl overflow-hidden hover:shadow-md transition-all">
+              <CardContent className="p-6">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Tâches Standards</p>
+                    <h3 className="text-4xl font-black text-gray-900 mt-2">{stats.totalStandardTasks}</h3>
+                  </div>
+                  <div className="p-3 bg-orange-50 rounded-xl">
+                    <ClipboardCheck className="h-6 w-6 text-[#F57C00]" />
+                  </div>
                 </div>
-              </CardHeader>
-              <CardContent className="pt-6">
-                <div className="text-4xl font-black text-red-600">{stats.overdueTasks + stats.unassignedTasks}</div>
-                <div className="flex flex-col gap-1 mt-3">
-                  <p className="text-xs text-red-600 font-bold flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 bg-red-600 rounded-full"></span>
-                    {stats.overdueTasks} tâches en retard
-                  </p>
-                  <p className="text-xs text-orange-600 font-bold flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 bg-orange-600 rounded-full"></span>
-                    {stats.unassignedTasks} tâches non assignées
-                  </p>
+                <div className="grid grid-cols-2 gap-2 mt-6">
+                  <Badge variant="secondary" className="bg-gray-100 text-gray-500 font-bold text-[10px] justify-center">
+                    {stats.standardTasksToAssign} à assigner
+                  </Badge>
+                  <Badge variant="secondary" className="bg-blue-50 text-[#1976D2] font-bold text-[10px] justify-center">
+                    {stats.standardTasksInProgress} en cours
+                  </Badge>
+                  <Badge variant="secondary" className="bg-red-50 text-[#D32F2F] font-bold text-[10px] justify-center">
+                    {stats.standardTasksOverdue} en retard
+                  </Badge>
+                  <Badge variant="secondary" className="bg-green-50 text-[#388E3C] font-bold text-[10px] justify-center">
+                    {stats.standardTasksValidated} validées
+                  </Badge>
                 </div>
               </CardContent>
             </Card>
           </motion.div>
+
+          {/* Card Workflows */}
+          <motion.div variants={itemVariants}>
+            <Card className="border-0 shadow-sm bg-white rounded-2xl overflow-hidden hover:shadow-md transition-all">
+              <CardContent className="p-6">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Workflows</p>
+                    <h3 className="text-4xl font-black text-gray-900 mt-2">{stats.totalWorkflows}</h3>
+                  </div>
+                  <div className="p-3 bg-purple-50 rounded-xl">
+                    <Activity className="h-6 w-6 text-[#7B1FA2]" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 mt-6">
+                  <Badge variant="secondary" className="bg-orange-50 text-[#F57C00] font-bold text-[10px] justify-center">
+                    {stats.workflowsInReview} en revue
+                  </Badge>
+                  <Badge variant="secondary" className="bg-green-50 text-[#388E3C] font-bold text-[10px] justify-center">
+                    {stats.workflowsVSO} VSO
+                  </Badge>
+                  <Badge variant="secondary" className="bg-red-50 text-[#D32F2F] font-bold text-[10px] justify-center col-span-2">
+                    {stats.workflowsBlocked} bloqués
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          {/* Card Alertes (Optionnelle si > 0) */}
+          {stats.totalAlerts > 0 && (
+            <motion.div variants={itemVariants} className="col-span-full">
+              <Card className="border-0 shadow-sm bg-red-50/50 rounded-2xl overflow-hidden">
+                <CardContent className="p-4 flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="p-2 bg-red-100 rounded-lg">
+                      <AlertTriangle className="h-5 w-5 text-[#D32F2F]" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-[#D32F2F]">
+                        {stats.totalAlerts} alerte{stats.totalAlerts > 1 ? 's' : ''} nécessitant votre attention
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    {stats.overdueProjects > 0 && (
+                      <span className="text-xs font-bold text-red-700 bg-red-100 px-2 py-1 rounded-full">
+                        {stats.overdueProjects} projets en retard
+                      </span>
+                    )}
+                    {stats.standardTasksOverdue > 0 && (
+                      <span className="text-xs font-bold text-red-700 bg-red-100 px-2 py-1 rounded-full">
+                        {stats.standardTasksOverdue} tâches en retard
+                      </span>
+                    )}
+                    {stats.workflowsBlocked > 0 && (
+                      <span className="text-xs font-bold text-red-700 bg-red-100 px-2 py-1 rounded-full">
+                        {stats.workflowsBlocked} workflows bloqués
+                      </span>
+                    )}
+
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <motion.div variants={itemVariants} className="lg:col-span-2">
-            <Card className="border-0 shadow-2xl bg-white rounded-2xl overflow-hidden">
-              <CardHeader className="border-b border-gray-50 pb-4">
-                <CardTitle className="flex items-center gap-2 text-black font-bold">
-                  <Activity className="h-5 w-5 text-blue-600" />
-                  À faire maintenant
-                </CardTitle>
-                <CardDescription className="text-gray-500">
-                  Top 10 urgences triées par criticité (assignation, retards, validations)
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pt-6">
-                {urgentItems.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <CheckCircle className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                    <p>Aucune urgence détectée</p>
+        {/* SECTION 3: Deux colonnes À traiter */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Colonne Gauche: Tâches Standards */}
+          <motion.div variants={itemVariants} className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                <span className="text-2xl">⚡</span> Tâches Standards
+              </h2>
+              <div className="flex gap-2">
+                <Badge variant="outline" className="cursor-pointer hover:bg-gray-100">En retard</Badge>
+                <Badge variant="outline" className="cursor-pointer hover:bg-gray-100">À assigner</Badge>
+              </div>
+            </div>
+
+            <Card className="border-0 shadow-sm rounded-2xl overflow-hidden bg-white">
+              <CardContent className="p-0 divide-y divide-gray-50">
+                {urgentItems.filter(i => i.type.startsWith('task_')).length === 0 ? (
+                  <div className="p-12 text-center text-gray-400">
+                    <CheckCircle className="h-10 w-10 mx-auto mb-4 opacity-20" />
+                    <p>Aucune tâche standard urgente</p>
                   </div>
                 ) : (
-                  <div className="space-y-3">
-                    {urgentItems.map(item => (
-                      <div key={item.id} className="flex items-start justify-between gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
-                        <div className="min-w-0">
+                  urgentItems.filter(i => i.type !== 'conversation_stale' && !i.id.includes('workflow')).slice(0, 5).map(item => (
+                    <div key={item.id} className="p-4 hover:bg-gray-50 transition-colors group">
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-1">
                           <div className="flex items-center gap-2">
-                            <p className="text-sm font-semibold text-gray-900 truncate">{item.title}</p>
-                            <Badge
-                              variant="secondary"
-                              className={
-                                item.type === 'task_unassigned'
-                                  ? 'bg-orange-600 text-white'
-                                  : item.type === 'task_overdue'
-                                    ? 'bg-red-600 text-white'
-                                    : item.type === 'task_to_validate'
-                                      ? 'bg-purple-600 text-white'
-                                      : 'bg-blue-600 text-white'
-                              }
-                            >
-                              {item.type === 'task_unassigned'
-                                ? 'À assigner'
-                                : item.type === 'task_overdue'
-                                  ? 'Retard'
-                                  : item.type === 'task_to_validate'
-                                    ? 'À valider'
-                                    : 'À surveiller'}
-                            </Badge>
+                            <span className={`w-2 h-2 rounded-full ${
+                              item.type === 'task_overdue' ? 'bg-[#D32F2F]' : 
+                              item.type === 'task_unassigned' ? 'bg-[#F57C00]' : 'bg-[#1976D2]'
+                            }`} />
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                              {item.title}
+                            </span>
                           </div>
-                          <p className="text-sm text-gray-500 truncate">{item.description}</p>
-                          {item.date && (
-                            <p className="text-xs text-gray-400 mt-1">Échéance: {new Date(item.date).toLocaleDateString('fr-FR')}</p>
-                          )}
+                          <h4 className="font-bold text-gray-900 group-hover:text-[#1976D2] transition-colors">
+                            {item.description.split(' • ')[1]}
+                          </h4>
+                          <p className="text-xs text-gray-500 font-medium">
+                            Projet : {item.description.split(' • ')[0]}
+                          </p>
+                          <p className="text-[11px] text-gray-400 mt-2">
+                            {item.date && `Échéance: ${new Date(item.date).toLocaleDateString('fr-FR')}`}
+                          </p>
                         </div>
                         {item.action && (
-                          <Button
-                            variant="outline"
-                            size="sm"
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="text-[#1976D2] font-bold text-xs"
                             onClick={() => navigate(item.action!.to)}
-                            className="flex-shrink-0"
                           >
-                            {item.action.label}
+                            Voir tâche →
                           </Button>
                         )}
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  ))
                 )}
               </CardContent>
             </Card>
           </motion.div>
 
-          <motion.div variants={itemVariants} className="space-y-6">
-            <Card className="border-0 shadow-2xl bg-white rounded-2xl overflow-hidden">
-              <CardHeader className="border-b border-gray-50 pb-4">
-                <CardTitle className="flex items-center gap-2 text-black font-bold">
-                  <MessageSquare className="h-5 w-5 text-blue-600" />
-                  Messages
-                </CardTitle>
-                <CardDescription className="text-gray-500">
-                  Suivi des conversations de l’admin
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pt-6 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Non lus</span>
-                  <Badge variant="secondary" className="bg-blue-600 text-white">{stats.unreadMessages}</Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Sans réponse &gt; {noResponseThresholdHours}h</span>
-                  <Badge variant="secondary" className="bg-orange-600 text-white">{stats.staleConversations}</Badge>
-                </div>
-                <Button
-                  variant="outline"
-                  onClick={() => navigate('/dashboard/messages')}
-                  className="w-full"
-                >
-                  Ouvrir la messagerie
-                </Button>
-              </CardContent>
-            </Card>
+          {/* Colonne Droite: Workflows */}
+          <motion.div variants={itemVariants} className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                <span className="text-2xl">🔄</span> Workflows en cours
+              </h2>
+              <div className="flex gap-2">
+                <Badge variant="outline" className="cursor-pointer hover:bg-gray-100">Bloqués</Badge>
+                <Badge variant="outline" className="cursor-pointer hover:bg-gray-100">En attente</Badge>
+              </div>
+            </div>
 
-            <Card className="border-0 shadow-2xl bg-white rounded-2xl overflow-hidden">
-              <CardHeader className="border-b border-gray-50 pb-4">
-                <CardTitle className="flex items-center gap-2 text-black font-bold">
-                  <Video className="h-5 w-5 text-blue-600" />
-                  Réunions
-                </CardTitle>
-                <CardDescription className="text-gray-500">
-                  Visio en cours et à venir
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pt-6 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">En cours</span>
-                  <Badge variant="secondary" className="bg-red-600 text-white">{stats.activeMeetings}</Badge>
+            <Card className="border-0 shadow-sm rounded-2xl overflow-hidden bg-white">
+              <CardContent className="p-0 divide-y divide-gray-50">
+                {/* Simulation de workflows pour l'exemple, à adapter avec les vraies données */}
+                <div className="p-12 text-center text-gray-400">
+                  <Activity className="h-10 w-10 mx-auto mb-4 opacity-20" />
+                  <p>Aucun workflow bloqué</p>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">À venir</span>
-                  <Badge variant="secondary" className="bg-blue-600 text-white">{stats.upcomingMeetings}</Badge>
-                </div>
-                <Button
-                  variant="outline"
-                  onClick={() => navigate('/dashboard/visio')}
-                  className="w-full"
-                >
-                  Ouvrir la visio
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-2xl bg-white rounded-2xl overflow-hidden">
-              <CardHeader className="border-b border-gray-50 pb-4">
-                <CardTitle className="flex items-center gap-2 text-black font-bold">
-                  <PenTool className="h-5 w-5 text-yellow-600" />
-                  Signatures
-                </CardTitle>
-                <CardDescription className="text-gray-500">
-                  Documents en attente de signature
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pt-6 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">En attente</span>
-                  <Badge variant="secondary" className="bg-yellow-600 text-white">
-                    {adminPendingDocsLoading ? '-' : adminPendingDocsCount}
-                  </Badge>
-                </div>
-                <Button
-                  variant="outline"
-                  onClick={() => navigate('/dashboard/projets')}
-                  className="w-full"
-                >
-                  Voir les projets
-                </Button>
               </CardContent>
             </Card>
           </motion.div>
         </div>
-
-          {/* Activités récentes */}
-          <motion.div variants={itemVariants}>
-            <Card className="border-0 shadow-2xl bg-white rounded-2xl overflow-hidden">
-              <CardHeader className="border-b border-gray-50 pb-4">
-                <CardTitle className="flex items-center gap-2 text-black font-bold">
-                  <Clock className="h-5 w-5 text-blue-600" />
-                  Activités Récentes
-                </CardTitle>
-                <CardDescription className="text-gray-500">
-                  Dernières actions effectuées sur la plateforme
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pt-6">
-                <div className="space-y-4">
-                  {activitiesLoading ? (
-                    <div className="space-y-4">
-                      {[1, 2, 3].map(i => (
-                        <div key={i} className="flex items-center space-x-3">
-                          <Skeleton className="h-10 w-10 rounded-full" />
-                          <div className="space-y-2 flex-1">
-                            <Skeleton className="h-4 w-1/3" />
-                            <Skeleton className="h-3 w-1/2" />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : recentActivities.length > 0 ? (
-                    <AnimatePresence mode="popLayout">
-                      {recentActivities.map((activity) => (
-                        <motion.div 
-                          layout
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: 20 }}
-                          key={activity.id} 
-                          className="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-50 transition-colors"
-                        >
-                          <div className="flex-shrink-0 mt-1">
-                            <ActivityIcon type={activity.iconType} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900">{activity.title}</p>
-                            <p className="text-sm text-gray-500">{activity.description}</p>
-                            <p className="text-xs text-gray-400 mt-1">{formatTimeAgo(activity.timestamp)}</p>
-                          </div>
-                        </motion.div>
-                      ))}
-                    </AnimatePresence>
-                  ) : (
-                    <div className="text-center py-8 text-gray-500">
-                      <Clock className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                      <p>Aucune activité récente</p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
       </div>
     </motion.div>
   );

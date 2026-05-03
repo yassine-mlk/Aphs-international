@@ -1,4 +1,5 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
+import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -278,6 +279,173 @@ const emailTemplates: Record<string, (vars: Record<string, string>) => { subject
 </body>
 </html>`
   }),
+
+  meeting_request: (vars) => ({
+    subject: `Demande de visioconférence: ${vars.subject}`,
+    html: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background: #f5f5f5; }
+    .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .header { background: #2563eb; color: white; padding: 30px; text-align: center; }
+    .header h1 { margin: 0; font-size: 24px; }
+    .content { padding: 30px; }
+    .info-box { background: #f8fafc; padding: 20px; border-radius: 6px; margin: 20px 0; }
+    .button { display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 20px; }
+    .footer { background: #f8fafc; padding: 20px; text-align: center; color: #64748b; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>📹 Demande de visioconférence</h1>
+    </div>
+    <div class="content">
+      <p>Bonjour,</p>
+      <p><strong>${vars.intervenantName}</strong> demande une réunion visioconférence.</p>
+      
+      <div class="info-box">
+        <p><strong>Objet:</strong> ${vars.subject}</p>
+        <p><strong>Date souhaitée:</strong> ${vars.dateText}</p>
+      </div>
+      
+      <a href="${vars.link || 'https://aps-v3.vercel.app/dashboard/videoconference?tab=pending'}" class="button">Gérer la demande</a>
+    </div>
+    <div class="footer">
+      <p>Cet email a été envoyé automatiquement par APS.</p>
+    </div>
+  </div>
+</body>
+</html>`
+  }),
+
+  meeting_reminder: (vars) => ({
+    subject: `Rappel: Visioconférence "${vars.title}"`,
+    html: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background: #f5f5f5; }
+    .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .header { background: #2563eb; color: white; padding: 30px; text-align: center; }
+    .header h1 { margin: 0; font-size: 24px; }
+    .content { padding: 30px; }
+    .info-box { background: #f8fafc; padding: 20px; border-radius: 6px; margin: 20px 0; }
+    .button { display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 20px; }
+    .footer { background: #f8fafc; padding: 20px; text-align: center; color: #64748b; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>📅 Rappel de visioconférence</h1>
+    </div>
+    <div class="content">
+      <p>Bonjour,</p>
+      <p>Ceci est un rappel pour votre réunion visioconférence :</p>
+      
+      <div class="info-box">
+        <p><strong>Titre:</strong> ${vars.title}</p>
+        <p><strong>Date:</strong> ${vars.dateText}</p>
+      </div>
+      
+      <a href="${vars.link || 'https://aps-v3.vercel.app/dashboard/videoconference'}" class="button">Rejoindre la réunion</a>
+    </div>
+    <div class="footer">
+      <p>Cet email a été envoyé automatiquement par APS.</p>
+    </div>
+  </div>
+</body>
+</html>`
+  }),
+
+  meeting_accepted: (vars) => ({
+    subject: `Demande acceptée: ${vars.subject}`,
+    html: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background: #f5f5f5; }
+    .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .header { background: #22c55e; color: white; padding: 30px; text-align: center; }
+    .header h1 { margin: 0; font-size: 24px; }
+    .content { padding: 30px; }
+    .info-box { background: #f8fafc; padding: 20px; border-radius: 6px; margin: 20px 0; }
+    .button { display: inline-block; background: #22c55e; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 20px; }
+    .footer { background: #f8fafc; padding: 20px; text-align: center; color: #64748b; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>✅ Demande acceptée</h1>
+    </div>
+    <div class="content">
+      <p>Bonjour,</p>
+      <p>Votre demande de visioconférence a été acceptée.</p>
+      
+      <div class="info-box">
+        <p><strong>Objet:</strong> ${vars.subject}</p>
+        <p><strong>Date confirmée:</strong> ${vars.dateText}</p>
+      </div>
+      
+      <a href="${vars.link || 'https://aps-v3.vercel.app/dashboard/videoconference'}" class="button">Voir mes réunions</a>
+    </div>
+    <div class="footer">
+      <p>Cet email a été envoyé automatiquement par APS.</p>
+    </div>
+  </div>
+</body>
+</html>`
+  }),
+
+  meeting_refused: (vars) => ({
+    subject: `Demande refusée: ${vars.subject}`,
+    html: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background: #f5f5f5; }
+    .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .header { background: #ef4444; color: white; padding: 30px; text-align: center; }
+    .header h1 { margin: 0; font-size: 24px; }
+    .content { padding: 30px; }
+    .info-box { background: #fee2e2; border-left: 4px solid #ef4444; padding: 20px; margin: 20px 0; }
+    .footer { background: #f8fafc; padding: 20px; text-align: center; color: #64748b; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>❌ Demande refusée</h1>
+    </div>
+    <div class="content">
+      <p>Bonjour,</p>
+      <p>Malheureusement, votre demande de visioconférence a été refusée.</p>
+      
+      <div class="info-box">
+        <p><strong>Objet:</strong> ${vars.subject}</p>
+        <p><strong>Raison:</strong> ${vars.reason || 'Non spécifiée'}</p>
+      </div>
+      
+      <p>Vous pouvez soumettre une nouvelle demande avec d'autres créneaux si nécessaire.</p>
+    </div>
+    <div class="footer">
+      <p>Cet email a été envoyé automatiquement par APS.</p>
+    </div>
+  </div>
+</body>
+</html>`
+  }),
 };
 
 serve(async (req) => {
@@ -308,24 +476,37 @@ serve(async (req) => {
 
     // Send via Gmail SMTP if configured
     if (GMAIL_USER && GMAIL_APP_PASSWORD) {
-      const emailBody = [
-        `From: ${GMAIL_USER}`,
-        `To: ${to}`,
-        `Subject: ${subject || emailContent.subject}`,
-        'Content-Type: text/html; charset=utf-8',
-        '',
-        emailContent.html
-      ].join('\r\n');
+      try {
+        const smtpClient = new SMTPClient({
+          connection: {
+            hostname: 'smtp.gmail.com',
+            port: 465,
+            tls: true,
+            auth: {
+              username: GMAIL_USER,
+              password: GMAIL_APP_PASSWORD,
+            },
+          },
+        });
 
-      const encodedBody = btoa(emailBody);
+        await smtpClient.send({
+          from: GMAIL_USER,
+          to: to,
+          subject: subject || emailContent.subject,
+          content: emailContent.html.replace(/<[^>]*>?/gm, ''), // Simple text fallback
+          html: emailContent.html,
+        });
 
-      // Simple SMTP send via fetch to a SMTP relay service or use direct Gmail API
-      // For now, return success and use the existing Gmail function if available
-      console.log(`Would send email to ${to} with template ${template}`);
+        await smtpClient.close();
+        console.log(`Email sent to ${to} with template ${template}`);
+      } catch (smtpError) {
+        console.error('SMTP Error:', smtpError);
+        // Fallback or error response
+      }
     }
 
     return new Response(
-      JSON.stringify({ success: true, message: 'Email queued' }),
+      JSON.stringify({ success: true, message: 'Email processed' }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 

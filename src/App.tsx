@@ -7,6 +7,7 @@ import { AppRoutes } from "./components/AppRoutes";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { UploadProvider } from "./contexts/UploadContext";
 import { TenantProvider } from "./contexts/TenantContext";
+import { NotificationProvider } from "./contexts/NotificationContext";
 import { useAuth } from "./contexts/AuthContext";
 import StorageInitializer from "./components/StorageInitializer";
 
@@ -31,12 +32,14 @@ const App = () => {
         <TenantProvider>
           <TooltipProvider>
             <UploadProvider>
+              <NotificationProvider>
                 <Toaster />
                 <Sonner />
                 {/* Initialisation du stockage Supabase */}
                 {status === 'authenticated' && user && <StorageInitializer />}
                 <AppRoutes />
-              </UploadProvider>
+              </NotificationProvider>
+            </UploadProvider>
           </TooltipProvider>
         </TenantProvider>
       </ThemeProvider>

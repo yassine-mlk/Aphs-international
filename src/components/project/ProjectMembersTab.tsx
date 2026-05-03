@@ -34,9 +34,12 @@ import {
   X,
   Loader2,
   AlertTriangle,
-  CheckCircle
+  CheckCircle,
+  Layout,
+  Save
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { usePlan } from '@/hooks/usePlan';
 
 interface ProjectMember {
   id: string;
@@ -48,6 +51,8 @@ interface ProjectMember {
   company?: string;
   joined_at?: string;
   added_at?: string;
+  can_view_info_sheets: boolean;
+  can_view_project_details: boolean;
 }
 
 interface Intervenant {
@@ -86,6 +91,7 @@ const ProjectMembersTab: React.FC<ProjectMembersTabProps> = ({
   onMembersChanged
 }) => {
   const { toast } = useToast();
+  const { limits } = usePlan();
   
   // État pour le dialog d'ajout de membres
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -105,6 +111,11 @@ const ProjectMembersTab: React.FC<ProjectMembersTabProps> = ({
   // État pour voir les détails
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<ProjectMember | null>(null);
+  const [isUpdatingPermissions, setIsUpdatingPermissions] = useState(false);
+  const [tempPermissions, setTempPermissions] = useState({
+    can_view_info_sheets: false,
+    can_view_project_details: true
+  });
 
   const getInitials = (firstName?: string, lastName?: string) => {
     const first = firstName?.charAt(0) || '';
@@ -225,6 +236,20 @@ const ProjectMembersTab: React.FC<ProjectMembersTabProps> = ({
   const handleAddMembers = async () => {
     if (selectedIntervenants.length === 0) return;
 
+    // Vérifier la limite d'intervenants par projet
+    const max = limits?.max_intervenants_per_project ?? 10;
+    if (max !== -1) {
+      const currentCount = members.length;
+      if (currentCount + selectedIntervenants.length > max) {
+        toast({
+          title: 'Limite atteinte',
+          description: `Votre formule autorise ${max} intervenants par projet. Vous en avez déjà ${currentCount}. Contactez notre équipe pour passer au plan supérieur.`,
+          variant: 'destructive'
+        });
+        return;
+      }
+    }
+
     setIsAdding(true);
     try {
       const newMembers = selectedIntervenants.map(userId => ({
@@ -281,15 +306,16 @@ const ProjectMembersTab: React.FC<ProjectMembersTabProps> = ({
 
     try {
       const { data, error } = await supabase
-        .from('task_assignments')
+        .from('task_assignments_view')
         .select('id, task_name, assigned_to')
         .eq('project_id', projectId);
 
       if (error) throw error;
 
-      // Filtrer les assignations où ce membre est assigné
+      // Filtrer les assignations où ce membre est assigné (soit comme exécuteur, soit comme validateur)
       const memberTasks = (data || []).filter((task: any) =>
-        task.assigned_to?.includes(member.user_id)
+        task.assigned_to?.includes(member.user_id) || 
+        (task.validators || []).some((v: any) => v.user_id === member.user_id)
       );
 
       setMemberAssignments(memberTasks);
@@ -306,26 +332,28 @@ const ProjectMembersTab: React.FC<ProjectMembersTabProps> = ({
 
     setIsRemoving(true);
     try {
-      // 1. Supprimer les assignations de ce membre
-      for (const assignment of memberAssignments) {
-        // Retirer le membre de la liste assigned_to
-        const newAssignedTo = assignment.assigned_to.filter(
-          id => id !== memberToRemove.user_id
-        );
+      // 1. Supprimer les assignations de ce membre pour toutes les tâches du projet
+      // On supprime dans les deux tables d'assignations (standard et workflow)
+      const { data: standardTasks } = await supabase.from('standard_tasks').select('id').eq('project_id', projectId);
+      const { data: workflowTasks } = await supabase.from('workflow_tasks').select('id').eq('project_id', projectId);
+      
+      const standardTaskIds = (standardTasks || []).map(t => t.id);
+      const workflowTaskIds = (workflowTasks || []).map(t => t.id);
 
-        if (newAssignedTo.length === 0) {
-          // Plus personne n'est assigné, supprimer l'assignation
-          await supabase
-            .from('task_assignments')
-            .delete()
-            .eq('id', assignment.id);
-        } else {
-          // Mettre à jour la liste des assignés
-          await supabase
-            .from('task_assignments')
-            .update({ assigned_to: newAssignedTo })
-            .eq('id', assignment.id);
-        }
+      if (standardTaskIds.length > 0) {
+        await supabase
+          .from('standard_task_assignments')
+          .delete()
+          .eq('user_id', memberToRemove.user_id)
+          .in('task_id', standardTaskIds);
+      }
+
+      if (workflowTaskIds.length > 0) {
+        await supabase
+          .from('workflow_task_assignments')
+          .delete()
+          .eq('user_id', memberToRemove.user_id)
+          .in('task_id', workflowTaskIds);
       }
 
       // 2. Supprimer le membre du projet
@@ -339,7 +367,7 @@ const ProjectMembersTab: React.FC<ProjectMembersTabProps> = ({
       toast({
         title: 'Succès',
         description: memberAssignments.length > 0
-          ? `Membre retiré et ${memberAssignments.length} assignation${memberAssignments.length > 1 ? 's' : ''} mise${memberAssignments.length > 1 ? 's' : ''} à jour`
+          ? `Membre retiré et ses ${memberAssignments.length} assignation${memberAssignments.length > 1 ? 's' : ''} supprimée${memberAssignments.length > 1 ? 's' : ''}`
           : 'Membre retiré du projet'
       });
 
@@ -361,7 +389,44 @@ const ProjectMembersTab: React.FC<ProjectMembersTabProps> = ({
   // Ouvrir les détails d'un membre
   const handleViewDetails = (member: ProjectMember) => {
     setSelectedMember(member);
+    setTempPermissions({
+      can_view_info_sheets: member.can_view_info_sheets ?? false,
+      can_view_project_details: member.can_view_project_details ?? true
+    });
     setIsDetailsDialogOpen(true);
+  };
+
+  const handleUpdatePermissions = async () => {
+    if (!selectedMember) return;
+
+    setIsUpdatingPermissions(true);
+    try {
+      const { error } = await supabase
+        .from('membre')
+        .update({
+          can_view_info_sheets: tempPermissions.can_view_info_sheets,
+          can_view_project_details: tempPermissions.can_view_project_details
+        })
+        .eq('id', selectedMember.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Succès',
+        description: 'Permissions mises à jour avec succès'
+      });
+      
+      onMembersChanged();
+      setIsDetailsDialogOpen(false);
+    } catch (error) {
+      toast({
+        title: 'Erreur',
+        description: 'Impossible de mettre à jour les permissions',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsUpdatingPermissions(false);
+    }
   };
 
   return (
@@ -687,11 +752,58 @@ const ProjectMembersTab: React.FC<ProjectMembersTabProps> = ({
                   </div>
                 );
               })()}
+
+              <div className="mt-8 space-y-4 pt-6 border-t">
+                <h4 className="font-medium text-sm flex items-center gap-2 text-gray-700">
+                  <Layout className="h-4 w-4" />
+                  Permissions au sein du projet
+                </h4>
+                
+                <div className="space-y-3">
+                  <label className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors">
+                    <Checkbox 
+                      checked={tempPermissions.can_view_info_sheets}
+                      onCheckedChange={(checked) => setTempPermissions(prev => ({ ...prev, can_view_info_sheets: !!checked }))}
+                    />
+                    <div>
+                      <p className="text-sm font-medium">Consulter les fiches informatives</p>
+                      <p className="text-xs text-gray-500">Autorise l'accès à l'onglet des fiches techniques du projet</p>
+                    </div>
+                  </label>
+
+                  <label className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors">
+                    <Checkbox 
+                      checked={tempPermissions.can_view_project_details}
+                      onCheckedChange={(checked) => setTempPermissions(prev => ({ ...prev, can_view_project_details: !!checked }))}
+                    />
+                    <div>
+                      <p className="text-sm font-medium">Consulter les détails du projet</p>
+                      <p className="text-xs text-gray-500">Autorise la vue d'ensemble (Gantt, avancement). Sinon, ne voit que ses tâches.</p>
+                    </div>
+                  </label>
+                </div>
+              </div>
             </div>
           )}
-          <DialogFooter>
-            <Button onClick={() => setIsDetailsDialogOpen(false)}>
-              Fermer
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setIsDetailsDialogOpen(false)}>
+              Annuler
+            </Button>
+            <Button 
+              onClick={handleUpdatePermissions}
+              disabled={isUpdatingPermissions}
+            >
+              {isUpdatingPermissions ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Enregistrement...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Enregistrer
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -12,7 +12,7 @@ import { useNotificationTriggers } from '@/hooks/useNotificationTriggers';
 import { Plus, Calendar, User, FileText, Clock, CheckCircle, XCircle, AlertCircle, Upload, Download, Eye } from 'lucide-react';
 import { uploadToR2 } from '@/lib/r2';
 import { useUpload } from '@/contexts/UploadContext';
-import { ProjectTask, TaskFormData, Profile, ProjectTaskHistory, TASK_STATUSES, TASK_PRIORITIES } from '../types/project';
+import { ProjectTask, TaskFormData, Profile, ProjectTaskHistory, TASK_STATUSES, TASK_PRIORITIES, TaskType } from '../types/project';
 
 interface TaskManagerProps {
   projectId: string;
@@ -23,7 +23,7 @@ interface TaskManagerProps {
 
 const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, currentUserId, userRole }) => {
   const { toast } = useToast();
-  const { fetchData, insertData, updateData, uploadFile } = useSupabase();
+  const { fetchData, insertData, updateData, uploadFile, callRpc } = useSupabase();
   const { startUpload, getUpload, clearUpload } = useUpload();
   const {
     notifyFileValidationRequest,
@@ -45,15 +45,18 @@ const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, curre
   const [isValidationDialogOpen, setIsValidationDialogOpen] = useState(false);
   
   // Formulaire de création/édition
-  const [taskForm, setTaskForm] = useState<TaskFormData>({
+  const [taskForm, setTaskForm] = useState<TaskFormData & { phase_id: string, section_id: string, subsection_id: string }>({
     title: '',
     description: '',
-    task_type: 'general',
+    task_type: 'standard' as TaskType,
     assigned_to: '',
     validators: [],
     due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     priority: 'medium',
-    comments: ''
+    comments: '',
+    phase_id: 'conception',
+    section_id: 'A',
+    subsection_id: 'A1'
   });
   
   // Fichier pour upload
@@ -96,7 +99,7 @@ const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, curre
   
   const loadTasks = async () => {
     try {
-      const data = await fetchData<ProjectTask>('project_tasks', {
+      const data = await fetchData<ProjectTask>('task_assignments_view', {
         filters: [{ column: 'project_id', operator: 'eq', value: projectId }],
         order: { column: 'created_at', ascending: false }
       });
@@ -162,15 +165,22 @@ const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, curre
     }
     
     try {
-      const newTask = {
-        project_id: projectId,
-        ...taskForm,
-        assigned_to: [taskForm.assigned_to], // Convertir en tableau
-        assigned_by: currentUserId,
-        due_date: new Date(taskForm.due_date).toISOString()
+      // Préparer les données pour le RPC upsert_task_assignment
+      const params = {
+        p_project_id: projectId,
+        p_phase_id: taskForm.phase_id,
+        p_section_id: taskForm.section_id,
+        p_subsection_id: taskForm.subsection_id,
+        p_task_name: taskForm.title,
+        p_assigned_to: [taskForm.assigned_to],
+        p_deadline: taskForm.due_date,
+        p_validators: taskForm.validators.map(v_id => ({ user_id: v_id, days_limit: 3 })),
+        p_assignment_type: taskForm.task_type,
+        p_comment: taskForm.description,
+        p_status: 'open'
       };
       
-      const result = await insertData<ProjectTask>('project_tasks', newTask);
+      const result = await callRpc('upsert_task_assignment', params);
       
       if (result) {
         toast({
@@ -234,7 +244,7 @@ const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, curre
       // Mise à jour de la tâche
       const updatedTask = {
         ...task,
-        status: 'submitted' as const,
+        status: 'in_review' as const, // submitted -> in_review
         submitted_at: new Date().toISOString(),
         file_url: fileUrl,
         file_name: selectedFile.name,
@@ -299,7 +309,7 @@ const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, curre
     try {
       const updatedTask = {
         ...task,
-        status: isApproved ? 'validated' as const : 'rejected' as const,
+        status: isApproved ? 'approved' as const : 'rejected' as const,
         validated_by: currentUserId,
         validated_at: new Date().toISOString(),
         validation_comments: validationComments,
@@ -330,25 +340,31 @@ const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, curre
     setTaskForm({
       title: '',
       description: '',
-      task_type: 'general',
+      task_type: 'standard',
       assigned_to: '',
       validators: [],
       due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       priority: 'medium',
-      comments: ''
+      comments: '',
+      phase_id: 'conception',
+      section_id: 'A',
+      subsection_id: 'A1'
     });
   };
   
   const getStatusBadge = (status: ProjectTask['status']) => {
-    const statusConfig = {
-      assigned: { label: 'Assigné', className: 'bg-blue-100 text-blue-800' },
-      in_progress: { label: 'En cours', className: 'bg-yellow-100 text-yellow-800' },
-      submitted: { label: 'Soumis', className: 'bg-purple-100 text-purple-800' },
-      validated: { label: 'Validé', className: 'bg-green-100 text-green-800' },
-      rejected: { label: 'Rejeté', className: 'bg-red-100 text-red-800' }
+    const statusConfig: Record<string, { label: string; className: string }> = {
+      open: { label: 'Ouvert', className: 'bg-blue-100 text-blue-800' },
+      in_review: { label: 'En cours', className: 'bg-yellow-100 text-yellow-800' },
+      approved: { label: 'Validé', className: 'bg-green-100 text-green-800' },
+      rejected: { label: 'Rejeté', className: 'bg-red-100 text-red-800' },
+      vso: { label: 'Visa Sans Obs.', className: 'bg-emerald-100 text-emerald-800' },
+      vao: { label: 'Visa Avec Obs.', className: 'bg-orange-100 text-orange-800' },
+      var: { label: 'Visa À Resoumettre', className: 'bg-rose-100 text-rose-800' },
+      closed: { label: 'Clôturé', className: 'bg-gray-100 text-gray-800' }
     };
     
-    const config = statusConfig[status];
+    const config = statusConfig[status] || { label: status, className: 'bg-gray-100 text-gray-800' };
     
     return (
       <Badge className={config.className}>
@@ -376,11 +392,11 @@ const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, curre
   };
   
   const canUserValidate = (task: ProjectTask) => {
-    return task.validators.includes(currentUserId);
+    return task.validators.some((v: any) => v.user_id === currentUserId);
   };
   
   const canUserSubmit = (task: ProjectTask) => {
-    return task.assigned_to.includes(currentUserId) && task.status === 'assigned';
+    return task.assigned_to.includes(currentUserId) && task.status === 'open';
   };
   
   const getUserName = (userId: string | string[]) => {
@@ -472,7 +488,7 @@ const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, curre
                   </Button>
                 )}
                 
-                {canUserValidate(task) && task.status === 'submitted' && (
+                {canUserValidate(task) && task.status === 'in_review' && (
                   <Button size="sm" onClick={() => {
                     setSelectedTask(task);
                     setIsValidationDialogOpen(true);
@@ -518,7 +534,7 @@ const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, curre
           </DialogHeader>
           <div className="grid gap-4 py-4 max-h-[400px] overflow-y-auto">
             <div className="grid grid-cols-2 gap-4">
-              <div>
+              <div className="col-span-2">
                 <Label htmlFor="title">Titre<span className="text-red-500">*</span></Label>
                 <Input
                   id="title"
@@ -527,42 +543,52 @@ const TaskManager: React.FC<TaskManagerProps> = ({ projectId, projectName, curre
                   placeholder="Titre de la tâche"
                 />
               </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
               <div>
-                <Label htmlFor="task_type">Type</Label>
+                <Label htmlFor="phase_id">Phase<span className="text-red-500">*</span></Label>
+                <select
+                  id="phase_id"
+                  value={taskForm.phase_id}
+                  onChange={(e) => setTaskForm({...taskForm, phase_id: e.target.value})}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="conception">Conception</option>
+                  <option value="realisation">Réalisation</option>
+                </select>
+              </div>
+              <div>
+                <Label htmlFor="section_id">Section<span className="text-red-500">*</span></Label>
                 <Input
-                  id="task_type"
-                  value={taskForm.task_type}
-                  onChange={(e) => setTaskForm({...taskForm, task_type: e.target.value})}
-                  placeholder="Type de tâche"
+                  id="section_id"
+                  value={taskForm.section_id}
+                  onChange={(e) => setTaskForm({...taskForm, section_id: e.target.value})}
+                  placeholder="Ex: A, B..."
+                />
+              </div>
+              <div>
+                <Label htmlFor="subsection_id">Sous-section<span className="text-red-500">*</span></Label>
+                <Input
+                  id="subsection_id"
+                  value={taskForm.subsection_id}
+                  onChange={(e) => setTaskForm({...taskForm, subsection_id: e.target.value})}
+                  placeholder="Ex: A1, A2..."
                 />
               </div>
             </div>
-            
-            <div>
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={taskForm.description}
-                onChange={(e) => setTaskForm({...taskForm, description: e.target.value})}
-                placeholder="Description détaillée de la tâche"
-              />
-            </div>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="assigned_to">Assigné à<span className="text-red-500">*</span></Label>
+                <Label htmlFor="task_type">Type de workflow</Label>
                 <select
-                  id="assigned_to"
-                  value={taskForm.assigned_to}
-                  onChange={(e) => setTaskForm({...taskForm, assigned_to: e.target.value})}
+                  id="task_type"
+                  value={taskForm.task_type}
+                  onChange={(e) => setTaskForm({...taskForm, task_type: e.target.value as any})}
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 >
-                  <option value="">Sélectionner un utilisateur</option>
-                  {users.map(user => (
-                    <option key={user.user_id} value={user.user_id}>
-                      {user.first_name} {user.last_name}
-                    </option>
-                  ))}
+                  <option value="standard">Parallèle (Standard)</option>
+                  <option value="workflow">Séquentiel (Workflow)</option>
                 </select>
               </div>
               <div>

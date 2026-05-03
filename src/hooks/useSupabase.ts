@@ -805,14 +805,28 @@ export function useSupabase() {
   }, [status, toast]);
 
   /**
-   * Récupère toutes les entreprises
+   * Récupère toutes les entreprises du tenant
    */
   const getCompanies = useCallback(async (): Promise<Company[]> => {
     try {
-      const { data, error } = await supabase
-        .from('companies')
-        .select('*')
-        .order('name');
+      // Récupérer le profil pour avoir le tenant_id
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tenant_id, is_super_admin')
+        .eq('user_id', user.id)
+        .single();
+
+      let query = supabase.from('companies').select('*');
+      
+      // Si ce n'est pas un super admin, on filtre par tenant
+      if (profile && !profile.is_super_admin && profile.tenant_id) {
+        query = query.eq('tenant_id', profile.tenant_id);
+      }
+
+      const { data, error } = await query.order('name');
 
       if (error) throw error;
       
@@ -834,10 +848,23 @@ export function useSupabase() {
     companyData: Omit<Company, 'id' | 'created_at' | 'updated_at'>
   ): Promise<{ success: boolean; company?: Company; error?: Error }> => {
     try {
+      // Récupérer le tenant_id de l'utilisateur actuel
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Non authentifié");
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!profile?.tenant_id) throw new Error("Aucun tenant associé à votre compte");
+
       const { data, error } = await supabase
         .from('companies')
         .insert({
           ...companyData,
+          tenant_id: profile.tenant_id, // Force le tenant_id
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
@@ -1342,6 +1369,32 @@ export function useSupabase() {
     }
   }, [toast]);
 
+  /**
+   * Appelle une fonction RPC Supabase
+   */
+  const callRpc = useCallback(async (
+    functionName: string,
+    params?: any
+  ): Promise<any> => {
+    if (status !== 'authenticated') return null;
+    try {
+      const { data, error } = await supabase.rpc(functionName, params);
+      
+      if (error) {
+        throw error;
+      }
+      
+      return data;
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: `Erreur lors de l'exécution de ${functionName}`,
+        variant: "destructive",
+      });
+      return null;
+    }
+  }, [status, toast]);
+
   return {
     fetchData,
     insertData,
@@ -1371,6 +1424,7 @@ export function useSupabase() {
     removeProjectFromWorkGroup,
     uploadFile,
     getFileUrl,
+    callRpc,
     supabase
   };
 } 

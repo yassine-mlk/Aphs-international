@@ -15,48 +15,81 @@ export interface Project {
   updated_at?: string;
 }
 
-export interface ProjectTask {
+export type TaskType = 'standard' | 'workflow';
+export type TaskStatus = 'open' | 'in_review' | 'approved' | 'rejected' | 'vso' | 'vao' | 'var' | 'closed' | 'blocked';
+
+export interface Task {
   id: string;
   project_id: string;
+  phase_id?: string;
+  section_id?: string;
+  subsection_id?: string;
   title: string;
   description?: string;
-  task_type: string;
-  status: 'assigned' | 'in_progress' | 'submitted' | 'validated' | 'rejected';
+  task_type: TaskType;
+  deadline?: string;
+  status: TaskStatus;
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  file_extension?: string;
+  start_date?: string;
+  end_date?: string;
+  validation_deadline?: string;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TaskAssignment {
+  id: string;
+  task_id: string;
+  user_id: string;
+  role: 'executor' | 'validator';
+  validator_order?: number;
+  days_limit?: number;
+  created_at: string;
+}
+
+export interface TaskRevision {
+  id: string;
+  task_id: string;
+  executor_id: string;
+  indice: string;
+  file_url: string;
+  notes?: string;
+  visa_status: 'pending' | 'vso' | 'vao' | 'var';
+  submitted_at: string;
+}
+
+export interface TaskReview {
+  id: string;
+  revision_id: string;
+  assignment_id: string;
+  avis?: 'F' | 'D' | 'S' | 'HM';
+  comment?: string;
+  reviewed_at?: string;
+  status: 'pending' | 'done';
+}
+
+export interface ProjectTask extends Task {
+  // Champs pour la compatibilité avec l'existant
+  assigned_to: string[]; 
+  validators: any[]; // Peut être string[] ou {user_id, days_limit}[]
+  project?: Project;
+  assigned_users?: Profile[];
+  validator_users?: Profile[];
+  revisions?: TaskRevision[];
+  assignments?: TaskAssignment[];
   
-  // Assignation
-  assigned_to: string[]; // IDs des intervenants
-  assigned_by?: string;
-  assigned_at: string;
-  
-  // Validation
-  validators: string[];
-  validated_by?: string;
-  validated_at?: string;
-  
-  // Dates importantes
-  due_date: string;
-  started_at?: string;
-  submitted_at?: string;
-  completed_at?: string;
-  
-  // Fichiers et commentaires
+  // Aliases pour compatibilité
+  due_date?: string; // alias pour deadline
   file_url?: string;
   file_name?: string;
   file_size?: number;
-  comments?: string;
+  submitted_at?: string;
+  validated_at?: string;
+  validated_by?: string;
   validation_comments?: string;
-  
-  // Priorité
-  priority: 'low' | 'medium' | 'high' | 'urgent';
-  
-  // Métadonnées
-  created_at: string;
-  updated_at: string;
-  
-  // Relations
-  project?: Project;
-  assigned_users?: Profile[]; // Renommé car pluriel
-  validator_users?: Profile[];
+  completed_at?: string;
 }
 
 export interface ProjectTaskHistory {
@@ -126,7 +159,7 @@ export interface ProjectFormData {
 export interface TaskFormData {
   title: string;
   description?: string;
-  task_type: string;
+  task_type: TaskType;
   assigned_to: string;
   validators: string[];
   due_date: string;
@@ -163,12 +196,15 @@ export const PROJECT_STATUSES: { value: Project['status']; label: string }[] = [
   { value: 'cancelled', label: 'Annulé' }
 ];
 
-export const TASK_STATUSES: { value: ProjectTask['status']; label: string }[] = [
-  { value: 'assigned', label: 'Assigné' },
-  { value: 'in_progress', label: 'En cours' },
-  { value: 'submitted', label: 'Soumis' },
-  { value: 'validated', label: 'Validé' },
-  { value: 'rejected', label: 'Rejeté' }
+export const TASK_STATUSES: { value: TaskStatus; label: string }[] = [
+  { value: 'open', label: 'Ouvert' },
+  { value: 'in_review', label: 'En cours de revue' },
+  { value: 'approved', label: 'Approuvé' },
+  { value: 'rejected', label: 'Rejeté' },
+  { value: 'vso', label: 'Visa Sans Obs.' },
+  { value: 'vao', label: 'Visa Avec Obs.' },
+  { value: 'var', label: 'Visa À Resoumettre' },
+  { value: 'closed', label: 'Clôturé' }
 ];
 
 export const TASK_PRIORITIES: { value: ProjectTask['priority']; label: string }[] = [

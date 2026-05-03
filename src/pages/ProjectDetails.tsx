@@ -27,6 +27,7 @@ import ProjectInfoTab from '@/components/project/ProjectInfoTab';
 import ProjectStructureTab from '@/components/project/ProjectStructureTab';
 import ProjectMembersTab from '@/components/project/ProjectMembersTab';
 import ProjectGanttTab from '@/components/project/ProjectGanttTab';
+import ProjectInfoSheetsTab from '@/components/project/ProjectInfoSheetsTab';
 import { ProjectStructureManager } from '@/components/project/ProjectStructureManager';
 import { useSupabase } from '@/hooks/useSupabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -56,6 +57,8 @@ interface ProjectMember {
   email?: string;
   joined_at?: string;
   added_at?: string;
+  can_view_info_sheets: boolean;
+  can_view_project_details: boolean;
 }
 
 const statusLabels: Record<string, string> = {
@@ -84,6 +87,7 @@ const ProjectDetails: React.FC = () => {
 
   const [project, setProject] = useState<Project | null>(null);
   const [members, setMembers] = useState<ProjectMember[]>([]);
+  const [currentUserMember, setCurrentUserMember] = useState<ProjectMember | null>(null);
   const [intervenantsInfo, setIntervenantsInfo] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(() => searchParams.get('tab') || 'info');
@@ -110,6 +114,27 @@ const ProjectDetails: React.FC = () => {
     if (!id || status !== 'authenticated') return;
     fetchProjectDetails();
     fetchProjectMembers();
+
+    // S'abonner aux changements Realtime pour ce projet
+    const projectChannel = supabase
+      .channel(`project-details-${id}`)
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'projects', 
+        filter: `id=eq.${id}` 
+      }, () => fetchProjectDetails())
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'membre', 
+        filter: `project_id=eq.${id}` 
+      }, () => fetchProjectMembers())
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(projectChannel);
+    };
   }, [id, status]);
 
   useEffect(() => {
@@ -154,6 +179,8 @@ const ProjectDetails: React.FC = () => {
       if (error) throw error;
       if (data) {
         setMembers(data);
+        const currentMember = data.find(m => m.user_id === user?.id);
+        setCurrentUserMember(currentMember || null);
         fetchIntervenantsInfo(data.map(m => m.user_id));
       }
     } catch (error) {
@@ -243,7 +270,7 @@ const ProjectDetails: React.FC = () => {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-6" style={{ position: 'relative', width: '100%' }}>
       <Button 
         variant="outline" 
         onClick={() => navigate('/dashboard/projets')}
@@ -264,18 +291,31 @@ const ProjectDetails: React.FC = () => {
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
         <TabsList>
-          <TabsTrigger value="info" className="data-[state=active]:bg-white">
-            <Info className="h-4 w-4 mr-2" />
-            Informations
-          </TabsTrigger>
-          <TabsTrigger value="avancement" className="data-[state=active]:bg-white">
-            <TrendingUp className="h-4 w-4 mr-2" />
-            Avancement
-          </TabsTrigger>
+          {(isAdmin || currentUserMember?.can_view_project_details) && (
+            <>
+              <TabsTrigger value="info" className="data-[state=active]:bg-white">
+                <Info className="h-4 w-4 mr-2" />
+                Informations
+              </TabsTrigger>
+              <TabsTrigger value="avancement" className="data-[state=active]:bg-white">
+                <TrendingUp className="h-4 w-4 mr-2" />
+                Avancement
+              </TabsTrigger>
+            </>
+          )}
+          
+          {(isAdmin || currentUserMember?.can_view_info_sheets) && (
+            <TabsTrigger value="info-sheets" className="data-[state=active]:bg-white">
+              <FileCheck className="h-4 w-4 mr-2" />
+              Fiches Informatives
+            </TabsTrigger>
+          )}
+
           <TabsTrigger value="structure" className="data-[state=active]:bg-white">
             <Layers className="h-4 w-4 mr-2" />
             Assignement des tâches
           </TabsTrigger>
+
           {isAdmin && (
             <>
               <TabsTrigger value="members" className="data-[state=active]:bg-white">
@@ -294,24 +334,39 @@ const ProjectDetails: React.FC = () => {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="info">
-          <ProjectInfoTab 
-            project={project}
-            isAdmin={isAdmin}
-            onEdit={() => {}}
-            onDelete={() => setIsDeleteDialogOpen(true)}
-            conceptionStructure={customProjectStructure}
-            realizationStructure={customRealizationStructure}
-          />
-        </TabsContent>
+        {(isAdmin || currentUserMember?.can_view_project_details) && (
+          <>
+            <TabsContent value="info">
+              <ProjectInfoTab 
+                project={project}
+                isAdmin={isAdmin}
+                onEdit={() => {}}
+                onDelete={() => setIsDeleteDialogOpen(true)}
+                conceptionStructure={customProjectStructure}
+                realizationStructure={customRealizationStructure}
+              />
+            </TabsContent>
 
-        <TabsContent value="avancement">
-          <ProjectGanttTab 
-            project={project}
-            conceptionStructure={customProjectStructure}
-            realizationStructure={customRealizationStructure}
-          />
-        </TabsContent>
+            <TabsContent value="avancement">
+              <ProjectGanttTab 
+                project={project}
+                conceptionStructure={customProjectStructure}
+                realizationStructure={customRealizationStructure}
+              />
+            </TabsContent>
+          </>
+        )}
+
+        {(isAdmin || currentUserMember?.can_view_info_sheets) && (
+          <TabsContent value="info-sheets">
+            <ProjectInfoSheetsTab 
+              projectId={id || ''}
+              isAdmin={isAdmin}
+              conceptionStructure={customProjectStructure}
+              realizationStructure={customRealizationStructure}
+            />
+          </TabsContent>
+        )}
 
         <TabsContent value="structure">
           <ProjectStructureTab 
@@ -319,6 +374,8 @@ const ProjectDetails: React.FC = () => {
             realizationStructure={customRealizationStructure}
             projectId={id || ''}
             isAdmin={isAdmin}
+            onStructureChange={refreshStructure}
+            onlyAssignedTasks={!isAdmin && !currentUserMember?.can_view_project_details}
           />
         </TabsContent>
 

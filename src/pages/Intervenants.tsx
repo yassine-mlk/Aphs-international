@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import CreateUserForm from "@/components/CreateUserForm";
 import EditUserForm from "@/components/EditUserForm";
 import { useSupabase, SPECIALTIES } from '../hooks/useSupabase';
@@ -33,7 +34,31 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowUpDown, Users } from "lucide-react";
+import { 
+  ArrowUpDown, 
+  Users, 
+  Search, 
+  UserPlus, 
+  Building2, 
+  GraduationCap, 
+  Mail, 
+  Calendar as CalendarIcon, 
+  MoreVertical, 
+  ChevronLeft, 
+  ChevronRight,
+  ExternalLink,
+  ShieldCheck,
+  ShieldAlert,
+  Trash2,
+  UserCog
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 import {
   ResponsiveContainer,
   PieChart,
@@ -85,7 +110,9 @@ interface TaskAssignmentRow {
   project_id: string;
   phase_id: string;
   section_id: string;
+  section_name?: string;
   subsection_id: string;
+  subsection_name?: string;
   task_name: string;
   assigned_to: string[];
   validators: string[];
@@ -131,6 +158,8 @@ const Intervenants: React.FC = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedIntervenant, setSelectedIntervenant] = useState<Intervenant | null>(null);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
 
   const [selectedIntervenantSummary, setSelectedIntervenantSummary] = useState<Intervenant | null>(null);
   const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
@@ -311,12 +340,20 @@ const Intervenants: React.FC = () => {
         }
         setSummaryProjects(projects);
 
+        // Récupérer les tâches où l'utilisateur est impliqué (via la vue)
         const { data: tasks, error: taskError } = await supabase
-          .from('task_assignments')
-          .select('id,project_id,phase_id,section_id,subsection_id,task_name,assigned_to,validators,deadline,validation_deadline,status,file_url')
-          .or(`assigned_to.cs.{${userId}},validators.cs.{${userId}}`);
+          .from('task_assignments_view')
+          .select('*');
+
         if (taskError) throw taskError;
-        setSummaryTasks((tasks || []) as TaskAssignmentRow[]);
+        
+        // Filtrer côté client pour les performances et la simplicité avec les tableaux/JSONB
+        const userTasks = (tasks || []).filter((t: any) => 
+          (t.assigned_to || []).includes(userId) || 
+          (t.validators || []).some((v: any) => v.user_id === userId)
+        );
+        
+        setSummaryTasks(userTasks as TaskAssignmentRow[]);
       } catch (error) {
         toast({
           title: 'Erreur',
@@ -338,7 +375,7 @@ const Intervenants: React.FC = () => {
 
   const summaryValidationTasks = useMemo(() => {
     if (!selectedIntervenantSummary?.id) return [] as TaskAssignmentRow[];
-    return summaryTasks.filter(t => (t.validators || []).includes(selectedIntervenantSummary.id));
+    return summaryTasks.filter(t => (t.validators || []).some((v: any) => v.user_id === selectedIntervenantSummary.id));
   }, [selectedIntervenantSummary?.id, summaryTasks]);
 
   const statusColors = {
@@ -439,6 +476,18 @@ const Intervenants: React.FC = () => {
     return sortedResult;
   }, [intervenants, searchTerm, specialtyFilter, sortField, sortOrder]);
 
+  const totalPages = Math.ceil(filteredAndSortedIntervenants.length / itemsPerPage);
+  
+  const currentIntervenants = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredAndSortedIntervenants.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredAndSortedIntervenants, currentPage]);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, specialtyFilter, sortField]);
+
   // Liste unique des spécialités présentes dans les intervenants pour le filtre
   const availableSpecialties = useMemo(() => {
     const specialties = new Set<string>();
@@ -451,204 +500,283 @@ const Intervenants: React.FC = () => {
   }, [intervenants]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="max-w-7xl mx-auto space-y-8 p-4 md:p-8">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end border-b pb-6 gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Intervenants</h1>
-          <p className="text-muted-foreground">
-            Gérez les comptes des intervenants de votre plateforme.
-          </p>
+          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Gestion des Intervenants</h1>
+          <p className="text-gray-500 mt-1">Gérez les comptes et suivez l'activité des intervenants de votre plateforme.</p>
         </div>
-        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-teal-600 hover:bg-teal-700">Ajouter un intervenant</Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Ajouter un nouvel intervenant</DialogTitle>
-              <DialogDescription>
-                Créez un compte pour un nouvel intervenant. Celui-ci pourra ensuite se connecter avec ces identifiants.
-              </DialogDescription>
-            </DialogHeader>
-            <CreateUserForm onSuccess={handleDialogClose} />
-          </DialogContent>
-        </Dialog>
+        <div className="flex items-center gap-6">
+          <div className="text-right">
+            <span className="text-4xl font-light text-blue-600">{intervenants.length}</span>
+            <span className="text-xs uppercase tracking-widest text-gray-400 block font-semibold">Total Membres</span>
+          </div>
+          <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-blue-600 hover:bg-blue-700 shadow-sm h-11 px-6 rounded-xl font-bold gap-2">
+                <UserPlus className="h-5 w-5" />
+                Ajouter
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Ajouter un nouvel intervenant</DialogTitle>
+                <DialogDescription>
+                  Créez un compte pour un nouvel intervenant. Celui-ci pourra ensuite se connecter avec ces identifiants.
+                </DialogDescription>
+              </DialogHeader>
+              <CreateUserForm onSuccess={handleDialogClose} />
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-        <div className="relative w-full sm:w-64">
+      {/* Filters & Sorting Bar */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-center">
+        <div className="xl:col-span-4 relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
-            placeholder="Rechercher un intervenant..."
+            placeholder="Rechercher un nom, email, spécialité..."
+            className="pl-10 h-11 bg-white border-gray-200 shadow-sm focus-visible:ring-blue-500 rounded-xl"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-8"
           />
-          <svg 
-            xmlns="http://www.w3.org/2000/svg" 
-            className="h-5 w-5 absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400" 
-            fill="none" 
-            viewBox="0 0 24 24" 
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
         </div>
 
-        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-          <div className="w-full sm:w-auto">
-            <Select 
-              value={specialtyFilter} 
-              onValueChange={setSpecialtyFilter}
-            >
-              <SelectTrigger className="w-full sm:w-[180px]">
-                <SelectValue placeholder="Toutes spécialités" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Toutes spécialités</SelectItem>
-                {availableSpecialties.map((specialty) => (
-                  <SelectItem key={specialty} value={specialty}>
-                    {specialty}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <div className="xl:col-span-8 flex flex-wrap gap-2 items-center justify-end">
+          <Select 
+            value={specialtyFilter} 
+            onValueChange={setSpecialtyFilter}
+          >
+            <SelectTrigger className="h-11 w-[180px] bg-white border-gray-200 rounded-xl">
+              <SelectValue placeholder="Spécialités" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Toutes spécialités</SelectItem>
+              {availableSpecialties.map((specialty) => (
+                <SelectItem key={specialty} value={specialty}>{specialty}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-          <div className="flex gap-2">
+          <div className="flex bg-gray-100 p-1 rounded-xl gap-1">
             <Button 
-              variant="outline" 
+              variant="ghost" 
               size="sm"
               onClick={() => toggleSort('name')}
-              className={sortField === 'name' ? 'border-teal-500' : ''}
-            >
-              Nom
-              <ArrowUpDown className="ml-2 h-4 w-4" />
-              {sortField === 'name' && (
-                <span className="ml-1">{sortOrder === 'asc' ? '↑' : '↓'}</span>
+              className={cn(
+                "h-9 px-4 text-xs font-bold rounded-lg transition-all",
+                sortField === 'name' ? "bg-white text-blue-600 shadow-sm" : "text-gray-500"
               )}
+            >
+              Nom {sortField === 'name' && (sortOrder === 'asc' ? '↑' : '↓')}
             </Button>
-            
             <Button 
-              variant="outline" 
+              variant="ghost" 
               size="sm"
               onClick={() => toggleSort('date')}
-              className={sortField === 'date' ? 'border-teal-500' : ''}
-            >
-              Date
-              <ArrowUpDown className="ml-2 h-4 w-4" />
-              {sortField === 'date' && (
-                <span className="ml-1">{sortOrder === 'asc' ? '↑' : '↓'}</span>
+              className={cn(
+                "h-9 px-4 text-xs font-bold rounded-lg transition-all",
+                sortField === 'date' ? "bg-white text-blue-600 shadow-sm" : "text-gray-500"
               )}
+            >
+              Date {sortField === 'date' && (sortOrder === 'asc' ? '↑' : '↓')}
             </Button>
-            
             <Button 
-              variant="outline" 
+              variant="ghost" 
               size="sm"
               onClick={() => toggleSort('specialty')}
-              className={sortField === 'specialty' ? 'border-teal-500' : ''}
-            >
-              Spécialité
-              <ArrowUpDown className="ml-2 h-4 w-4" />
-              {sortField === 'specialty' && (
-                <span className="ml-1">{sortOrder === 'asc' ? '↑' : '↓'}</span>
+              className={cn(
+                "h-9 px-4 text-xs font-bold rounded-lg transition-all",
+                sortField === 'specialty' ? "bg-white text-blue-600 shadow-sm" : "text-gray-500"
               )}
+            >
+              Spécialité {sortField === 'specialty' && (sortOrder === 'asc' ? '↑' : '↓')}
             </Button>
           </div>
         </div>
-      </div>
-      
-      <div className="flex justify-end">
-        <span className="text-sm text-gray-500">
-          {filteredAndSortedIntervenants.length} intervenants
-        </span>
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-10">
-          <div className="w-10 h-10 border-4 border-t-teal-500 border-r-transparent border-b-teal-500 border-l-transparent rounded-full animate-spin"></div>
+        <div className="flex flex-col items-center justify-center py-20 gap-4">
+          <div className="w-12 h-12 border-4 border-blue-600/20 border-t-blue-600 rounded-full animate-spin"></div>
+          <p className="text-gray-500 font-medium animate-pulse">Chargement des membres...</p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 font-medium text-gray-900">Nom</th>
-                <th className="px-4 py-3 font-medium text-gray-900">Email</th>
-                <th className="px-4 py-3 font-medium text-gray-900">Entreprise</th>
-                <th className="px-4 py-3 font-medium text-gray-900">Spécialité</th>
-
-                <th className="px-4 py-3 font-medium text-gray-900">Date d'ajout</th>
-                <th className="px-4 py-3 font-medium text-gray-900">Statut</th>
-                <th className="px-4 py-3 font-medium text-gray-900">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {filteredAndSortedIntervenants.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="text-center py-4 text-gray-500">
-                    Aucun intervenant trouvé
-                  </td>
-                </tr>
-              ) : (
-                filteredAndSortedIntervenants.map((intervenant) => (
-                  <tr
+        <div className="space-y-6">
+          {currentIntervenants.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 bg-gray-50/50 border-2 border-dashed border-gray-200 rounded-2xl text-center">
+              <div className="p-4 bg-white rounded-full shadow-sm mb-4">
+                <Users className="h-10 w-10 text-gray-300" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Aucun intervenant trouvé</h3>
+              <p className="text-sm text-gray-500 max-w-xs mt-1">
+                Aucun membre ne correspond à vos critères de recherche.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {currentIntervenants.map((intervenant) => (
+                  <Card 
                     key={intervenant.id}
-                    className="hover:bg-gray-50 cursor-pointer"
+                    className="group border-0 shadow-sm bg-white rounded-2xl overflow-hidden hover:shadow-md transition-all cursor-pointer border-l-4 border-l-transparent hover:border-l-blue-600"
                     onClick={() => openIntervenantSummary(intervenant)}
                   >
-                    <td className="px-4 py-3 font-medium text-gray-900">{getDisplayName(intervenant)}</td>
-                    <td className="px-4 py-3 text-gray-500">{intervenant.email}</td>
-                    <td className="px-4 py-3 text-gray-500">{intervenant.company || 'Indépendant'}</td>
-                    <td className="px-4 py-3 text-gray-500">{intervenant.specialty || 'Non spécifié'}</td>
+                    <CardContent className="p-6">
+                      <div className="flex justify-between items-start">
+                        <div className="flex items-center gap-4">
+                          <div className="h-12 w-12 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 font-black text-xl">
+                            {intervenant.first_name?.[0]}{intervenant.last_name?.[0]}
+                          </div>
+                          <div className="min-w-0">
+                            <h3 className="font-bold text-gray-900 truncate group-hover:text-blue-600 transition-colors">
+                              {getDisplayName(intervenant)}
+                            </h3>
+                            <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                              <Mail className="h-3 w-3" />
+                              <span className="truncate">{intervenant.email}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48 rounded-xl">
+                            <DropdownMenuItem onClick={() => openIntervenantSummary(intervenant)}>
+                              <ExternalLink className="h-4 w-4 mr-2" />
+                              Voir le profil
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => {
+                              e.stopPropagation();
+                              prepareEdit(intervenant);
+                            }}>
+                              <UserCog className="h-4 w-4 mr-2" />
+                              Modifier
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => {
+                              e.stopPropagation();
+                              toggleStatus(intervenant.id);
+                            }}>
+                              {intervenant.status === 'active' ? (
+                                <><ShieldAlert className="h-4 w-4 mr-2 text-orange-500" /> Désactiver</>
+                              ) : (
+                                <><ShieldCheck className="h-4 w-4 mr-2 text-green-500" /> Activer</>
+                              )}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              className="text-red-600"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                prepareDelete(intervenant);
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Supprimer
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
 
-                    <td className="px-4 py-3 text-gray-500">{intervenant.joinDate}</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
-                        intervenant.status === 'active' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {intervenant.status === 'active' ? 'Actif' : 'Inactif'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 space-x-1">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          prepareEdit(intervenant);
-                        }}
-                        className="text-xs px-2 py-1 rounded font-medium bg-blue-100 text-blue-800 hover:bg-blue-200"
-                      >
-                        Modifier
-                      </button>
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleStatus(intervenant.id);
-                        }}
-                        className={`text-xs px-2 py-1 rounded font-medium ${
-                          intervenant.status === 'active'
-                            ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
-                            : 'bg-green-100 text-green-800 hover:bg-green-200'
-                        }`}
-                      >
-                        {intervenant.status === 'active' ? 'Désactiver' : 'Activer'}
-                      </button>
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          prepareDelete(intervenant);
-                        }}
-                        className="text-xs px-2 py-1 rounded font-medium bg-red-100 text-red-800 hover:bg-red-200"
-                      >
-                        Supprimer
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                      <div className="grid grid-cols-2 gap-4 mt-6">
+                        <div className="space-y-1">
+                          <span className="text-[10px] uppercase tracking-widest font-bold text-gray-400">Entreprise</span>
+                          <div className="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+                            <Building2 className="h-3.5 w-3.5 text-gray-400" />
+                            <span className="truncate">{intervenant.company || 'Indépendant'}</span>
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <span className="text-[10px] uppercase tracking-widest font-bold text-gray-400">Spécialité</span>
+                          <div className="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+                            <GraduationCap className="h-3.5 w-3.5 text-gray-400" />
+                            <span className="truncate">{intervenant.specialty || 'Non spécifiée'}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-50">
+                        <div className="flex items-center gap-2 text-[11px] text-gray-400">
+                          <CalendarIcon className="h-3.5 w-3.5" />
+                          <span>Depuis le {intervenant.joinDate}</span>
+                        </div>
+                        <Badge 
+                          variant="secondary" 
+                          className={cn(
+                            "text-[10px] font-bold uppercase px-2 h-5 border-0",
+                            intervenant.status === 'active' ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
+                          )}
+                        >
+                          {intervenant.status === 'active' ? 'Actif' : 'Inactif'}
+                        </Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Pagination UI */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between border-t border-gray-100 pt-8 mt-4">
+                  <div className="text-sm text-gray-500">
+                    Affichage de <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> à <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredAndSortedIntervenants.length)}</span> sur <span className="font-medium">{filteredAndSortedIntervenants.length}</span> membres
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                      className="h-9 w-9 p-0 rounded-xl"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1)
+                        .filter(page => {
+                          return page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1;
+                        })
+                        .map((page, index, array) => {
+                          const showEllipsis = index > 0 && page - array[index - 1] > 1;
+                          return (
+                            <React.Fragment key={page}>
+                              {showEllipsis && <span className="text-gray-400 px-1">...</span>}
+                              <Button
+                                variant={currentPage === page ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => setCurrentPage(page)}
+                                className={cn(
+                                  "h-9 w-9 p-0 rounded-xl font-bold",
+                                  currentPage === page ? "bg-blue-600 border-blue-600" : "text-gray-600 border-gray-200"
+                                )}
+                              >
+                                {page}
+                              </Button>
+                            </React.Fragment>
+                          );
+                        })
+                      }
+                    </div>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage === totalPages}
+                      className="h-9 w-9 p-0 rounded-xl"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
               )}
-            </tbody>
-          </table>
+            </>
+          )}
         </div>
       )}
 
@@ -756,7 +884,9 @@ const Intervenants: React.FC = () => {
                         <div key={t.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
                           <div className="min-w-0">
                             <div className="text-sm font-medium truncate">{t.task_name}</div>
-                            <div className="text-xs text-gray-500 truncate">{t.phase_id} • {t.section_id} • {t.subsection_id}</div>
+                            <div className="text-xs text-gray-500 truncate">
+                              {t.phase_id} • {t.section_name || `Section ${t.section_id}`} • {t.subsection_name || `Sous-section ${t.subsection_id}`}
+                            </div>
                           </div>
                           <Badge
                             variant="secondary"
@@ -781,7 +911,9 @@ const Intervenants: React.FC = () => {
                         <div key={t.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
                           <div className="min-w-0">
                             <div className="text-sm font-medium truncate">{t.task_name}</div>
-                            <div className="text-xs text-gray-500 truncate">{t.phase_id} • {t.section_id} • {t.subsection_id}</div>
+                            <div className="text-xs text-gray-500 truncate">
+                              {t.phase_id} • {t.section_name || `Section ${t.section_id}`} • {t.subsection_name || `Sous-section ${t.subsection_id}`}
+                            </div>
                           </div>
                           <Badge
                             variant="secondary"

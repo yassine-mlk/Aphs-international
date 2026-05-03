@@ -19,7 +19,6 @@ import {
   Calendar as CalendarIcon,
   LayoutGrid,
   ChevronRight,
-  Building2,
   FileCheck,
   PenTool
 } from 'lucide-react';
@@ -30,7 +29,6 @@ import { useRecentActivities, type RecentActivity } from '@/hooks/useRecentActiv
 import { usePendingDocuments } from '@/hooks/usePendingDocuments';
 import { ActivityIcon } from '@/components/ActivityIcon';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TenantQuotaDisplay } from '@/components/TenantQuotaGuard';
 import { DashboardSkeleton } from '@/components/Skeletons';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DeadlineCalendar } from '@/components/DeadlineCalendar';
@@ -183,7 +181,7 @@ const IntervenantDashboard: React.FC = () => {
         return;
       }
 
-      // 1. Récupérer les projets dont l'utilisateur est membre (même logique que IntervenantProjects.tsx)
+      // 1. Récupérer les projets dont l'utilisateur est membre
       const memberData = await fetchData('membre', {
         columns: '*',
         filters: [{ column: 'user_id', operator: 'eq', value: user.id }]
@@ -199,7 +197,6 @@ const IntervenantDashboard: React.FC = () => {
         
         
         if (projectIds.length > 0) {
-          // Utiliser une requête directe Supabase au lieu du helper générique pour le filtre 'in'
           const { data: projectsData, error } = await supabase
             .from('projects')
             .select('id, name, status')
@@ -215,71 +212,66 @@ const IntervenantDashboard: React.FC = () => {
 
       const projectIdsSet = new Set(projects.map((p: any) => p.id));
 
-      // 2. Récupérer toutes les tâches utiles (assigné ou validateur)
+      // 2. Récupérer toutes les tâches utiles via la vue normalisée
       const { data: rawTasks, error: tasksError } = await supabase
-        .from('task_assignments')
-        .select('id, task_name, status, deadline, validation_deadline, project_id, assigned_to, validators');
+        .from('task_assignments_view')
+        .select('*');
       
       if (tasksError) throw tasksError;
 
-      // 2b. Récupérer aussi les tâches workflow (visa)
-      const { data: workflowTasks, error: workflowError } = await supabase
-        .from('task_visa_workflows')
-        .select('*, task:task_assignments(id, task_name, project_id, status, deadline, validation_deadline)')
-        .eq('submitter_id', user.id)
-        .in('status', ['pending_validation', 'revision_required']);
+      const typedRawTasks = (rawTasks || []) as any[];
 
-      if (workflowError) {
-      }
-
-      const typedRawTasks = (rawTasks || []) as TaskWithMeta[];
-
-      // Filtrer les tâches assignées à l'utilisateur et dont le projet existe
+      // Filtrer les tâches assignées à l'utilisateur (exécuteur) et dont le projet existe
       const executionTasks = typedRawTasks.filter((t) =>
         Array.isArray(t.assigned_to) && t.assigned_to.includes(user.id) && !!t.project_id && projectIdsSet.has(t.project_id)
-      );
+      ).map(t => ({
+        ...t,
+        isWorkflow: t.assignment_type === 'workflow'
+      }));
 
       // Filtrer les tâches où l'utilisateur est validateur et dont le projet existe
       const validatorTasks = typedRawTasks.filter((t) =>
-        Array.isArray(t.validators) && t.validators.includes(user.id) && !!t.project_id && projectIdsSet.has(t.project_id)
+        Array.isArray(t.validators) && 
+        t.validators.some((v: any) => v.user_id === user.id) && 
+        !!t.project_id && 
+        projectIdsSet.has(t.project_id)
       );
-
-      // Ajouter les tâches workflow aux tâches d'exécution
-      const workflowExecutionTasks = (workflowTasks || [])
-        .filter((wt: any) => wt.task && projectIdsSet.has(wt.task.project_id))
-        .map((wt: any) => ({
-          id: wt.task_assignment_id,
-          task_name: wt.task?.task_name || `Workflow VISA #${wt.id.slice(0, 8)}`,
-          status: wt.task?.status || 'in_progress',
-          deadline: wt.task?.deadline,
-          validation_deadline: wt.task?.validation_deadline,
-          project_id: wt.task?.project_id,
-          workflow_status: wt.status,
-          current_version: wt.current_version,
-          isWorkflow: true
-        })) as TaskWithMeta[];
 
       const projectMap = new Map(projects.map((p: any) => [p.id, p.name]));
 
-      // Fusionner les tâches standards et workflow
-      const allExecutionTasks = [...executionTasks, ...workflowExecutionTasks];
+      // Fusionner les tâches
+      const allExecutionTasks = [...executionTasks];
 
+      // Statuts de complétion normalisés
+      const completedStatuses = ['approved', 'vso', 'vao', 'closed'];
 
       // 3. Calculer les statistiques
       const now = new Date();
+      
+      // On sépare bien les tâches par rôle pour que les stats soient réelles
+      const myExecutionTasks = executionTasks;
+      const myValidationTasks = validatorTasks;
+
+      // Calcul des statistiques réelles basées sur les mêmes critères que la page Tâches
+      const validatedTasksCount = myExecutionTasks.filter((t: any) => completedStatuses.includes(t.status)).length;
+      const inReviewTasksCount = myExecutionTasks.filter((t: any) => t.status === 'in_review').length;
+      const openTasksCount = myExecutionTasks.filter((t: any) => t.status === 'open').length;
+      const startedTasksCount = myExecutionTasks.filter((t: any) => t.status === 'started').length;
+      
       const newStats: IntervenantStats = {
-        totalTasks: allExecutionTasks.length,
-        assignedTasks: allExecutionTasks.filter((t: any) => t.status === 'assigned').length,
-        inProgressTasks: allExecutionTasks.filter((t: any) => t.status === 'in_progress' || t.isWorkflow).length,
-        completedTasks: allExecutionTasks.filter((t: any) => t.status === 'submitted').length,
-        validatedTasks: allExecutionTasks.filter((t: any) => t.status === 'validated').length,
-        overdueTasks: allExecutionTasks.filter((t: any) =>
+        totalTasks: myExecutionTasks.length + myValidationTasks.length,
+        assignedTasks: openTasksCount,
+        inProgressTasks: startedTasksCount,
+        completedTasks: inReviewTasksCount,
+        validatedTasks: validatedTasksCount,
+        overdueTasks: (myExecutionTasks.length + myValidationTasks.length > 0) ? [...myExecutionTasks, ...myValidationTasks].filter((t: any) =>
           t.deadline &&
           new Date(t.deadline) < now &&
-          t.status !== 'validated'
-        ).length,
-        completionRate: allExecutionTasks.length > 0
-          ? Math.round((allExecutionTasks.filter((t: any) => t.status === 'validated').length / allExecutionTasks.length) * 100)
+          !completedStatuses.includes(t.status) &&
+          t.status !== 'closed'
+        ).length : 0,
+        completionRate: myExecutionTasks.length > 0
+          ? Math.round((validatedTasksCount / myExecutionTasks.length) * 100)
           : 0,
         totalProjects: projects.length,
         activeProjects: projects.filter((p: any) => p.status === 'active' || p.status === 'in_progress').length
@@ -300,17 +292,18 @@ const IntervenantDashboard: React.FC = () => {
         id: task.id,
         task_name: task.task_name || 'Tâche sans nom',
         project_name: projectMap.get(task.project_id) || 'Projet inconnu',
-        status: task.status,
+        status: completedStatuses.includes(task.status) ? 'validated' : 
+                task.status === 'rejected' ? 'rejected' :
+                task.status === 'in_review' ? 'submitted' :
+                task.status === 'open' ? 'assigned' : 'in_progress',
         deadline: task.deadline,
-        priority: 'medium' as const, // Priorité par défaut
-        progress: task.status === 'validated' ? 100 : 
-                 task.status === 'submitted' ? 90 :
-                 task.status === 'in_progress' ? 50 : 0
+        priority: 'medium' as const,
+        progress: completedStatuses.includes(task.status) ? 100 : 
+                 task.status === 'in_review' ? 90 :
+                 task.status === 'open' ? 10 : 50
       }));
 
       setRecentTasks(tasksWithProjects);
-
-      // Les activités récentes sont maintenant gérées par le hook useRecentActivities
 
     } catch (error) {
       if (!silent) {
@@ -539,11 +532,14 @@ const IntervenantDashboard: React.FC = () => {
               <CardContent className="pt-4">
                 <div className="text-4xl font-black text-foreground">{stats.totalTasks}</div>
                 <div className="flex flex-wrap gap-2 mt-4">
-                  <Badge variant="secondary">
+                  <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-yellow-200">
                     {stats.inProgressTasks} en cours
                   </Badge>
-                  <Badge className="bg-blue-500 text-white hover:bg-blue-600">
+                  <Badge className="bg-green-100 text-green-800 border-green-200">
                     {stats.validatedTasks} validées
+                  </Badge>
+                  <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-200">
+                    {stats.completedTasks} soumises
                   </Badge>
                 </div>
               </CardContent>
@@ -629,25 +625,7 @@ const IntervenantDashboard: React.FC = () => {
           </motion.div>
         </div>
 
-        {/* Quotas du Tenant */}
-        {tenant && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-3"
-          >
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold flex items-center gap-2">
-                <Building2 className="h-5 w-5 text-muted-foreground" />
-                {tenant.name} - Quotas
-              </h2>
-              <Badge variant="outline" className="capitalize">
-                {tenant.plan}
-              </Badge>
-            </div>
-            <TenantQuotaDisplay />
-          </motion.div>
-        )}
+
 
         {/* Vue Personnalisée ou Vue par Onglets */}
         {preferences.useCustomView ? (
@@ -979,34 +957,35 @@ const statusColors = {
 
 function IntervenantKpiCharts({ allTasks, validationTasks }: { allTasks: any[]; validationTasks: any[] }) {
   const now = useMemo(() => new Date(), []);
+  const completedStatuses = ['approved', 'vso', 'vao', 'closed'];
 
   const execOverdue = useMemo(() => {
     return (allTasks || []).filter((t: any) => {
       const d = t.deadline ? new Date(t.deadline) : null;
-      return !!d && !isNaN(d.getTime()) && d < now && t.status !== 'validated';
+      return !!d && !isNaN(d.getTime()) && d < now && !completedStatuses.includes(t.status);
     }).length;
-  }, [allTasks, now]);
+  }, [allTasks, now, completedStatuses]);
 
   const valOverdue = useMemo(() => {
     return (validationTasks || []).filter((t: any) => {
       const d = t.validation_deadline ? new Date(t.validation_deadline) : null;
-      return !!d && !isNaN(d.getTime()) && d < now && t.status !== 'validated';
+      return !!d && !isNaN(d.getTime()) && d < now && !completedStatuses.includes(t.status);
     }).length;
-  }, [validationTasks, now]);
+  }, [validationTasks, now, completedStatuses]);
 
   const execCompletionRate = useMemo(() => {
     const total = (allTasks || []).length;
     if (!total) return 0;
-    const done = (allTasks || []).filter((t: any) => t.status === 'validated').length;
+    const done = (allTasks || []).filter((t: any) => completedStatuses.includes(t.status)).length;
     return Math.round((done / total) * 100);
-  }, [allTasks]);
+  }, [allTasks, completedStatuses]);
 
   const valCompletionRate = useMemo(() => {
     const total = (validationTasks || []).length;
     if (!total) return 0;
-    const done = (validationTasks || []).filter((t: any) => t.status === 'validated').length;
+    const done = (validationTasks || []).filter((t: any) => completedStatuses.includes(t.status)).length;
     return Math.round((done / total) * 100);
-  }, [validationTasks]);
+  }, [validationTasks, completedStatuses]);
 
   const execStatusPieData = useMemo(() => {
     const counts: Record<string, number> = {};

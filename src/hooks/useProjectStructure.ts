@@ -20,9 +20,12 @@ interface ProjectSection {
   phase: string;
   order_index: number;
   items: ProjectSubsection[];
+  status: 'pending' | 'started' | 'completed';
   deadline?: string;
   start_date?: string;
   end_date?: string;
+  actual_start_date?: string;
+  planned_end_date?: string;
 }
 
 interface ProjectSubsection {
@@ -30,10 +33,13 @@ interface ProjectSubsection {
   section_id: string;
   title: string;
   order_index: number;
+  status: 'pending' | 'started' | 'completed';
   tasks: { id: string; title: string; order_index: number }[];
   deadline?: string;
   start_date?: string;
   end_date?: string;
+  actual_start_date?: string;
+  planned_end_date?: string;
 }
 
 // ── Caches module-level ──
@@ -114,6 +120,7 @@ export const useProjectStructure = (projectId: string) => {
             section_id: item.section_id,
             title: item.title,
             order_index: item.order_index,
+            status: item.status || 'pending',
             deadline: item.deadline,
             start_date: item.start_date,
             end_date: item.end_date,
@@ -127,6 +134,7 @@ export const useProjectStructure = (projectId: string) => {
           title: sec.title, 
           phase: sec.phase,
           order_index: sec.order_index,
+          status: sec.status || 'pending',
           items, 
           deadline: sec.deadline,
           start_date: sec.start_date,
@@ -153,7 +161,7 @@ export const useProjectStructure = (projectId: string) => {
     try {
       const { data: sections, error } = await supabase
         .from('project_sections_snapshot')
-        .select('*')
+        .select('*, actual_start_date, planned_end_date')
         .eq('project_id', projectId)
         .order('order_index');
 
@@ -162,7 +170,7 @@ export const useProjectStructure = (projectId: string) => {
       const sectionIds = sections.map((s: any) => s.id);
       const { data: items } = await supabase
         .from('project_items_snapshot')
-        .select('*')
+        .select('*, actual_start_date, planned_end_date')
         .in('section_id', sectionIds)
         .order('order_index');
 
@@ -186,9 +194,12 @@ export const useProjectStructure = (projectId: string) => {
             title: sec.title,
             phase: sec.phase,
             order_index: sec.order_index,
+            status: sec.status || 'pending',
             deadline: sec.deadline,
             start_date: sec.start_date,
             end_date: sec.end_date,
+            actual_start_date: sec.actual_start_date,
+            planned_end_date: sec.planned_end_date,
             items: (items || [])
               .filter((i: any) => i.section_id === sec.id)
               .sort((a: any, b: any) => a.order_index - b.order_index)
@@ -197,9 +208,12 @@ export const useProjectStructure = (projectId: string) => {
                 section_id: item.section_id,
                 title: item.title,
                 order_index: item.order_index,
+                status: item.status || 'pending',
                 deadline: item.deadline,
                 start_date: item.start_date,
                 end_date: item.end_date,
+                actual_start_date: item.actual_start_date,
+                planned_end_date: item.planned_end_date,
                 tasks: tasks
                   .filter((t: any) => t.item_id === item.id)
                   .sort((a: any, b: any) => a.order_index - b.order_index)

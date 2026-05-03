@@ -153,7 +153,7 @@ export default function PublicSignature() {
             projectId: null,
             signatureMethod: 'email_link'
           },
-          read: false
+          is_read: false
         });
 
         // Envoyer un email à l'admin

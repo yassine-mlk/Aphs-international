@@ -14,7 +14,7 @@ declare global {
   }
 }
 
-// Configuration avec priorité aux variables d'environnement
+// Configuration avec priorité aux variables d'environnement et fallbacks hardcodés
 export const getConfigValue = (key: string, defaultValue: string = '') => {
   // Priorité 1: Variables d'environnement Vite
   if (import.meta.env && import.meta.env[key]) {
@@ -22,11 +22,14 @@ export const getConfigValue = (key: string, defaultValue: string = '') => {
   }
   
   // Priorité 2: Variables globales (fallback historique)
-  if (typeof window !== 'undefined' && window.VIDEO_CONFERENCE_CONFIG?.[key]) {
-    return window.VIDEO_CONFERENCE_CONFIG[key];
+  if (typeof window !== 'undefined' && (window as any).VIDEO_CONFERENCE_CONFIG?.[key]) {
+    return (window as any).VIDEO_CONFERENCE_CONFIG[key];
   }
   
-  // Priorité 3: Valeur par défaut
+  // Priorité 3: Fallbacks hardcodés supprimés pour sécurité
+  // Les clés doivent être définies dans le fichier .env
+  
+  // Priorité 4: Valeur par défaut
   return defaultValue;
 };
 

@@ -59,6 +59,32 @@ export default function MeetingRoom({ roomId, onLeave, isAdmin }: Props) {
     };
 
     fetchToken();
+
+    // Souscription en temps réel pour détecter quand l'admin clôture la réunion
+    const channel = supabase
+      .channel(`meeting-status-${roomId}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'video_meetings',
+        filter: `id=eq.${roomId}`
+      }, (payload) => {
+        const newStatus = payload.new.status;
+        if (newStatus === 'completed' || newStatus === 'cancelled') {
+          toast({
+            title: "Réunion terminée",
+            description: "L'admin a mis fin à cette réunion.",
+          });
+          setTimeout(() => {
+            handleDisconnected();
+          }, 2000);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [roomId, user, toast, serverUrl]);
 
   const handleDisconnected = async () => {

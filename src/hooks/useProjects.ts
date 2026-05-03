@@ -376,16 +376,6 @@ export function useProjects() {
     if (status !== 'authenticated') return false;
     setLoading(true);
     try {
-      try {
-        const { error: assignError } = await supabase
-          .from('task_assignments')
-          .delete()
-          .eq('project_id', id);
-        if (assignError) {
-        }
-      } catch (e) {
-      }
-
       const success = await deleteData('projects', id);
 
       if (success) {

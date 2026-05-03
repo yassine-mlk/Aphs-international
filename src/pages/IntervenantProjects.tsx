@@ -58,7 +58,7 @@ const IntervenantProjects: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [taskStats, setTaskStats] = useState<{[projectId: string]: {total: number, completed: number}}>({});
-  const [memberRolesByProjectId, setMemberRolesByProjectId] = useState<Record<string, string>>({});
+  const [memberPermissionsByProjectId, setMemberPermissionsByProjectId] = useState<Record<string, { role: string, can_view_project_details: boolean }>>({});
 
   
   // Charger les projets auxquels l'intervenant est assigné
@@ -70,17 +70,24 @@ const IntervenantProjects: React.FC = () => {
     if (!silent) setLoading(true);
     try {
       // Récupérer les projets dont l'utilisateur est membre
-      const memberData = await fetchData<ProjectMember>('membre', {
-        columns: '*',
-        filters: [{ column: 'user_id', operator: 'eq', value: user.id }]
-      });
+      const { data: memberData, error: memberError } = await supabase
+        .from('membre')
+        .select('*')
+        .eq('user_id', user.id);
+
+      if (memberError) throw memberError;
 
       if (memberData && memberData.length > 0) {
-        const rolesMap: Record<string, string> = {};
+        const permissionsMap: Record<string, { role: string, can_view_project_details: boolean }> = {};
         for (const m of memberData) {
-          if (m.project_id) rolesMap[m.project_id] = m.role;
+          if (m.project_id) {
+            permissionsMap[m.project_id] = {
+              role: m.role,
+              can_view_project_details: m.can_view_project_details ?? true
+            };
+          }
         }
-        setMemberRolesByProjectId(rolesMap);
+        setMemberPermissionsByProjectId(permissionsMap);
 
         const projectIds = memberData
           .map(member => member.project_id)
@@ -104,16 +111,29 @@ const IntervenantProjects: React.FC = () => {
           setProjects(projectsData);
 
           const stats: {[projectId: string]: {total: number, completed: number}} = {};
-          for (const project of projectsData) {
-            const tasks = await fetchData<TaskAssignment>('task_assignments', {
-              columns: 'id,status',
-              filters: [{ column: 'project_id', operator: 'eq', value: project.id }]
-            });
+          
+          // Récupérer le nombre total de tâches depuis le snapshot pour chaque projet
+          const { data: snapshotData } = await supabase
+            .from('project_tasks_snapshot')
+            .select('project_id')
+            .in('project_id', projectIds);
 
-            if (tasks) {
+          const totalTasksByProject: Record<string, number> = {};
+          (snapshotData || []).forEach(task => {
+            totalTasksByProject[task.project_id] = (totalTasksByProject[task.project_id] || 0) + 1;
+          });
+
+          for (const project of projectsData) {
+            const { data: tasks, error: tasksError } = await supabase
+              .from('task_assignments_view')
+              .select('id, status')
+              .eq('project_id', project.id);
+
+            if (!tasksError && tasks) {
+              const totalTasks = totalTasksByProject[project.id] || tasks.length; // Fallback aux assignations si pas de snapshot
               stats[project.id] = {
-                total: tasks.length,
-                completed: tasks.filter(task => task.status === 'validated').length
+                total: totalTasks,
+                completed: tasks.filter(task => ['validated', 'approved', 'vso', 'vao', 'closed'].includes(task.status)).length
               };
             }
           }
@@ -122,7 +142,7 @@ const IntervenantProjects: React.FC = () => {
       } else {
         setProjects([]);
         setTaskStats({});
-        setMemberRolesByProjectId({});
+        setMemberPermissionsByProjectId({});
       }
     } catch (error) {
       if (!silent) {
@@ -178,15 +198,7 @@ const IntervenantProjects: React.FC = () => {
 
   // Ouvrir les détails d'un projet
   const handleViewProject = (projectId: string) => {
-    const role = memberRolesByProjectId[projectId];
-    if (role === 'viewer') {
-      toast({
-        title: "Accès limité",
-        description: "Votre accès aux détails de ce projet est désactivé. Contactez un administrateur.",
-        variant: "destructive",
-      });
-      return;
-    }
+    // On permet toujours l'accès, la restriction se fera au niveau de la page de détails
     navigate(`/dashboard/intervenant/projets/${projectId}`);
   };
 
@@ -302,7 +314,8 @@ const IntervenantProjects: React.FC = () => {
                         </span>
                       </Badge>
 
-                      {memberRolesByProjectId[project.id] === 'viewer' && (
+                      {(memberPermissionsByProjectId[project.id]?.role === 'viewer' || 
+                        memberPermissionsByProjectId[project.id]?.can_view_project_details === false) && (
                         <Badge variant="secondary" className="bg-gray-100 text-gray-800">
                           Accès limité
                         </Badge>

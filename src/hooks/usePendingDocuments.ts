@@ -182,7 +182,7 @@ export function usePendingDocuments() {
               signerName: `${user?.user_metadata?.first_name || ''} ${user?.user_metadata?.last_name || ''}`.trim(),
               documentName: projectDoc.name
             },
-            read: false
+            is_read: false
           });
 
 

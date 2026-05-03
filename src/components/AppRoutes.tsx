@@ -14,7 +14,9 @@ import Projects from "@/pages/Projects";
 import ProjectDetails from "@/pages/ProjectDetails";
 import EditProject from "@/pages/EditProject";
 import Tasks from "@/pages/Tasks";
+import AdminTasks from "@/pages/AdminTasks";
 import TaskDetails from "@/pages/TaskDetails";
+import Notifications from "@/pages/Notifications";
 import Companies from "@/pages/Companies";
 import WorkGroups from "@/pages/WorkGroups";
 import Messages from "@/pages/Messages";
@@ -101,10 +103,43 @@ export const AppRoutes = () => {
             <Tasks />
           </SharedRoute>
         } />
+        <Route path="admin/tasks" element={
+          <AdminRoute>
+            <AdminTasks />
+          </AdminRoute>
+        } />
         <Route path="tasks/:id" element={
           <SharedRoute>
             <TaskDetails />
           </SharedRoute>
+        } />
+
+        {/* Redirections pour compatibilité */}
+        <Route path="intervenant/taches-standard" element={<Navigate to="/dashboard/tasks" replace />} />
+        <Route path="intervenant/workflows" element={<Navigate to="/dashboard/tasks" replace />} />
+        <Route path="maitre-ouvrage/taches-standard" element={<Navigate to="/dashboard/tasks" replace />} />
+        <Route path="maitre-ouvrage/workflows" element={<Navigate to="/dashboard/tasks" replace />} />
+
+        {/* Détails des tâches - on garde les chemins pour les liens existants dans les mails/notifs */}
+        <Route path="intervenant/taches-standard/:id" element={
+          <IntervenantRoute>
+            <TaskDetails />
+          </IntervenantRoute>
+        } />
+        <Route path="intervenant/workflows/:id" element={
+          <IntervenantRoute>
+            <TaskDetails />
+          </IntervenantRoute>
+        } />
+        <Route path="maitre-ouvrage/taches-standard/:id" element={
+          <MaitreOuvrageRoute>
+            <TaskDetails />
+          </MaitreOuvrageRoute>
+        } />
+        <Route path="maitre-ouvrage/workflows/:id" element={
+          <MaitreOuvrageRoute>
+            <TaskDetails />
+          </MaitreOuvrageRoute>
         } />
         
         {/* Routes spécifiques aux intervenants */}
@@ -160,6 +195,11 @@ export const AppRoutes = () => {
         <Route path="support" element={
           <SharedRoute>
             <SupportPage />
+          </SharedRoute>
+        } />
+        <Route path="notifications" element={
+          <SharedRoute>
+            <Notifications />
           </SharedRoute>
         } />
         <Route path="admin-support" element={

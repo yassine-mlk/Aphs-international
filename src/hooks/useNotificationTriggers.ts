@@ -1,352 +1,189 @@
 import { useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { NotificationType } from '@/hooks/useNotifications';
 import { useTenant } from '@/contexts/TenantContext';
+import { sendNotification, sendBulkNotifications, getTenantAdmins } from '@/lib/notifications/sendNotification';
 
+/**
+ * Hook de compatibilité pour déclencher des notifications
+ * Redirige maintenant vers le nouveau système sendNotification
+ */
 export function useNotificationTriggers() {
   const { tenant } = useTenant();
-  const { status } = useAuth();
+  const { user, status } = useAuth();
   
-  // Créer une notification pour un utilisateur spécifique avec paramètres
   const createNotification = useCallback(async (
     userId: string,
-    type: NotificationType,
-    titleParams: Record<string, any> = {},
-    messageParams: Record<string, any> = {},
-    data: Record<string, any> = {}
+    type: string,
+    title: string,
+    message: string,
+    link?: string
   ) => {
     if (status !== 'authenticated') return;
-    try {
-      const defaultTitle = getDefaultTitle(type, titleParams);
-      const defaultMessage = getDefaultMessage(type, messageParams);
+    await sendNotification({
+      userId,
+      type,
+      title,
+      message,
+      link
+    });
+  }, [status]);
 
-      const { error } = await supabase
-        .from('notifications')
-        .insert({
-          user_id: userId,
-          type,
-          title: defaultTitle,
-          message: defaultMessage,
-          title_key: type,
-          message_key: type,
-          title_params: titleParams,
-          message_params: messageParams,
-          data,
-          tenant_id: tenant?.id // Ajout du tenant_id si disponible
-        });
-
-      if (error) throw error;
-    } catch (error) {
-      console.error("Error creating notification:", error);
-    }
-  }, [tenant?.id]);
-
-  // Créer une notification pour tous les admins d'un tenant
   const createAdminNotification = useCallback(async (
-    type: NotificationType,
-    titleParams: Record<string, any> = {},
-    messageParams: Record<string, any> = {},
-    data: Record<string, any> = {},
+    type: string,
+    title: string,
+    message: string,
+    link?: string,
     tenantId?: string
   ) => {
     if (status !== 'authenticated') return;
-    try {
-      // Récupérer tous les admins (filtrer par tenant si spécifié)
-      let query = supabase
-        .from('profiles')
-        .select('user_id')
-        .eq('role', 'admin');
-      
-      if (tenantId) {
-        query = query.eq('tenant_id', tenantId);
+    const effectiveTenantId = tenantId || tenant?.id;
+    if (!effectiveTenantId) return;
+
+    const adminIds = await getTenantAdmins(effectiveTenantId);
+    await sendBulkNotifications(adminIds.map(userId => ({
+      userId,
+      type,
+      title,
+      message,
+      link
+    })));
+  }, [status, tenant?.id]);
+
+  const notifyTaskAssigned = useCallback(async (userId: string, taskName: string, projectName: string, assignerName: string) => {
+    await sendNotification({
+      userId,
+      type: 'task_assigned',
+      title: 'Nouvelle tâche assignée',
+      message: `Vous avez été assigné à la tâche "${taskName}" dans le projet "${projectName}" par ${assignerName}.`,
+      link: '/dashboard/tasks',
+      sendEmail: true,
+      emailData: {
+        to: '',
+        subject: `Nouvelle tâche: ${taskName}`,
+        template: 'task_assigned',
+        variables: { taskName, projectName, assignedByName: assignerName, appUrl: window.location.origin }
       }
+    });
+  }, []);
 
-      const { data: admins, error: adminsError } = await query;
+  const notifyFileUploaded = useCallback(async (fileName: string, uploaderName: string, projectName: string) => {
+    if (!tenant?.id) return;
+    const adminIds = await getTenantAdmins(tenant.id);
+    await sendBulkNotifications(adminIds.map(userId => ({
+      userId,
+      type: 'file_uploaded',
+      title: 'Nouveau fichier disponible',
+      message: `${uploaderName} a ajouté "${fileName}" au projet "${projectName}".`,
+      link: '/dashboard/projets'
+    })));
+  }, [tenant?.id]);
 
-      if (adminsError) throw adminsError;
+  const notifyTaskValidated = useCallback(async (taskName: string, validatorName: string, projectName: string) => {
+    // On notifie les admins et potentiellement l'exécuteur (mais ici on simplifie)
+    if (!tenant?.id) return;
+    const adminIds = await getTenantAdmins(tenant.id);
+    await sendBulkNotifications(adminIds.map(userId => ({
+      userId,
+      type: 'task_validated',
+      title: 'Tâche validée',
+      message: `La tâche "${taskName}" du projet "${projectName}" a été validée par ${validatorName}.`,
+      link: '/dashboard/tasks'
+    })));
+  }, [tenant?.id]);
 
-      // Créer une notification pour chaque admin
-      const notificationPromises = admins?.map(admin => 
-        createNotification(admin.user_id, type, titleParams, messageParams, data)
-      ) || [];
+  const notifyProjectAdded = useCallback(async (userId: string, projectName: string, adminName: string) => {
+    await sendNotification({
+      userId,
+      type: 'project_added',
+      title: 'Nouveau projet',
+      message: `Vous avez été ajouté au projet "${projectName}" par ${adminName}.`,
+      link: '/dashboard/projets',
+      sendEmail: true,
+      emailData: {
+        to: '',
+        subject: `Bienvenue dans le projet ${projectName}`,
+        template: 'member_added',
+        variables: { projectName, addedByName: adminName, role: 'Intervenant', appUrl: window.location.origin }
+      }
+    });
+  }, []);
 
-      await Promise.all(notificationPromises);
-    } catch (error) {
-      console.error("Error creating admin notification:", error);
-    }
-  }, [createNotification]);
+  const notifyNewMessage = useCallback(async (userId: string, senderName: string, subject: string) => {
+    await sendNotification({
+      userId,
+      type: 'message_received',
+      title: 'Nouveau message',
+      message: `Vous avez reçu un message de ${senderName}: "${subject}"`,
+      link: '/dashboard/messages',
+      sendEmail: true,
+      emailData: {
+        to: '',
+        subject: `Nouveau message de ${senderName}`,
+        template: 'message_received',
+        variables: { senderName, messagePreview: subject, appUrl: window.location.origin }
+      }
+    });
+  }, []);
 
-  // Fonctions utilitaires pour générer des messages par défaut
-  const getDefaultTitle = (type: NotificationType, params: Record<string, any>): string => {
-    switch (type) {
-      case 'file_uploaded':
-        return 'Nouveau fichier uploadé';
-      case 'task_validated':
-        return 'Tâche validée';
-      case 'message_received':
-        return 'Nouveau message';
-      case 'task_assigned':
-        return 'Nouvelle tâche assignée';
-      case 'project_added':
-        return 'Ajouté à un nouveau projet';
-      case 'task_validation_request':
-        return 'Demande de validation de tâche';
-      case 'file_validation_request':
-        return 'Fichier à valider';
-      case 'task_status_changed':
-        return 'Statut de tâche modifié';
-      case 'videoconf_request':
-        return 'Demande de visioconférence';
-      case 'videoconf_accepted':
-        return 'Réunion acceptée';
-      case 'videoconf_rejected':
-        return 'Réunion refusée';
-      case 'videoconf_scheduled':
-        return 'Réunion programmée';
-      default:
-        return 'Notification';
-    }
-  };
+  const notifyTaskValidationRequest = useCallback(async (taskName: string, projectName: string, requesterName: string) => {
+    if (!tenant?.id) return;
+    const adminIds = await getTenantAdmins(tenant.id);
+    await sendBulkNotifications(adminIds.map(userId => ({
+      userId,
+      type: 'task_validation_request',
+      title: 'Demande de validation',
+      message: `${requesterName} demande la validation de la tâche "${taskName}" (Projet: ${projectName}).`,
+      link: '/dashboard/tasks'
+    })));
+  }, [tenant?.id]);
 
-  const getDefaultMessage = (type: NotificationType, params: Record<string, any>): string => {
-    switch (type) {
-      case 'file_uploaded':
-        return `${params.uploaderName || 'Un utilisateur'} a uploadé le fichier "${params.fileName || 'fichier'}"${params.projectName ? ` dans le projet ${params.projectName}` : ''}`;
-      case 'task_validated':
-        return `${params.validatorName || 'Un validateur'} a validé la tâche "${params.taskName || 'tâche'}"${params.projectName ? ` du projet ${params.projectName}` : ''}`;
-      case 'message_received':
-        return `Vous avez reçu un nouveau message de ${params.senderName || 'un utilisateur'}${params.subject ? ` : "${params.subject}"` : ''}`;
-      case 'task_assigned':
-        return `Une nouvelle tâche "${params.taskName || 'tâche'}" vous a été assignée${params.projectName ? ` pour le projet ${params.projectName}` : ''}${params.assignerName ? ` par ${params.assignerName}` : ''}`;
-      case 'project_added':
-        return `Vous avez été ajouté au projet "${params.projectName || 'projet'}"${params.adminName ? ` par ${params.adminName}` : ''}`;
-      case 'task_validation_request':
-        return `${params.intervenantName || 'Un intervenant'} demande la validation de la tâche "${params.taskName || 'tâche'}"${params.projectName ? ` du projet ${params.projectName}` : ''}`;
-      case 'file_validation_request':
-        return `${params.uploaderName || 'Un utilisateur'} a uploadé le fichier "${params.fileName || 'fichier'}" qui nécessite votre validation${params.projectName ? ` pour le projet ${params.projectName}` : ''}`;
-      case 'task_status_changed':
-        return `${params.userName || 'Un utilisateur'} a ${params.statusLabel || 'modifié'} la tâche "${params.taskName || 'tâche'}"${params.projectName ? ` du projet ${params.projectName}` : ''}`;
-      case 'videoconf_request':
-        return `${params.intervenantName || 'Un intervenant'} demande une réunion : "${params.title || 'Sans titre'}"`;
-      case 'videoconf_accepted':
-        return `Votre demande de réunion "${params.title || 'Sans titre'}" a été acceptée par l'administrateur.`;
-      case 'videoconf_rejected':
-        return `Votre demande de réunion "${params.title || 'Sans titre'}" a été refusée.`;
-      case 'videoconf_scheduled':
-        return `Vous êtes invité à la réunion "${params.title || 'Sans titre'}" prévue le ${params.date || 'bientôt'}.`;
-      default:
-        return 'Vous avez reçu une nouvelle notification';
-    }
-  };
+  const notifyFileValidationRequest = useCallback(async (fileName: string, projectName: string, requesterName: string) => {
+    if (!tenant?.id) return;
+    const adminIds = await getTenantAdmins(tenant.id);
+    await sendBulkNotifications(adminIds.map(userId => ({
+      userId,
+      type: 'file_validation_request',
+      title: 'Validation de fichier requise',
+      message: `${requesterName} demande la validation du fichier "${fileName}" (Projet: ${projectName}).`,
+      link: '/dashboard/projets'
+    })));
+  }, [tenant?.id]);
 
-  // Notifications pour les uploads de fichiers
-  const notifyFileUploaded = useCallback(async (
-    fileName: string,
-    uploaderName: string,
-    projectName?: string
-  ) => {
-    await createAdminNotification(
-      'file_uploaded',
-      { uploaderName, fileName, projectName },
-      { uploaderName, fileName, projectName },
-      { fileName, uploaderName, projectName }
-    );
-  }, [createAdminNotification]);
+  const notifyTaskStatusChange = useCallback(async (taskName: string, newStatus: string, actorName: string) => {
+    if (!tenant?.id) return;
+    const adminIds = await getTenantAdmins(tenant.id);
+    await sendBulkNotifications(adminIds.map(userId => ({
+      userId,
+      type: 'task_status_changed',
+      title: 'Changement de statut',
+      message: `${actorName} a passé la tâche "${taskName}" au statut "${newStatus}".`,
+      link: '/dashboard/tasks'
+    })));
+  }, [tenant?.id]);
 
-  // Notifications pour la validation de tâches
-  const notifyTaskValidated = useCallback(async (
-    taskName: string,
-    validatorName: string,
-    projectName?: string
-  ) => {
-    await createAdminNotification(
-      'task_validated',
-      { validatorName, taskName, projectName },
-      { validatorName, taskName, projectName },
-      { taskName, validatorName, projectName }
-    );
-  }, [createAdminNotification]);
+  const notifyFileUploadedToProject = useCallback(async (fileName: string, projectName: string, uploaderName: string) => {
+    if (!tenant?.id) return;
+    const adminIds = await getTenantAdmins(tenant.id);
+    await sendBulkNotifications(adminIds.map(userId => ({
+      userId,
+      type: 'file_uploaded',
+      title: 'Nouveau document projet',
+      message: `${uploaderName} a uploadé "${fileName}" dans le projet "${projectName}".`,
+      link: '/dashboard/projets'
+    })));
+  }, [tenant?.id]);
 
-  // Notifications pour les nouveaux messages
-  const notifyNewMessage = useCallback(async (
-    recipientId: string,
-    senderName: string,
-    subject?: string
-  ) => {
-    await createNotification(
-      recipientId,
-      'message_received',
-      { senderName, subject },
-      { senderName, subject },
-      { senderName, subject }
-    );
-  }, [createNotification]);
-
-  // Notifications pour l'assignation de tâches
-  const notifyTaskAssigned = useCallback(async (
-    intervenantId: string,
-    taskName: string,
-    projectName?: string,
-    assignerName?: string
-  ) => {
-    await createNotification(
-      intervenantId,
-      'task_assigned',
-      { taskName, projectName, assignerName },
-      { taskName, projectName, assignerName },
-      { taskName, projectName, assignerName }
-    );
-  }, [createNotification]);
-
-  // Notifications pour l'ajout à un projet
-  const notifyProjectAdded = useCallback(async (
-    intervenantId: string,
-    projectName: string,
-    adminName?: string
-  ) => {
-    await createNotification(
-      intervenantId,
-      'project_added',
-      { projectName, adminName },
-      { projectName, adminName },
-      { projectName, adminName }
-    );
-  }, [createNotification]);
-
-  // Notifications pour tous les membres d'un projet
-  const notifyProjectMembers = useCallback(async (
-    projectId: string,
-    type: NotificationType,
-    titleParams: Record<string, any> = {},
-    messageParams: Record<string, any> = {},
-    data: Record<string, any> = {}
-  ) => {
-    if (status !== 'authenticated') return;
-    try {
-      // Récupérer tous les membres du projet
-      const { data: members, error: membersError } = await supabase
-        .from('membre')
-        .select('user_id')
-        .eq('project_id', projectId);
-
-      if (membersError) throw membersError;
-
-      // Créer une notification pour chaque membre
-      const notificationPromises = members?.map(member => 
-        createNotification(member.user_id, type, titleParams, messageParams, data)
-      ) || [];
-
-      await Promise.all(notificationPromises);
-    } catch (error) {
-    }
-  }, [createNotification]);
-
-  // Notifications pour les changements de statut de tâche
-  const notifyTaskStatusChange = useCallback(async (
-    projectId: string,
-    taskName: string,
-    newStatus: string,
-    userName: string,
-    projectName?: string
-  ) => {
-    const statusLabels = {
-      'in_progress': 'démarrée',
-      'submitted': 'soumise pour validation',
-      'validated': 'validée',
-      'rejected': 'rejetée'
-    };
-
-    const statusLabel = statusLabels[newStatus as keyof typeof statusLabels] || newStatus;
-
-    // Notifier tous les membres du projet
-    await notifyProjectMembers(
-      projectId,
-      'task_status_changed',
-      { taskName, statusLabel, userName, projectName },
-      { taskName, statusLabel, userName, projectName },
-      { taskName, newStatus, userName, projectName }
-    );
-
-    // Notifier aussi l'admin
-    await createAdminNotification(
-      'task_status_changed',
-      { taskName, statusLabel, userName, projectName },
-      { taskName, statusLabel, userName, projectName },
-      { taskName, newStatus, userName, projectName }
-    );
-  }, [notifyProjectMembers, createAdminNotification]);
-
-  // Notifications pour les fichiers uploadés
-  const notifyFileUploadedToProject = useCallback(async (
-    projectId: string,
-    fileName: string,
-    uploaderName: string,
-    taskName: string,
-    projectName?: string
-  ) => {
-    // Notifier tous les membres du projet
-    await notifyProjectMembers(
-      projectId,
-      'file_uploaded',
-      { fileName, uploaderName, taskName, projectName },
-      { fileName, uploaderName, taskName, projectName },
-      { fileName, uploaderName, taskName, projectName }
-    );
-
-    // Notifier aussi l'admin
-    await createAdminNotification(
-      'file_uploaded',
-      { fileName, uploaderName, taskName, projectName },
-      { fileName, uploaderName, taskName, projectName },
-      { fileName, uploaderName, taskName, projectName }
-    );
-  }, [notifyProjectMembers, createAdminNotification]);
-
-  // Notifications pour la demande de validation de tâche
-  const notifyTaskValidationRequest = useCallback(async (
-    validatorId: string,
-    taskName: string,
-    intervenantName: string,
-    projectName?: string
-  ) => {
-    await createNotification(
-      validatorId,
-      'task_validation_request',
-      { taskName, intervenantName, projectName },
-      { taskName, intervenantName, projectName },
-      { taskName, intervenantName, projectName }
-    );
-  }, [createNotification]);
-
-  // Notifications pour la validation de fichiers
-  const notifyFileValidationRequest = useCallback(async (
-    validatorId: string,
-    fileName: string,
-    uploaderName: string,
-    projectName?: string
-  ) => {
-    await createNotification(
-      validatorId,
-      'file_validation_request',
-      { fileName, uploaderName, projectName },
-      { fileName, uploaderName, projectName },
-      { fileName, uploaderName, projectName }
-    );
-  }, [createNotification]);
-
-  return {
-    createNotification,
+  return { 
+    createNotification, 
     createAdminNotification,
+    notifyTaskAssigned,
     notifyFileUploaded,
     notifyTaskValidated,
-    notifyNewMessage,
-    notifyTaskAssigned,
     notifyProjectAdded,
+    notifyNewMessage,
     notifyTaskValidationRequest,
     notifyFileValidationRequest,
-    notifyProjectMembers,
     notifyTaskStatusChange,
     notifyFileUploadedToProject
   };
-} 
+}

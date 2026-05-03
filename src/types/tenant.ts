@@ -1,9 +1,24 @@
 // Types pour le système SaaS multi-tenant
 
-export type TenantPlan = 'starter' | 'pro' | 'enterprise' | 'custom';
+export type TenantPlan = 'starter' | 'pro' | 'business' | 'custom';
 export type TenantStatus = 'active' | 'trial' | 'suspended' | 'cancelled';
 export type TenantMemberRole = 'admin' | 'intervenant' | 'viewer';
 export type TenantMemberStatus = 'pending' | 'active' | 'deactivated';
+
+export interface PlanLimits {
+  max_intervenants_per_project: number;
+  max_projects: number | null;
+  task_types: string[];
+  videoconference: boolean;
+  storage_per_project_gb: number;
+  max_file_size_gb: number;
+  email_notifications: boolean;
+  groups: boolean;
+  esignature: boolean;
+  api_access: boolean;
+  custom_structure: boolean;
+  advanced_fiches: boolean;
+}
 
 // Interface principale d'un tenant
 export interface Tenant {
@@ -17,6 +32,7 @@ export interface Tenant {
   
   // Plan et limites
   plan: TenantPlan;
+  plan_limits?: PlanLimits;
   maxProjects: number;
   maxIntervenants: number;
   maxStorageGb: number;
@@ -144,20 +160,20 @@ export const TENANT_PLANS: {
     value: 'starter',
     label: 'Starter',
     description: 'Parfait pour les petites équipes',
-    defaultLimits: { maxProjects: 5, maxIntervenants: 10, maxStorageGb: 10 },
-    price: 49
+    defaultLimits: { maxProjects: 999, maxIntervenants: 10, maxStorageGb: 5 },
+    price: 100
   },
   {
     value: 'pro',
     label: 'Pro',
     description: 'Pour les équipes en croissance',
-    defaultLimits: { maxProjects: 20, maxIntervenants: 50, maxStorageGb: 100 },
-    price: 149
+    defaultLimits: { maxProjects: 999, maxIntervenants: 30, maxStorageGb: 50 },
+    price: 199
   },
   {
-    value: 'enterprise',
-    label: 'Enterprise',
-    description: 'Sans limites pour les grands comptes',
+    value: 'business',
+    label: 'Business',
+    description: 'Solution complète pour entreprises',
     defaultLimits: { maxProjects: 999, maxIntervenants: 999, maxStorageGb: 1000 },
     price: 499
   },

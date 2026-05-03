@@ -12,12 +12,14 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { ProjectStructureTab } from "@/components/settings/ProjectStructureTab";
+import { useSettings } from "@/hooks/useSettings";
 
 const Settings: React.FC = () => {
   const { toast } = useToast();
   const { getUserSettings, updateUserSettings, updateUserPassword } = useSupabase();
   const { setTheme } = useTheme();
   const { user: currentUser, role, isSuperAdmin, status } = useAuth();
+  const { settings: systemSettings, refreshSettings } = useSettings();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [userSettings, setUserSettings] = useState<UserSettingsType | null>(null);
@@ -47,6 +49,29 @@ const Settings: React.FC = () => {
 
   // Vérifier si l'utilisateur est admin
   const isAdmin = role === 'admin' || currentUser?.email === 'admin@aps.com';
+
+  const handleUpdateSystemSettings = async (enabled: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('system_settings')
+        .update({ email_notifications_enabled: enabled })
+        .eq('id', (systemSettings as any).id || (await supabase.from('system_settings').select('id').single()).data?.id);
+
+      if (error) throw error;
+      
+      refreshSettings();
+      toast({
+        title: "Paramètres système mis à jour",
+        description: `Les notifications par email sont désormais ${enabled ? 'activées' : 'désactivées'}.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: "Impossible de mettre à jour les paramètres système",
+        variant: "destructive",
+      });
+    }
+  };
 
   // Charger les infos utilisateur et ses paramètres
   useEffect(() => {
@@ -241,6 +266,18 @@ const Settings: React.FC = () => {
             <Bell className="h-4 w-4 mr-2" />
             Notifications
           </TabsTrigger>
+          {isAdmin && (
+            <TabsTrigger value="system" className="data-[state=active]:bg-white">
+              <ClipboardList className="h-4 w-4 mr-2" />
+              Système
+            </TabsTrigger>
+          )}
+          {isAdmin && (
+            <TabsTrigger value="structure" className="data-[state=active]:bg-white">
+              <ClipboardList className="h-4 w-4 mr-2" />
+              Structure
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* Onglet Profil */}
@@ -436,6 +473,41 @@ const Settings: React.FC = () => {
             </CardFooter>
           </Card>
         </TabsContent>
+
+        {/* Onglet Système (Admin seulement) */}
+        {isAdmin && (
+          <TabsContent value="system" className="space-y-4">
+            <Card className="border-0 shadow-md">
+              <CardHeader>
+                <CardTitle>Paramètres système</CardTitle>
+                <CardDescription>
+                  Gérez les paramètres globaux de l'application.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="flex items-center justify-between p-4 border rounded-lg bg-gray-50/50">
+                  <div className="space-y-1">
+                    <Label className="text-base">Activation des notifications par email</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Si désactivé, les notifications seront uniquement envoyées dans l'application.
+                    </p>
+                  </div>
+                  <Switch 
+                    checked={systemSettings.email_notifications_enabled} 
+                    onCheckedChange={handleUpdateSystemSettings}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+
+        {/* Onglet Structure (Admin seulement) */}
+        {isAdmin && (
+          <TabsContent value="structure" className="space-y-4">
+            <ProjectStructureTab tenantId={tenantId} />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

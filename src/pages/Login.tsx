@@ -79,14 +79,8 @@ const Login: React.FC = () => {
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
-            <img src="/aps-logo.svg" alt="APS" className="h-16 mx-auto" />
-            <p className="mt-2 text-gray-500 font-medium">Connectez-vous pour accéder à votre espace</p>
-            <div className="mt-6 flex justify-center">
-              <div className="flex items-center gap-2 text-sm text-gray-500">
-                <span>🇫🇷</span>
-                <span>Français</span>
-              </div>
-            </div>
+            <img src="/aps-logo.svg" alt="APS Construction" className="h-24 mx-auto mb-6" />
+            <p className="text-gray-500 font-medium">Connectez-vous pour accéder à votre espace</p>
           </div>
           
           <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-2xl">
@@ -152,7 +146,7 @@ const Login: React.FC = () => {
           <div className="max-w-xl">
             <h2 className="text-5xl font-black mb-8 leading-tight">
               Bienvenue sur la plateforme <br/>
-              <span className="text-blue-500">APS</span> <img src="/aps-logo.svg" alt="APS" className="inline h-12 ml-2 brightness-0 invert" />
+              <span className="text-blue-500">APS Construction</span>
             </h2>
             <p className="text-xl text-gray-200 mb-12 leading-relaxed">Gérez vos projets et collaborez efficacement avec tous vos intervenants.</p>
             

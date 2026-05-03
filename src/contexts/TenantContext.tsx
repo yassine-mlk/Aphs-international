@@ -4,6 +4,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabase';
 import type { 
   Tenant, 
+  TenantPlan,
   TenantMember, 
   TenantUsage, 
   TenantContextType,
@@ -89,7 +90,8 @@ export function useSuperAdmin() {
       await supabase.from('notifications').delete().eq('tenant_id', tenantId);
       
       // Supprimer les tâches
-      await supabase.from('task_assignments').delete().eq('tenant_id', tenantId);
+      await supabase.from('standard_tasks').delete().eq('tenant_id', tenantId);
+      await supabase.from('workflow_tasks').delete().eq('tenant_id', tenantId);
       
       // Supprimer les projets
       await supabase.from('projects').delete().eq('tenant_id', tenantId);
@@ -357,6 +359,37 @@ export function useSuperAdmin() {
       toast({
         title: "Limites mises à jour",
         description: "Les quotas ont été modifiés avec succès.",
+      });
+
+      return true;
+    } catch (error: any) {
+      toast({
+        title: "Erreur",
+        description: error.message,
+        variant: "destructive"
+      });
+      return false;
+    }
+  }, [toast]);
+
+  const updateTenantPlan = useCallback(async (
+    tenantId: string, 
+    plan: TenantPlan
+  ): Promise<boolean> => {
+    try {
+      const { error } = await supabase
+        .from('tenants')
+        .update({
+          plan,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', tenantId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Plan mis à jour",
+        description: `Le plan a été passé à ${plan}. Les limites ont été synchronisées.`,
       });
 
       return true;
@@ -694,10 +727,14 @@ export function useSuperAdmin() {
       if (tenantId) {
         // Supprimer les tâches assignées à cet utilisateur dans ce tenant
         await supabase
-          .from('task_assignments')
+          .from('standard_task_assignments')
           .delete()
-          .eq('tenant_id', tenantId)
-          .eq('assigned_to', userId);
+          .eq('user_id', userId);
+
+        await supabase
+          .from('workflow_task_assignments')
+          .delete()
+          .eq('user_id', userId);
 
         // Supprimer les projets créés par cet utilisateur dans ce tenant
         // Note: On pourrait aussi transférer les projets à un autre admin
@@ -751,6 +788,7 @@ export function useSuperAdmin() {
     deleteTenant,
     getAllTenants,
     updateTenantLimits,
+    updateTenantPlan,
     suspendTenant,
     activateTenant,
     associateUserToTenant,
@@ -829,12 +867,51 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (membershipError) throw membershipError;
 
         if (!memberships || memberships.length === 0) {
-          // Vérifier si c'est un super admin
+          // 1. Essayer de charger via profiles.tenant_id si aucun membership explicite trouvé
           const { data: profile } = await supabase
             .from('profiles')
-            .select('is_super_admin')
+            .select('tenant_id, is_super_admin')
             .eq('user_id', user.id)
             .single();
+
+          if (profile?.tenant_id) {
+            // Recharger le tenant via cet ID
+            const { data: tenantData, error: tenantError } = await supabase
+              .from('tenants')
+              .select('*')
+              .eq('id', profile.tenant_id)
+              .single();
+
+            if (!tenantError && tenantData) {
+              const loadedTenant: Tenant = {
+                id: tenantData.id,
+                name: tenantData.name,
+                slug: tenantData.slug,
+                ownerEmail: tenantData.owner_email,
+                ownerUserId: tenantData.owner_user_id,
+                plan: tenantData.plan,
+                plan_limits: tenantData.plan_limits,
+                maxProjects: tenantData.max_projects,
+                maxIntervenants: tenantData.max_intervenants,
+                maxStorageGb: tenantData.max_storage_gb,
+                currentProjectsCount: tenantData.current_projects_count || 0,
+                currentIntervenantsCount: tenantData.current_intervenants_count || 0,
+                currentStorageUsedBytes: tenantData.current_storage_used_bytes || 0,
+                status: tenantData.status,
+                trialEndsAt: tenantData.trial_ends_at,
+                subscriptionStartsAt: tenantData.subscription_starts_at,
+                subscriptionEndsAt: tenantData.subscription_ends_at,
+                createdAt: tenantData.created_at,
+                updatedAt: tenantData.updated_at,
+                settings: tenantData.settings || {}
+              };
+
+              setTenant(loadedTenant);
+              updateUsage(loadedTenant);
+              setIsLoading(false);
+              return;
+            }
+          }
 
           if (profile?.is_super_admin) {
             setTenant(null);
@@ -857,6 +934,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           ownerEmail: tenantData.owner_email,
           ownerUserId: tenantData.owner_user_id,
           plan: tenantData.plan,
+          plan_limits: tenantData.plan_limits,
           maxProjects: tenantData.max_projects,
           maxIntervenants: tenantData.max_intervenants,
           maxStorageGb: tenantData.max_storage_gb,
