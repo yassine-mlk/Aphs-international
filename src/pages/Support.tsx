@@ -43,20 +43,54 @@ import { fr } from 'date-fns/locale';
 
 const FAQ_ITEMS = [
   {
+    question: "Quelle est la différence entre une Tâche Standard et un Workflow (VISA) ?",
+    answer: (
+      <div className="space-y-3">
+        <p><strong>Tâche Standard (Collecte Parallèle) :</strong> Idéale pour collecter des documents auprès de plusieurs intervenants simultanément. Chaque exécuteur dépose son fichier, et les validateurs donnent un avis global. C'est un processus collaboratif "en une étape" de soumission.</p>
+        <p><strong>Workflow (VISA) :</strong> Conçu pour un circuit de validation séquentiel et rigoureux (Indices A, B, C...). Le document passe d'un validateur à l'autre selon un ordre précis. Si un validateur émet des réserves, le document repart chez l'exécuteur pour une nouvelle révision.</p>
+      </div>
+    )
+  },
+  {
+    question: "Comment assigner une tâche ou un workflow ?",
+    answer: (
+      <div className="space-y-3">
+        <p>1. Rendez-vous dans l'onglet <strong>Structure</strong> de votre projet.</p>
+        <p>2. Cliquez sur l'icône d'assignation (utilisateur avec un +) à côté d'une ligne de la structure.</p>
+        <p>3. Choisissez le type : <strong>Standard</strong> pour une collecte groupée ou <strong>Workflow</strong> pour un circuit de visa.</p>
+        <p>4. Sélectionnez les <strong>Exécutants</strong> (ceux qui déposent les fichiers) et les <strong>Validateurs</strong> (ceux qui vérifient).</p>
+        <p>5. Définissez les échéances et enregistrez. Les intervenants recevront une notification immédiate.</p>
+      </div>
+    )
+  },
+  {
+    question: "À quoi servent les Groupes de Travail ?",
+    answer: (
+      <div className="space-y-3">
+        <p>Les Groupes de Travail sont le cœur collaboratif de votre tenant. Ils permettent de :</p>
+        <ul className="list-disc pl-5 space-y-1">
+          <li><strong>Messagerie :</strong> Créer automatiquement des canaux de discussion entre les membres du groupe.</li>
+          <li><strong>Visioconférence :</strong> Inviter instantanément tous les membres d'un groupe à une réunion sans avoir à les sélectionner un par un.</li>
+          <li><strong>Organisation :</strong> Segmenter vos intervenants par spécialité ou par lot technique.</li>
+        </ul>
+      </div>
+    )
+  },
+  {
+    question: "Comment fonctionne la Signature Électronique ?",
+    answer: (
+      <div className="space-y-3">
+        <p>La plateforme intègre un système de signature sécurisé pour vos documents officiels :</p>
+        <p>1. Lorsqu'un document est prêt à être signé, vous recevez une notification "Action requise".</p>
+        <p>2. Allez dans <strong>Mes Signatures</strong> sur votre tableau de bord.</p>
+        <p>3. Visualisez le document, puis cliquez sur "Signer". Vous pouvez dessiner votre signature ou utiliser une image.</p>
+        <p>4. Une fois signé, le document est horodaté et archivé avec une valeur probante.</p>
+      </div>
+    )
+  },
+  {
     question: "Comment démarrer une visioconférence ?",
-    answer: "Pour démarrer une visioconférence, rendez-vous dans l'onglet 'Visioconférence' de votre tableau de bord, puis cliquez sur 'Démarrer une réunion'. Vous pourrez ensuite inviter des participants."
-  },
-  {
-    question: "Comment signer un document ?",
-    answer: "Lorsqu'un document nécessite votre signature, vous recevrez une notification. Allez dans 'Mes Signatures', sélectionnez le document et suivez les instructions pour apposer votre signature électronique."
-  },
-  {
-    question: "Comment ajouter un intervenant à un projet ?",
-    answer: "Les administrateurs peuvent ajouter des intervenants depuis la page de détails d'un projet, sous l'onglet 'Membres'. Cliquez sur 'Ajouter un membre' et sélectionnez l'intervenant souhaité."
-  },
-  {
-    question: "Quels formats de fichiers sont acceptés ?",
-    answer: "La plateforme accepte principalement les fichiers PDF pour les documents officiels et les visas. Pour les autres documents, les formats images (JPG, PNG) et Word sont également supportés."
+    answer: "Pour démarrer une visioconférence, rendez-vous dans l'onglet 'Visioconférence' de votre tableau de bord, puis cliquez sur 'Démarrer une réunion'. Vous pourrez ensuite sélectionner un groupe de travail pour inviter automatiquement tous ses membres."
   }
 ];
 
