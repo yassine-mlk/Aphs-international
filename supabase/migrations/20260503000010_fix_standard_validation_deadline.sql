@@ -5,11 +5,13 @@ ALTER TABLE public.standard_tasks ADD COLUMN IF NOT EXISTS validation_deadline D
 UPDATE public.standard_tasks SET validation_deadline = deadline WHERE validation_deadline IS NULL;
 
 -- 3. Mise à jour de la vue pour inclure validation_deadline pour les tâches standard et workflow
-CREATE OR REPLACE VIEW public.task_assignments_view AS
+DROP VIEW IF EXISTS public.task_assignments_view;
+CREATE VIEW public.task_assignments_view AS
 SELECT 
     t.id, t.project_id, p.name as project_name, t.phase_id, 
     t.section_id, t.subsection_id,
-    t.section_id as section_name, t.subsection_id as subsection_name,
+    COALESCE(s.title, t.section_id) as section_name, 
+    COALESCE(ss.title, t.subsection_id) as subsection_name,
     t.title as task_name, t.description as comment, 'standard' as assignment_type,
     t.status, t.priority, t.deadline, t.validation_deadline, 
     NULL::date as start_date, NULL::date as end_date, 'pdf'::text as file_extension,
@@ -22,10 +24,14 @@ SELECT
     NULL::uuid as closed_by, NULL::timestamptz as closed_at
 FROM public.standard_tasks t
 JOIN public.projects p ON t.project_id = p.id
+LEFT JOIN public.project_sections_snapshot s ON (t.section_id = s.id::text OR t.section_id = s.tenant_section_id::text) AND t.project_id = s.project_id
+LEFT JOIN public.project_items_snapshot ss ON (t.subsection_id = ss.id::text OR t.subsection_id = ss.tenant_item_id::text) AND t.project_id = ss.project_id
 UNION ALL
 SELECT 
     t.id, t.project_id, p.name as project_name, t.phase_id, 
-    t.section_id as section_name, t.subsection_id as subsection_name,
+    t.section_id, t.subsection_id,
+    COALESCE(s.title, t.section_id) as section_name, 
+    COALESCE(ss.title, t.subsection_id) as subsection_name,
     t.title as task_name, t.description as comment, 'workflow' as assignment_type,
     t.status, t.priority, t.deadline, t.validation_deadline,
     NULL::date as start_date, NULL::date as end_date, 'pdf'::text as file_extension,
@@ -37,7 +43,9 @@ SELECT
     t.current_version_label, t.current_validator_idx, t.current_validator_id,
     t.closed_by, t.closed_at
 FROM public.workflow_tasks t
-JOIN public.projects p ON t.project_id = p.id;
+JOIN public.projects p ON t.project_id = p.id
+LEFT JOIN public.project_sections_snapshot s ON (t.section_id = s.id::text OR t.section_id = s.tenant_section_id::text) AND t.project_id = s.project_id
+LEFT JOIN public.project_items_snapshot ss ON (t.subsection_id = ss.id::text OR t.subsection_id = ss.tenant_item_id::text) AND t.project_id = ss.project_id;
 
 -- 4. Mise à jour du RPC pour sauvegarder validation_deadline
 CREATE OR REPLACE FUNCTION public.upsert_task_assignment(
@@ -79,16 +87,16 @@ BEGIN
                 title = p_task_name, 
                 description = p_comment, 
                 deadline = p_deadline, 
-                validation_deadline = COALESCE(p_validation_deadline, p_deadline), -- Fallback si vide
+                validation_deadline = p_validation_deadline, 
                 updated_at = NOW()
             WHERE id = p_id RETURNING id INTO v_task_id;
         ELSE
             INSERT INTO public.standard_tasks (project_id, phase_id, section_id, subsection_id, title, description, deadline, validation_deadline, status, tenant_id)
-            VALUES (p_project_id, p_phase_id, p_section_id, p_subsection_id, p_task_name, p_comment, p_deadline, COALESCE(p_validation_deadline, p_deadline), p_status, v_tenant_id)
+            VALUES (p_project_id, p_phase_id, p_section_id, p_subsection_id, p_task_name, p_comment, p_deadline, p_validation_deadline, p_status, v_tenant_id)
             ON CONFLICT (project_id, phase_id, section_id, subsection_id, title) 
             DO UPDATE SET 
                 deadline = EXCLUDED.deadline, 
-                validation_deadline = COALESCE(EXCLUDED.validation_deadline, EXCLUDED.deadline),
+                validation_deadline = EXCLUDED.validation_deadline,
                 description = EXCLUDED.description, 
                 updated_at = NOW()
             RETURNING id INTO v_task_id;
@@ -118,18 +126,18 @@ BEGIN
                 title = p_task_name, 
                 description = p_comment, 
                 deadline = p_deadline, 
-                validation_deadline = COALESCE(p_validation_deadline, p_deadline),
+                validation_deadline = p_validation_deadline,
                 transparency_mode = p_transparency_mode,
                 max_revisions = p_max_revisions,
                 updated_at = NOW()
             WHERE id = p_id RETURNING id INTO v_task_id;
         ELSE
             INSERT INTO public.workflow_tasks (project_id, phase_id, section_id, subsection_id, title, description, deadline, validation_deadline, status, tenant_id, transparency_mode, max_revisions)
-            VALUES (p_project_id, p_phase_id, p_section_id, p_subsection_id, p_task_name, p_comment, p_deadline, COALESCE(p_validation_deadline, p_deadline), p_status, v_tenant_id, p_transparency_mode, p_max_revisions)
+            VALUES (p_project_id, p_phase_id, p_section_id, p_subsection_id, p_task_name, p_comment, p_deadline, p_validation_deadline, p_status, v_tenant_id, p_transparency_mode, p_max_revisions)
             ON CONFLICT (project_id, phase_id, section_id, subsection_id, title) 
             DO UPDATE SET 
                 deadline = EXCLUDED.deadline, 
-                validation_deadline = COALESCE(EXCLUDED.validation_deadline, EXCLUDED.deadline),
+                validation_deadline = EXCLUDED.validation_deadline,
                 description = EXCLUDED.description,
                 transparency_mode = EXCLUDED.transparency_mode,
                 max_revisions = EXCLUDED.max_revisions,

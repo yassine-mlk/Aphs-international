@@ -39,9 +39,12 @@ export async function sendNotification(payload: NotificationPayload) {
     if (notifError) {
       // Si c'est une erreur de duplicata (code 23505), on ignore silencieusement
       if ((notifError as any).code === '23505') {
+        console.log('Notification already exists for user:', payload.userId, 'reference:', payload.referenceId);
         return;
       }
-      console.error('Error inserting notification:', notifError);
+      console.error('Error inserting notification for user:', payload.userId, notifError);
+    } else {
+      console.log('Successfully inserted notification in DB for user:', payload.userId);
     }
 
     // 2. Vérifier si on doit envoyer un email (soit forcé, soit via settings)
@@ -91,13 +94,21 @@ export async function sendBulkNotifications(payloads: NotificationPayload[]) {
  * Helper pour récupérer les admins d'un tenant
  */
 export async function getTenantAdmins(tenantId: string): Promise<string[]> {
-  const { data } = await supabase
+  console.log('getTenantAdmins for tenantId:', tenantId);
+  const { data, error } = await supabase
     .from('profiles')
-    .select('user_id')
+    .select('user_id, role')
     .eq('tenant_id', tenantId)
     .eq('role', 'admin');
   
-  return data?.map(a => a.user_id) || [];
+  if (error) {
+    console.error('Error fetching tenant admins:', error);
+    return [];
+  }
+  
+  const adminIds = data?.map(a => a.user_id) || [];
+  console.log('Found adminIds:', adminIds);
+  return adminIds;
 }
 
 /**

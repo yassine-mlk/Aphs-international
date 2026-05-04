@@ -3,7 +3,7 @@ import {
   Plus, Search, MoreHorizontal, Users, BarChart3, Clock as ClockIcon, 
   Loader2, Trash2, ChevronDown, ChevronRight, Pencil, Check, X, 
   FileText, Save, ArrowLeft, ArrowRight, Layers, Target, Circle, 
-  CheckCircle2, AlertTriangle, PlusCircle 
+  CheckCircle2, AlertTriangle, PlusCircle, ChevronUp 
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -457,7 +457,10 @@ const Projects: React.FC = () => {
     setExpandedItems(p => { const s = new Set(p); s.has(id) ? s.delete(id) : s.add(id); return s; });
 
   const addSection = () => {
-    if (!newValue.trim()) return;
+    if (!newValue.trim()) {
+      toast({ title: 'Erreur', description: 'Le titre de la section ne peut pas être vide.', variant: 'destructive' });
+      return;
+    }
     const newSection: TenantSection = {
       id: `new-sec-${Date.now()}`,
       title: newValue.trim(),
@@ -475,7 +478,10 @@ const Projects: React.FC = () => {
   };
 
   const addItem = (sectionId: string) => {
-    if (!newValue.trim()) return;
+    if (!newValue.trim()) {
+      toast({ title: 'Erreur', description: 'Le titre du lot ne peut pas être vide.', variant: 'destructive' });
+      return;
+    }
     setCustomStructure(customStructure.map(s => {
       if (s.id === sectionId) {
         return {
@@ -506,7 +512,10 @@ const Projects: React.FC = () => {
   };
 
   const addTask = (sectionId: string, itemId: string) => {
-    if (!newValue.trim()) return;
+    if (!newValue.trim()) {
+      toast({ title: 'Erreur', description: 'Le titre de la tâche ne peut pas être vide.', variant: 'destructive' });
+      return;
+    }
     setCustomStructure(customStructure.map(s => {
       if (s.id === sectionId) {
         return {
@@ -543,6 +552,64 @@ const Projects: React.FC = () => {
           items: s.items.map(i => {
             if (i.id === itemId) {
               return { ...i, tasks: i.tasks.filter(t => t.id !== taskId) };
+            }
+            return i;
+          })
+        };
+      }
+      return s;
+    }));
+  };
+
+  const moveSection = (sectionId: string, direction: 'up' | 'down') => {
+    const phaseSections = customStructure.filter(s => s.phase === structurePhase);
+    const index = phaseSections.findIndex(s => s.id === sectionId);
+    if (index === -1) return;
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === phaseSections.length - 1) return;
+
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    const newPhaseSections = [...phaseSections];
+    [newPhaseSections[index], newPhaseSections[newIndex]] = [newPhaseSections[newIndex], newPhaseSections[index]];
+
+    // Reconstruire customStructure en préservant l'ordre de l'autre phase
+    const otherPhaseSections = customStructure.filter(s => s.phase !== structurePhase);
+    setCustomStructure([...otherPhaseSections, ...newPhaseSections]);
+  };
+
+  const moveItem = (sectionId: string, itemId: string, direction: 'up' | 'down') => {
+    setCustomStructure(customStructure.map(s => {
+      if (s.id === sectionId) {
+        const index = s.items.findIndex(i => i.id === itemId);
+        if (index === -1) return s;
+        if (direction === 'up' && index === 0) return s;
+        if (direction === 'down' && index === s.items.length - 1) return s;
+
+        const newIndex = direction === 'up' ? index - 1 : index + 1;
+        const newItems = [...s.items];
+        [newItems[index], newItems[newIndex]] = [newItems[newIndex], newItems[index]];
+        return { ...s, items: newItems };
+      }
+      return s;
+    }));
+  };
+
+  const moveTask = (sectionId: string, itemId: string, taskId: string, direction: 'up' | 'down') => {
+    setCustomStructure(customStructure.map(s => {
+      if (s.id === sectionId) {
+        return {
+          ...s,
+          items: s.items.map(i => {
+            if (i.id === itemId) {
+              const index = i.tasks.findIndex(t => t.id === taskId);
+              if (index === -1) return i;
+              if (direction === 'up' && index === 0) return i;
+              if (direction === 'down' && index === i.tasks.length - 1) return i;
+
+              const newIndex = direction === 'up' ? index - 1 : index + 1;
+              const newTasks = [...i.tasks];
+              [newTasks[index], newTasks[newIndex]] = [newTasks[newIndex], newTasks[index]];
+              return { ...i, tasks: newTasks };
             }
             return i;
           })
@@ -1143,13 +1210,28 @@ const Projects: React.FC = () => {
                             </div>
 
                             <div className="flex items-center gap-1 pl-2 border-l ml-2">
+                              <div className="flex flex-col gap-0.5 mr-1">
+                                <Button size="icon" variant="ghost" className="h-4 w-4 text-gray-400 hover:text-aps-teal" onClick={() => moveSection(sec.id, 'up')} title="Monter">
+                                  <ChevronUp className="h-3 w-3" />
+                                </Button>
+                                <Button size="icon" variant="ghost" className="h-4 w-4 text-gray-400 hover:text-aps-teal" onClick={() => moveSection(sec.id, 'down')} title="Descendre">
+                                  <ChevronDown className="h-3 w-3" />
+                                </Button>
+                              </div>
                               <Button size="icon" variant="ghost" className="h-8 w-8 text-gray-400 hover:text-aps-teal" onClick={() => { setEditingId(sec.id); setEditValue(sec.title); }}>
                                 <Pencil className="h-3.5 w-3.5" />
                               </Button>
                               <Button size="icon" variant="ghost" className="h-8 w-8 text-gray-400 hover:text-red-500" onClick={() => deleteSection(sec.id)}>
                                 <Trash2 className="h-3.5 w-3.5" />
                               </Button>
-                              <Button size="icon" variant="ghost" className="h-8 w-8 text-aps-teal hover:bg-aps-teal/10" onClick={() => { setAddingType('item'); setAddingToId(sec.id); setNewValue(''); }}>
+                              <Button size="icon" variant="ghost" className="h-8 w-8 text-aps-teal hover:bg-aps-teal/10" onClick={() => { 
+                                setAddingType('item'); 
+                                setAddingToId(sec.id); 
+                                setNewValue('');
+                                if (!expandedSections.has(sec.id)) {
+                                  toggleSection(sec.id);
+                                }
+                              }}>
                                 <Plus className="h-4 w-4" />
                               </Button>
                             </div>
@@ -1201,13 +1283,28 @@ const Projects: React.FC = () => {
                                           </div>
 
                                           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity pl-2 border-l border-gray-100">
+                                            <div className="flex flex-col gap-0.5 mr-1">
+                                              <Button size="icon" variant="ghost" className="h-4 w-4 text-gray-400 hover:text-aps-teal" onClick={() => moveItem(sec.id, item.id, 'up')} title="Monter">
+                                                <ChevronUp className="h-3 w-3" />
+                                              </Button>
+                                              <Button size="icon" variant="ghost" className="h-4 w-4 text-gray-400 hover:text-aps-teal" onClick={() => moveItem(sec.id, item.id, 'down')} title="Descendre">
+                                                <ChevronDown className="h-3 w-3" />
+                                              </Button>
+                                            </div>
                                             <Button size="icon" variant="ghost" className="h-7 w-7 text-gray-400 hover:text-aps-teal" onClick={() => { setEditingId(item.id); setEditValue(item.title); }}>
                                               <Pencil className="h-3 w-3" />
                                             </Button>
                                             <Button size="icon" variant="ghost" className="h-7 w-7 text-gray-400 hover:text-red-500" onClick={() => deleteItem(sec.id, item.id)}>
                                               <Trash2 className="h-3 w-3" />
                                             </Button>
-                                            <Button size="icon" variant="ghost" className="h-7 w-7 text-aps-teal hover:bg-aps-teal/10" onClick={() => { setAddingType('task'); setAddingToId(item.id); setNewValue(''); }}>
+                                            <Button size="icon" variant="ghost" className="h-7 w-7 text-aps-teal hover:bg-aps-teal/10" onClick={() => { 
+                                              setAddingType('task'); 
+                                              setAddingToId(item.id); 
+                                              setNewValue('');
+                                              if (!expandedItems.has(item.id)) {
+                                                toggleItem(item.id);
+                                              }
+                                            }}>
                                               <Plus className="h-3.5 w-3.5" />
                                             </Button>
                                           </div>
@@ -1243,6 +1340,14 @@ const Projects: React.FC = () => {
                                                       </div>
                                                     </div>
                                                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                                      <div className="flex flex-col gap-0.5 mr-1">
+                                                        <Button size="icon" variant="ghost" className="h-3 w-3 text-gray-400 hover:text-aps-teal" onClick={() => moveTask(sec.id, item.id, task.id, 'up')} title="Monter">
+                                                          <ChevronUp className="h-2 w-2" />
+                                                        </Button>
+                                                        <Button size="icon" variant="ghost" className="h-3 w-3 text-gray-400 hover:text-aps-teal" onClick={() => moveTask(sec.id, item.id, task.id, 'down')} title="Descendre">
+                                                          <ChevronDown className="h-2 w-2" />
+                                                        </Button>
+                                                      </div>
                                                       <Button size="icon" variant="ghost" className="h-6 w-6 text-gray-400 hover:text-aps-teal" onClick={() => { setEditingId(task.id); setEditValue(task.title); }}>
                                                         <Pencil className="h-3 w-3" />
                                                       </Button>

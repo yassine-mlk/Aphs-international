@@ -694,7 +694,9 @@ const TaskDetails: React.FC = () => {
                 </div>
                 
                 <div className="space-y-1">
-                  <Label className="text-gray-500">Fin prévue pour la remise</Label>
+                  <Label className="text-gray-500">
+                    {task.assignment_type === 'standard' ? 'Fin prévue pour la remise' : 'Échéance globale du circuit'}
+                  </Label>
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-gray-400" />
                     <span className="font-medium">{new Date(task.deadline).toLocaleDateString('fr-FR')}</span>
@@ -829,11 +831,11 @@ const TaskDetails: React.FC = () => {
 
           {/* Formulaire de validation (si applicable) */}
           {canValidate && (
-            <Card className="border-amber-200 shadow-sm">
+            <Card id="validation-form" className="border-amber-200 shadow-sm scroll-mt-6">
               <CardHeader className="bg-amber-50/50">
                 <CardTitle className="flex items-center gap-2 text-amber-800">
                   <CheckCircle2 className="h-5 w-5" />
-                  Donner votre avis de validation
+                  Statuer sur le document
                   {task.assignment_type === 'standard' && (
                     <span className="text-sm font-normal text-amber-600 ml-auto">
                       {selectedSubmissionId 
@@ -847,14 +849,14 @@ const TaskDetails: React.FC = () => {
                 {task.assignment_type === 'standard' && !selectedSubmissionId ? (
                   <div className="bg-amber-50 p-4 rounded-md border border-amber-100 text-amber-800 text-sm flex items-center gap-2">
                     <ListChecks className="h-4 w-4" />
-                    Veuillez sélectionner une soumission dans la liste "Révisions et Avis" ci-dessous pour pouvoir la valider individuellement.
+                    Veuillez cliquer sur "Statuer" sur l'un des fichiers ci-dessous pour donner votre avis.
                   </div>
                 ) : (
                   <>
                     <div className="space-y-3">
-                      <Label>Votre avis (VISA) {task.assignment_type === 'standard' && "sur cette soumission"}</Label>
+                      <Label>Votre avis {task.assignment_type === 'standard' && "sur cette soumission"}</Label>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                        {(Object.entries(task.assignment_type === 'standard' ? { 'F': { label: 'Valide' }, 'D': { label: 'Non Valide' } } : VISA_OPINION_LABELS) as [VisaOpinion, any][]).map(([key, value]) => (
+                        {(Object.entries(task.assignment_type === 'standard' ? { 'F': { label: 'Favorable' }, 'D': { label: 'Défavorable' } } : VISA_OPINION_LABELS) as [VisaOpinion, any][]).map(([key, value]) => (
                           <Button
                             key={key}
                             variant={selectedOpinion === key ? 'default' : 'outline'}
@@ -950,27 +952,37 @@ const TaskDetails: React.FC = () => {
                             </Badge>
                           )}
                           {!isSequential && sub.reviews?.length > 0 && (
-                            <Badge className={sub.reviews.every((r: any) => r.opinion === 'F') && sub.reviews.length >= (task.validators?.length || 0) 
-                              ? "bg-green-100 text-green-700 border-green-200" 
-                              : sub.reviews.some((r: any) => r.opinion === 'D')
-                                ? "bg-red-100 text-red-700 border-red-200"
-                                : "bg-amber-100 text-amber-700 border-amber-200"
-                            }>
-                              {sub.reviews.every((r: any) => r.opinion === 'F') && sub.reviews.length >= (task.validators?.length || 0)
-                                ? "Validé" 
-                                : sub.reviews.some((r: any) => r.opinion === 'D')
-                                  ? "À corriger"
-                                  : "En cours de revue"}
-                            </Badge>
+                            (() => {
+                              const userHasVoted = sub.reviews?.some(r => r.validator_id === user?.id);
+                              const shouldShowBadge = isAdmin || isExecutor || (isValidator && userHasVoted);
+
+                              if (!shouldShowBadge) return null;
+
+                              return (
+                                <Badge className={sub.reviews.length >= (task.validators?.length || 0)
+                                  ? (sub.reviews.every((r: any) => r.opinion === 'F') ? "bg-green-100 text-green-700 border-green-200" : "bg-red-100 text-red-700 border-red-200")
+                                  : "bg-amber-100 text-amber-700 border-amber-200"
+                                }>
+                                  {sub.reviews.length >= (task.validators?.length || 0)
+                                    ? (sub.reviews.every((r: any) => r.opinion === 'F') ? "Validé" : "À corriger")
+                                    : "En cours de revue"}
+                                </Badge>
+                              );
+                            })()
                           )}
-                          {canValidate && !isSequential && (
+                          {isValidator && !isSequential && task.status === 'in_review' && !sub.reviews?.some(r => r.validator_id === user?.id) && (
                             <Button 
                               variant={selectedSubmissionId === sub.id ? "default" : "outline"} 
                               size="sm"
                               className="h-8"
-                              onClick={() => setSelectedSubmissionId(sub.id === selectedSubmissionId ? null : sub.id)}
+                              onClick={() => {
+                                setSelectedSubmissionId(sub.id === selectedSubmissionId ? null : sub.id);
+                                if (sub.id !== selectedSubmissionId) {
+                                  document.getElementById('validation-form')?.scrollIntoView({ behavior: 'smooth' });
+                                }
+                              }}
                             >
-                              {selectedSubmissionId === sub.id ? 'Sélectionné' : 'Valider ce fichier'}
+                              {selectedSubmissionId === sub.id ? 'Sélectionné' : 'Statuer'}
                             </Button>
                           )}
                         </div>
@@ -1024,7 +1036,12 @@ const TaskDetails: React.FC = () => {
                               if (task.assignment_type === 'standard') {
                                 if (isAdmin || task.transparency_mode) return true;
                                 if (isExecutor) return sub.executor_id === user?.id;
-                                if (isValidator) return review.validator_id === user?.id;
+                                if (isValidator) {
+                                  // Un validateur ne voit les avis des autres que s'il a déjà statué
+                                  const userHasVoted = sub.reviews?.some(r => r.validator_id === user?.id);
+                                  if (userHasVoted) return true;
+                                  return review.validator_id === user?.id;
+                                }
                               }
                               return true;
                             }) || [];
@@ -1259,7 +1276,7 @@ const TaskDetails: React.FC = () => {
                  </CardHeader>
                  <CardContent className="space-y-4">
                    <div className="space-y-1">
-                     <Label className="text-xs text-gray-500 uppercase">Fin prévue pour la remise</Label>
+                     <Label className="text-xs text-gray-500 uppercase">Fin prévue pour la remise (Exécuteurs)</Label>
                      <div className="flex items-center gap-2">
                        <Calendar className="h-4 w-4 text-blue-500" />
                        <span className="font-semibold">{new Date(task.deadline).toLocaleDateString('fr-FR')}</span>
@@ -1267,13 +1284,13 @@ const TaskDetails: React.FC = () => {
                    </div>
                    
                    <div className="space-y-1">
-                     <Label className="text-xs text-gray-500 uppercase">Fin prévue pour la validation</Label>
+                     <Label className="text-xs text-gray-500 uppercase">Fin prévue pour la validation (Validateurs)</Label>
                      <div className="flex items-center gap-2">
                        <Clock className="h-4 w-4 text-amber-500" />
                        <span className="font-semibold text-amber-700">
-                         {task.validation_deadline && !task.validation_deadline.startsWith('1970')
+                         {task.validation_deadline && !task.validation_deadline.startsWith('1970') && !task.validation_deadline.startsWith('0001')
                            ? new Date(task.validation_deadline).toLocaleDateString('fr-FR') 
-                           : (task.deadline ? new Date(task.deadline).toLocaleDateString('fr-FR') : 'À définir')}
+                           : 'À définir'}
                        </span>
                      </div>
                    </div>

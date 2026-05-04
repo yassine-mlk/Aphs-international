@@ -228,9 +228,9 @@ const AdminDashboard: React.FC = () => {
         urgentItems.push({
           id: `task_validate_${t.id}`,
           type: 'task_to_validate',
-          title: 'Tâche à valider',
+          title: 'Tâche à statuer',
           description: `${project?.name || 'Projet inconnu'} • ${t.task_name}`,
-          action: { label: 'Valider', to: `/dashboard/tasks/${t.id}` }
+          action: { label: 'Statuer', to: `/dashboard/tasks/${t.id}` }
         });
       });
 

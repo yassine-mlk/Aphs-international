@@ -47,6 +47,7 @@ import { supabase } from '@/lib/supabase';
 import AvatarStack from './AvatarStack';
 import { usePlan } from '@/hooks/usePlan';
 import { notifyStandardTaskAssigned } from '@/lib/notifications/standardTaskNotifications';
+import { notifyWorkflowTaskAssigned } from '@/lib/notifications/workflowNotifications';
 
 interface StructureSectionInput {
   id: string;
@@ -85,6 +86,8 @@ interface ProjectStructureTabProps {
   conceptionStructure: StructureSectionInput[];
   realizationStructure: StructureSectionInput[];
   projectId: string;
+  projectName?: string;
+  tenantId?: string;
   isAdmin?: boolean;
   onStructureChange?: () => void;
   onlyAssignedTasks?: boolean;
@@ -158,6 +161,8 @@ const ProjectStructureTab: React.FC<ProjectStructureTabProps> = ({
   conceptionStructure,
   realizationStructure,
   projectId,
+  projectName,
+  tenantId,
   isAdmin,
   onStructureChange,
   onlyAssignedTasks
@@ -588,16 +593,30 @@ const ProjectStructureTab: React.FC<ProjectStructureTabProps> = ({
       const result = data;
 
       if (result) {
+        const taskId = existingAssignment?.id || (result as any).id;
+
         // Notifier les intervenants si c'est une tâche standard
         if (assignmentForm.assignment_type === 'standard') {
-          // On utilise result.id si c'est une nouvelle tâche ou existingAssignment.id
-          const taskId = existingAssignment?.id || (result as any).id;
           if (taskId) {
-            notifyStandardTaskAssigned(
+            const finalTenantId = tenantId || null;
+            await notifyStandardTaskAssigned(
               taskId, 
               assignmentForm.assigned_to, 
-              assignmentForm.validators.map(v => v.user_id)
+              assignmentForm.validators.map(v => v.user_id),
+              {
+                taskName: selectedTask.taskName,
+                projectName: projectName,
+                tenantId: finalTenantId,
+                deadline: assignmentForm.deadline
+              }
             );
+          }
+        } else if (assignmentForm.assignment_type === 'workflow') {
+          if (taskId) {
+            // Notifier chaque exécuteur assigné au workflow
+            for (const executorId of assignmentForm.assigned_to) {
+              await notifyWorkflowTaskAssigned(taskId, executorId);
+            }
           }
         }
 
@@ -618,7 +637,11 @@ const ProjectStructureTab: React.FC<ProjectStructureTabProps> = ({
           setAssignments(updatedAssignments);
           // Mettre à jour les noms des utilisateurs
           const allIds = Array.from(new Set(
-            updatedAssignments.flatMap((a: any) => [...(a.assigned_to || []), ...(a.validators || [])])
+            updatedAssignments.flatMap((a: any) => {
+              const executorIds = a.assigned_to || [];
+              const validatorIds = (a.validators as any[])?.map(v => v.user_id) || [];
+              return [...executorIds, ...validatorIds];
+            })
           ));
           if (allIds.length > 0) {
             const { data: profiles } = await supabase
@@ -787,6 +810,14 @@ const ProjectStructureTab: React.FC<ProjectStructureTabProps> = ({
                               EN COURS
                             </Badge>
                           )}
+                          {section.status === 'completed' && (
+                            <Badge 
+                              style={{ backgroundColor: '#E8F5E9', color: '#2E7D32', fontSize: '10px', padding: '3px 8px', borderRadius: '20px', border: 'none' }}
+                              className="mr-2 uppercase font-bold"
+                            >
+                              TERMINÉ
+                            </Badge>
+                          )}
                           {section.planned_end_date && (
                             <div className="flex items-center gap-1.5 text-[11px] text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100 ml-2">
                               <Calendar className="h-3 w-3" />
@@ -845,10 +876,18 @@ const ProjectStructureTab: React.FC<ProjectStructureTabProps> = ({
                                     </span>
                                     {item.status === 'started' && (
                                       <Badge 
-                                        style={{ backgroundColor: '#F0F0F0', color: '#666', fontSize: '9px', padding: '2px 6px', borderRadius: '20px', border: 'none' }}
+                                        style={{ backgroundColor: '#E3F2FD', color: '#1565C0', fontSize: '9px', padding: '2px 6px', borderRadius: '20px', border: 'none' }}
                                         className="ml-auto uppercase font-bold h-5"
                                       >
-                                        OUVERT
+                                        EN COURS
+                                      </Badge>
+                                    )}
+                                    {item.status === 'completed' && (
+                                      <Badge 
+                                        style={{ backgroundColor: '#E8F5E9', color: '#2E7D32', fontSize: '9px', padding: '2px 6px', borderRadius: '20px', border: 'none' }}
+                                        className="ml-auto uppercase font-bold h-5"
+                                      >
+                                        TERMINÉ
                                       </Badge>
                                     )}
                                     {item.planned_end_date && (
@@ -920,13 +959,13 @@ const ProjectStructureTab: React.FC<ProjectStructureTabProps> = ({
                                               </Badge>
 
                                               {/* Date de fin prévue (Deadline) */}
-                                              {assignment.deadline && (
+                                              {(assignment.assignment_type === 'standard' ? assignment.validation_deadline : assignment.deadline) && (
                                                 <div 
                                                   className="flex items-center text-[11px] font-medium"
-                                                  style={{ color: deadlineStyle.color }}
+                                                  style={{ color: getDeadlineStyle(assignment.assignment_type === 'standard' ? assignment.validation_deadline : assignment.deadline).color }}
                                                 >
-                                                  {deadlineStyle.icon}
-                                                  <span>Fin prévue : {format(new Date(assignment.deadline), 'dd/MM/yyyy')}</span>
+                                                  {getDeadlineStyle(assignment.assignment_type === 'standard' ? assignment.validation_deadline : assignment.deadline).icon}
+                                                  <span>Fin prévue : {format(new Date(assignment.assignment_type === 'standard' ? assignment.validation_deadline : assignment.deadline), 'dd/MM/yyyy')}</span>
                                                 </div>
                                               )}
                                               
@@ -1112,7 +1151,7 @@ const ProjectStructureTab: React.FC<ProjectStructureTabProps> = ({
                   onChange={(e) => setAssignmentForm(prev => ({ 
                     ...prev, 
                     deadline: e.target.value,
-                    end_date: e.target.value 
+                    end_date: prev.assignment_type === 'workflow' ? e.target.value : prev.validation_deadline 
                   }))}
                 />
               </div>
@@ -1124,7 +1163,11 @@ const ProjectStructureTab: React.FC<ProjectStructureTabProps> = ({
                     id="validation_deadline"
                     type="date"
                     value={assignmentForm.validation_deadline}
-                    onChange={(e) => setAssignmentForm(prev => ({ ...prev, validation_deadline: e.target.value }))}
+                    onChange={(e) => setAssignmentForm(prev => ({ 
+                      ...prev, 
+                      validation_deadline: e.target.value,
+                      end_date: e.target.value
+                    }))}
                   />
                 </div>
               )}

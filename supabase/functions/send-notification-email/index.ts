@@ -446,6 +446,47 @@ const emailTemplates: Record<string, (vars: Record<string, string>) => { subject
 </body>
 </html>`
   }),
+  generic_notification: (vars) => ({
+    subject: vars.subject || vars.title || 'Nouvelle notification APS',
+    html: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background: #f5f5f5; }
+    .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .header { background: #2563eb; color: white; padding: 30px; text-align: center; }
+    .header h1 { margin: 0; font-size: 24px; }
+    .content { padding: 30px; }
+    .message-box { background: #f8fafc; padding: 20px; border-radius: 6px; margin: 20px 0; border-left: 4px solid #2563eb; }
+    .button { display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 20px; }
+    .footer { background: #f8fafc; padding: 20px; text-align: center; color: #64748b; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🔔 Nouvelle Notification</h1>
+    </div>
+    <div class="content">
+      <p>Bonjour,</p>
+      <p>Vous avez reçu une nouvelle notification sur APS :</p>
+      
+      <div class="message-box">
+        <p><strong>${vars.title || 'Notification'}</strong></p>
+        <p>${vars.message || ''}</p>
+      </div>
+      
+      ${vars.link ? `<a href="${vars.appUrl || 'https://aps-international.netlify.app'}${vars.link}" class="button">Voir sur mon espace</a>` : ''}
+    </div>
+    <div class="footer">
+      <p>Cet email a été envoyé automatiquement par APS.</p>
+    </div>
+  </div>
+</body>
+</html>`
+  }),
 };
 
 serve(async (req) => {

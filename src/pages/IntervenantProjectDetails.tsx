@@ -761,11 +761,19 @@ const IntervenantProjectDetails: React.FC = () => {
                               <span className="ml-2 font-medium">{getIntervenantNames(task.assigned_to)}</span>
                             </div>
                             <div>
-                              <span className="text-gray-600">Échéance:</span>
+                              <span className="text-gray-600">Échéance remise:</span>
                               <span className="ml-2 font-medium">
                                 {task.deadline ? new Date(task.deadline).toLocaleDateString('fr-FR') : 'Non définie'}
                               </span>
                             </div>
+                            {task.validation_deadline && !task.validation_deadline.startsWith('1970') && (
+                              <div>
+                                <span className="text-gray-600">Échéance validation:</span>
+                                <span className="ml-2 font-medium">
+                                  {new Date(task.validation_deadline).toLocaleDateString('fr-FR')}
+                                </span>
+                              </div>
+                            )}
                             {task.submitted_at && (
                               <div>
                                 <span className="text-gray-600">Soumis le:</span>
@@ -1016,15 +1024,25 @@ const IntervenantProjectDetails: React.FC = () => {
                                                   
                                                   {/* Informations sur l'assignation */}
                                                   {taskAssignment && (
-                                                    <div className="text-xs text-gray-600 flex items-center gap-2">
-                                                      <User className="h-3 w-3" />
-                                                      <span>Assigné à: {getIntervenantNames(taskAssignment.assigned_to)}</span>
-                                                      {taskAssignment.deadline && (
-                                                        <>
-                                                          <Calendar className="h-3 w-3 ml-2" />
-                                                          <span>Échéance: {new Date(taskAssignment.deadline).toLocaleDateString('fr-FR')}</span>
-                                                        </>
-                                                      )}
+                                                    <div className="text-xs text-gray-600 flex flex-col gap-1 mt-2">
+                                                      <div className="flex items-center gap-2">
+                                                        <User className="h-3 w-3" />
+                                                        <span>Assigné à: {getIntervenantNames(taskAssignment.assigned_to)}</span>
+                                                      </div>
+                                                      <div className="flex flex-wrap gap-x-4 gap-y-1">
+                                                        {taskAssignment.deadline && (
+                                                          <div className="flex items-center gap-1">
+                                                            <Calendar className="h-3 w-3" />
+                                                            <span>Remise: {new Date(taskAssignment.deadline).toLocaleDateString('fr-FR')}</span>
+                                                          </div>
+                                                        )}
+                                                        {taskAssignment.validation_deadline && !taskAssignment.validation_deadline.startsWith('1970') && (
+                                                          <div className="flex items-center gap-1">
+                                                            <Clock className="h-3 w-3" />
+                                                            <span>Validation: {new Date(taskAssignment.validation_deadline).toLocaleDateString('fr-FR')}</span>
+                                                          </div>
+                                                        )}
+                                                      </div>
                                                     </div>
                                                   )}
                                                 </div>
@@ -1185,15 +1203,25 @@ const IntervenantProjectDetails: React.FC = () => {
                                                   
                                                   {/* Informations sur l'assignation */}
                                                   {taskAssignment && (
-                                                    <div className="text-xs text-gray-600 flex items-center gap-2">
-                                                      <User className="h-3 w-3" />
-                                                      <span>Assigné à: {getIntervenantNames(taskAssignment.assigned_to)}</span>
-                                                      {taskAssignment.deadline && (
-                                                        <>
-                                                          <Calendar className="h-3 w-3 ml-2" />
-                                                          <span>Échéance: {new Date(taskAssignment.deadline).toLocaleDateString('fr-FR')}</span>
-                                                        </>
-                                                      )}
+                                                    <div className="text-xs text-gray-600 flex flex-col gap-1 mt-2">
+                                                      <div className="flex items-center gap-2">
+                                                        <User className="h-3 w-3" />
+                                                        <span>Assigné à: {getIntervenantNames(taskAssignment.assigned_to)}</span>
+                                                      </div>
+                                                      <div className="flex flex-wrap gap-x-4 gap-y-1">
+                                                        {taskAssignment.deadline && (
+                                                          <div className="flex items-center gap-1">
+                                                            <Calendar className="h-3 w-3" />
+                                                            <span>Remise: {new Date(taskAssignment.deadline).toLocaleDateString('fr-FR')}</span>
+                                                          </div>
+                                                        )}
+                                                        {taskAssignment.validation_deadline && !taskAssignment.validation_deadline.startsWith('1970') && (
+                                                          <div className="flex items-center gap-1">
+                                                            <Clock className="h-3 w-3" />
+                                                            <span>Validation: {new Date(taskAssignment.validation_deadline).toLocaleDateString('fr-FR')}</span>
+                                                          </div>
+                                                        )}
+                                                      </div>
                                                     </div>
                                                   )}
                                                 </div>

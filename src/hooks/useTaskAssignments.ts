@@ -22,10 +22,9 @@ import {
 import { 
   notifyStandardTaskAssigned, 
   notifyStandardTaskSubmission, 
-  notifyAllSubmissionsReceived, 
-  notifyValidatorResponse, 
-  notifyValidationComplete, 
-  notifyStandardTaskClosed 
+  notifyValidatorReview, 
+  notifyStandardTaskDecision, 
+  notifyStandardTaskRelaunch 
 } from '@/lib/notifications/standardTaskNotifications';
 
 export const useTaskAssignments = () => {
@@ -141,7 +140,16 @@ export const useTaskAssignments = () => {
       // Notifications
       try {
         const validatorIds = data.validators ? data.validators.map((v: any) => v.user_id) : [];
-        await notifyStandardTaskAssigned(result.id || (data as any).id, data.assigned_to, validatorIds);
+        await notifyStandardTaskAssigned(
+          result.id || (data as any).id, 
+          data.assigned_to, 
+          validatorIds,
+          {
+            taskName: data.task_name,
+            deadline: data.deadline,
+            tenantId: data.tenant_id // Si présent dans data
+          }
+        );
       } catch (notifError) {
         console.error('Erreur notification:', notifError);
       }
@@ -236,8 +244,8 @@ export const useTaskAssignments = () => {
         .eq('id', id);
       
       if (!error) {
-        // Notifier le rejet
-        notifyValidationComplete(id, 'rejected');
+        // Notifier le début de la revue
+        // notifyStandardTaskSubmission(id, ...); // On n'a pas forcément le userId ici, mais le statut change
         
         await fetchAllTaskAssignments();
         return true;
@@ -314,13 +322,11 @@ export const useTaskAssignments = () => {
           .eq('id', taskId);
         
         // Notifier les validateurs et l'admin
-        notifyStandardTaskSubmission(taskId, userId);
+        // Note: On a besoin d'un submissionId pour notifyStandardTaskSubmission
+        // Pour l'instant on passe une chaîne vide ou on récupère l'ID si possible
+        notifyStandardTaskSubmission(taskId, userId, "");
         
-        // Vérifier si tous les exécuteurs ont soumis
-        const { data: statusData } = await supabase.rpc('get_task_validation_status', { p_task_id: taskId });
-        if (statusData && statusData.submitted_executors === statusData.total_executors) {
-          notifyAllSubmissionsReceived(taskId);
-        }
+        // La vérification allSubmitted est déjà faite dans notifyStandardTaskSubmission
       }
 
       toast({
@@ -361,15 +367,11 @@ export const useTaskAssignments = () => {
       
       if (!error) {
         // Notifier le résultat de la validation
-        notifyValidationComplete(id, nextStatus);
+        const { data: taskData } = await supabase.from('task_assignments_view').select('assigned_to, validators').eq('id', id).single();
         
-        // Si c'est clos, notifier les participants
-        if (nextStatus === 'approved' || nextStatus === 'vso') {
-          const { data: taskData } = await supabase.from('task_assignments_view').select('assigned_to, validators').eq('id', id).single();
-          if (taskData) {
-            const participantIds = [...taskData.assigned_to, ...(taskData.validators || []).map((v: any) => v.user_id)];
-            notifyStandardTaskClosed(id, participantIds);
-          }
+        if (taskData) {
+          const participantIds = [...taskData.assigned_to, ...(taskData.validators || []).map((v: any) => v.user_id)];
+          notifyStandardTaskDecision(id, nextStatus === 'vso' || nextStatus === 'approved' ? 'approved' : 'closed', participantIds);
         }
 
         await fetchAllTaskAssignments();

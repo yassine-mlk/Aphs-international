@@ -18,7 +18,6 @@ import {
 } from "lucide-react";
 import { useSupabase } from "../hooks/useSupabase";
 import { useAuth } from "../contexts/AuthContext";
-import { supabase } from "../lib/supabase";
 
 // Types
 interface Project {
@@ -51,7 +50,7 @@ interface TaskAssignment {
 const IntervenantProjects: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { fetchData } = useSupabase();
+  const { fetchData, supabase } = useSupabase();
   const { user, status } = useAuth();
   
   const [projects, setProjects] = useState<Project[]>([]);
@@ -77,6 +76,32 @@ const IntervenantProjects: React.FC = () => {
 
       if (memberError) throw memberError;
 
+      // On récupère aussi les projets où l'utilisateur est directement assigné à une tâche
+      const { data: taskAssignments, error: taskError } = await supabase
+        .from('task_assignments_view')
+        .select('project_id');
+
+      if (taskError) throw taskError;
+
+      const projectIdsFromTasks = (taskAssignments || [])
+        .map(t => t.project_id)
+        .filter(id => id && typeof id === 'string' && id.trim() !== '');
+
+      const projectIdsFromMembers = (memberData || [])
+        .map(member => member.project_id)
+        .filter(id => id && typeof id === 'string' && id.trim() !== '');
+
+      // Fusionner les IDs uniques
+      const projectIds = Array.from(new Set([...projectIdsFromMembers, ...projectIdsFromTasks]));
+      console.log('Project IDs for Intervenant Projects:', projectIds);
+
+      if (projectIds.length === 0) {
+        setProjects([]);
+        setTaskStats({});
+        if (!silent) setLoading(false);
+        return;
+      }
+
       if (memberData && memberData.length > 0) {
         const permissionsMap: Record<string, { role: string, can_view_project_details: boolean }> = {};
         for (const m of memberData) {
@@ -88,61 +113,46 @@ const IntervenantProjects: React.FC = () => {
           }
         }
         setMemberPermissionsByProjectId(permissionsMap);
+      }
 
-        const projectIds = memberData
-          .map(member => member.project_id)
-          .filter(id => id && typeof id === 'string' && id.trim() !== '');
+      const { data: projectsData, error } = await supabase
+        .from('projects')
+        .select('*')
+        .in('id', projectIds);
 
-        if (projectIds.length === 0) {
-          setProjects([]);
-          setTaskStats({});
-          if (!silent) setLoading(false);
-          return;
-        }
+      if (error) throw error;
 
-        const { data: projectsData, error } = await supabase
-          .from('projects')
-          .select('*')
-          .in('id', projectIds);
+      if (projectsData) {
+        setProjects(projectsData);
 
-        if (error) throw error;
+        const stats: {[projectId: string]: {total: number, completed: number}} = {};
+        
+        // Récupérer le nombre total de tâches depuis le snapshot pour chaque projet
+        const { data: snapshotData } = await supabase
+          .from('project_tasks_snapshot')
+          .select('project_id')
+          .in('project_id', projectIds);
 
-        if (projectsData) {
-          setProjects(projectsData);
+        const totalTasksByProject: Record<string, number> = {};
+        (snapshotData || []).forEach(task => {
+          totalTasksByProject[task.project_id] = (totalTasksByProject[task.project_id] || 0) + 1;
+        });
 
-          const stats: {[projectId: string]: {total: number, completed: number}} = {};
-          
-          // Récupérer le nombre total de tâches depuis le snapshot pour chaque projet
-          const { data: snapshotData } = await supabase
-            .from('project_tasks_snapshot')
-            .select('project_id')
-            .in('project_id', projectIds);
+        for (const project of projectsData) {
+          const { data: tasks, error: tasksError } = await supabase
+            .from('task_assignments_view')
+            .select('id, status')
+            .eq('project_id', project.id);
 
-          const totalTasksByProject: Record<string, number> = {};
-          (snapshotData || []).forEach(task => {
-            totalTasksByProject[task.project_id] = (totalTasksByProject[task.project_id] || 0) + 1;
-          });
-
-          for (const project of projectsData) {
-            const { data: tasks, error: tasksError } = await supabase
-              .from('task_assignments_view')
-              .select('id, status')
-              .eq('project_id', project.id);
-
-            if (!tasksError && tasks) {
-              const totalTasks = totalTasksByProject[project.id] || tasks.length; // Fallback aux assignations si pas de snapshot
-              stats[project.id] = {
-                total: totalTasks,
-                completed: tasks.filter(task => ['validated', 'approved', 'vso', 'vao', 'closed'].includes(task.status)).length
-              };
-            }
+          if (!tasksError && tasks) {
+            const totalTasks = totalTasksByProject[project.id] || tasks.length; // Fallback aux assignations si pas de snapshot
+            stats[project.id] = {
+              total: totalTasks,
+              completed: tasks.filter(task => ['validated', 'approved', 'vso', 'vao', 'closed'].includes(task.status)).length
+            };
           }
-          setTaskStats(stats);
         }
-      } else {
-        setProjects([]);
-        setTaskStats({});
-        setMemberPermissionsByProjectId({});
+        setTaskStats(stats);
       }
     } catch (error) {
       if (!silent) {

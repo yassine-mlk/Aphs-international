@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Plus, Trash2, ChevronDown, ChevronRight, Pencil, Check, X, FileText } from "lucide-react";
+import { Loader2, Plus, Trash2, ChevronDown, ChevronRight, Pencil, Check, X, FileText, ChevronUp } from "lucide-react";
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from "@/lib/supabase";
 import { format, parseISO } from 'date-fns';
@@ -26,10 +26,11 @@ interface SnapshotTask    { id: string; item_id: string; title: string; order_in
 
 interface ProjectStructureManagerProps {
   projectId: string;
+  tenantId?: string | null;
   onStructureChange?: () => void;
 }
 
-export const ProjectStructureManager: React.FC<ProjectStructureManagerProps> = ({ projectId, onStructureChange }) => {
+export const ProjectStructureManager: React.FC<ProjectStructureManagerProps> = ({ projectId, tenantId, onStructureChange }) => {
   const { toast } = useToast();
   const [phase, setPhase] = useState<'conception' | 'realisation'>('conception');
   const [structure, setStructure] = useState<SnapshotSection[]>([]);
@@ -135,25 +136,45 @@ export const ProjectStructureManager: React.FC<ProjectStructureManagerProps> = (
 
   // ── Section CRUD ──
   const addSection = async () => {
-    if (!newSectionTitle.trim()) return;
-    const { data } = await supabase.from('project_sections_snapshot')
-      .insert({ project_id: projectId, phase, title: newSectionTitle.trim(), order_index: structure.length })
-      .select().single();
-    if (data) { 
-      setStructure(p => [...p, { ...data, items: [] }]); 
-      setNewSectionTitle(''); 
-      setAddingSection(false); 
-      toast({ title: 'Section ajoutée' });
-      onStructureChange?.();
+    if (!newSectionTitle.trim()) {
+      toast({ title: 'Erreur', description: 'Le titre de la section ne peut pas être vide.', variant: 'destructive' });
+      return;
+    }
+    try {
+      const { data, error } = await supabase.from('project_sections_snapshot')
+        .insert({ 
+          project_id: projectId, 
+          phase, 
+          title: newSectionTitle.trim(), 
+          order_index: structure.length
+        })
+        .select().single();
+      
+      if (error) throw error;
+      
+      if (data) { 
+        setStructure(p => [...p, { ...data, items: [] }]); 
+        setNewSectionTitle(''); 
+        setAddingSection(false); 
+        toast({ title: 'Section ajoutée' });
+        onStructureChange?.();
+      }
+    } catch (error: any) {
+      console.error('Error adding section:', error);
+      toast({ title: 'Erreur', description: error.message || 'Impossible d\'ajouter la section.', variant: 'destructive' });
     }
   };
 
   const deleteSection = async (id: string) => {
-    const { error } = await supabase.from('project_sections_snapshot').delete().eq('id', id);
-    if (!error) {
+    try {
+      const { error } = await supabase.from('project_sections_snapshot').delete().eq('id', id);
+      if (error) throw error;
+      
       setStructure(p => p.filter(s => s.id !== id));
       toast({ title: 'Section supprimée' });
       onStructureChange?.();
+    } catch (error: any) {
+      toast({ title: 'Erreur', description: 'Impossible de supprimer la section.', variant: 'destructive' });
     }
   };
 
@@ -163,15 +184,18 @@ export const ProjectStructureManager: React.FC<ProjectStructureManagerProps> = (
       return;
     }
 
-    const { error } = await supabase.from('project_sections_snapshot')
-      .update({ 
-        title: editValue, 
-        deadline: editDeadline || null,
-        start_date: editStartDate || null,
-        end_date: editEndDate || null
-      })
-      .eq('id', id);
-    if (!error) {
+    try {
+      const { error } = await supabase.from('project_sections_snapshot')
+        .update({ 
+          title: editValue, 
+          deadline: editDeadline || null,
+          start_date: editStartDate || null,
+          end_date: editEndDate || null
+        })
+        .eq('id', id);
+      
+      if (error) throw error;
+      
       setStructure(p => p.map(s => s.id === id ? { 
         ...s, 
         title: editValue, 
@@ -185,41 +209,54 @@ export const ProjectStructureManager: React.FC<ProjectStructureManagerProps> = (
       setEditEndDate('');
       toast({ title: 'Section modifiée' });
       onStructureChange?.();
+    } catch (error: any) {
+      toast({ title: 'Erreur', description: 'Impossible de modifier la section.', variant: 'destructive' });
     }
   };
 
   // ── Item CRUD ──
   const addItem = async (sectionId: string) => {
-    if (!newItemTitle.trim()) return;
+    if (!newItemTitle.trim()) {
+      toast({ title: 'Erreur', description: 'Le titre de la sous-étape ne peut pas être vide.', variant: 'destructive' });
+      return;
+    }
     const sec = structure.find(s => s.id === sectionId);
     
-    // On peut optionnellement hériter des dates de la section parente si elles existent
-    const { data } = await supabase.from('project_items_snapshot')
-      .insert({ 
-        project_id: projectId, 
-        section_id: sectionId, 
-        title: newItemTitle.trim(), 
-        order_index: sec?.items.length || 0,
-        start_date: sec?.start_date || null,
-        end_date: sec?.end_date || null,
-        deadline: sec?.deadline || null
-      })
-      .select().single();
-    if (data) {
-      setStructure(p => p.map(s => s.id === sectionId ? { ...s, items: [...s.items, { ...data, tasks: [] }] } : s));
-      setNewItemTitle(''); 
-      setAddingItemToSection(null);
-      toast({ title: 'Sous-étape ajoutée' });
-      onStructureChange?.();
+    try {
+      const { data, error } = await supabase.from('project_items_snapshot')
+        .insert({ 
+          project_id: projectId, 
+          section_id: sectionId, 
+          title: newItemTitle.trim(), 
+          order_index: sec?.items.length || 0
+        })
+        .select().single();
+      
+      if (error) throw error;
+
+      if (data) {
+        setStructure(p => p.map(s => s.id === sectionId ? { ...s, items: [...s.items, { ...data, tasks: [] }] } : s));
+        setNewItemTitle(''); 
+        setAddingItemToSection(null);
+        toast({ title: 'Sous-étape ajoutée' });
+        onStructureChange?.();
+      }
+    } catch (error: any) {
+      console.error('Error adding item:', error);
+      toast({ title: 'Erreur', description: error.message || 'Impossible d\'ajouter la sous-étape.', variant: 'destructive' });
     }
   };
 
   const deleteItem = async (sectionId: string, itemId: string) => {
-    const { error } = await supabase.from('project_items_snapshot').delete().eq('id', itemId);
-    if (!error) {
+    try {
+      const { error } = await supabase.from('project_items_snapshot').delete().eq('id', itemId);
+      if (error) throw error;
+      
       setStructure(p => p.map(s => s.id === sectionId ? { ...s, items: s.items.filter(i => i.id !== itemId) } : s));
       toast({ title: 'Sous-étape supprimée' });
       onStructureChange?.();
+    } catch (error: any) {
+      toast({ title: 'Erreur', description: 'Impossible de supprimer la sous-étape.', variant: 'destructive' });
     }
   };
 
@@ -229,15 +266,18 @@ export const ProjectStructureManager: React.FC<ProjectStructureManagerProps> = (
       return;
     }
 
-    const { error } = await supabase.from('project_items_snapshot')
-      .update({ 
-        title: editValue, 
-        deadline: editDeadline || null,
-        start_date: editStartDate || null,
-        end_date: editEndDate || null
-      })
-      .eq('id', itemId);
-    if (!error) {
+    try {
+      const { error } = await supabase.from('project_items_snapshot')
+        .update({ 
+          title: editValue, 
+          deadline: editDeadline || null,
+          start_date: editStartDate || null,
+          end_date: editEndDate || null
+        })
+        .eq('id', itemId);
+      
+      if (error) throw error;
+      
       setStructure(p => p.map(s => s.id === sectionId ? { 
         ...s, 
         items: s.items.map(i => i.id === itemId ? { 
@@ -254,22 +294,40 @@ export const ProjectStructureManager: React.FC<ProjectStructureManagerProps> = (
       setEditEndDate('');
       toast({ title: 'Sous-étape modifiée' });
       onStructureChange?.();
+    } catch (error: any) {
+      toast({ title: 'Erreur', description: 'Impossible de modifier la sous-étape.', variant: 'destructive' });
     }
   };
 
   // ── Task CRUD ──
   const addTask = async (sectionId: string, itemId: string) => {
-    if (!newTaskTitle.trim()) return;
+    if (!newTaskTitle.trim()) {
+      toast({ title: 'Erreur', description: 'Le titre de la tâche ne peut pas être vide.', variant: 'destructive' });
+      return;
+    }
     const item = structure.find(s => s.id === sectionId)?.items.find(i => i.id === itemId);
-    const { data } = await supabase.from('project_tasks_snapshot')
-      .insert({ project_id: projectId, item_id: itemId, title: newTaskTitle.trim(), order_index: item?.tasks.length || 0 })
-      .select().single();
-    if (data) {
-      setStructure(p => p.map(s => s.id === sectionId ? { ...s, items: s.items.map(i => i.id === itemId ? { ...i, tasks: [...i.tasks, data] } : i) } : s));
-      setNewTaskTitle(''); 
-      setAddingTaskToItem(null);
-      toast({ title: 'Tâche ajoutée' });
-      onStructureChange?.();
+    try {
+      const { data, error } = await supabase.from('project_tasks_snapshot')
+        .insert({ 
+          project_id: projectId, 
+          item_id: itemId, 
+          title: newTaskTitle.trim(), 
+          order_index: item?.tasks.length || 0
+        })
+        .select().single();
+      
+      if (error) throw error;
+
+      if (data) {
+        setStructure(p => p.map(s => s.id === sectionId ? { ...s, items: s.items.map(i => i.id === itemId ? { ...i, tasks: [...i.tasks, data] } : i) } : s));
+        setNewTaskTitle(''); 
+        setAddingTaskToItem(null);
+        toast({ title: 'Tâche ajoutée' });
+        onStructureChange?.();
+      }
+    } catch (error: any) {
+      console.error('Error adding task:', error);
+      toast({ title: 'Erreur', description: error.message || 'Impossible d\'ajouter la tâche.', variant: 'destructive' });
     }
   };
 
@@ -289,6 +347,117 @@ export const ProjectStructureManager: React.FC<ProjectStructureManagerProps> = (
       setEditingTaskId(null);
       toast({ title: 'Tâche modifiée' });
       onStructureChange?.();
+    }
+  };
+
+  const moveSection = async (sectionId: string, direction: 'up' | 'down') => {
+    const index = structure.findIndex(s => s.id === sectionId);
+    if (index === -1) return;
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === structure.length - 1) return;
+
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    const itemA = structure[index];
+    const itemB = structure[newIndex];
+
+    try {
+      // Swap order_index in DB
+      await Promise.all([
+        supabase.from('project_sections_snapshot').update({ order_index: itemB.order_index }).eq('id', itemA.id),
+        supabase.from('project_sections_snapshot').update({ order_index: itemA.order_index }).eq('id', itemB.id)
+      ]);
+
+      // Update local state
+      const newStructure = [...structure];
+      [newStructure[index], newStructure[newIndex]] = [newStructure[newIndex], newStructure[index]];
+      // Update order_index in local state
+      const tempOrder = newStructure[index].order_index;
+      newStructure[index].order_index = newStructure[newIndex].order_index;
+      newStructure[newIndex].order_index = tempOrder;
+      
+      setStructure(newStructure);
+      onStructureChange?.();
+    } catch (error) {
+      toast({ title: 'Erreur', description: 'Impossible de déplacer la section.', variant: 'destructive' });
+    }
+  };
+
+  const moveItem = async (sectionId: string, itemId: string, direction: 'up' | 'down') => {
+    const sectionIndex = structure.findIndex(s => s.id === sectionId);
+    if (sectionIndex === -1) return;
+    const section = structure[sectionIndex];
+    const index = section.items.findIndex(i => i.id === itemId);
+    if (index === -1) return;
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === section.items.length - 1) return;
+
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    const itemA = section.items[index];
+    const itemB = section.items[newIndex];
+
+    try {
+      // Swap order_index in DB
+      await Promise.all([
+        supabase.from('project_items_snapshot').update({ order_index: itemB.order_index }).eq('id', itemA.id),
+        supabase.from('project_items_snapshot').update({ order_index: itemA.order_index }).eq('id', itemB.id)
+      ]);
+
+      // Update local state
+      const newStructure = [...structure];
+      const newItems = [...section.items];
+      [newItems[index], newItems[newIndex]] = [newItems[newIndex], newItems[index]];
+      
+      const tempOrder = newItems[index].order_index;
+      newItems[index].order_index = newItems[newIndex].order_index;
+      newItems[newIndex].order_index = tempOrder;
+
+      newStructure[sectionIndex] = { ...section, items: newItems };
+      setStructure(newStructure);
+      onStructureChange?.();
+    } catch (error) {
+      toast({ title: 'Erreur', description: 'Impossible de déplacer la sous-étape.', variant: 'destructive' });
+    }
+  };
+
+  const moveTask = async (sectionId: string, itemId: string, taskId: string, direction: 'up' | 'down') => {
+    const sectionIndex = structure.findIndex(s => s.id === sectionId);
+    if (sectionIndex === -1) return;
+    const section = structure[sectionIndex];
+    const itemIndex = section.items.findIndex(i => i.id === itemId);
+    if (itemIndex === -1) return;
+    const item = section.items[itemIndex];
+    const index = item.tasks.findIndex(t => t.id === taskId);
+    if (index === -1) return;
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === item.tasks.length - 1) return;
+
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    const taskA = item.tasks[index];
+    const taskB = item.tasks[newIndex];
+
+    try {
+      // Swap order_index in DB
+      await Promise.all([
+        supabase.from('project_tasks_snapshot').update({ order_index: taskB.order_index }).eq('id', taskA.id),
+        supabase.from('project_tasks_snapshot').update({ order_index: taskA.order_index }).eq('id', taskB.id)
+      ]);
+
+      // Update local state
+      const newStructure = [...structure];
+      const newTasks = [...item.tasks];
+      [newTasks[index], newTasks[newIndex]] = [newTasks[newIndex], newTasks[index]];
+
+      const tempOrder = newTasks[index].order_index;
+      newTasks[index].order_index = newTasks[newIndex].order_index;
+      newTasks[newIndex].order_index = tempOrder;
+
+      const newItems = [...section.items];
+      newItems[itemIndex] = { ...item, tasks: newTasks };
+      newStructure[sectionIndex] = { ...section, items: newItems };
+      setStructure(newStructure);
+      onStructureChange?.();
+    } catch (error) {
+      toast({ title: 'Erreur', description: 'Impossible de déplacer la tâche.', variant: 'destructive' });
     }
   };
 
@@ -366,6 +535,14 @@ export const ProjectStructureManager: React.FC<ProjectStructureManagerProps> = (
                         </>
                       ) : (
                         <>
+                          <div className="flex flex-col gap-0.5 mr-1">
+                            <Button size="icon" variant="ghost" className="h-4 w-4 text-gray-400 hover:text-aps-teal" onClick={(e) => { e.stopPropagation(); moveSection(sec.id, 'up'); }} title="Monter">
+                              <ChevronUp className="h-3 w-3" />
+                            </Button>
+                            <Button size="icon" variant="ghost" className="h-4 w-4 text-gray-400 hover:text-aps-teal" onClick={(e) => { e.stopPropagation(); moveSection(sec.id, 'down'); }} title="Descendre">
+                              <ChevronDown className="h-3 w-3" />
+                            </Button>
+                          </div>
                           <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => { 
                             setEditingSectionId(sec.id); 
                             setEditValue(sec.title); 
@@ -425,6 +602,14 @@ export const ProjectStructureManager: React.FC<ProjectStructureManagerProps> = (
                                 </>
                               ) : (
                                 <>
+                                  <div className="flex flex-col gap-0.5 mr-1">
+                                    <Button size="icon" variant="ghost" className="h-4 w-4 text-gray-400 hover:text-aps-teal" onClick={(e) => { e.stopPropagation(); moveItem(sec.id, item.id, 'up'); }} title="Monter">
+                                      <ChevronUp className="h-3 w-3" />
+                                    </Button>
+                                    <Button size="icon" variant="ghost" className="h-4 w-4 text-gray-400 hover:text-aps-teal" onClick={(e) => { e.stopPropagation(); moveItem(sec.id, item.id, 'down'); }} title="Descendre">
+                                      <ChevronDown className="h-3 w-3" />
+                                    </Button>
+                                  </div>
                                   <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => { 
                                     setEditingItemId(item.id); 
                                     setEditValue(item.title); 
@@ -455,6 +640,14 @@ export const ProjectStructureManager: React.FC<ProjectStructureManagerProps> = (
                                       </>
                                     ) : (
                                       <>
+                                        <div className="flex flex-col gap-0.5 mr-1">
+                                          <Button size="icon" variant="ghost" className="h-3 w-3 text-gray-400 hover:text-aps-teal" onClick={(e) => { e.stopPropagation(); moveTask(sec.id, item.id, task.id, 'up'); }} title="Monter">
+                                            <ChevronUp className="h-2 w-2" />
+                                          </Button>
+                                          <Button size="icon" variant="ghost" className="h-3 w-3 text-gray-400 hover:text-aps-teal" onClick={(e) => { e.stopPropagation(); moveTask(sec.id, item.id, task.id, 'down'); }} title="Descendre">
+                                            <ChevronDown className="h-2 w-2" />
+                                          </Button>
+                                        </div>
                                         <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => openInfoSheet(task.id, task.title, task.info_sheet)} title="Fiche info"><FileText className="h-2.5 w-2.5" /></Button>
                                         <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => { setEditingTaskId(task.id); setEditValue(task.title); }}><Pencil className="h-2.5 w-2.5" /></Button>
                                         <Button size="icon" variant="ghost" className="h-5 w-5 text-red-500" onClick={() => deleteTask(sec.id, item.id, task.id)}><Trash2 className="h-2.5 w-2.5" /></Button>

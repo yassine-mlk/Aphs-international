@@ -24,7 +24,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/components/ui/use-toast';
-import { notifyMemberAdded } from '@/lib/notifications';
+import { notifyMemberAdded } from '@/lib/notifications/projectNotifications';
 import { 
   Users, 
   UserPlus,
@@ -72,6 +72,7 @@ interface TaskAssignment {
 
 interface ProjectMembersTabProps {
   projectId: string;
+  projectName?: string;
   members: ProjectMember[];
   intervenantsInfo: Record<string, {
     email: string;
@@ -85,6 +86,7 @@ interface ProjectMembersTabProps {
 
 const ProjectMembersTab: React.FC<ProjectMembersTabProps> = ({
   projectId,
+  projectName,
   members,
   intervenantsInfo,
   tenantId,
@@ -92,6 +94,13 @@ const ProjectMembersTab: React.FC<ProjectMembersTabProps> = ({
 }) => {
   const { toast } = useToast();
   const { limits } = usePlan();
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user);
+    });
+  }, []);
   
   // État pour le dialog d'ajout de membres
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -276,8 +285,10 @@ const ProjectMembersTab: React.FC<ProjectMembersTabProps> = ({
         for (const member of addedMembers) {
           await notifyMemberAdded({
             userId: member.user_id,
-            projectName: 'Projet',
-            addedByName: 'Administrateur',
+            projectName: projectName || 'Projet',
+            addedByName: user?.user_metadata?.first_name 
+              ? `${user.user_metadata.first_name} ${user.user_metadata.last_name || ''}` 
+              : 'Administrateur',
             role: 'Intervenant',
           });
         }

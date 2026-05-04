@@ -134,9 +134,6 @@ export function TenantQuotaGuard({ type, children, requiredStorage }: QuotaGuard
                   <X className="h-4 w-4 mr-2" />
                   Retour
                 </Button>
-                <Button onClick={() => window.location.href = '/dashboard/settings'}>
-                  Voir les forfaits
-                </Button>
               </div>
             </div>
           </div>

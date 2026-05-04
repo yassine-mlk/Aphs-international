@@ -6,8 +6,6 @@ import {
   Building2, 
   Calendar, 
   FileText,
-  Edit,
-  Trash2,
   CheckCircle2,
   Clock,
   AlertCircle,
@@ -224,18 +222,6 @@ const ProjectInfoTab: React.FC<ProjectInfoTabProps> = ({
               <h2 className="text-3xl font-bold text-gray-900">{project.name}</h2>
               <p className="text-muted-foreground mt-1">Détails et vue d'ensemble du projet</p>
             </div>
-            {isAdmin && (
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={onEdit} className="border-blue-200 hover:bg-blue-50">
-                  <Edit className="h-4 w-4 mr-2" />
-                  Modifier
-                </Button>
-                <Button variant="outline" size="sm" className="text-red-600 border-red-200 hover:bg-red-50" onClick={onDelete}>
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Supprimer
-                </Button>
-              </div>
-            )}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -467,20 +453,7 @@ const ProjectInfoTab: React.FC<ProjectInfoTabProps> = ({
                 </div>
               </div>
 
-              {isAdmin && (
-                <div className="bg-amber-50 p-6 rounded-2xl border border-amber-100 space-y-4">
-                  <h4 className="font-bold text-amber-800 text-sm flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4" />
-                    Actions Administrateur
-                  </h4>
-                  <p className="text-xs text-amber-700 leading-relaxed">
-                    Vous avez un contrôle total sur ce projet. Vous pouvez modifier sa structure, ses assignations et ses paramètres généraux.
-                  </p>
-                  <Button variant="outline" size="sm" onClick={onEdit} className="w-full bg-white border-amber-200 text-amber-800 hover:bg-amber-100 font-bold">
-                    Accéder aux paramètres
-                  </Button>
-                </div>
-              )}
+              {/* Statistiques rapides (Optionnel) */}
             </div>
           </div>
         </CardContent>

@@ -187,11 +187,6 @@ export const AppRoutes = () => {
             <Messages />
           </SharedRoute>
         } />
-        <Route path="parametres" element={
-          <SharedRoute>
-            <Settings />
-          </SharedRoute>
-        } />
         <Route path="support" element={
           <SharedRoute>
             <SupportPage />

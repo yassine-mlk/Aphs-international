@@ -67,6 +67,7 @@ function VideoConferenceContent() {
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [meetingToJoin, setMeetingToJoin] = useState<string | null>(null);
+  const [selectedWorkGroupId, setSelectedWorkGroupId] = useState<string | null>(null);
   const [newMeeting, setNewMeeting] = useState({
     title: '',
     description: '',
@@ -197,12 +198,13 @@ function VideoConferenceContent() {
   };
 
   const handleWorkGroupSelect = (workgroupId: string) => {
+    setSelectedWorkGroupId(workgroupId);
     const wg = workGroups.find(g => g.id === workgroupId);
     if (wg) {
       const memberIds = wg.members.map(m => m.user_id).filter(id => id !== user?.id);
       setNewMeeting(prev => ({
         ...prev,
-        participants: Array.from(new Set([...prev.participants, ...memberIds]))
+        participants: memberIds // On remplace par les membres du groupe au lieu d'ajouter
       }));
     }
   };
@@ -263,8 +265,12 @@ function VideoConferenceContent() {
   );
   const pastMeetings = meetings.filter(m => m.status === 'completed');
 
+  // Filtrer les profils pour ne montrer que ceux du groupe de travail sélectionné
+  const selectedGroup = workGroups.find(wg => wg.id === selectedWorkGroupId);
+  const groupMemberIds = selectedGroup ? selectedGroup.members.map(m => m.user_id) : [];
+
   const participantOptions = profiles
-    .filter(p => p.user_id !== user?.id)
+    .filter(p => p.user_id !== user?.id && groupMemberIds.includes(p.user_id))
     .map(p => ({
       label: `${p.first_name} ${p.last_name} (${p.company})`,
       value: p.user_id
@@ -346,9 +352,13 @@ function VideoConferenceContent() {
                       <SelectValue placeholder="Choisir un groupe" />
                     </SelectTrigger>
                     <SelectContent>
-                      {workGroups.map(wg => (
-                        <SelectItem key={wg.id} value={wg.id}>{wg.name}</SelectItem>
-                      ))}
+                      {workGroups && workGroups.length > 0 ? (
+                        workGroups.map(wg => (
+                          <SelectItem key={wg.id} value={wg.id}>{wg.name}</SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="none" disabled>Aucun groupe disponible</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>

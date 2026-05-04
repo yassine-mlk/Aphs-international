@@ -165,12 +165,6 @@ const DashboardLayout: React.FC = () => {
     </SidebarMenuItem>
   );
 
-  const SectionLabel = ({ label }: { label: string }) => (
-    <div className="px-4 py-3 mt-4 text-[10px] font-black text-gray-400 tracking-[0.15em] uppercase">
-      {label}
-    </div>
-  );
-
   return (
     <SidebarProvider>
       <Sidebar side="left" className="border-r border-gray-100">
@@ -180,9 +174,8 @@ const DashboardLayout: React.FC = () => {
           </Link>
         </SidebarHeader>
         
-        <SidebarContent className="px-2">
+        <SidebarContent className="px-2 pt-4">
           <SidebarMenu>
-            <SectionLabel label={t.mainMenu} />
             <NavItem 
               to="/dashboard" 
               icon={LayoutDashboard} 
@@ -202,7 +195,6 @@ const DashboardLayout: React.FC = () => {
               isActive={isAdmin ? isLinkActive("/dashboard/admin/tasks") : (isLinkActive("/dashboard/tasks") || isLinkActive("/dashboard/intervenant/taches-standard") || isLinkActive("/dashboard/intervenant/workflows") || isLinkActive("/dashboard/maitre-ouvrage/taches-standard") || isLinkActive("/dashboard/maitre-ouvrage/workflows"))} 
             />
 
-            <SectionLabel label={t.collaboration} />
             {!isAdmin && (
               <NavItem 
                 to="/dashboard/mes-signatures" 
@@ -229,7 +221,6 @@ const DashboardLayout: React.FC = () => {
 
             {isAdmin && (
               <>
-                <SectionLabel label={t.administration} />
                 <NavItem 
                   to="/dashboard/intervenants" 
                   icon={Users2} 
@@ -251,7 +242,6 @@ const DashboardLayout: React.FC = () => {
               </>
             )}
 
-            <SectionLabel label={t.system} />
             <NavItem 
               to="/dashboard/notifications" 
               icon={Bell} 
@@ -322,7 +312,6 @@ const DashboardLayout: React.FC = () => {
                location.pathname === "/dashboard/tasks" ? t.tasks :
                location.pathname.includes("/tasks/") ? "Détails de la tâche" :
                location.pathname.includes("/projets/") ? "Détails du projet" :
-               location.pathname === "/dashboard/parametres" ? t.settings :
                location.pathname === "/dashboard/profil" ? t.profile : 
                location.pathname === "/dashboard/notifications" ? t.notifications :
                location.pathname === "/dashboard/mes-signatures" ? "Mes signatures" :
@@ -335,47 +324,19 @@ const DashboardLayout: React.FC = () => {
           <div className="flex items-center gap-4">
             <NotificationBell />
             
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-10 w-10 rounded-2xl p-0 hover:bg-blue-50 group transition-all overflow-hidden border border-gray-100">
-                  <Avatar className="h-full w-full rounded-none">
-                    <AvatarImage src={authUser?.user_metadata?.avatar_url} />
-                    <AvatarFallback className="bg-gray-50 text-gray-400 group-hover:text-blue-600">
-                      <User className="h-5 w-5" />
-                    </AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64 p-2 rounded-2xl shadow-xl border-gray-100">
-                <DropdownMenuLabel className="px-3 py-2 text-xs font-black text-gray-400 uppercase tracking-widest">
-                  {t.myAccount}
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator className="bg-gray-50" />
-                <DropdownMenuItem 
-                  className="cursor-pointer rounded-xl py-3 focus:bg-blue-50 focus:text-blue-600 transition-colors"
-                  onClick={() => navigate('/dashboard/profil')}
-                >
-                  <User className="mr-3 h-4 w-4" />
-                  <span className="font-bold">{t.profile}</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  className="cursor-pointer rounded-xl py-3 focus:bg-blue-50 focus:text-blue-600 transition-colors"
-                  onClick={() => navigate('/dashboard/parametres')}
-                >
-                  <Settings className="mr-3 h-4 w-4" />
-                  <span className="font-bold">{t.settings}</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator className="bg-gray-50" />
-                <DropdownMenuItem 
-                  className="cursor-pointer rounded-xl py-3 focus:text-red-600 focus:bg-red-50 text-gray-500 transition-colors"
-                  onClick={handleLogout}
-                  disabled={isLoggingOut}
-                >
-                  <LogOut className="mr-3 h-4 w-4" />
-                  <span className="font-bold">{isLoggingOut ? 'Déconnexion...' : t.logout}</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <Button 
+              variant="ghost" 
+              className="relative h-10 w-10 rounded-2xl p-0 hover:bg-blue-50 group transition-all overflow-hidden border border-gray-100"
+              onClick={() => navigate('/dashboard/profil')}
+              title={t.profile}
+            >
+              <Avatar className="h-full w-full rounded-none">
+                <AvatarImage src={authUser?.user_metadata?.avatar_url} />
+                <AvatarFallback className="bg-gray-50 text-gray-400 group-hover:text-blue-600">
+                  <User className="h-5 w-5" />
+                </AvatarFallback>
+              </Avatar>
+            </Button>
           </div>
         </div>
         

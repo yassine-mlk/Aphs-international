@@ -511,7 +511,7 @@ const ProjectDocumentsTab: React.FC<ProjectDocumentsTabProps> = ({ projectId, is
           <div>
             <CardTitle className="flex items-center gap-2">
               <FileUp className="h-5 w-5" />
-              Mes Documents
+              Document/e-signature
             </CardTitle>
             <p className="text-sm text-gray-500 mt-1">
               {documents.length} document{documents.length > 1 ? 's' : ''} • 

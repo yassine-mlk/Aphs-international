@@ -230,7 +230,7 @@ export const useVisaWorkflow = () => {
       } else {
         // Pour les tâches STANDARD
         if (newSubmission) {
-          notifyStandardTaskSubmission(taskId, executorId, newSubmission.id);
+          await notifyStandardTaskSubmission(taskId, executorId, newSubmission.id);
         }
       }
 
@@ -338,7 +338,7 @@ export const useVisaWorkflow = () => {
       } else {
         // Pour les tâches STANDARD
         if (newReview) {
-          notifyValidatorReview(taskId, validatorId, newReview.id, data.opinion);
+          await notifyValidatorReview(taskId, validatorId, newReview.id, data.opinion);
         }
       }
 
@@ -481,11 +481,14 @@ export const useVisaWorkflow = () => {
             'relaunch_partial': 'relaunch',
           };
           const action = actionMap[decision] || 'relaunch';
-          executors.forEach(a => notifyAdminTaskAction(taskId, a.user_id, action));
+          for (const a of executors) {
+            await notifyAdminTaskAction(taskId, a.user_id, action);
+          }
         } else {
           // Pour les tâches STANDARD
           const participantIds = assignments.map(a => a.user_id);
           const executorIds = assignments.filter(a => a.role === 'executor').map(a => a.user_id);
+          const validatorIds = assignments.filter(a => a.role === 'validator').map(a => a.user_id);
           
           if (decision === 'approved' || decision === 'closed') {
             // Vérifier s'il y avait un avis défavorable
@@ -503,10 +506,10 @@ export const useVisaWorkflow = () => {
               ?.map(s => s.executor_id) || [];
             
             if (relancedIds.length > 0) {
-              await notifyStandardTaskRelaunch(taskId, Array.from(new Set(relancedIds)));
+              await notifyStandardTaskRelaunch(taskId, Array.from(new Set(relancedIds)), validatorIds);
             }
           } else if (decision === 'relaunch_complete') {
-            await notifyStandardTaskRelaunch(taskId, executorIds);
+            await notifyStandardTaskRelaunch(taskId, executorIds, validatorIds);
           }
         }
       }
@@ -590,8 +593,10 @@ export const useVisaWorkflow = () => {
       }
 
       // 6. Notifier l'exécuteur et les nouveaux validateurs
-      notifyAdminTaskAction(taskId, newExecutorId, 'reassignment');
-      newValidators.forEach(v => notifyValidatorTurn(taskId, v.user_id, 'A'));
+      await notifyAdminTaskAction(taskId, newExecutorId, 'reassignment');
+      for (const v of newValidators) {
+        await notifyValidatorTurn(taskId, v.user_id, 'A');
+      }
 
       // 7. Log historique
       await supabase.from('task_history').insert({

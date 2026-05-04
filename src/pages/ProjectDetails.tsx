@@ -47,6 +47,7 @@ interface Project {
   project_type?: string;
   client_name?: string;
   client_contact?: string;
+  tenant_id?: string;
   created_at: string;
 }
 
@@ -330,7 +331,7 @@ const ProjectDetails: React.FC = () => {
           )}
           <TabsTrigger value="documents" className="data-[state=active]:bg-white">
             <FileCheck className="h-4 w-4 mr-2" />
-            Mes Documents
+            Document/e-signature
           </TabsTrigger>
         </TabsList>
 
@@ -373,6 +374,8 @@ const ProjectDetails: React.FC = () => {
             conceptionStructure={customProjectStructure}
             realizationStructure={customRealizationStructure}
             projectId={id || ''}
+            projectName={project?.name}
+            tenantId={tenantId || project?.tenant_id}
             isAdmin={isAdmin}
             onStructureChange={refreshStructure}
             onlyAssignedTasks={!isAdmin && !currentUserMember?.can_view_project_details}
@@ -383,7 +386,8 @@ const ProjectDetails: React.FC = () => {
           <>
             <TabsContent value="members">
               <ProjectMembersTab 
-                projectId={id || ''}
+                projectId={id || ''} 
+                projectName={project.name}
                 members={members}
                 intervenantsInfo={intervenantsInfo}
                 tenantId={tenantId}
@@ -392,9 +396,10 @@ const ProjectDetails: React.FC = () => {
             </TabsContent>
             <TabsContent value="manage-structure">
               <ProjectStructureManager 
-                projectId={id || ''} 
-                onStructureChange={refreshStructure}
-              />
+              projectId={id || ''} 
+              tenantId={tenantId}
+              onStructureChange={refreshStructure}
+            />
             </TabsContent>
           </>
         )}

@@ -190,28 +190,40 @@ const IntervenantDashboard: React.FC = () => {
         ]
       }) || [];
       
+      // On récupère aussi les projets où l'utilisateur est directement assigné à une tâche
+      const { data: taskAssignments, error: taskError } = await supabase
+        .from('task_assignments_view')
+        .select('project_id')
+        .eq('tenant_id', tenant.id);
+
+      if (taskError) throw taskError;
+
+      const projectIdsFromTasks = (taskAssignments || [])
+        .map((t: any) => t.project_id)
+        .filter((id: any) => id && typeof id === 'string' && id.trim() !== '');
+
+      const projectIdsFromMembers = (memberData || [])
+        .map((member: any) => member.project_id)
+        .filter((id: any) => id && typeof id === 'string' && id.trim() !== '');
+
+      // Fusionner les IDs uniques
+      const allProjectIds = Array.from(new Set([...projectIdsFromMembers, ...projectIdsFromTasks]));
+
+      console.log('Project IDs for Intervenant:', allProjectIds);
 
       let projects = [];
-      if (memberData && memberData.length > 0) {
-        // Récupérer les détails des projets
-        const projectIds = memberData
-          .map((member: any) => member.project_id)
-          .filter((id: any) => id && typeof id === 'string' && id.trim() !== '');
+      if (allProjectIds.length > 0) {
+        const { data: projectsData, error } = await supabase
+          .from('projects')
+          .select('id, name, status')
+          .eq('tenant_id', tenant.id)
+          .in('id', allProjectIds);
         
-        
-        if (projectIds.length > 0) {
-          const { data: projectsData, error } = await supabase
-            .from('projects')
-            .select('id, name, status')
-            .eq('tenant_id', tenant.id)
-            .in('id', projectIds);
-          
-          if (error) {
-            throw error;
-          }
-          
-          projects = projectsData || [];
+        if (error) {
+          throw error;
         }
+        
+        projects = projectsData || [];
       }
 
       const projectIdsSet = new Set(projects.map((p: any) => p.id));

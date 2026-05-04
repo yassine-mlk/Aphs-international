@@ -3,6 +3,7 @@ import { NotificationType } from '@/hooks/useNotifications';
 // On redirige vers l'implémentation unifiée
 export { sendNotification, sendBulkNotifications } from './notifications/sendNotification';
 export { notifyMemberAdded } from './notifications/projectNotifications';
+export { notifyWorkflowTaskAssigned } from './notifications/workflowNotifications';
 
 export interface NotificationData {
   userId: string;

@@ -1,7 +1,7 @@
 import * as React from "react";
 import { X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Command, CommandGroup, CommandItem } from "@/components/ui/command";
+import { Command, CommandGroup, CommandItem, CommandList, CommandEmpty } from "@/components/ui/command";
 import { Command as CommandPrimitive } from "cmdk";
 
 export type Option = {
@@ -146,9 +146,10 @@ export function MultiSelect({
       <div className="relative mt-2">
         {open && (
           <div className="absolute w-full z-10 top-0 rounded-md border bg-popover text-popover-foreground shadow-md outline-none">
-            <CommandGroup className="h-full overflow-auto p-1 max-h-[300px]">
-              {filteredOptions.length > 0 ? (
-                filteredOptions.map((option) => (
+            <CommandList className="h-full overflow-auto p-1 max-h-[300px]">
+              <CommandEmpty>Aucun résultat.</CommandEmpty>
+              <CommandGroup>
+                {filteredOptions.map((option) => (
                   <CommandItem
                     key={option.value}
                     onMouseDown={(e) => {
@@ -160,13 +161,9 @@ export function MultiSelect({
                   >
                     {option.label}
                   </CommandItem>
-                ))
-              ) : (
-                <p className="p-2 text-center text-sm text-muted-foreground">
-                  Aucun résultat.
-                </p>
-              )}
-            </CommandGroup>
+                ))}
+              </CommandGroup>
+            </CommandList>
           </div>
         )}
       </div>
