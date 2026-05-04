@@ -282,10 +282,7 @@ const Index: React.FC = () => {
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <div className="flex items-center justify-between h-20">
             <a href="/" className="flex items-center gap-3 group">
-              <div className="w-10 h-10 bg-black rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                <HardHat className="h-5 w-5 text-white" />
-              </div>
-              <span className="text-xl font-bold tracking-tight">APS Construction</span>
+              <img src="/aps-logo.svg" alt="APS Construction" className="h-10 group-hover:scale-110 transition-transform" />
             </a>
 
             <div className="hidden md:flex items-center gap-8">
@@ -893,7 +890,7 @@ const Index: React.FC = () => {
                   </div>
                   <div>
                     <div className="font-bold">Téléphone</div>
-                    <div className="text-gray-600">+33 (0)1 84 60 00 00</div>
+                    <div className="text-gray-600">+33 6 40 16 49 97</div>
                   </div>
                 </div>
               </div>
@@ -988,9 +985,7 @@ const Index: React.FC = () => {
           <div className="grid md:grid-cols-4 gap-12 mb-16">
             <div className="col-span-1 md:col-span-1">
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
-                  <HardHat className="h-5 w-5 text-black" />
-                </div>
+                <img src="/aps-logo.svg" alt="APS Construction" className="h-10 brightness-0 invert" />
                 <span className="text-xl font-bold">APS Construction</span>
               </div>
               <p className="text-slate-400 leading-relaxed mb-6">
@@ -1009,15 +1004,6 @@ const Index: React.FC = () => {
             </div>
             
             <div>
-              <h4 className="font-bold mb-6">Ressources</h4>
-              <ul className="space-y-4 text-slate-400">
-                <li><a href="#" className="hover:text-white transition-colors">Documentation</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Guide de démarrage</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Support</a></li>
-              </ul>
-            </div>
-            
-            <div>
               <h4 className="font-bold mb-6">Contact</h4>
               <ul className="space-y-4 text-slate-400">
                 <li className="flex items-center gap-3">
@@ -1026,11 +1012,11 @@ const Index: React.FC = () => {
                 </li>
                 <li className="flex items-center gap-3">
                   <Phone className="h-4 w-4" />
-                  <span>+33 (0)1 84 60 00 00</span>
+                  <span>+33 6 40 16 49 97</span>
                 </li>
                 <li className="flex items-start gap-3">
                   <Target className="h-4 w-4 mt-1" />
-                  <span>Paris, France</span>
+                  <span>Bordeaux, France</span>
                 </li>
               </ul>
             </div>
