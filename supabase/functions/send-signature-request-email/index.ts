@@ -256,6 +256,13 @@ Deno.serve(async (req) => {
         console.warn('GMAIL credentials not set — email not sent');
         return;
       }
+      
+      // Fix denomailer MIME boundary bug for long non-ascii headers
+      const cleanSubject = subject
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^\x00-\x7F]/g, "");
+
       const smtpClient = new SMTPClient({
         connection: {
           hostname: 'smtp.gmail.com',
@@ -267,7 +274,7 @@ Deno.serve(async (req) => {
       await smtpClient.send({
         from: GMAIL_USER,
         to: to,
-        subject: subject.replace(/\r?\n|\r/g, ' '),
+        subject: cleanSubject.replace(/\r?\n|\r/g, ' '),
         content: html.replace(/<[^>]*>?/gm, ''),
         html: html,
       });

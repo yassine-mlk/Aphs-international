@@ -538,10 +538,16 @@ Deno.serve(async (req) => {
           },
         });
 
+        const finalSubject = (subject || emailContent.subject).replace(/\r?\n|\r/g, ' ');
+        const cleanSubject = finalSubject
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^\x00-\x7F]/g, "");
+
         await smtpClient.send({
           from: GMAIL_USER,
           to: to,
-          subject: (subject || emailContent.subject).replace(/\r?\n|\r/g, ' '),
+          subject: cleanSubject,
           content: emailContent.html.replace(/<[^>]*>?/gm, ''),
           html: emailContent.html,
         });
