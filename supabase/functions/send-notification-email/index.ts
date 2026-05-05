@@ -17,286 +17,478 @@ const GMAIL_USER = Deno.env.get('GMAIL_USER');
 const GMAIL_APP_PASSWORD = Deno.env.get('GMAIL_APP_PASSWORD');
 
 const APP_URL = 'https://www.aps-construction.com';
-const LOGO_URL = `${APP_URL}/logo.png`;
+// Logo hébergé sur le site — utilisé dans <img> pour les clients email qui acceptent les images distantes
+const LOGO_URL = `${APP_URL}/aps-logo.svg`;
 
-// ──────────────────────────────────────────────────────────────
-// PROFESSIONAL EMAIL TEMPLATE SYSTEM
-// Uses table-based layout for maximum email client compatibility
-// All styles are inline to avoid =20 encoding artifacts
-// ──────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────────────────
+// GABARIT D'EMAIL PROFESSIONNEL — APS Construction
+// • Mise en page par tableaux (compatible Outlook, Gmail, Apple Mail, mobile)
+// • Styles inline uniquement (pas de <style> global qui serait supprimé)
+// • Ruptures de lignes (\n) dans le HTML pour éviter les =20 en quoted-printable
+// • Logo réel depuis le site, avec texte de remplacement lisible
+// ──────────────────────────────────────────────────────────────────────────────
 
 function buildEmail(opts: {
-  icon: string;
   accentColor: string;
+  badgeText: string;       // ex: "TÂCHE", "RÉUNION", "DOCUMENT"
   title: string;
+  subtitle?: string;
   greeting?: string;
   body: string;
   buttonText?: string;
   buttonUrl?: string;
   footerNote?: string;
 }): string {
-  const { icon, accentColor, title, greeting, body, buttonText, buttonUrl, footerNote } = opts;
+  const { accentColor, badgeText, title, subtitle, greeting, body, buttonText, buttonUrl, footerNote } = opts;
 
-  const buttonBlock = buttonText && buttonUrl
-    ? `<tr><td style="padding:24px 0 0 0;" align="center"><a href="${buttonUrl}" style="display:inline-block;background:${accentColor};color:#ffffff;font-family:Arial,sans-serif;font-size:15px;font-weight:700;text-decoration:none;padding:14px 36px;border-radius:8px;letter-spacing:0.3px;">${buttonText}</a></td></tr>`
+  const btnRow = buttonText && buttonUrl
+    ? [
+        '<tr>',
+        '  <td align="center" style="padding:32px 0 8px 0;">',
+        `    <a href="${buttonUrl}"`,
+        `       style="display:inline-block;`,
+        `              background-color:${accentColor};`,
+        `              color:#ffffff;`,
+        `              font-family:Arial,Helvetica,sans-serif;`,
+        `              font-size:14px;`,
+        `              font-weight:700;`,
+        `              letter-spacing:0.5px;`,
+        `              text-decoration:none;`,
+        `              padding:14px 40px;`,
+        `              border-radius:4px;">`,
+        `      ${buttonText}`,
+        '    </a>',
+        '  </td>',
+        '</tr>',
+      ].join('\n')
     : '';
 
-  const footerText = footerNote || 'Cet email a été envoyé automatiquement. Merci de ne pas y répondre.';
+  const footer = footerNote || 'Cet email a &eacute;t&eacute; g&eacute;n&eacute;r&eacute; automatiquement &mdash; Merci de ne pas y r&eacute;pondre.';
 
-    // Build HTML as string with newlines to avoid quoted-printable artifacts on long lines
-    return [
-      '<!DOCTYPE html>',
-      '<html lang="fr">',
-      '<head>',
-      '<meta charset="utf-8">',
-      '<meta name="viewport" content="width=device-width,initial-scale=1.0">',
-      '<title>' + title + '</title>',
-      '</head>',
-      '<body style="margin:0;padding:0;background-color:#f0f2f5;font-family:Arial,Helvetica,sans-serif;">',
-      '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f0f2f5;padding:32px 16px;">',
-      '<tr><td align="center">',
-  
-      // Container
-      '<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">',
-  
-      // Logo Bar
-      '<tr><td style="padding:24px 32px;background:#ffffff;border-bottom:1px solid #f0f2f5;" align="left">',
-      '<table role="presentation" cellpadding="0" cellspacing="0"><tr>',
-      '<td style="width:40px;height:40px;background:' + accentColor + ';border-radius:10px;text-align:center;vertical-align:middle;" align="center">',
-      '<span style="color:#ffffff;font-size:18px;font-weight:800;font-family:Arial,sans-serif;line-height:40px;">A</span></td>',
-      '<td style="padding-left:12px;"><span style="font-family:Arial,sans-serif;font-size:20px;font-weight:800;color:#0f172a;letter-spacing:-0.5px;">APS</span>',
-      '<span style="font-family:Arial,sans-serif;font-size:11px;color:#94a3b8;display:block;line-height:1.2;letter-spacing:0.5px;">CONSTRUCTION</span></td>',
-      '</tr></table></td></tr>',
-  
-      // Header Banner
-      '<tr><td style="background:linear-gradient(135deg,' + accentColor + ' 0%,' + adjustColor(accentColor, -25) + ' 100%);padding:36px 40px;" align="left">',
-      '<table role="presentation" cellpadding="0" cellspacing="0"><tr>',
-      '<td style="padding-right:16px;vertical-align:middle;"><span style="font-size:32px;line-height:1;">' + icon + '</span></td>',
-      '<td><h1 style="margin:0;font-family:Arial,sans-serif;font-size:22px;font-weight:700;color:#ffffff;line-height:1.3;">' + title + '</h1></td>',
-      '</tr></table></td></tr>',
-  
-      // Body
-      '<tr><td style="padding:36px 40px;">',
-      '<p style="margin:0 0 20px 0;font-family:Arial,sans-serif;font-size:15px;color:#334155;line-height:1.6;">' + (greeting || 'Bonjour,') + '</p>',
-      body,
-      buttonBlock,
-      '</td></tr>',
-  
-      // Footer
-      '<tr><td style="padding:24px 40px;background:#f8fafc;border-top:1px solid #e2e8f0;">',
-      '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>',
-      '<td><p style="margin:0 0 4px 0;font-family:Arial,sans-serif;font-size:11px;color:#94a3b8;line-height:1.5;">' + footerText + '</p>',
-      '<p style="margin:0;font-family:Arial,sans-serif;font-size:11px;color:#cbd5e1;">&copy; 2025 APS Construction &mdash; Tous droits r&eacute;serv&eacute;s</p></td>',
-      '<td width="80" align="right" style="vertical-align:middle;">',
-      '<a href="' + APP_URL + '" style="display:inline-block;width:32px;height:32px;background:' + accentColor + ';border-radius:8px;text-align:center;line-height:32px;text-decoration:none;">',
-      '<span style="color:#ffffff;font-size:14px;font-weight:800;font-family:Arial,sans-serif;">A</span></a></td>',
-      '</tr></table></td></tr>',
-  
-      '</table>',
-      '</td></tr></table>',
-      '</body>',
-      '</html>'
-    ].join('\n');
+  const lines = [
+    '<!DOCTYPE html>',
+    '<html lang="fr">',
+    '<head>',
+    '  <meta charset="utf-8">',
+    '  <meta name="viewport" content="width=device-width, initial-scale=1.0">',
+    `  <title>${title}</title>`,
+    '</head>',
+    '<body style="margin:0; padding:0; background-color:#f4f4f5; font-family:Arial,Helvetica,sans-serif;">',
+
+    // Outer wrapper
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"',
+    '       style="background-color:#f4f4f5; padding:32px 16px;">',
+    '  <tr>',
+    '    <td align="center">',
+
+    // Card container — max 600px
+    '      <table role="presentation" width="600" cellpadding="0" cellspacing="0"',
+    '             style="max-width:600px; width:100%; background:#ffffff;',
+    '                    border:1px solid #dde1e7; border-radius:2px;">',
+
+    // ── HEADER BAR (logo + brand name) ──────────────────────────────────────
+    '        <tr>',
+    '          <td style="padding:20px 32px; border-bottom:3px solid ' + accentColor + ';">',
+    '            <table role="presentation" cellpadding="0" cellspacing="0" width="100%">',
+    '              <tr>',
+    // Logo image (avec texte alternatif si bloquée)
+    '                <td width="44" valign="middle">',
+    `                  <img src="${LOGO_URL}"`,
+    '                       alt="APS" width="44" height="44"',
+    '                       style="display:block; border:0; width:44px; height:44px; object-fit:contain;">',
+    '                </td>',
+    // Brand name text
+    '                <td valign="middle" style="padding-left:12px;">',
+    '                  <span style="font-family:Arial,Helvetica,sans-serif;',
+    '                               font-size:18px; font-weight:800;',
+    '                               color:#1a1a2e; letter-spacing:-0.3px;">APS</span>',
+    '                  <span style="font-family:Arial,Helvetica,sans-serif;',
+    '                               font-size:18px; font-weight:400;',
+    '                               color:#1a1a2e;"> Construction</span>',
+    '                </td>',
+    // Badge (type de notification)
+    '                <td align="right" valign="middle">',
+    `                  <span style="display:inline-block;`,
+    `                               background-color:${accentColor};`,
+    `                               color:#ffffff;`,
+    `                               font-family:Arial,Helvetica,sans-serif;`,
+    `                               font-size:10px; font-weight:700;`,
+    `                               letter-spacing:1px;`,
+    `                               padding:4px 10px;`,
+    `                               border-radius:2px;">${badgeText}</span>`,
+    '                </td>',
+    '              </tr>',
+    '            </table>',
+    '          </td>',
+    '        </tr>',
+
+    // ── TITLE BAND ───────────────────────────────────────────────────────────
+    '        <tr>',
+    `          <td style="background-color:${accentColor}; padding:24px 32px;">`,
+    `            <h1 style="margin:0; font-family:Arial,Helvetica,sans-serif;`,
+    `                       font-size:20px; font-weight:700; color:#ffffff;`,
+    `                       line-height:1.4;">${title}</h1>`,
+    subtitle
+      ? `            <p style="margin:6px 0 0 0; font-family:Arial,Helvetica,sans-serif;
+                       font-size:13px; color:rgba(255,255,255,0.85);">${subtitle}</p>`
+      : '',
+    '          </td>',
+    '        </tr>',
+
+    // ── BODY ─────────────────────────────────────────────────────────────────
+    '        <tr>',
+    '          <td style="padding:32px 32px 8px 32px;">',
+    '            <table role="presentation" cellpadding="0" cellspacing="0" width="100%">',
+    greeting
+      ? `              <tr><td style="padding-bottom:16px; font-family:Arial,Helvetica,sans-serif;
+                          font-size:15px; color:#333333; line-height:1.6;">${greeting}</td></tr>`
+      : '',
+    '              <tr>',
+    '                <td style="font-family:Arial,Helvetica,sans-serif;',
+    '                           font-size:15px; color:#333333; line-height:1.7;">',
+    body,
+    '                </td>',
+    '              </tr>',
+    btnRow,
+    '            </table>',
+    '          </td>',
+    '        </tr>',
+
+    // ── DIVIDER ──────────────────────────────────────────────────────────────
+    '        <tr>',
+    '          <td style="padding:24px 32px 0 32px;">',
+    '            <hr style="border:none; border-top:1px solid #e5e7eb; margin:0;">',
+    '          </td>',
+    '        </tr>',
+
+    // ── FOOTER ───────────────────────────────────────────────────────────────
+    '        <tr>',
+    '          <td style="padding:20px 32px 28px 32px;">',
+    '            <table role="presentation" cellpadding="0" cellspacing="0" width="100%">',
+    '              <tr>',
+    '                <td>',
+    `                  <p style="margin:0 0 4px 0; font-family:Arial,Helvetica,sans-serif;`,
+    `                             font-size:11px; color:#9ca3af;">${footer}</p>`,
+    `                  <p style="margin:0; font-family:Arial,Helvetica,sans-serif;`,
+    `                             font-size:11px; color:#d1d5db;">`,
+    `                    &copy; ${new Date().getFullYear()} APS Construction &mdash; Tous droits r&eacute;serv&eacute;s`,
+    `                  </p>`,
+    '                </td>',
+    `                <td align="right" valign="middle" style="padding-left:16px;">`,
+    `                  <a href="${APP_URL}" style="font-family:Arial,Helvetica,sans-serif;`,
+    `                                              font-size:11px; color:${accentColor};`,
+    `                                              text-decoration:none;">`,
+    `                    Accéder au portail`,
+    `                  </a>`,
+    `                </td>`,
+    '              </tr>',
+    '            </table>',
+    '          </td>',
+    '        </tr>',
+
+    '      </table>',  // end card
+    '    </td>',
+    '  </tr>',
+    '</table>',        // end outer wrapper
+    '</body>',
+    '</html>',
+  ];
+
+  return lines.join('\n');
 }
 
-// Darken/lighten a hex color
-function adjustColor(hex: string, amount: number): string {
-  hex = hex.replace('#', '');
-  const r = Math.max(0, Math.min(255, parseInt(hex.substring(0, 2), 16) + amount));
-  const g = Math.max(0, Math.min(255, parseInt(hex.substring(2, 4), 16) + amount));
-  const b = Math.max(0, Math.min(255, parseInt(hex.substring(4, 6), 16) + amount));
-  return '#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('');
+// ──────────────────────────────────────────────────────────────────────────────
+// Carte d'information (tableau à 2 colonnes label / valeur)
+// ──────────────────────────────────────────────────────────────────────────────
+function infoCard(rows: Array<{ label: string; value: string }>, accentColor: string): string {
+  const rowsHtml = rows.map(r =>
+    `<tr>
+  <td style="padding:10px 16px; font-family:Arial,Helvetica,sans-serif;
+             font-size:11px; font-weight:700; color:#6b7280;
+             text-transform:uppercase; letter-spacing:0.6px;
+             border-right:2px solid ${accentColor}; width:120px;
+             vertical-align:top;">${r.label}</td>
+  <td style="padding:10px 16px; font-family:Arial,Helvetica,sans-serif;
+             font-size:14px; color:#111827; vertical-align:top;">${r.value}</td>
+</tr>`
+  ).join('\n<tr><td colspan="2" style="padding:0; border-top:1px solid #f3f4f6;"></td></tr>\n');
+
+  return [
+    '<table role="presentation" cellpadding="0" cellspacing="0" width="100%"',
+    `       style="border:1px solid #e5e7eb; border-radius:2px; margin:16px 0 0 0; overflow:hidden;">`,
+    rowsHtml,
+    '</table>',
+  ].join('\n');
 }
 
-function infoCard(rows: { label: string; value: string }[]): string {
-  const inner = rows.map(r =>
-    '<tr><td style="padding:8px 16px;font-family:Arial,sans-serif;font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">' + r.label + '</td>' +
-    '<td style="padding:8px 16px;font-family:Arial,sans-serif;font-size:14px;color:#0f172a;font-weight:600;">' + r.value + '</td></tr>'
-  ).join('');
-  return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;margin:20px 0;">' + inner + '</table>';
+// ──────────────────────────────────────────────────────────────────────────────
+// Mapping type de notification → contenu email
+// ──────────────────────────────────────────────────────────────────────────────
+function getEmailContent(type: string, data: Record<string, string>): {
+  subject: string;
+  html: string;
+} | null {
+  const taskUrl  = data.taskId    ? `${APP_URL}/dashboard/tasks/${data.taskId}`    : APP_URL;
+  const projUrl  = data.projectId ? `${APP_URL}/dashboard/projets/${data.projectId}` : APP_URL;
+  const meetUrl  = data.meetingId ? `${APP_URL}/dashboard/meetings/${data.meetingId}` : APP_URL;
+
+  switch (type) {
+
+    // ── Tâche assignée ───────────────────────────────────────────────────────
+    case 'task_assigned': {
+      const subject = `[APS Construction] Nouvelle tâche assignée${data.taskTitle ? ' : ' + data.taskTitle : ''}`;
+      const infoRows = [
+        { label: 'Tâche',    value: data.taskTitle    || '—' },
+        { label: 'Projet',   value: data.projectName  || '—' },
+        { label: 'Assignée par', value: data.assignedBy || '—' },
+        ...(data.dueDate ? [{ label: 'Échéance', value: data.dueDate }] : []),
+      ];
+      const html = buildEmail({
+        accentColor: '#1e40af',
+        badgeText: 'TÂCHE',
+        title: 'Nouvelle tâche assignée',
+        subtitle: data.taskTitle,
+        greeting: data.recipientName ? `Bonjour ${data.recipientName},` : 'Bonjour,',
+        body: [
+          `<p style="margin:0 0 16px 0;">Vous avez été désigné(e) comme exécutant sur la tâche suivante :</p>`,
+          infoCard(infoRows, '#1e40af'),
+          data.description ? `<p style="margin:16px 0 0 0; color:#4b5563;">${data.description}</p>` : '',
+        ].join('\n'),
+        buttonText: 'Voir la tâche',
+        buttonUrl: taskUrl,
+      });
+      return { subject, html };
+    }
+
+    // ── Tâche terminée ───────────────────────────────────────────────────────
+    case 'task_completed': {
+      const subject = `[APS Construction] Tâche terminée${data.taskTitle ? ' : ' + data.taskTitle : ''}`;
+      const infoRows = [
+        { label: 'Tâche',       value: data.taskTitle   || '—' },
+        { label: 'Projet',      value: data.projectName || '—' },
+        { label: 'Complétée par', value: data.completedBy || '—' },
+      ];
+      const html = buildEmail({
+        accentColor: '#065f46',
+        badgeText: 'TÂCHE',
+        title: 'Tâche marquée comme terminée',
+        subtitle: data.taskTitle,
+        greeting: data.recipientName ? `Bonjour ${data.recipientName},` : 'Bonjour,',
+        body: [
+          `<p style="margin:0 0 16px 0;">La tâche suivante a été marquée comme terminée :</p>`,
+          infoCard(infoRows, '#065f46'),
+        ].join('\n'),
+        buttonText: 'Voir la tâche',
+        buttonUrl: taskUrl,
+      });
+      return { subject, html };
+    }
+
+    // ── Échéance approche ────────────────────────────────────────────────────
+    case 'task_due_soon': {
+      const subject = `[APS Construction] Échéance proche${data.taskTitle ? ' : ' + data.taskTitle : ''}`;
+      const infoRows = [
+        { label: 'Tâche',    value: data.taskTitle    || '—' },
+        { label: 'Projet',   value: data.projectName  || '—' },
+        { label: 'Échéance', value: data.dueDate       || '—' },
+      ];
+      const html = buildEmail({
+        accentColor: '#b45309',
+        badgeText: 'RAPPEL',
+        title: 'Rappel : échéance proche',
+        subtitle: data.taskTitle,
+        greeting: data.recipientName ? `Bonjour ${data.recipientName},` : 'Bonjour,',
+        body: [
+          `<p style="margin:0 0 16px 0;">L'échéance de la tâche suivante approche. Merci de procéder à sa complétion :</p>`,
+          infoCard(infoRows, '#b45309'),
+        ].join('\n'),
+        buttonText: 'Voir la tâche',
+        buttonUrl: taskUrl,
+      });
+      return { subject, html };
+    }
+
+    // ── Réunion planifiée ────────────────────────────────────────────────────
+    case 'meeting_scheduled': {
+      const subject = `[APS Construction] Réunion planifiée${data.meetingTitle ? ' : ' + data.meetingTitle : ''}`;
+      const infoRows = [
+        { label: 'Réunion',   value: data.meetingTitle   || '—' },
+        { label: 'Projet',    value: data.projectName     || '—' },
+        { label: 'Date',      value: data.meetingDate     || '—' },
+        { label: 'Lieu',      value: data.meetingLocation || '—' },
+        { label: 'Organisée par', value: data.organizer   || '—' },
+      ];
+      const html = buildEmail({
+        accentColor: '#4f46e5',
+        badgeText: 'RÉUNION',
+        title: 'Nouvelle réunion planifiée',
+        subtitle: data.meetingTitle,
+        greeting: data.recipientName ? `Bonjour ${data.recipientName},` : 'Bonjour,',
+        body: [
+          `<p style="margin:0 0 16px 0;">Vous avez été convié(e) à la réunion suivante :</p>`,
+          infoCard(infoRows, '#4f46e5'),
+          data.description ? `<p style="margin:16px 0 0 0; color:#4b5563;">${data.description}</p>` : '',
+        ].join('\n'),
+        buttonText: 'Voir la réunion',
+        buttonUrl: meetUrl,
+      });
+      return { subject, html };
+    }
+
+    // ── Réunion rappel ───────────────────────────────────────────────────────
+    case 'meeting_reminder': {
+      const subject = `[APS Construction] Rappel réunion${data.meetingTitle ? ' : ' + data.meetingTitle : ''}`;
+      const infoRows = [
+        { label: 'Réunion', value: data.meetingTitle   || '—' },
+        { label: 'Projet',  value: data.projectName     || '—' },
+        { label: 'Date',    value: data.meetingDate     || '—' },
+        { label: 'Lieu',    value: data.meetingLocation || '—' },
+      ];
+      const html = buildEmail({
+        accentColor: '#7c3aed',
+        badgeText: 'RAPPEL',
+        title: 'Rappel : réunion imminente',
+        subtitle: data.meetingTitle,
+        greeting: data.recipientName ? `Bonjour ${data.recipientName},` : 'Bonjour,',
+        body: [
+          `<p style="margin:0 0 16px 0;">Rappel pour la réunion suivante :</p>`,
+          infoCard(infoRows, '#7c3aed'),
+        ].join('\n'),
+        buttonText: 'Voir la réunion',
+        buttonUrl: meetUrl,
+      });
+      return { subject, html };
+    }
+
+    // ── Ajout à un projet ────────────────────────────────────────────────────
+    case 'project_added': {
+      const subject = `[APS Construction] Ajout au projet${data.projectName ? ' : ' + data.projectName : ''}`;
+      const infoRows = [
+        { label: 'Projet',    value: data.projectName || '—' },
+        { label: 'Ajouté par', value: data.addedBy    || '—' },
+        { label: 'Votre rôle', value: data.role       || '—' },
+      ];
+      const html = buildEmail({
+        accentColor: '#0369a1',
+        badgeText: 'PROJET',
+        title: 'Vous avez été ajouté(e) à un projet',
+        subtitle: data.projectName,
+        greeting: data.recipientName ? `Bonjour ${data.recipientName},` : 'Bonjour,',
+        body: [
+          `<p style="margin:0 0 16px 0;">Vous avez été ajouté(e) au projet suivant :</p>`,
+          infoCard(infoRows, '#0369a1'),
+          `<p style="margin:16px 0 0 0; color:#4b5563;">Connectez-vous pour accéder au projet et commencer à collaborer.</p>`,
+        ].join('\n'),
+        buttonText: 'Accéder au projet',
+        buttonUrl: projUrl,
+      });
+      return { subject, html };
+    }
+
+    // ── Document partagé ─────────────────────────────────────────────────────
+    case 'document_shared': {
+      const subject = `[APS Construction] Document partagé${data.documentName ? ' : ' + data.documentName : ''}`;
+      const infoRows = [
+        { label: 'Document',    value: data.documentName  || '—' },
+        { label: 'Projet',      value: data.projectName   || '—' },
+        { label: 'Partagé par', value: data.sharedBy      || '—' },
+      ];
+      const html = buildEmail({
+        accentColor: '#0f766e',
+        badgeText: 'DOCUMENT',
+        title: 'Nouveau document partagé',
+        subtitle: data.documentName,
+        greeting: data.recipientName ? `Bonjour ${data.recipientName},` : 'Bonjour,',
+        body: [
+          `<p style="margin:0 0 16px 0;">Un document a été partagé avec vous :</p>`,
+          infoCard(infoRows, '#0f766e'),
+        ].join('\n'),
+        buttonText: 'Voir le document',
+        buttonUrl: projUrl,
+      });
+      return { subject, html };
+    }
+
+    // ── Validation de document ───────────────────────────────────────────────
+    case 'file_validation_request': {
+      const subject = `[APS Construction] Validation requise${data.documentName ? ' : ' + data.documentName : ''}`;
+      const infoRows = [
+        { label: 'Document',    value: data.documentName  || '—' },
+        { label: 'Projet',      value: data.projectName   || '—' },
+        { label: 'Soumis par',  value: data.uploadedBy    || '—' },
+      ];
+      const html = buildEmail({
+        accentColor: '#92400e',
+        badgeText: 'VALIDATION',
+        title: 'Validation de document requise',
+        subtitle: data.documentName,
+        greeting: data.recipientName ? `Bonjour ${data.recipientName},` : 'Bonjour,',
+        body: [
+          `<p style="margin:0 0 16px 0;">Votre validation est requise pour le document suivant :</p>`,
+          infoCard(infoRows, '#92400e'),
+        ].join('\n'),
+        buttonText: 'Valider le document',
+        buttonUrl: projUrl,
+      });
+      return { subject, html };
+    }
+
+    // ── Message reçu ─────────────────────────────────────────────────────────
+    case 'message_received': {
+      const subject = `[APS Construction] Nouveau message${data.senderName ? ' de ' + data.senderName : ''}`;
+      const infoRows = [
+        { label: 'De',      value: data.senderName  || '—' },
+        { label: 'Projet',  value: data.projectName || '—' },
+        ...(data.message ? [{ label: 'Message', value: `<em>${data.message}</em>` }] : []),
+      ];
+      const html = buildEmail({
+        accentColor: '#1d4ed8',
+        badgeText: 'MESSAGE',
+        title: 'Nouveau message reçu',
+        subtitle: data.senderName ? `De : ${data.senderName}` : undefined,
+        greeting: data.recipientName ? `Bonjour ${data.recipientName},` : 'Bonjour,',
+        body: [
+          `<p style="margin:0 0 16px 0;">Vous avez reçu un nouveau message :</p>`,
+          infoCard(infoRows, '#1d4ed8'),
+        ].join('\n'),
+        buttonText: 'Répondre',
+        buttonUrl: APP_URL + '/dashboard/messages',
+      });
+      return { subject, html };
+    }
+
+    default:
+      return null;
+  }
 }
 
-function alertBox(text: string, type: 'success' | 'warning' | 'error' | 'info'): string {
-  const colors = { success: { bg: '#f0fdf4', border: '#22c55e', text: '#166534' }, warning: { bg: '#fffbeb', border: '#f59e0b', text: '#92400e' }, error: { bg: '#fef2f2', border: '#ef4444', text: '#991b1b' }, info: { bg: '#eff6ff', border: '#3b82f6', text: '#1e40af' } };
-  const c = colors[type];
-  return '<div style="background:' + c.bg + ';border-left:4px solid ' + c.border + ';padding:16px 20px;border-radius:0 8px 8px 0;margin:20px 0;font-family:Arial,sans-serif;font-size:14px;color:' + c.text + ';line-height:1.6;">' + text + '</div>';
-}
-
-// ──────────────────────────────────────────────────────────────
-// EMAIL TEMPLATES
-// ──────────────────────────────────────────────────────────────
-
-const emailTemplates: Record<string, (vars: Record<string, string>) => { subject: string; html: string }> = {
-
-  task_assigned: (vars) => ({
-    subject: `Nouvelle tâche assignée : ${vars.taskName}`,
-    html: buildEmail({
-      icon: '📋', accentColor: '#2563eb', title: 'Nouvelle tâche assignée',
-      body: '<p style="margin:0 0 16px 0;font-family:Arial,sans-serif;font-size:15px;color:#334155;line-height:1.6;">Une nouvelle tâche vous a été assignée. Veuillez consulter les détails ci-dessous :</p>' +
-        infoCard([
-          { label: 'Tâche', value: vars.taskName },
-          { label: 'Projet', value: vars.projectName },
-          { label: 'Assignée par', value: vars.assignedByName },
-          ...(vars.dueDate && vars.dueDate !== 'Non définie' ? [{ label: 'Échéance', value: vars.dueDate }] : [])
-        ]),
-      buttonText: 'Accéder à mon espace', buttonUrl: vars.appUrl || APP_URL
-    })
-  }),
-
-  task_validated: (vars) => ({
-    subject: `Tâche validée : ${vars.taskName}`,
-    html: buildEmail({
-      icon: '✅', accentColor: '#22c55e', title: 'Tâche validée',
-      body: alertBox('<strong>Bonne nouvelle !</strong> La tâche <strong>&laquo; ' + vars.taskName + ' &raquo;</strong> du projet <strong>' + vars.projectName + '</strong> a été validée par ' + vars.actorName + '.', 'success') +
-        '<p style="margin:16px 0 0 0;font-family:Arial,sans-serif;font-size:15px;color:#334155;line-height:1.6;">Vous pouvez consulter les détails dans votre espace.</p>',
-      buttonText: 'Voir la tâche', buttonUrl: vars.appUrl || APP_URL
-    })
-  }),
-
-  member_added: (vars) => ({
-    subject: `Bienvenue dans le projet ${vars.projectName}`,
-    html: buildEmail({
-      icon: '🎉', accentColor: '#7c3aed', title: 'Bienvenue dans le projet',
-      body: '<p style="margin:0 0 16px 0;font-family:Arial,sans-serif;font-size:15px;color:#334155;line-height:1.6;">Vous avez été ajouté à un nouveau projet. Voici les informations :</p>' +
-        infoCard([
-          { label: 'Projet', value: vars.projectName },
-          { label: 'Ajouté par', value: vars.addedByName },
-          { label: 'Votre rôle', value: vars.role }
-        ]) +
-        '<p style="margin:16px 0 0 0;font-family:Arial,sans-serif;font-size:15px;color:#334155;line-height:1.6;">Connectez-vous pour accéder au projet et commencer à collaborer.</p>',
-      buttonText: 'Accéder au projet', buttonUrl: vars.appUrl || APP_URL
-    })
-  }),
-
-  message_received: (vars) => ({
-    subject: `Nouveau message de ${vars.senderName}`,
-    html: buildEmail({
-      icon: '💬', accentColor: '#f59e0b', title: 'Nouveau message',
-      body: '<p style="margin:0 0 16px 0;font-family:Arial,sans-serif;font-size:15px;color:#334155;line-height:1.6;">Vous avez reçu un nouveau message de <strong>' + vars.senderName + '</strong> :</p>' +
-        '<div style="background:#fefce8;padding:20px 24px;border-radius:12px;margin:16px 0;border:1px solid #fef08a;">' +
-        '<p style="margin:0;font-family:Georgia,serif;font-size:15px;color:#713f12;line-height:1.7;font-style:italic;">&laquo; ' + vars.messagePreview + ' &raquo;</p></div>',
-      buttonText: 'Voir le message', buttonUrl: (vars.appUrl || APP_URL) + '/dashboard/messages'
-    })
-  }),
-
-  workflow_status_changed: (vars) => ({
-    subject: `Tâche ${vars.status} : ${vars.taskName}`,
-    html: buildEmail({
-      icon: vars.status === 'validée' ? '✅' : vars.status === 'refusée' ? '❌' : '⏳',
-      accentColor: vars.status === 'validée' ? '#22c55e' : vars.status === 'refusée' ? '#ef4444' : '#f59e0b',
-      title: 'Tâche ' + vars.status,
-      body: alertBox('La tâche <strong>&laquo; ' + vars.taskName + ' &raquo;</strong> du projet <strong>' + vars.projectName + '</strong> a été <strong>' + vars.status + '</strong> par ' + vars.actorName + '.', vars.status === 'validée' ? 'success' : vars.status === 'refusée' ? 'error' : 'warning') +
-        '<p style="margin:16px 0 0 0;font-family:Arial,sans-serif;font-size:15px;color:#334155;line-height:1.6;">Connectez-vous pour voir les détails.</p>',
-      buttonText: 'Voir les détails', buttonUrl: vars.appUrl || APP_URL
-    })
-  }),
-
-  signature_confirmed: (vars) => ({
-    subject: `Document signé : ${vars.documentName}`,
-    html: buildEmail({
-      icon: '✍️', accentColor: '#059669', title: 'Document signé électroniquement',
-      body: alertBox('<strong>' + vars.signerName + '</strong> a signé le document avec succès.', 'success') +
-        infoCard([
-          { label: 'Document', value: vars.documentName },
-          { label: 'Projet', value: vars.projectName },
-          { label: 'Signé par', value: vars.signerName }
-        ]) +
-        '<p style="margin:16px 0 0 0;font-family:Arial,sans-serif;font-size:14px;color:#64748b;line-height:1.6;">Cette signature électronique a été enregistrée et horodatée dans le système.</p>',
-      buttonText: 'Voir le document', buttonUrl: vars.appUrl || APP_URL
-    })
-  }),
-
-  meeting_request: (vars) => ({
-    subject: `Demande de visioconférence : ${vars.subject}`,
-    html: buildEmail({
-      icon: '📹', accentColor: '#2563eb', title: 'Demande de visioconférence',
-      body: '<p style="margin:0 0 16px 0;font-family:Arial,sans-serif;font-size:15px;color:#334155;line-height:1.6;"><strong>' + vars.intervenantName + '</strong> souhaite organiser une réunion en visioconférence.</p>' +
-        infoCard([
-          { label: 'Objet', value: vars.subject },
-          { label: 'Date souhaitée', value: vars.dateText }
-        ]),
-      buttonText: 'Gérer la demande', buttonUrl: vars.link || APP_URL + '/dashboard/videoconference?tab=pending'
-    })
-  }),
-
-  meeting_reminder: (vars) => ({
-    subject: `Rappel : Visioconférence "${vars.title}"`,
-    html: buildEmail({
-      icon: '📅', accentColor: '#6366f1', title: 'Rappel de visioconférence',
-      body: alertBox('Votre réunion commence bientôt. Assurez-vous d\'être disponible.', 'info') +
-        infoCard([
-          { label: 'Réunion', value: vars.title },
-          { label: 'Date', value: vars.dateText }
-        ]),
-      buttonText: 'Rejoindre la réunion', buttonUrl: vars.link || APP_URL + '/dashboard/videoconference'
-    })
-  }),
-
-  meeting_accepted: (vars) => ({
-    subject: `Demande acceptée : ${vars.subject}`,
-    html: buildEmail({
-      icon: '✅', accentColor: '#22c55e', title: 'Demande acceptée',
-      body: alertBox('Votre demande de visioconférence a été <strong>acceptée</strong>.', 'success') +
-        infoCard([
-          { label: 'Objet', value: vars.subject },
-          { label: 'Date confirmée', value: vars.dateText }
-        ]),
-      buttonText: 'Voir mes réunions', buttonUrl: vars.link || APP_URL + '/dashboard/videoconference'
-    })
-  }),
-
-  meeting_refused: (vars) => ({
-    subject: `Demande refusée : ${vars.subject}`,
-    html: buildEmail({
-      icon: '❌', accentColor: '#ef4444', title: 'Demande refusée',
-      body: alertBox('Votre demande de visioconférence a été <strong>refusée</strong>.', 'error') +
-        infoCard([
-          { label: 'Objet', value: vars.subject },
-          { label: 'Raison', value: vars.reason || 'Non spécifiée' }
-        ]) +
-        '<p style="margin:16px 0 0 0;font-family:Arial,sans-serif;font-size:15px;color:#334155;line-height:1.6;">Vous pouvez soumettre une nouvelle demande avec d\'autres créneaux.</p>',
-    })
-  }),
-
-  generic_notification: (vars) => ({
-    subject: vars.subject || vars.title || 'Nouvelle notification APS',
-    html: buildEmail({
-      icon: '🔔', accentColor: '#2563eb', title: vars.title || 'Notification',
-      body: '<p style="margin:0 0 16px 0;font-family:Arial,sans-serif;font-size:15px;color:#334155;line-height:1.6;">' + (vars.message || '') + '</p>',
-      buttonText: vars.link ? 'Voir sur mon espace' : undefined,
-      buttonUrl: vars.link ? (vars.appUrl || APP_URL) + vars.link : undefined
-    })
-  }),
-};
-
-// ──────────────────────────────────────────────────────────────
-// MAIN HANDLER
-// ──────────────────────────────────────────────────────────────
-
+// ──────────────────────────────────────────────────────────────────────────────
+// ENTRY POINT
+// ──────────────────────────────────────────────────────────────────────────────
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { status: 200, headers: getCorsHeaders(req) });
   }
 
   try {
-    const { to, subject, template, variables } = await req.json();
+    const { type, to, subject, data = {} } = await req.json();
 
-    if (!to || !template) {
+    if (!type || !to) {
       return new Response(
-        JSON.stringify({ error: 'Missing required fields' }),
+        JSON.stringify({ error: 'Missing required fields: type, to' }),
         { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
-    const templateFn = emailTemplates[template];
-    if (!templateFn) {
+    const emailContent = getEmailContent(type, data);
+    if (!emailContent) {
       return new Response(
-        JSON.stringify({ error: 'Unknown template' }),
+        JSON.stringify({ error: `Unknown notification type: ${type}` }),
         { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
-    const emailContent = templateFn(variables || {});
+    let emailSent = false;
 
     if (GMAIL_USER && GMAIL_APP_PASSWORD) {
       try {
@@ -305,35 +497,35 @@ Deno.serve(async (req) => {
             hostname: 'smtp.gmail.com',
             port: 465,
             tls: true,
-            auth: {
-              username: GMAIL_USER,
-              password: GMAIL_APP_PASSWORD,
-            },
+            auth: { username: GMAIL_USER, password: GMAIL_APP_PASSWORD },
           },
         });
 
         await smtpClient.send({
           from: GMAIL_USER,
           to: to,
-          subject: (subject || emailContent.subject).replace(/\r?\n|\r/g, ' '), // Remove newlines from subject
-          content: emailContent.html.replace(/<[^>]*>?/gm, ''), // Fallback text
+          subject: (subject || emailContent.subject).replace(/\r?\n|\r/g, ' '),
+          content: emailContent.html.replace(/<[^>]*>?/gm, ''),
           html: emailContent.html,
         });
 
         await smtpClient.close();
-        console.log(`Email sent to ${to} with template ${template}`);
+        emailSent = true;
+        console.log(`Email [${type}] sent to ${to}`);
       } catch (smtpError) {
-        console.error('SMTP Error:', smtpError);
+        console.error(`SMTP error sending to ${to}:`, smtpError);
       }
+    } else {
+      console.warn('GMAIL credentials not configured — email not sent');
     }
 
     return new Response(
-      JSON.stringify({ success: true, message: 'Email processed' }),
+      JSON.stringify({ success: true, emailSent, type, to }),
       { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Error in send-notification-email:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
