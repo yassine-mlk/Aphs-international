@@ -1,4 +1,5 @@
 import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
+import { LOGO_B64 } from '../_shared/logo-b64.ts';
 
 const ALLOWED_ORIGINS = ['https://www.aps-construction.com', 'https://aps-construction.com'];
 
@@ -17,8 +18,8 @@ const GMAIL_USER = Deno.env.get('GMAIL_USER');
 const GMAIL_APP_PASSWORD = Deno.env.get('GMAIL_APP_PASSWORD');
 
 const APP_URL = 'https://www.aps-construction.com';
-// Logo hébergé sur le site — utilisé dans <img> pour les clients email qui acceptent les images distantes
-const LOGO_URL = `${APP_URL}/aps-logo.svg`;
+// Logo intégré en base64 — s'affiche même si Gmail bloque les images distantes
+const LOGO_SRC = LOGO_B64;
 
 // ──────────────────────────────────────────────────────────────────────────────
 // GABARIT D'EMAIL PROFESSIONNEL — APS Construction
@@ -93,7 +94,7 @@ function buildEmail(opts: {
     '              <tr>',
     // Logo image (avec texte alternatif si bloquée)
     '                <td width="44" valign="middle">',
-    `                  <img src="${LOGO_URL}"`,
+    `                  <img src="${LOGO_SRC}"`,
     '                       alt="APS" width="44" height="44"',
     '                       style="display:block; border:0; width:44px; height:44px; object-fit:contain;">',
     '                </td>',

@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { LOGO_B64 } from '../_shared/logo-b64.ts';
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
 const FROM_EMAIL = (Deno.env.get('FROM_EMAIL') || 'onboarding@resend.dev').trim();
@@ -26,14 +27,9 @@ const generateToken = (): string => {
     .substring(0, 32);
 };
 
-function adjustColor(hex: string, amount: number): string {
-  hex = hex.replace('#', '');
-  const r = Math.max(0, Math.min(255, parseInt(hex.substring(0, 2), 16) + amount));
-  const g = Math.max(0, Math.min(255, parseInt(hex.substring(2, 4), 16) + amount));
-  const b = Math.max(0, Math.min(255, parseInt(hex.substring(4, 6), 16) + amount));
-  return '#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('');
-}
-
+// ──────────────────────────────────────────────────────────────────────────────
+// Gabarit email signature électronique — même charte graphique
+// ──────────────────────────────────────────────────────────────────────────────
 function buildSignatureEmail(vars: {
   recipientName: string;
   uploadedByName: string;
@@ -42,82 +38,193 @@ function buildSignatureEmail(vars: {
   signatureLink: string;
   expiresAt: string;
 }): string {
-  const accent = '#2563eb';
+  const accent = '#1e40af';
+
+  const infoRows = [
+    { label: 'Document', value: vars.documentName },
+    ...(vars.projectName ? [{ label: 'Projet', value: vars.projectName }] : []),
+    { label: 'Demandé par', value: vars.uploadedByName },
+    { label: 'Expire le', value: vars.expiresAt },
+  ];
+
+  const tableRows = infoRows.map(r =>
+    `<tr>
+  <td style="padding:10px 16px; font-family:Arial,Helvetica,sans-serif;
+             font-size:11px; font-weight:700; color:#6b7280;
+             text-transform:uppercase; letter-spacing:0.6px;
+             border-right:2px solid ${accent}; width:120px;
+             vertical-align:top;">${r.label}</td>
+  <td style="padding:10px 16px; font-family:Arial,Helvetica,sans-serif;
+             font-size:14px; color:#111827; vertical-align:top;">${r.value}</td>
+</tr>
+<tr><td colspan="2" style="padding:0; border-top:1px solid #f3f4f6;"></td></tr>`
+  ).join('\n');
+
   return [
     '<!DOCTYPE html>',
     '<html lang="fr">',
     '<head>',
-    '<meta charset="utf-8">',
-    '<meta name="viewport" content="width=device-width,initial-scale=1.0">',
-    '<title>Document à signer</title>',
+    '  <meta charset="utf-8">',
+    '  <meta name="viewport" content="width=device-width, initial-scale=1.0">',
+    '  <title>Document à signer — APS Construction</title>',
     '</head>',
-    '<body style="margin:0;padding:0;background-color:#f0f2f5;font-family:Arial,Helvetica,sans-serif;">',
-    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f0f2f5;padding:32px 16px;">',
-    '<tr><td align="center">',
+    '<body style="margin:0; padding:0; background-color:#f4f4f5; font-family:Arial,Helvetica,sans-serif;">',
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"',
+    '       style="background-color:#f4f4f5; padding:32px 16px;">',
+    '  <tr><td align="center">',
 
-    // Container
-    '<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">',
+    // Card
+    '  <table role="presentation" width="600" cellpadding="0" cellspacing="0"',
+    '         style="max-width:600px; width:100%; background:#ffffff;',
+    '                border:1px solid #dde1e7; border-radius:2px;">',
 
-    // Logo Bar
-    '<tr><td style="padding:24px 32px;background:#ffffff;border-bottom:1px solid #f0f2f5;" align="left">',
-    '<table role="presentation" cellpadding="0" cellspacing="0"><tr>',
-    '<td style="width:40px;height:40px;background:' + accent + ';border-radius:10px;text-align:center;vertical-align:middle;" align="center">',
-    '<span style="color:#ffffff;font-size:18px;font-weight:800;font-family:Arial,sans-serif;line-height:40px;">A</span></td>',
-    '<td style="padding-left:12px;"><span style="font-family:Arial,sans-serif;font-size:20px;font-weight:800;color:#0f172a;letter-spacing:-0.5px;">APS</span>',
-    '<span style="font-family:Arial,sans-serif;font-size:11px;color:#94a3b8;display:block;line-height:1.2;letter-spacing:0.5px;">CONSTRUCTION</span></td>',
-    '</tr></table></td></tr>',
+    // Header bar — logo
+    '    <tr>',
+    `      <td style="padding:20px 32px; border-bottom:3px solid ${accent};">`,
+    '        <table role="presentation" cellpadding="0" cellspacing="0" width="100%">',
+    '          <tr>',
+    '            <td width="44" valign="middle">',
+    `              <img src="${LOGO_B64}" alt="APS" width="44" height="44"`,
+    '                   style="display:block; border:0; width:44px; height:44px; object-fit:contain;">',
+    '            </td>',
+    '            <td valign="middle" style="padding-left:12px;">',
+    '              <span style="font-family:Arial,Helvetica,sans-serif; font-size:18px;',
+    '                           font-weight:800; color:#1a1a2e;">APS</span>',
+    '              <span style="font-family:Arial,Helvetica,sans-serif; font-size:18px;',
+    '                           font-weight:400; color:#1a1a2e;"> Construction</span>',
+    '            </td>',
+    '            <td align="right" valign="middle">',
+    `              <span style="display:inline-block; background-color:${accent};`,
+    '                           color:#ffffff; font-family:Arial,Helvetica,sans-serif;',
+    '                           font-size:10px; font-weight:700; letter-spacing:1px;',
+    '                           padding:4px 10px; border-radius:2px;">SIGNATURE</span>',
+    '            </td>',
+    '          </tr>',
+    '        </table>',
+    '      </td>',
+    '    </tr>',
 
-    // Header
-    '<tr><td style="background:linear-gradient(135deg,' + accent + ' 0%,' + adjustColor(accent, -25) + ' 100%);padding:36px 40px;" align="left">',
-    '<table role="presentation" cellpadding="0" cellspacing="0"><tr>',
-    '<td style="padding-right:16px;vertical-align:middle;"><span style="font-size:32px;line-height:1;">📄</span></td>',
-    '<td><h1 style="margin:0;font-family:Arial,sans-serif;font-size:22px;font-weight:700;color:#ffffff;line-height:1.3;">Document à signer</h1>',
-    '<p style="margin:4px 0 0 0;font-family:Arial,sans-serif;font-size:13px;color:rgba(255,255,255,0.8);">Signature électronique requise</p></td>',
-    '</tr></table></td></tr>',
+    // Title band
+    '    <tr>',
+    `      <td style="background-color:${accent}; padding:24px 32px;">`,
+    '        <h1 style="margin:0; font-family:Arial,Helvetica,sans-serif;',
+    '                   font-size:20px; font-weight:700; color:#ffffff;',
+    '                   line-height:1.4;">Document à signer</h1>',
+    '        <p style="margin:6px 0 0 0; font-family:Arial,Helvetica,sans-serif;',
+    '                  font-size:13px; color:rgba(255,255,255,0.85);">Signature électronique requise</p>',
+    '      </td>',
+    '    </tr>',
 
     // Body
-    '<tr><td style="padding:36px 40px;">',
-    '<p style="margin:0 0 20px 0;font-family:Arial,sans-serif;font-size:15px;color:#334155;line-height:1.6;">Bonjour <strong>' + vars.recipientName + '</strong>,</p>',
-    '<p style="margin:0 0 24px 0;font-family:Arial,sans-serif;font-size:15px;color:#334155;line-height:1.6;"><strong>' + vars.uploadedByName + '</strong> vous demande de signer électroniquement un document' + (vars.projectName ? ' pour le projet <strong>' + vars.projectName + '</strong>' : '') + '.</p>',
+    '    <tr>',
+    '      <td style="padding:32px 32px 8px 32px;">',
+    '        <table role="presentation" cellpadding="0" cellspacing="0" width="100%">',
+    '          <tr>',
+    '            <td style="padding-bottom:16px; font-family:Arial,Helvetica,sans-serif;',
+    `                       font-size:15px; color:#333333; line-height:1.6;">Bonjour ${vars.recipientName},</td>`,
+    '          </tr>',
+    '          <tr>',
+    '            <td style="font-family:Arial,Helvetica,sans-serif; font-size:15px;',
+    `                       color:#333333; line-height:1.7;"><strong>${vars.uploadedByName}</strong> `,
+    `                       vous demande de signer électroniquement un document`,
+    vars.projectName ? ` pour le projet <strong>${vars.projectName}</strong>` : '',
+    '                       .</td>',
+    '          </tr>',
 
-    // Document Info Card
-    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;margin:0 0 24px 0;">',
-    '<tr><td colspan="2" style="padding:16px 20px 8px 20px;font-family:Arial,sans-serif;font-size:13px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid #e2e8f0;">Détails du document</td></tr>',
-    '<tr><td style="padding:12px 20px;font-family:Arial,sans-serif;font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;width:120px;">Document</td>',
-    '<td style="padding:12px 20px;font-family:Arial,sans-serif;font-size:14px;color:#0f172a;font-weight:600;">' + vars.documentName + '</td></tr>',
-    (vars.projectName ? '<tr><td style="padding:8px 20px;font-family:Arial,sans-serif;font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Projet</td><td style="padding:8px 20px;font-family:Arial,sans-serif;font-size:14px;color:#0f172a;font-weight:600;">' + vars.projectName + '</td></tr>' : ''),
-    '<tr><td style="padding:8px 20px 12px 20px;font-family:Arial,sans-serif;font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Envoyé par</td>',
-    '<td style="padding:8px 20px 12px 20px;font-family:Arial,sans-serif;font-size:14px;color:#0f172a;font-weight:600;">' + vars.uploadedByName + '</td></tr>',
-    '</table>',
+    // Info table
+    '          <tr>',
+    '            <td style="padding-top:20px;">',
+    '              <table role="presentation" cellpadding="0" cellspacing="0" width="100%"',
+    `                     style="border:1px solid #e5e7eb; border-radius:2px; overflow:hidden;">`,
+    tableRows,
+    '              </table>',
+    '            </td>',
+    '          </tr>',
 
-    // CTA Button
-    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:8px 0 24px 0;">',
-    '<a href="' + vars.signatureLink + '" style="display:inline-block;background:' + accent + ';color:#ffffff;font-family:Arial,sans-serif;font-size:16px;font-weight:700;text-decoration:none;padding:16px 48px;border-radius:10px;letter-spacing:0.3px;box-shadow:0 4px 12px rgba(37,99,235,0.3);">Signer le document</a>',
-    '</td></tr></table>',
+    // CTA button
+    '          <tr>',
+    '            <td align="center" style="padding:32px 0 8px 0;">',
+    `              <a href="${vars.signatureLink}"`,
+    `                 style="display:inline-block; background-color:${accent};`,
+    '                        color:#ffffff; font-family:Arial,Helvetica,sans-serif;',
+    '                        font-size:14px; font-weight:700; letter-spacing:0.5px;',
+    '                        text-decoration:none; padding:14px 40px; border-radius:4px;">',
+    '                Signer le document',
+    '              </a>',
+    '            </td>',
+    '          </tr>',
 
-    // Warning
-    '<div style="background:#fffbeb;border-left:4px solid #f59e0b;padding:16px 20px;border-radius:0 8px 8px 0;margin:0 0 24px 0;">',
-    '<p style="margin:0;font-family:Arial,sans-serif;font-size:13px;color:#92400e;line-height:1.6;">',
-    '<strong>⚠️ Important :</strong> Ce lien est personnel et sécurisé. Ne le partagez pas. Il expire le <strong>' + vars.expiresAt + '</strong>.</p></div>',
+    // Warning note
+    '          <tr>',
+    '            <td style="padding-top:16px; padding-bottom:8px;">',
+    '              <table role="presentation" cellpadding="0" cellspacing="0" width="100%"',
+    '                     style="background-color:#fffbeb; border-left:3px solid #f59e0b;',
+    '                            border-radius:0 2px 2px 0;">',
+    '                <tr>',
+    '                  <td style="padding:12px 16px; font-family:Arial,Helvetica,sans-serif;',
+    `                             font-size:13px; color:#92400e; line-height:1.6;">`,
+    `                    <strong>Important :</strong> Ce lien est personnel et sécurisé.`,
+    `                    Ne le partagez pas. Il expire le <strong>${vars.expiresAt}</strong>.`,
+    '                  </td>',
+    '                </tr>',
+    '              </table>',
+    '            </td>',
+    '          </tr>',
 
     // Fallback link
-    '<p style="margin:0;font-family:Arial,sans-serif;font-size:12px;color:#94a3b8;line-height:1.5;">Si le bouton ne fonctionne pas, copiez ce lien :<br>',
-    '<a href="' + vars.signatureLink + '" style="color:#2563eb;word-break:break-all;font-size:12px;">' + vars.signatureLink + '</a></p>',
-    '</td></tr>',
+    '          <tr>',
+    '            <td style="padding-top:8px; font-family:Arial,Helvetica,sans-serif;',
+    '                       font-size:12px; color:#9ca3af; line-height:1.5;">',
+    '              Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :<br>',
+    `              <a href="${vars.signatureLink}" style="color:${accent}; word-break:break-all;">`,
+    `                ${vars.signatureLink}`,
+    '              </a>',
+    '            </td>',
+    '          </tr>',
+
+    '        </table>',
+    '      </td>',
+    '    </tr>',
+
+    // Divider
+    '    <tr>',
+    '      <td style="padding:24px 32px 0 32px;">',
+    '        <hr style="border:none; border-top:1px solid #e5e7eb; margin:0;">',
+    '      </td>',
+    '    </tr>',
 
     // Footer
-    '<tr><td style="padding:24px 40px;background:#f8fafc;border-top:1px solid #e2e8f0;">',
-    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>',
-    '<td><p style="margin:0 0 4px 0;font-family:Arial,sans-serif;font-size:11px;color:#94a3b8;line-height:1.5;">Cet email a été envoyé automatiquement. Merci de ne pas y répondre.</p>',
-    '<p style="margin:0;font-family:Arial,sans-serif;font-size:11px;color:#cbd5e1;">&copy; 2025 APS Construction &mdash; Tous droits r&eacute;serv&eacute;s</p></td>',
-    '<td width="80" align="right" style="vertical-align:middle;">',
-    '<a href="' + APP_URL + '" style="display:inline-block;width:32px;height:32px;background:' + accent + ';border-radius:8px;text-align:center;line-height:32px;text-decoration:none;">',
-    '<span style="color:#ffffff;font-size:14px;font-weight:800;font-family:Arial,sans-serif;">A</span></a></td>',
-    '</tr></table></td></tr>',
+    '    <tr>',
+    '      <td style="padding:20px 32px 28px 32px;">',
+    '        <table role="presentation" cellpadding="0" cellspacing="0" width="100%">',
+    '          <tr>',
+    '            <td>',
+    '              <p style="margin:0 0 4px 0; font-family:Arial,Helvetica,sans-serif;',
+    '                         font-size:11px; color:#9ca3af;">',
+    '                Cet email a &eacute;t&eacute; g&eacute;n&eacute;r&eacute; automatiquement &mdash; Merci de ne pas y r&eacute;pondre.',
+    '              </p>',
+    `              <p style="margin:0; font-family:Arial,Helvetica,sans-serif;`,
+    `                         font-size:11px; color:#d1d5db;">`,
+    `                &copy; ${new Date().getFullYear()} APS Construction &mdash; Tous droits r&eacute;serv&eacute;s`,
+    `              </p>`,
+    '            </td>',
+    `            <td align="right" valign="middle" style="padding-left:16px;">`,
+    `              <a href="${APP_URL}" style="font-family:Arial,Helvetica,sans-serif;`,
+    `                                          font-size:11px; color:${accent};`,
+    `                                          text-decoration:none;">`,
+    `                Accéder au portail`,
+    `              </a>`,
+    `            </td>`,
+    '          </tr>',
+    '        </table>',
+    '      </td>',
+    '    </tr>',
 
-    '</table></td></tr></table>',
+    '  </table>',
+    '  </td></tr>',
+    '</table>',
     '</body>',
-    '</html>'
+    '</html>',
   ].join('\n');
 }
 
@@ -141,23 +248,19 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
     );
 
-    const appUrl = Deno.env.get('APP_URL') || APP_URL;
     const results = [];
 
     const sendEmail = async (to: string, subject: string, html: string) => {
       if (!RESEND_API_KEY) {
-        console.log('RESEND_API_KEY not set, skipping email send');
-        return { id: 'test-mode-no-api-key' };
+        console.warn('RESEND_API_KEY not set — email not sent');
+        return { id: 'test-mode' };
       }
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${RESEND_API_KEY}` },
         body: JSON.stringify({ from: FROM_EMAIL, to, subject, html })
       });
-      if (!res.ok) {
-        const error = await res.text();
-        throw new Error(`Failed to send email: ${error}`);
-      }
+      if (!res.ok) throw new Error(`Resend error: ${await res.text()}`);
       return await res.json();
     };
 
@@ -168,10 +271,7 @@ Deno.serve(async (req) => {
 
       const { error: updateError } = await supabaseClient
         .from('document_recipients')
-        .update({
-          signature_token: token,
-          token_expires_at: expiresAt.toISOString()
-        })
+        .update({ signature_token: token, token_expires_at: expiresAt.toISOString() })
         .eq('id', recipient.recipientId);
 
       if (updateError) {
@@ -180,7 +280,8 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      const signatureLink = `${appUrl}/signer/${token}`;
+      const signatureLink = `${APP_URL}/signer/${token}`;
+      const expiresFormatted = expiresAt.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
 
       const emailBody = buildSignatureEmail({
         recipientName: recipient.name,
@@ -188,37 +289,33 @@ Deno.serve(async (req) => {
         documentName,
         projectName,
         signatureLink,
-        expiresAt: expiresAt.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }),
+        expiresAt: expiresFormatted,
       });
 
       let emailSent = false;
       try {
         if (recipient.email && RESEND_API_KEY) {
-          await sendEmail(recipient.email, `Document à signer : ${documentName}`, emailBody);
+          await sendEmail(
+            recipient.email,
+            `[APS Construction] Document à signer : ${documentName}`,
+            emailBody
+          );
           emailSent = true;
-          console.log(`Email sent to ${recipient.email}`);
         }
       } catch (emailError) {
         console.error(`Failed to send email to ${recipient.email}:`, emailError);
       }
 
-      results.push({
-        recipientId: recipient.recipientId, email: recipient.email, name: recipient.name,
-        token, success: true, emailSent, signatureLink
-      });
+      results.push({ recipientId: recipient.recipientId, email: recipient.email, success: true, emailSent, signatureLink, token });
 
-      const { error: notifError } = await supabaseClient
-        .from('notifications')
-        .insert({
-          user_id: recipient.userId,
-          type: 'file_validation_request',
-          title: 'Document à signer',
-          message: `${uploadedByName} vous demande de signer "${documentName}"`,
-          data: { documentId, projectId, signatureToken: token, signatureLink },
-          is_read: false
-        });
-
-      if (notifError) console.error('Error creating notification:', notifError);
+      await supabaseClient.from('notifications').insert({
+        user_id: recipient.userId,
+        type: 'file_validation_request',
+        title: 'Document à signer',
+        message: `${uploadedByName} vous demande de signer "${documentName}"`,
+        data: { documentId, projectId, signatureToken: token, signatureLink },
+        is_read: false
+      }).catch(e => console.error('Notification error:', e));
     }
 
     return new Response(
