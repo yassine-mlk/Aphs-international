@@ -16,8 +16,10 @@
 [build.environment]
   VITE_USE_REALTIME = "true"
   VITE_USE_ROBUST_VIDEO_CONFERENCE = "true"
-  # Supabase credentials should be set in Netlify environment variables
-  # Go to Netlify Dashboard > Site settings > Build & deploy > Environment
+  VITE_LIVEKIT_URL = "wss://aps-construction-6xq7cxyc.livekit.cloud"
+  VITE_R2_PUBLIC_DOMAIN = "https://pub-d7eff29dd6bb4a518b9a9d1d4078e61b.r2.dev"
+  # VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY should be set in
+  # Netlify Dashboard > Site configuration > Environment variables
 
 [[plugins]]
   package = "@netlify/plugin-lighthouse"
