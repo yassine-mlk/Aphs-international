@@ -32,32 +32,7 @@ export const AppearanceTab: React.FC<AppearanceTabProps> = ({
       <CardDescription>Personnalisez l'apparence de l'application.</CardDescription>
     </CardHeader>
     <CardContent className="space-y-6">
-      {/* Thème */}
-      <div className="flex items-center justify-between">
-        <div>
-          <Label>Thème</Label>
-          <p className="text-muted-foreground text-sm">Le mode Système suit vos préférences OS.</p>
-        </div>
-        <Select value={selectedTheme} onValueChange={v => onThemeChange(v as ThemeOption)}>
-          <SelectTrigger className="w-[160px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="light">
-              <span className="flex items-center gap-2"><Sun className="h-4 w-4" /> Clair</span>
-            </SelectItem>
-            <SelectItem value="dark">
-              <span className="flex items-center gap-2"><Moon className="h-4 w-4" /> Sombre</span>
-            </SelectItem>
-            <SelectItem value="system">
-              <span className="flex items-center gap-2"><SettingsIcon className="h-4 w-4" /> Système</span>
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <p className="text-sm text-muted-foreground">
-        Thème actuel : {resolvedTheme === 'dark' ? 'Sombre' : 'Clair'}{selectedTheme === 'system' && ' (détecté du système)'}
-      </p>
+      {/* La sélection du thème a été désactivée (forçage du mode clair partout) */}
 
       {/* Langue */}
       <div className="flex items-center justify-between flex-wrap gap-4">

@@ -19,23 +19,19 @@ export function useTheme() {
   return context;
 }
 
-// Helper pour obtenir le thème résolu
+// Helper pour obtenir le thème résolu (FORCÉ EN LIGHT)
 const getResolvedTheme = (theme: Theme): 'light' | 'dark' => {
-  if (theme === 'system') {
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  }
-  return theme;
+  return 'light';
 };
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [theme, setThemeState] = useState<Theme>('system');
+  const [theme, setThemeState] = useState<Theme>('light');
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light');
 
   // Mettre à jour le thème résolu quand le thème change
   const updateResolvedTheme = useCallback((newTheme: Theme) => {
-    const resolved = getResolvedTheme(newTheme);
-    setResolvedTheme(resolved);
-    document.documentElement.classList.toggle('dark', resolved === 'dark');
+    setResolvedTheme('light');
+    document.documentElement.classList.remove('dark');
   }, []);
 
   useEffect(() => {
