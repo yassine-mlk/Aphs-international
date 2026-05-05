@@ -16,7 +16,7 @@ const Dashboard: React.FC = () => {
     );
   }
 
-  if (role === 'admin' || user?.email === 'admin@aps.com') {
+  if (role === 'admin') {
     return <AdminDashboard />;
   }
 

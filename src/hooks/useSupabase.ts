@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { supabase, supabaseAdmin } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { UserRole, SPECIALTIES, Profile } from '../types/profile';
@@ -454,8 +454,7 @@ export function useSupabase() {
   }, [status, toast]);
 
   /**
-   * Crée un nouvel utilisateur avec un rôle spécifique (par l'administrateur)
-   * VERSION CORRIGÉE avec création manuelle du profil
+   * Crée un nouvel utilisateur via Edge Function admin-operations
    */
   const adminCreateUser = useCallback(async (
     email: string,
@@ -465,171 +464,50 @@ export function useSupabase() {
   ): Promise<{ success: boolean; userId?: string; error?: Error }> => {
     if (status !== 'authenticated') return { success: false, error: new Error('Non authentifié') };
     try {
-      if (!supabaseAdmin) {
-        throw new Error("VITE_SUPABASE_SERVICE_ROLE_KEY manquante dans .env.local");
-      }
-
-
-      // 1. Créer l'utilisateur auth
-      const { data, error } = await supabaseAdmin.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true,
-        user_metadata: { 
-          role, 
-          ...additionalData 
-        },
+      const { data, error } = await supabase.functions.invoke('admin-operations', {
+        body: { action: 'createUser', email, password, role, additionalData },
       });
-
-      if (error) {
-        throw error;
-      }
-      
-      if (data && data.user) {
-
-        // 2. Créer manuellement le profil (contournement du trigger)
-        try {
-          
-              // Utiliser tenant_id fourni ou le récupérer depuis l'admin connecté
-          let tenantId: string | null = additionalData.tenant_id || null;
-          if (!tenantId) {
-            const { data: { user: currentUser } } = await supabase.auth.getUser();
-            if (currentUser) {
-              const { data: adminProfile } = await supabase
-                .from('profiles')
-                .select('tenant_id')
-                .eq('user_id', currentUser.id)
-                .maybeSingle();
-              tenantId = adminProfile?.tenant_id || null;
-            }
-          }
-
-          // Vérifier le quota d'intervenants
-          if (tenantId && role !== 'admin') {
-            const { data: tenantData } = await supabase
-              .from('tenants')
-              .select('max_intervenants')
-              .eq('id', tenantId)
-              .maybeSingle();
-
-            const { count: currentCount } = await supabase
-              .from('profiles')
-              .select('user_id', { count: 'exact', head: true })
-              .eq('tenant_id', tenantId)
-              .neq('role', 'admin')
-              .neq('is_super_admin', true);
-
-            const maxIntervenants = tenantData?.max_intervenants ?? null;
-            if (maxIntervenants !== null && (currentCount ?? 0) >= maxIntervenants) {
-              // Supprimer l'utilisateur auth qu'on vient de créer
-              await supabaseAdmin!.auth.admin.deleteUser(data.user.id);
-              toast({
-                title: "Quota atteint",
-                description: "Vous avez atteint votre limite de création d'intervenant. Veuillez contacter le support.",
-                variant: "destructive",
-              });
-              return { success: false, error: new Error(`Quota d'intervenants atteint (${maxIntervenants})`) };
-            }
-          }
-
-          // Valider company_id - doit être un UUID valide ou null
-          let validCompanyId: string | null = null;
-          if (additionalData.company_id && 
-              additionalData.company_id !== 'independant' && 
-              additionalData.company_id !== '' &&
-              typeof additionalData.company_id === 'string' &&
-              additionalData.company_id.length === 36) {
-            validCompanyId = additionalData.company_id;
-          }
-          
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .upsert({
-              user_id: data.user.id,
-              email: email,
-              first_name: additionalData.first_name || '',
-              last_name: additionalData.last_name || '',
-              role: role,
-              specialty: additionalData.specialty || '',
-              company: additionalData.company || 'Indépendant',
-              company_id: validCompanyId,
-              phone: additionalData.phone || '',
-              tenant_id: tenantId,
-              status: 'active',
-              theme: 'light',
-              language: 'fr',
-              email_notifications: true,
-              push_notifications: true,
-              message_notifications: true,
-              update_notifications: true
-            } as any, { onConflict: 'user_id' });
-
-          if (profileError) {
-          } else {
-          }
-        } catch (profileError) {
-          // Ne pas échouer complètement
+      if (error) throw new Error(error.message || "Erreur Edge Function");
+      if (data?.error) {
+        if (data.code === 'QUOTA_EXCEEDED') {
+          toast({ title: "Quota atteint", description: data.error, variant: "destructive" });
+          return { success: false, error: new Error(data.error) };
         }
-
-        toast({
-          title: "Succès",
-          description: `L'utilisateur ${role} a été créé avec succès`,
-        });
-
-        return { success: true, userId: data.user.id };
+        if (data.code === 'ALREADY_EXISTS') {
+          toast({ title: "Erreur", description: "Un utilisateur avec cet email existe déjà", variant: "destructive" });
+          return { success: false, error: new Error(data.error) };
+        }
+        throw new Error(data.error);
       }
-
-      throw new Error("Échec de la création de l'utilisateur");
+      toast({ title: "Succès", description: `L'utilisateur ${role} a été créé avec succès` });
+      return { success: true, userId: data?.userId };
     } catch (error) {
-      
-      let errorMessage = "Impossible de créer l'utilisateur";
-      if (error instanceof Error) {
-        if (error.message.includes('SERVICE_ROLE_KEY')) {
-          errorMessage = "Variables d'environnement manquantes (.env.local)";
-        } else if (error.message.includes('User already registered')) {
-          errorMessage = "Un utilisateur avec cet email existe déjà";
-        } else if (error.message.includes('Database error')) {
-          errorMessage = "Erreur de base de données. Le trigger doit être corrigé.";
-        }
-      }
-      
-      toast({
-        title: "Erreur",
-        description: errorMessage,
-        variant: "destructive",
-      });
+      const errorMessage = error instanceof Error ? error.message : "Impossible de créer l'utilisateur";
+      toast({ title: "Erreur", description: errorMessage, variant: "destructive" });
       return { success: false, error: error as Error };
     }
   }, [status, toast]);
 
   /**
-   * Récupère tous les utilisateurs (pour l'admin uniquement)
+   * Récupère tous les utilisateurs via Edge Function admin-operations
    */
   const getUsers = useCallback(async () => {
     if (status !== 'authenticated') return null;
     try {
-      if (!supabaseAdmin) {
-        throw new Error("L'API d'administration n'est pas disponible. Contactez votre administrateur système.");
-      }
-
-      // Utiliser directement le client admin
-      const { data, error } = await supabaseAdmin.auth.admin.listUsers();
-      
-      if (error) throw error;
-      
-      return data;
-    } catch (error) {
-      toast({
-        title: "Erreur",
-        description: "Impossible de récupérer la liste des utilisateurs",
-        variant: "destructive",
+      const { data, error } = await supabase.functions.invoke('admin-operations', {
+        body: { action: 'listUsers' },
       });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return { users: data?.users || [] };
+    } catch (error) {
+      toast({ title: "Erreur", description: "Impossible de récupérer la liste des utilisateurs", variant: "destructive" });
       return null;
     }
   }, [status, toast]);
 
   /**
-   * Met à jour un utilisateur existant (par l'administrateur)
+   * Met à jour un utilisateur via Edge Function admin-operations
    */
   const adminUpdateUser = useCallback(async (
     userId: string,
@@ -645,154 +523,33 @@ export function useSupabase() {
   ): Promise<{ success: boolean; error?: Error }> => {
     if (status !== 'authenticated') return { success: false, error: new Error('Non authentifié') };
     try {
-      if (!supabaseAdmin) {
-        throw new Error("L'API d'administration n'est pas disponible. Contactez votre administrateur système.");
-      }
-
-      const updates: {
-        email?: string;
-        password?: string;
-        user_metadata?: Record<string, any>;
-      } = {};
-      
-      // Création de l'objet pour mettre à jour les metadata
-      if (userData.role || userData.first_name || userData.last_name || userData.specialty) {
-        const { data: currentUser } = await supabaseAdmin.auth.admin.getUserById(userId);
-        const currentMetadata = currentUser?.user?.user_metadata || {};
-        
-        updates.user_metadata = {
-          ...currentMetadata,
-          ...(userData.role && { role: userData.role }),
-          ...(userData.first_name && { first_name: userData.first_name }),
-          ...(userData.last_name && { last_name: userData.last_name }),
-          ...(userData.specialty && { specialty: userData.specialty }),
-          ...(userData.first_name && userData.last_name && { name: `${userData.first_name} ${userData.last_name}` })
-        };
-      }
-      
-      // Ajout de l'email et/ou mot de passe si fournis
-      if (userData.email) updates.email = userData.email;
-      if (userData.password) updates.password = userData.password;
-
-      // Mise à jour de l'utilisateur
-      const { error } = await supabaseAdmin.auth.admin.updateUserById(
-        userId,
-        updates
-      );
-
-      if (error) throw error;
-
-      // Note: La mise à jour du profil est maintenant gérée par le hook useProfiles.updateProfile()
-      // Nous ne mettons à jour ici que les métadonnées auth, le profil sera mis à jour séparément
-
-      toast({
-        title: "Succès",
-        description: "L'utilisateur a été mis à jour avec succès",
+      const { data, error } = await supabase.functions.invoke('admin-operations', {
+        body: { action: 'updateUser', userId, userData },
       });
-
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast({ title: "Succès", description: "L'utilisateur a été mis à jour avec succès" });
       return { success: true };
     } catch (error) {
-      toast({
-        title: "Erreur",
-        description: "Impossible de mettre à jour l'utilisateur",
-        variant: "destructive",
-      });
+      toast({ title: "Erreur", description: "Impossible de mettre à jour l'utilisateur", variant: "destructive" });
       return { success: false, error: error as Error };
     }
   }, [status, toast]);
 
   /**
-   * Supprime un utilisateur (par l'administrateur)
+   * Supprime un utilisateur via Edge Function admin-operations
    */
   const adminDeleteUser = useCallback(async (
     userId: string
   ): Promise<{ success: boolean; error?: Error }> => {
     if (status !== 'authenticated') return { success: false, error: new Error('Non authentifié') };
     try {
-      if (!supabaseAdmin) {
-        throw new Error("L'API d'administration n'est pas disponible. Contactez votre administrateur système.");
-      }
-
-      // Vérifier que l'utilisateur n'est pas un admin
-      const { data: userData } = await supabaseAdmin.auth.admin.getUserById(userId);
-      if (userData?.user?.user_metadata?.role === 'admin') {
-        throw new Error("Impossible de supprimer un administrateur");
-      }
-
-      // Nettoyer les données associées dans l'ordre inverse des dépendances
-
-      // 1. Supprimer les participations aux conversations
-      try {
-        const { error: participationsError } = await supabaseAdmin
-          .from('conversation_participants')
-          .delete()
-          .eq('user_id', userId);
-        
-        if (participationsError) {
-        }
-      } catch (error) {
-      }
-
-      // 2. Supprimer les lectures de messages
-      try {
-        const { error: readsError } = await supabaseAdmin
-          .from('message_reads')
-          .delete()
-          .eq('user_id', userId);
-        
-        if (readsError) {
-        }
-      } catch (error) {
-      }
-
-      // 3. Supprimer les appartenances aux groupes de travail
-      try {
-        const { error: membershipError } = await supabaseAdmin
-          .from('workgroup_members')
-          .delete()
-          .eq('user_id', userId);
-        
-        if (membershipError) {
-        }
-      } catch (error) {
-      }
-
-      // 4. Vérifier et supprimer les messages envoyés
-      try {
-        // Utiliser la fonction SQL pour anonymiser les messages
-        const { error: messagesError } = await supabaseAdmin
-          .rpc('anonymize_user_messages', { user_id_param: userId });
-        
-        if (messagesError) {
-        }
-      } catch (error) {
-      }
-
-      // 5. Supprimer le profil utilisateur (nouvelle table profiles)
-      try {
-        const { error: profileError } = await supabaseAdmin
-          .from('profiles')
-          .delete()
-          .eq('user_id', userId);
-        
-        if (profileError) {
-        }
-      } catch (error) {
-      }
-
-      // 6. Les paramètres utilisateur sont maintenant dans la table profiles
-      // (pas besoin de suppression séparée)
-
-      // Finalement, supprimer l'utilisateur
-      const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
-      
-      if (error) throw error;
-
-      toast({
-        title: "Succès",
-        description: "L'utilisateur a été supprimé avec succès",
+      const { data, error } = await supabase.functions.invoke('admin-operations', {
+        body: { action: 'deleteUser', userId },
       });
-
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast({ title: "Succès", description: "L'utilisateur a été supprimé avec succès" });
       return { success: true };
     } catch (error) {
       toast({

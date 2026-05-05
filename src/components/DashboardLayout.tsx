@@ -110,7 +110,7 @@ const DashboardLayout: React.FC = () => {
   };
 
   // Check both the role and directly for admin email
-  const isAdmin = role === 'admin' || authUser?.email === 'admin@aps.com';
+  const isAdmin = role === 'admin';
   const isSuperAdmin = authIsSuperAdmin;
   const isMaitreOuvrage = role === 'maitre_ouvrage';
   

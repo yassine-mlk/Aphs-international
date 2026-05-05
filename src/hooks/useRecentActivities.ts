@@ -207,7 +207,7 @@ export function useRecentActivities() {
     setError(null);
 
     try {
-      const adminStatus = role === 'admin' || user?.email === 'admin@aps.com';
+      const adminStatus = role === 'admin';
       
       if (adminStatus) {
         await fetchAdminActivities();

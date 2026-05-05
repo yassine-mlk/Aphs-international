@@ -6,7 +6,6 @@ declare global {
     VIDEO_CONFERENCE_CONFIG?: {
       VITE_SUPABASE_URL?: string;
       VITE_SUPABASE_ANON_KEY?: string;
-      VITE_SUPABASE_SERVICE_ROLE_KEY?: string;
       VITE_USE_REALTIME?: string;
       VITE_USE_ROBUST_VIDEO_CONFERENCE?: string;
       [key: string]: string | undefined;
@@ -14,7 +13,7 @@ declare global {
   }
 }
 
-// Configuration avec priorité aux variables d'environnement et fallbacks hardcodés
+// Configuration avec priorité aux variables d'environnement et fallbacks
 export const getConfigValue = (key: string, defaultValue: string = '') => {
   // Priorité 1: Variables d'environnement Vite
   if (import.meta.env && import.meta.env[key]) {
@@ -26,10 +25,7 @@ export const getConfigValue = (key: string, defaultValue: string = '') => {
     return (window as any).VIDEO_CONFERENCE_CONFIG[key];
   }
   
-  // Priorité 3: Fallbacks hardcodés supprimés pour sécurité
-  // Les clés doivent être définies dans le fichier .env
-  
-  // Priorité 4: Valeur par défaut
+  // Priorité 3: Valeur par défaut
   return defaultValue;
 };
 
@@ -51,7 +47,6 @@ const createTimedFetch = (timeoutMs: number): typeof fetch => {
 
 // Fonction pour initialiser Supabase
 const initializeSupabase = () => {
-  // URL de Supabase et clé anonyme depuis les variables d'environnement
   const supabaseUrl = getConfigValue('VITE_SUPABASE_URL');
   const supabaseAnonKey = getConfigValue('VITE_SUPABASE_ANON_KEY');
 
@@ -62,7 +57,7 @@ const initializeSupabase = () => {
 
   const timedFetch = createTimedFetch(15000);
 
-  // Client Supabase standard pour les opérations côté client
+  // Client Supabase standard — clé publique uniquement
   const client = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
       persistSession: true,
@@ -79,30 +74,15 @@ const initializeSupabase = () => {
     },
   });
 
-  // Client Supabase admin pour les opérations d'administration
-  const supabaseServiceKey = getConfigValue('VITE_SUPABASE_SERVICE_ROLE_KEY');
-  const adminClient = supabaseServiceKey ? createClient(supabaseUrl, supabaseServiceKey, {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true,
-    },
-    global: {
-      fetch: timedFetch,
-    },
-    realtime: {
-      params: {
-        eventsPerSecond: 10,
-      },
-    },
-  }) : null;
-
-  return { client, adminClient };
+  return { client };
 };
 
 // Initialisation immédiate
 const result = initializeSupabase();
 
-// Export des instances (peuvent être null si la config est absente au démarrage)
+// Export de l'instance (peut être null si la config est absente au démarrage)
 export const supabase = result?.client;
-export const supabaseAdmin = result?.adminClient;
+
+// NOTE: supabaseAdmin a été supprimé pour des raisons de sécurité.
+// La clé SERVICE_ROLE ne doit JAMAIS être exposée côté client.
+// Toutes les opérations admin passent désormais par les Edge Functions Supabase.

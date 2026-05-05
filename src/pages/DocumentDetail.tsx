@@ -85,7 +85,7 @@ const DocumentDetail: React.FC = () => {
   
   // Current user info from AuthContext
   const currentUserId = user?.id || '';
-  const isAdmin = role === 'admin' || user?.email === 'admin@aps.com';
+  const isAdmin = role === 'admin';
 
   // Find active step
   const activeStep = document.workflow.find(step => step.status === 'en_attente');

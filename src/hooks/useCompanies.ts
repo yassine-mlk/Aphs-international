@@ -467,9 +467,8 @@ export function useCompanies() {
             
             // Exclure les admins et utilisateurs bannis
             const isAdmin = user.user_metadata?.role === 'admin';
-            const isAdminEmail = user.email?.toLowerCase()?.includes('admin@aps');
             
-            if (isAdmin || isAdminEmail || user.banned) return false;
+            if (isAdmin || user.banned) return false;
             
             // Correspondance par ID ou nom d'entreprise
             const matchesId = userCompanyId === companyId;

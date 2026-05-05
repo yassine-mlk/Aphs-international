@@ -6,11 +6,18 @@ const cors = require('cors');
 // Créer le serveur HTTP
 const server = http.createServer();
 
-// Configurer CORS pour la production
+// Configurer CORS pour la production - RESTREINDRE AUX DOMAINES AUTORISÉS
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'https://www.aps-construction.com,https://aps-construction.com').split(',');
+
 const corsOptions = {
   origin: function (origin, callback) {
-    // Autoriser toutes les origines en production
-    callback(null, true);
+    // Autoriser les requêtes sans origin (health checks, etc.)
+    if (!origin) return callback(null, true);
+    if (ALLOWED_ORIGINS.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
   },
   credentials: true
 };

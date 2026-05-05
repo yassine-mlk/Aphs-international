@@ -137,7 +137,7 @@ function VideoConferenceContent() {
     };
   }, [status, effectiveTenantId, fetchMeetings]);
 
-  const isAdmin = role === 'admin' || user?.email === 'admin@aps.com';
+  const isAdmin = role === 'admin';
 
   const handleCreateMeeting = async (status: 'scheduled' | 'active' | 'pending' = 'scheduled') => {
     console.log("handleCreateMeeting triggered with status:", status);

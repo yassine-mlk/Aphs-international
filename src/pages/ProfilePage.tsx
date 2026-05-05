@@ -36,7 +36,7 @@ const ProfilePage: React.FC = () => {
     trialEndsAt: string | null;
   } | null>(null);
 
-  const isAdmin = role === 'admin' || currentUser?.email === 'admin@aps.com';
+  const isAdmin = role === 'admin';
 
   useEffect(() => {
     if (status !== 'authenticated' || !currentUser?.id) {

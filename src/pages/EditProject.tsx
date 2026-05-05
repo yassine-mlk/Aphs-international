@@ -60,9 +60,7 @@ const EditProject: React.FC = () => {
     company_id: ''
   });
 
-  // Vérifier si l'utilisateur est admin
-  const isAdmin = role === 'admin' || 
-                 user?.email === 'admin@aps.com';
+  const isAdmin = role === 'admin';
 
   // Rediriger si pas admin
   useEffect(() => {

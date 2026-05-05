@@ -292,10 +292,7 @@ const IntervenantProjectDetails: React.FC = () => {
           const formattedUsers = userData.users
             .filter((user: any) => {
               const isAdmin = user.user_metadata?.role === 'admin';
-              const isAdminEmail = user.email?.toLowerCase() === 'admin@aps.fr' || 
-                                  user.email?.toLowerCase() === 'admin@aps.com' || 
-                                  user.email?.toLowerCase() === 'admin@aps';
-              return !isAdmin && !isAdminEmail && !user.banned;
+              return !isAdmin && !user.banned;
             })
             .map((user: any) => ({
               id: user.id,

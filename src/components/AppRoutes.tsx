@@ -1,45 +1,53 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import ProtectedRoute from './ProtectedRoute';
 import DashboardLayout from './DashboardLayout';
 import SuperAdminRoute from './SuperAdminRoute';
 import { useAuth } from '@/contexts/AuthContext';
+import { Loader2 } from 'lucide-react';
 
-import Index from "@/pages/Index";
-import NotFound from "@/pages/NotFound";
-import Login from "@/pages/Login";
-import Dashboard from "@/pages/Dashboard";
-import Intervenants from "@/pages/Intervenants";
-import Projects from "@/pages/Projects";
-import ProjectDetails from "@/pages/ProjectDetails";
-import EditProject from "@/pages/EditProject";
-import Tasks from "@/pages/Tasks";
-import AdminTasks from "@/pages/AdminTasks";
-import TaskDetails from "@/pages/TaskDetails";
-import Notifications from "@/pages/Notifications";
-import Companies from "@/pages/Companies";
-import WorkGroups from "@/pages/WorkGroups";
-import Messages from "@/pages/Messages";
-import Settings from "@/pages/Settings";
-import ProfilePage from "@/pages/ProfilePage";
-import IntervenantProjects from "@/pages/IntervenantProjects";
-import IntervenantProjectDetails from "@/pages/IntervenantProjectDetails";
-import SuperAdminDashboard from "@/pages/SuperAdminDashboard";
-import SuperAdminLogin from "@/pages/SuperAdminLogin";
-import Features from "@/pages/Features";
-import Solutions from "@/pages/Solutions";
-import Validations from "@/pages/Validations";
-import MesSignatures from "@/pages/MesSignatures";
-import DocumentDetail from "@/pages/DocumentDetail";
-import WorkflowTemplates from "@/pages/WorkflowTemplates";
-import PublicSignature from "@/pages/PublicSignature";
-import VideoConference from "@/pages/VideoConference";
-import SupportPage from "@/pages/Support";
-import AdminSupport from "@/pages/AdminSupport";
+// Code splitting: chaque page est chargée à la demande
+const Index = React.lazy(() => import("@/pages/Index"));
+const NotFound = React.lazy(() => import("@/pages/NotFound"));
+const Login = React.lazy(() => import("@/pages/Login"));
+const Dashboard = React.lazy(() => import("@/pages/Dashboard"));
+const Intervenants = React.lazy(() => import("@/pages/Intervenants"));
+const Projects = React.lazy(() => import("@/pages/Projects"));
+const ProjectDetails = React.lazy(() => import("@/pages/ProjectDetails"));
+const EditProject = React.lazy(() => import("@/pages/EditProject"));
+const Tasks = React.lazy(() => import("@/pages/Tasks"));
+const AdminTasks = React.lazy(() => import("@/pages/AdminTasks"));
+const TaskDetails = React.lazy(() => import("@/pages/TaskDetails"));
+const Notifications = React.lazy(() => import("@/pages/Notifications"));
+const Companies = React.lazy(() => import("@/pages/Companies"));
+const WorkGroups = React.lazy(() => import("@/pages/WorkGroups"));
+const Messages = React.lazy(() => import("@/pages/Messages"));
+const ProfilePage = React.lazy(() => import("@/pages/ProfilePage"));
+const IntervenantProjects = React.lazy(() => import("@/pages/IntervenantProjects"));
+const IntervenantProjectDetails = React.lazy(() => import("@/pages/IntervenantProjectDetails"));
+const SuperAdminDashboard = React.lazy(() => import("@/pages/SuperAdminDashboard"));
+const SuperAdminLogin = React.lazy(() => import("@/pages/SuperAdminLogin"));
+const Features = React.lazy(() => import("@/pages/Features"));
+const Solutions = React.lazy(() => import("@/pages/Solutions"));
+const Validations = React.lazy(() => import("@/pages/Validations"));
+const MesSignatures = React.lazy(() => import("@/pages/MesSignatures"));
+const DocumentDetail = React.lazy(() => import("@/pages/DocumentDetail"));
+const WorkflowTemplates = React.lazy(() => import("@/pages/WorkflowTemplates"));
+const PublicSignature = React.lazy(() => import("@/pages/PublicSignature"));
+const VideoConference = React.lazy(() => import("@/pages/VideoConference"));
+const SupportPage = React.lazy(() => import("@/pages/Support"));
+const AdminSupport = React.lazy(() => import("@/pages/AdminSupport"));
+
+// Fallback de chargement pour Suspense
+const PageLoader = () => (
+  <div className="flex items-center justify-center min-h-screen">
+    <Loader2 className="w-8 h-8 text-teal-500 animate-spin" />
+  </div>
+);
 
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, role } = useAuth();
-  const hasAdminRole = role === 'admin' || user?.email === 'admin@aps.com';
+  const { role } = useAuth();
+  const hasAdminRole = role === 'admin';
   return hasAdminRole ? <>{children}</> : <Navigate to="/dashboard" replace />;
 };
 
@@ -56,13 +64,14 @@ const MaitreOuvrageRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 const SharedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, role } = useAuth();
-  const hasAccess = role === 'admin' || role === 'intervenant' || role === 'maitre_ouvrage' || user?.email === 'admin@aps.com';
+  const { role } = useAuth();
+  const hasAccess = role === 'admin' || role === 'intervenant' || role === 'maitre_ouvrage';
   return hasAccess ? <>{children}</> : <Navigate to="/dashboard" replace />;
 };
 
 export const AppRoutes = () => {
   return (
+    <Suspense fallback={<PageLoader />}>
     <Routes>
       <Route path="/" element={<Index />} />
       <Route path="/login" element={<Login />} />
@@ -234,5 +243,6 @@ export const AppRoutes = () => {
       <Route path="/404" element={<NotFound />} />
       <Route path="*" element={<Navigate to="/404" replace />} />
     </Routes>
+    </Suspense>
   );
 };

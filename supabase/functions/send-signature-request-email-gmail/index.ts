@@ -7,7 +7,7 @@ const GMAIL_USER = Deno.env.get('GMAIL_USER'); // ex: tonemail@gmail.com
 const GMAIL_APP_PASSWORD = Deno.env.get('GMAIL_APP_PASSWORD'); // Mot de passe d'application Gmail
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': 'https://www.aps-construction.com',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 

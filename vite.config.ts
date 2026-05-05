@@ -1,7 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
-import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -11,13 +10,10 @@ export default defineConfig(({ mode }) => ({
   },
   plugins: [
     react(),
-    mode === 'development' &&
-    componentTagger(),
   ].filter(Boolean),
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
-      // Polyfills pour Node.js modules dans le navigateur
       buffer: "buffer",
       events: "events",
       stream: "stream-browserify",
@@ -25,8 +21,28 @@ export default defineConfig(({ mode }) => ({
       crypto: "crypto-browserify",
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-supabase': ['@supabase/supabase-js'],
+          'vendor-radix': [
+            '@radix-ui/react-dialog',
+            '@radix-ui/react-dropdown-menu',
+            '@radix-ui/react-select',
+            '@radix-ui/react-tabs',
+            '@radix-ui/react-tooltip',
+            '@radix-ui/react-popover',
+          ],
+          'vendor-livekit': ['livekit-client', '@livekit/components-react'],
+          'vendor-charts': ['recharts'],
+          'vendor-motion': ['framer-motion'],
+        },
+      },
+    },
+  },
   define: {
-    // Polyfills pour SimplePeer et les modules Node.js
     global: 'globalThis',
     'process.env': {},
     process: { 
@@ -36,7 +52,6 @@ export default defineConfig(({ mode }) => ({
     },
   },
   optimizeDeps: {
-    // Forcer la pré-compilation de ces dépendances
     include: [
       'simple-peer', 
       'socket.io-client', 

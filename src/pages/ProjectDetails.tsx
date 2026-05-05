@@ -103,7 +103,7 @@ const ProjectDetails: React.FC = () => {
 
   const [tenantId, setTenantId] = useState<string | null>(null);
 
-  const isAdmin = role === 'admin' || user?.email === 'admin@aps.com';
+  const isAdmin = role === 'admin';
 
   const {
     customProjectStructure,

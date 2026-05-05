@@ -63,7 +63,7 @@ const Messages: React.FC = () => {
   const [showGroupDetails, setShowGroupDetails] = useState(false);
   
   // Vérifier si l'utilisateur est admin
-  const isAdmin = role === 'admin' || user?.email === 'admin@aps.com';
+  const isAdmin = role === 'admin';
 
   // Charger les messages d'une conversation
   const loadMessages = useCallback(async (conversationId: string, showLoading = true) => {
