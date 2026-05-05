@@ -1,28 +1,27 @@
-const ALLOWED_ORIGINS = ['https://www.aps-construction.com', 'https://aps-construction.com'];
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { S3Client, PutObjectCommand, CreateMultipartUploadCommand, UploadPartCommand, CompleteMultipartUploadCommand } from 'npm:@aws-sdk/client-s3@3.679.0'
+import { getSignedUrl } from 'npm:@aws-sdk/s3-request-presigner@3.679.0'
+
+const ALLOWED_ORIGINS = ['https://www.aps-construction.com', 'https://aps-construction.com']
 
 function getCorsHeaders(req: Request) {
-  const origin = req.headers.get('origin') || '';
-  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  const origin = req.headers.get('origin') || ''
+  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]
   return {
     'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
     'Access-Control-Max-Age': '86400',
-  };
+  }
 }
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight immediately without loading any heavy modules
+  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { status: 200, headers: getCorsHeaders(req) })
   }
 
   try {
-    // Lazy-load heavy dependencies only when actually needed
-    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2')
-    const { S3Client, PutObjectCommand, CreateMultipartUploadCommand, UploadPartCommand, CompleteMultipartUploadCommand } = await import('https://esm.sh/@aws-sdk/client-s3@3.400.0')
-    const { getSignedUrl } = await import('https://esm.sh/@aws-sdk/s3-request-presigner@3.400.0')
-
     // Verify caller's JWT
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -68,7 +67,8 @@ Deno.serve(async (req) => {
       },
     })
 
-    const { action, path, contentType, fileSize, uploadId, partNumber, parts } = await req.json()
+    const body = await req.json()
+    const { action, path, contentType } = body
 
     // Generate a presigned URL for upload
     if (action === 'getUploadUrl') {
@@ -110,8 +110,8 @@ Deno.serve(async (req) => {
       const command = new UploadPartCommand({
         Bucket: R2_BUCKET_NAME,
         Key: path,
-        UploadId: uploadId,
-        PartNumber: partNumber,
+        UploadId: body.uploadId,
+        PartNumber: body.partNumber,
       })
 
       const partUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 })
@@ -127,8 +127,8 @@ Deno.serve(async (req) => {
       await s3Client.send(new CompleteMultipartUploadCommand({
         Bucket: R2_BUCKET_NAME,
         Key: path,
-        UploadId: uploadId,
-        MultipartUpload: { Parts: parts },
+        UploadId: body.uploadId,
+        MultipartUpload: { Parts: body.parts },
       }))
 
       const publicUrl = R2_PUBLIC_DOMAIN
@@ -147,6 +147,7 @@ Deno.serve(async (req) => {
     )
 
   } catch (error) {
+    console.error('r2-upload error:', error)
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
