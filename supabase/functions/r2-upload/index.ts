@@ -1,12 +1,7 @@
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { S3Client, PutObjectCommand, CreateMultipartUploadCommand, UploadPartCommand, CompleteMultipartUploadCommand, AbortMultipartUploadCommand } from 'https://esm.sh/@aws-sdk/client-s3@3.400.0'
-import { getSignedUrl } from 'https://esm.sh/@aws-sdk/s3-request-presigner@3.400.0'
-
 const ALLOWED_ORIGINS = ['https://www.aps-construction.com', 'https://aps-construction.com'];
 
-const getCorsHeaders = (req?: Request) => {
-  const origin = req?.headers?.get('origin') || '';
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get('origin') || '';
   const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
   return {
     'Access-Control-Allow-Origin': allowedOrigin,
@@ -14,20 +9,20 @@ const getCorsHeaders = (req?: Request) => {
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
     'Access-Control-Max-Age': '86400',
   };
-};
-
-// DEPRECATED: use getCorsHeaders(req) instead
-const corsHeaders = {
-  'Access-Control-Allow-Origin': 'https://www.aps-construction.com',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
+  // Handle CORS preflight immediately without loading any heavy modules
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: getCorsHeaders(req) })
+    return new Response('ok', { status: 200, headers: getCorsHeaders(req) })
   }
 
   try {
+    // Lazy-load heavy dependencies only when actually needed
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2')
+    const { S3Client, PutObjectCommand, CreateMultipartUploadCommand, UploadPartCommand, CompleteMultipartUploadCommand } = await import('https://esm.sh/@aws-sdk/client-s3@3.400.0')
+    const { getSignedUrl } = await import('https://esm.sh/@aws-sdk/s3-request-presigner@3.400.0')
+
     // Verify caller's JWT
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -73,7 +68,7 @@ serve(async (req) => {
       },
     })
 
-    const { action, path, contentType, fileSize } = await req.json()
+    const { action, path, contentType, fileSize, uploadId, partNumber, parts } = await req.json()
 
     // Generate a presigned URL for upload
     if (action === 'getUploadUrl') {
@@ -112,8 +107,6 @@ serve(async (req) => {
 
     // Get presigned URL for a specific part
     if (action === 'getPartUploadUrl') {
-      const { uploadId, partNumber } = await req.json()
-
       const command = new UploadPartCommand({
         Bucket: R2_BUCKET_NAME,
         Key: path,
@@ -131,8 +124,6 @@ serve(async (req) => {
 
     // Complete multipart upload
     if (action === 'completeMultipartUpload') {
-      const { uploadId, parts } = await req.json()
-
       await s3Client.send(new CompleteMultipartUploadCommand({
         Bucket: R2_BUCKET_NAME,
         Key: path,
