@@ -72,7 +72,8 @@ export async function sendNotification(payload: NotificationPayload) {
               title: payload.title,
               message: payload.message,
               link: payload.link || '',
-              type: payload.type
+              type: payload.type,
+              ...(payload.data || {})
             }
           }
         });

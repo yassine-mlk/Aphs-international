@@ -439,7 +439,7 @@ function getEmailContent(type: string, data: Record<string, string>): {
       const subject = `[APS Construction] Nouveau message${data.senderName ? ' de ' + data.senderName : ''}`;
       const infoRows = [
         { label: 'De',      value: data.senderName  || '—' },
-        { label: 'Projet',  value: data.projectName || '—' },
+        { label: 'Groupe de travail',  value: data.projectName || '—' },
         ...(data.message ? [{ label: 'Message', value: `<em>${data.message}</em>` }] : []),
       ];
       const html = buildEmail({
@@ -449,7 +449,7 @@ function getEmailContent(type: string, data: Record<string, string>): {
         subtitle: data.senderName ? `De : ${data.senderName}` : undefined,
         greeting: data.recipientName ? `Bonjour ${data.recipientName},` : 'Bonjour,',
         body: [
-          `<p style="margin:0 0 16px 0;">Vous avez reçu un nouveau message :</p>`,
+          `<p style="margin:0 0 16px 0;">Vous avez reçu un nouveau message dans votre groupe de travail :</p>`,
           infoCard(infoRows, '#1d4ed8'),
         ].join('\n'),
         buttonText: 'Répondre',
