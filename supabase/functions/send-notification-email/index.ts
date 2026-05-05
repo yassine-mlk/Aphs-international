@@ -465,6 +465,14 @@ function getEmailContent(type: string, data: Record<string, string>): {
 
 // ──────────────────────────────────────────────────────────────────────────────
 // ENTRY POINT
+// Accepts TWO payload formats:
+//
+//  Format A — new structured format:
+//    { type: 'task_assigned', to: 'x@y.com', data: { taskTitle, projectName, … } }
+//
+//  Format B — legacy format sent by the frontend sendNotification helper:
+//    { to: 'x@y.com', subject: 'Titre', template: 'generic_notification',
+//      variables: { title, message, link, type } }
 // ──────────────────────────────────────────────────────────────────────────────
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -472,21 +480,49 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { type, to, subject, data = {} } = await req.json();
+    const body = await req.json();
 
-    if (!type || !to) {
+    // ── Normalise both formats into (type, to, subject, data) ────────────────
+    let type: string    = body.type    || (body.variables?.type) || 'generic';
+    let to: string      = body.to;
+    let subject: string = body.subject || '';
+    let data: Record<string, string> = body.data || {};
+
+    // Legacy format: variables object → flatten into data
+    if (body.variables && typeof body.variables === 'object') {
+      data = { ...body.variables, ...data };
+      if (!subject) subject = data.title || '';
+    }
+
+    if (!to) {
       return new Response(
-        JSON.stringify({ error: 'Missing required fields: type, to' }),
+        JSON.stringify({ error: 'Missing required field: to' }),
         { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
-    const emailContent = getEmailContent(type, data);
+
+    // Try to build a structured email; fall back to a generic layout for unknown types
+    let emailContent = getEmailContent(type, data);
+
     if (!emailContent) {
-      return new Response(
-        JSON.stringify({ error: `Unknown notification type: ${type}` }),
-        { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
-      );
+      // Generic fallback — works for legacy 'template' format or any unknown type
+      const genericTitle = subject || data.title || 'Nouvelle notification';
+      const genericBody  = data.message || '';
+      const genericLink  = data.link || APP_URL;
+
+      emailContent = {
+        subject: `[APS Construction] ${genericTitle}`,
+        html: buildEmail({
+          accentColor: '#1e40af',
+          badgeText: 'NOTIFICATION',
+          title: genericTitle,
+          greeting: 'Bonjour,',
+          body: `<p style="margin:0 0 16px 0;">${genericBody}</p>`,
+          buttonText: 'Accéder au portail',
+          buttonUrl: genericLink,
+        }),
+      };
     }
 
     let emailSent = false;
