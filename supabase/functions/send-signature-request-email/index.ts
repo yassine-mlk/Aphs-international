@@ -5,6 +5,18 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
 const FROM_EMAIL = (Deno.env.get('FROM_EMAIL') || 'onboarding@resend.dev').trim();
 
+const ALLOWED_ORIGINS = ['https://www.aps-construction.com', 'https://aps-construction.com'];
+
+const getCorsHeaders = (req?: Request) => {
+  const origin = req?.headers?.get('origin') || '';
+  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    'Access-Control-Allow-Origin': allowedOrigin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  };
+};
+
+// DEPRECATED: use getCorsHeaders(req) instead
 const corsHeaders = {
   'Access-Control-Allow-Origin': 'https://www.aps-construction.com',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -21,7 +33,7 @@ const generateToken = (): string => {
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response('ok', { headers: getCorsHeaders(req) });
   }
 
   try {
@@ -30,7 +42,7 @@ serve(async (req) => {
     if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
       return new Response(
         JSON.stringify({ error: 'Missing recipients' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -231,14 +243,14 @@ serve(async (req) => {
         message: `Signature requests sent to ${results.length} recipients`,
         results
       }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
     console.error('Error in send-signature-request-email:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
   }
 });
