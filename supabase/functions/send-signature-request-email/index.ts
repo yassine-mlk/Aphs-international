@@ -1,8 +1,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
 import { LOGO_B64 } from '../_shared/logo-b64.ts';
 
-const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
-const FROM_EMAIL = (Deno.env.get('FROM_EMAIL') || 'onboarding@resend.dev').trim();
+const GMAIL_USER = Deno.env.get('GMAIL_USER');
+const GMAIL_APP_PASSWORD = Deno.env.get('GMAIL_APP_PASSWORD');
 
 const ALLOWED_ORIGINS = ['https://www.aps-construction.com', 'https://aps-construction.com'];
 
@@ -251,17 +252,26 @@ Deno.serve(async (req) => {
     const results = [];
 
     const sendEmail = async (to: string, subject: string, html: string) => {
-      if (!RESEND_API_KEY) {
-        console.warn('RESEND_API_KEY not set — email not sent');
-        return { id: 'test-mode' };
+      if (!GMAIL_USER || !GMAIL_APP_PASSWORD) {
+        console.warn('GMAIL credentials not set — email not sent');
+        return;
       }
-      const res = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${RESEND_API_KEY}` },
-        body: JSON.stringify({ from: FROM_EMAIL, to, subject, html })
+      const smtpClient = new SMTPClient({
+        connection: {
+          hostname: 'smtp.gmail.com',
+          port: 465,
+          tls: true,
+          auth: { username: GMAIL_USER, password: GMAIL_APP_PASSWORD },
+        },
       });
-      if (!res.ok) throw new Error(`Resend error: ${await res.text()}`);
-      return await res.json();
+      await smtpClient.send({
+        from: GMAIL_USER,
+        to: to,
+        subject: subject.replace(/\r?\n|\r/g, ' '),
+        content: html.replace(/<[^>]*>?/gm, ''),
+        html: html,
+      });
+      await smtpClient.close();
     };
 
     for (const recipient of recipients) {
@@ -294,7 +304,7 @@ Deno.serve(async (req) => {
 
       let emailSent = false;
       try {
-        if (recipient.email && RESEND_API_KEY) {
+        if (recipient.email) {
           await sendEmail(
             recipient.email,
             `[APS Construction] Document à signer : ${documentName}`,
@@ -326,7 +336,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('Error in send-signature-request-email:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error instanceof Error ? error.message : String(error) }),
       { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
   }
