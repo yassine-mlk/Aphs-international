@@ -239,9 +239,11 @@ const Messages: React.FC = () => {
           // Marquer comme lu si la fenêtre est active
           if (document.hasFocus()) {
             await supabase
-              .from('messages')
-              .update({ is_read: true })
-              .eq('id', newMessage.id);
+              .from('message_reads')
+              .upsert({
+                message_id: newMessage.id,
+                user_id: user.id
+              }, { onConflict: 'message_id,user_id' });
           }
         }
         

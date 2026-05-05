@@ -203,77 +203,27 @@ export function useMessages() {
             const participantIds = participants.map((p: any) => p.user_id);
             
             try {
-              // MÉTHODE CORRIGÉE : Utiliser auth.users d'abord, puis profiles en fallback
-              
-              // D'abord essayer avec auth.users (même méthode que page Intervenants)
-              const userData = await getUsers();
-              
-              if (userData && userData.users) {
-                // Filtrer les utilisateurs correspondant aux participant IDs
-                const relevantUsers = userData.users.filter((authUser: any) => 
-                  participantIds.includes(authUser.id)
-                );
-                
-                if (relevantUsers.length > 0) {
-                  
-                  participantUsers = relevantUsers.map((authUser: any) => ({
-                    id: authUser.id,
-                    email: authUser.email || '',
-                    // MÊME LOGIQUE que dans Intervenants pour extraire les noms
-                    first_name: authUser.user_metadata?.first_name || 
-                               authUser.user_metadata?.name?.split(' ')[0] || '',
-                    last_name: authUser.user_metadata?.last_name || 
-                              authUser.user_metadata?.name?.split(' ').slice(1).join(' ') || '',
-                    role: authUser.user_metadata?.role || 'intervenant',
-                    specialty: authUser.user_metadata?.specialty || '',
-                    avatar_url: authUser.user_metadata?.avatar_url,
-                    status: 'offline'
-                  }));
-                } else {
-                  throw new Error('Aucun participant trouvé dans auth.users');
-                }
-              } else {
-                throw new Error('Aucune donnée auth.users');
+              if (participantIds.length === 0) {
+                throw new Error('Aucun participant ID à rechercher');
               }
-            } catch (error) {
               
-              // Fallback: utiliser la table profiles
-              try {
-                if (participantIds.length === 0) {
-                  throw new Error('Aucun participant ID à rechercher');
-                }
-                
-                const { data: profilesData, error: profilesError } = await supabase
-                  .from('profiles')
-                  .select('user_id, role, first_name, last_name, email, specialty, avatar_url')
-                  .in('user_id', participantIds);
-                
-                if (!profilesError && profilesData && profilesData.length > 0) {
-                  
-                  participantUsers = profilesData.map(profile => ({
-                    id: profile.user_id,
-                    email: profile.email || '',
-                    first_name: profile.first_name || '',
-                    last_name: profile.last_name || '',
-                    role: profile.role || 'intervenant',
-                    specialty: profile.specialty || '',
-                    avatar_url: profile.avatar_url,
-                    status: 'offline'
-                  }));
-                } else {
-                  
-                  // Dernier fallback
-                  participantUsers = participants.map((p: any) => ({
-                    id: p.user_id,
-                    email: '',
-                    first_name: 'Utilisateur',
-                    last_name: '',
-                    role: 'utilisateur',
-                    status: 'offline'
-                  }));
-                }
-              } catch (fallbackError) {
-                
+              const { data: profilesData, error: profilesError } = await supabase
+                .from('profiles')
+                .select('user_id, role, first_name, last_name, email, specialty, avatar_url')
+                .in('user_id', participantIds);
+              
+              if (!profilesError && profilesData && profilesData.length > 0) {
+                participantUsers = profilesData.map(profile => ({
+                  id: profile.user_id,
+                  email: profile.email || '',
+                  first_name: profile.first_name || '',
+                  last_name: profile.last_name || '',
+                  role: profile.role || 'intervenant',
+                  specialty: profile.specialty || '',
+                  avatar_url: profile.avatar_url,
+                  status: 'offline'
+                }));
+              } else {
                 // Dernier fallback
                 participantUsers = participants.map((p: any) => ({
                   id: p.user_id,
@@ -284,6 +234,16 @@ export function useMessages() {
                   status: 'offline'
                 }));
               }
+            } catch (error) {
+              // Dernier fallback
+              participantUsers = participants.map((p: any) => ({
+                id: p.user_id,
+                email: '',
+                first_name: 'Utilisateur',
+                last_name: '',
+                role: 'utilisateur',
+                status: 'offline'
+              }));
             }
           }
           
@@ -407,95 +367,31 @@ export function useMessages() {
       let senders: Record<string, User> = {};
       if (senderIds.length > 0) {
         try {
-          
-          // Utiliser auth.users en premier (même logique que pour contacts et participants)
-          const userData = await getUsers();
-          
-          if (userData && userData.users) {
-            const relevantSenders = userData.users.filter((authUser: any) => 
-              senderIds.includes(authUser.id)
-            );
-            
-            if (relevantSenders.length > 0) {
-              
-              relevantSenders.forEach((authUser: any) => {
-                senders[authUser.id] = {
-                  id: authUser.id,
-                  email: authUser.email || '',
-                  // MÊME LOGIQUE que dans Intervenants pour extraire les noms
-                  first_name: authUser.user_metadata?.first_name || 
-                             authUser.user_metadata?.name?.split(' ')[0] || '',
-                  last_name: authUser.user_metadata?.last_name || 
-                            authUser.user_metadata?.name?.split(' ').slice(1).join(' ') || '',
-                  role: authUser.user_metadata?.role || 'intervenant',
-                  specialty: authUser.user_metadata?.specialty || ''
-                };
-              });
-              
-              // Ajouter les expéditeurs manquants avec des valeurs par défaut
-              senderIds.forEach(senderId => {
-                if (!senders[senderId as string]) {
-                  senders[senderId as string] = {
-                    id: senderId as string,
-                    email: '',
-                    first_name: 'Utilisateur',
-                    last_name: '',
-                    role: 'utilisateur',
-                    specialty: ''
-                  };
-                }
-              });
-            } else {
-              throw new Error('Aucun expéditeur trouvé dans auth.users');
-            }
-          } else {
-            throw new Error('Aucune donnée auth.users');
+          if (senderIds.length === 0) {
+            throw new Error('Aucun sender ID à rechercher');
           }
-        } catch (error) {
           
-          // Fallback: utiliser la table profiles
-          try {
-            if (senderIds.length === 0) {
-              throw new Error('Aucun sender ID à rechercher');
-            }
-            
-            const { data: profilesData, error: profilesError } = await supabase
-              .from('profiles')
-              .select('user_id, role, first_name, last_name, email, specialty')
-              .in('user_id', senderIds);
-            
-            if (!profilesError && profilesData && profilesData.length > 0) {
-              
-              profilesData.forEach(profile => {
-                senders[profile.user_id] = {
-                  id: profile.user_id,
-                  email: profile.email || '',
-                  first_name: profile.first_name || '',
-                  last_name: profile.last_name || '',
-                  role: profile.role || 'intervenant',
-                  specialty: profile.specialty || ''
-                };
-              });
-            } else {
-            }
-            
-            // Ajouter les expéditeurs manquants avec des valeurs par défaut
-            senderIds.forEach(senderId => {
-              if (!senders[senderId as string]) {
-                senders[senderId as string] = {
-                  id: senderId as string,
-                  email: '',
-                  first_name: 'Utilisateur',
-                  last_name: '',
-                  role: 'utilisateur',
-                  specialty: ''
-                };
-              }
+          const { data: profilesData, error: profilesError } = await supabase
+            .from('profiles')
+            .select('user_id, role, first_name, last_name, email, specialty')
+            .in('user_id', senderIds);
+          
+          if (!profilesError && profilesData && profilesData.length > 0) {
+            profilesData.forEach(profile => {
+              senders[profile.user_id] = {
+                id: profile.user_id,
+                email: profile.email || '',
+                first_name: profile.first_name || '',
+                last_name: profile.last_name || '',
+                role: profile.role || 'intervenant',
+                specialty: profile.specialty || ''
+              };
             });
-          } catch (fallbackError) {
-            
-            // Dernier fallback - valeurs par défaut pour tous
-            senderIds.forEach(senderId => {
+          }
+          
+          // Ajouter les expéditeurs manquants avec des valeurs par défaut
+          senderIds.forEach(senderId => {
+            if (!senders[senderId as string]) {
               senders[senderId as string] = {
                 id: senderId as string,
                 email: '',
@@ -504,8 +400,20 @@ export function useMessages() {
                 role: 'utilisateur',
                 specialty: ''
               };
-            });
-          }
+            }
+          });
+        } catch (error) {
+          // Dernier fallback - valeurs par défaut pour tous
+          senderIds.forEach(senderId => {
+            senders[senderId as string] = {
+              id: senderId as string,
+              email: '',
+              first_name: 'Utilisateur',
+              last_name: '',
+              role: 'utilisateur',
+              specialty: ''
+            };
+          });
         }
       }
       
