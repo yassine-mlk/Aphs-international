@@ -43,53 +43,60 @@ function buildEmail(opts: {
 
   const footerText = footerNote || 'Cet email a été envoyé automatiquement. Merci de ne pas y répondre.';
 
-  // Build HTML as compact string to avoid quoted-printable =20 artifacts
-  return [
-    '<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">',
-    '<title>' + title + '</title></head>',
-    '<body style="margin:0;padding:0;background-color:#f0f2f5;font-family:Arial,Helvetica,sans-serif;">',
-    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f0f2f5;padding:32px 16px;">',
-    '<tr><td align="center">',
-
-    // Container
-    '<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">',
-
-    // Logo Bar
-    '<tr><td style="padding:24px 32px;background:#ffffff;border-bottom:1px solid #f0f2f5;" align="left">',
-    '<table role="presentation" cellpadding="0" cellspacing="0"><tr>',
-    '<td style="width:40px;height:40px;background:' + accentColor + ';border-radius:10px;text-align:center;vertical-align:middle;" align="center">',
-    '<span style="color:#ffffff;font-size:18px;font-weight:800;font-family:Arial,sans-serif;line-height:40px;">A</span></td>',
-    '<td style="padding-left:12px;"><span style="font-family:Arial,sans-serif;font-size:20px;font-weight:800;color:#0f172a;letter-spacing:-0.5px;">APS</span>',
-    '<span style="font-family:Arial,sans-serif;font-size:11px;color:#94a3b8;display:block;line-height:1.2;letter-spacing:0.5px;">CONSTRUCTION</span></td>',
-    '</tr></table></td></tr>',
-
-    // Header Banner
-    '<tr><td style="background:linear-gradient(135deg,' + accentColor + ' 0%,' + adjustColor(accentColor, -25) + ' 100%);padding:36px 40px;" align="left">',
-    '<table role="presentation" cellpadding="0" cellspacing="0"><tr>',
-    '<td style="padding-right:16px;vertical-align:middle;"><span style="font-size:32px;line-height:1;">' + icon + '</span></td>',
-    '<td><h1 style="margin:0;font-family:Arial,sans-serif;font-size:22px;font-weight:700;color:#ffffff;line-height:1.3;">' + title + '</h1></td>',
-    '</tr></table></td></tr>',
-
-    // Body
-    '<tr><td style="padding:36px 40px;">',
-    '<p style="margin:0 0 20px 0;font-family:Arial,sans-serif;font-size:15px;color:#334155;line-height:1.6;">' + (greeting || 'Bonjour,') + '</p>',
-    body,
-    buttonBlock,
-    '</td></tr>',
-
-    // Footer
-    '<tr><td style="padding:24px 40px;background:#f8fafc;border-top:1px solid #e2e8f0;">',
-    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>',
-    '<td><p style="margin:0 0 4px 0;font-family:Arial,sans-serif;font-size:11px;color:#94a3b8;line-height:1.5;">' + footerText + '</p>',
-    '<p style="margin:0;font-family:Arial,sans-serif;font-size:11px;color:#cbd5e1;">&copy; 2025 APS Construction &mdash; Tous droits r&eacute;serv&eacute;s</p></td>',
-    '<td width="80" align="right" style="vertical-align:middle;">',
-    '<a href="' + APP_URL + '" style="display:inline-block;width:32px;height:32px;background:' + accentColor + ';border-radius:8px;text-align:center;line-height:32px;text-decoration:none;">',
-    '<span style="color:#ffffff;font-size:14px;font-weight:800;font-family:Arial,sans-serif;">A</span></a></td>',
-    '</tr></table></td></tr>',
-
-    '</table>',
-    '</td></tr></table></body></html>'
-  ].join('');
+    // Build HTML as string with newlines to avoid quoted-printable artifacts on long lines
+    return [
+      '<!DOCTYPE html>',
+      '<html lang="fr">',
+      '<head>',
+      '<meta charset="utf-8">',
+      '<meta name="viewport" content="width=device-width,initial-scale=1.0">',
+      '<title>' + title + '</title>',
+      '</head>',
+      '<body style="margin:0;padding:0;background-color:#f0f2f5;font-family:Arial,Helvetica,sans-serif;">',
+      '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f0f2f5;padding:32px 16px;">',
+      '<tr><td align="center">',
+  
+      // Container
+      '<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">',
+  
+      // Logo Bar
+      '<tr><td style="padding:24px 32px;background:#ffffff;border-bottom:1px solid #f0f2f5;" align="left">',
+      '<table role="presentation" cellpadding="0" cellspacing="0"><tr>',
+      '<td style="width:40px;height:40px;background:' + accentColor + ';border-radius:10px;text-align:center;vertical-align:middle;" align="center">',
+      '<span style="color:#ffffff;font-size:18px;font-weight:800;font-family:Arial,sans-serif;line-height:40px;">A</span></td>',
+      '<td style="padding-left:12px;"><span style="font-family:Arial,sans-serif;font-size:20px;font-weight:800;color:#0f172a;letter-spacing:-0.5px;">APS</span>',
+      '<span style="font-family:Arial,sans-serif;font-size:11px;color:#94a3b8;display:block;line-height:1.2;letter-spacing:0.5px;">CONSTRUCTION</span></td>',
+      '</tr></table></td></tr>',
+  
+      // Header Banner
+      '<tr><td style="background:linear-gradient(135deg,' + accentColor + ' 0%,' + adjustColor(accentColor, -25) + ' 100%);padding:36px 40px;" align="left">',
+      '<table role="presentation" cellpadding="0" cellspacing="0"><tr>',
+      '<td style="padding-right:16px;vertical-align:middle;"><span style="font-size:32px;line-height:1;">' + icon + '</span></td>',
+      '<td><h1 style="margin:0;font-family:Arial,sans-serif;font-size:22px;font-weight:700;color:#ffffff;line-height:1.3;">' + title + '</h1></td>',
+      '</tr></table></td></tr>',
+  
+      // Body
+      '<tr><td style="padding:36px 40px;">',
+      '<p style="margin:0 0 20px 0;font-family:Arial,sans-serif;font-size:15px;color:#334155;line-height:1.6;">' + (greeting || 'Bonjour,') + '</p>',
+      body,
+      buttonBlock,
+      '</td></tr>',
+  
+      // Footer
+      '<tr><td style="padding:24px 40px;background:#f8fafc;border-top:1px solid #e2e8f0;">',
+      '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>',
+      '<td><p style="margin:0 0 4px 0;font-family:Arial,sans-serif;font-size:11px;color:#94a3b8;line-height:1.5;">' + footerText + '</p>',
+      '<p style="margin:0;font-family:Arial,sans-serif;font-size:11px;color:#cbd5e1;">&copy; 2025 APS Construction &mdash; Tous droits r&eacute;serv&eacute;s</p></td>',
+      '<td width="80" align="right" style="vertical-align:middle;">',
+      '<a href="' + APP_URL + '" style="display:inline-block;width:32px;height:32px;background:' + accentColor + ';border-radius:8px;text-align:center;line-height:32px;text-decoration:none;">',
+      '<span style="color:#ffffff;font-size:14px;font-weight:800;font-family:Arial,sans-serif;">A</span></a></td>',
+      '</tr></table></td></tr>',
+  
+      '</table>',
+      '</td></tr></table>',
+      '</body>',
+      '</html>'
+    ].join('\n');
 }
 
 // Darken/lighten a hex color
@@ -308,10 +315,9 @@ Deno.serve(async (req) => {
         await smtpClient.send({
           from: GMAIL_USER,
           to: to,
-          subject: subject || emailContent.subject,
-          content: 'auto',
+          subject: (subject || emailContent.subject).replace(/\r?\n|\r/g, ' '), // Remove newlines from subject
+          content: emailContent.html.replace(/<[^>]*>?/gm, ''), // Fallback text
           html: emailContent.html,
-          encoding: 'base64',
         });
 
         await smtpClient.close();

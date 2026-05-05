@@ -41,8 +41,13 @@ function buildSignedNotificationEmail(vars: {
     : '';
 
   return [
-    '<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">',
-    '<title>Document signé</title></head>',
+    '<!DOCTYPE html>',
+    '<html lang="fr">',
+    '<head>',
+    '<meta charset="utf-8">',
+    '<meta name="viewport" content="width=device-width,initial-scale=1.0">',
+    '<title>Document signé</title>',
+    '</head>',
     '<body style="margin:0;padding:0;background-color:#f0f2f5;font-family:Arial,Helvetica,sans-serif;">',
     '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f0f2f5;padding:32px 16px;">',
     '<tr><td align="center">',
@@ -99,8 +104,10 @@ function buildSignedNotificationEmail(vars: {
     '<span style="color:#ffffff;font-size:14px;font-weight:800;font-family:Arial,sans-serif;">A</span></a></td>',
     '</tr></table></td></tr>',
 
-    '</table></td></tr></table></body></html>'
-  ].join('');
+    '</table></td></tr></table>',
+    '</body>',
+    '</html>'
+  ].join('\n');
 }
 
 Deno.serve(async (req) => {
@@ -157,8 +164,8 @@ Deno.serve(async (req) => {
         });
         await smtpClient.send({
           from: GMAIL_USER, to: admin.email,
-          subject: `Document signé - ${documentName}`,
-          content: 'auto', html: emailBody, encoding: 'base64',
+          subject: (`Document signé - ${documentName}`).replace(/\r?\n|\r/g, ' '),
+          content: emailBody.replace(/<[^>]*>?/gm, ''), html: emailBody,
         });
         await smtpClient.close();
         emailSent = true;
