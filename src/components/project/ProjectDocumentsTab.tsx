@@ -281,6 +281,21 @@ const ProjectDocumentsTab: React.FC<ProjectDocumentsTabProps> = ({ projectId, is
       
       const fileUrl = await uploadToR2(selectedFile, filePath);
 
+      // Determine uploader name
+      let uploaderName = `${user?.user_metadata?.first_name || ''} ${user?.user_metadata?.last_name || ''}`.trim();
+      if (!uploaderName && user?.id) {
+        const currentUserProfile = projectMembers.find(m => m.user_id === user.id);
+        if (currentUserProfile) {
+          uploaderName = `${currentUserProfile.first_name || ''} ${currentUserProfile.last_name || ''}`.trim();
+        } else {
+          const { data: profile } = await supabase.from('profiles').select('first_name, last_name, email').eq('user_id', user.id).single();
+          if (profile) {
+            uploaderName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || profile.email;
+          }
+        }
+      }
+      uploaderName = uploaderName || 'Administrateur';
+
         // Create document record avec tenant_id
         const { data: docData, error: docError } = await supabase
           .from('project_documents')
@@ -293,7 +308,7 @@ const ProjectDocumentsTab: React.FC<ProjectDocumentsTabProps> = ({ projectId, is
             file_name: selectedFile.name,
             file_size: selectedFile.size,
             uploaded_by: user?.id,
-            uploaded_by_name: `${user?.user_metadata?.first_name || ''} ${user?.user_metadata?.last_name || ''}`.trim() || 'Administrateur'
+            uploaded_by_name: uploaderName
           })
         .select()
         .single();
@@ -344,7 +359,7 @@ const ProjectDocumentsTab: React.FC<ProjectDocumentsTabProps> = ({ projectId, is
             recipients,
             documentName: documentName,
             projectName: projectData?.name || '',
-            uploadedByName: `${user?.user_metadata?.first_name || ''} ${user?.user_metadata?.last_name || ''}`.trim() || 'Administrateur',
+            uploadedByName: uploaderName,
             documentId: docData.id,
             projectId: projectId
           }
