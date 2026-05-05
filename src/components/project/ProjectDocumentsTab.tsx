@@ -339,7 +339,7 @@ const ProjectDocumentsTab: React.FC<ProjectDocumentsTabProps> = ({ projectId, is
           };
         });
 
-        await supabase.functions.invoke('send-signature-request-email-gmail', {
+        await supabase.functions.invoke('send-signature-request-email', {
           body: {
             recipients,
             documentName: documentName,
