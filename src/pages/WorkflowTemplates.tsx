@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { SubmitButton } from '@/components/ui/submit-button';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -344,10 +345,10 @@ const WorkflowTemplates: React.FC = () => {
               <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Annuler
               </Button>
-              <Button onClick={handleSaveTemplate}>
+              <SubmitButton onClick={handleSaveTemplate} loadingText="Sauvegarde...">
                 <Save className="h-4 w-4 mr-2" />
                 {editingTemplate ? 'Enregistrer' : 'Créer'}
-              </Button>
+              </SubmitButton>
             </DialogFooter>
           </DialogContent>
         </Dialog>

@@ -7,6 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { SubmitButton } from '@/components/ui/submit-button';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -398,9 +399,9 @@ export const VisaWorkflowAssignmentDialog: React.FC<VisaWorkflowAssignmentDialog
           <Button variant="outline" onClick={onClose}>
             Annuler
           </Button>
-          <Button onClick={handleSubmit}>
+          <SubmitButton onClick={handleSubmit} loadingText="Assignation...">
             {isEditing ? 'Mettre à jour' : 'Assigner'}
-          </Button>
+          </SubmitButton>
         </DialogFooter>
       </DialogContent>
     </Dialog>

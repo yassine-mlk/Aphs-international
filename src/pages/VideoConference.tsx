@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useAsyncAction } from '@/hooks/useAsyncAction';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useVideoConference } from '@/hooks/useVideoConference';
@@ -68,6 +69,7 @@ function VideoConferenceContent() {
   const [isJoining, setIsJoining] = useState(false);
   const [meetingToJoin, setMeetingToJoin] = useState<string | null>(null);
   const [selectedWorkGroupId, setSelectedWorkGroupId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [newMeeting, setNewMeeting] = useState({
     title: '',
     description: '',
@@ -140,30 +142,31 @@ function VideoConferenceContent() {
   const isAdmin = role === 'admin';
 
   const handleCreateMeeting = async (status: 'scheduled' | 'active' | 'pending' = 'scheduled') => {
-    console.log("handleCreateMeeting triggered with status:", status);
-    const meeting = await createMeeting({
-      ...newMeeting,
-      status,
-      scheduled_at: status === 'active' ? new Date().toISOString() : newMeeting.scheduled_at
-    });
-    
-    console.log("createMeeting result:", meeting);
-    
-    if (meeting) {
-      setIsCreateDialogOpen(false);
-      setNewMeeting({
-        title: '',
-        description: '',
-        scheduled_at: '',
-        is_recording_enabled: false,
-        participants: []
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      const meeting = await createMeeting({
+        ...newMeeting,
+        status,
+        scheduled_at: status === 'active' ? new Date().toISOString() : newMeeting.scheduled_at
       });
-      if (status === 'active') {
-        setActiveMeetingId(meeting.id);
-        localStorage.setItem('active_video_meeting', meeting.id);
+      
+      if (meeting) {
+        setIsCreateDialogOpen(false);
+        setNewMeeting({
+          title: '',
+          description: '',
+          scheduled_at: '',
+          is_recording_enabled: false,
+          participants: []
+        });
+        if (status === 'active') {
+          setActiveMeetingId(meeting.id);
+          localStorage.setItem('active_video_meeting', meeting.id);
+        }
       }
-    } else {
-      console.warn("Meeting creation failed or returned null");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -388,12 +391,12 @@ function VideoConferenceContent() {
               </div>
               <div className="flex justify-end gap-2">
                 {isAdmin && (
-                  <Button variant="outline" onClick={() => handleCreateMeeting('active')} disabled={!newMeeting.title || newMeeting.participants.length === 0}>
-                    <Play className="mr-2 h-4 w-4" /> Lancer maintenant
+                  <Button variant="outline" onClick={() => handleCreateMeeting('active')} disabled={isSubmitting || !newMeeting.title || newMeeting.participants.length === 0}>
+                    {isSubmitting ? <><span className="animate-spin mr-2 h-4 w-4 border-2 border-current border-t-transparent rounded-full inline-block" /> Création...</> : <><Play className="mr-2 h-4 w-4" /> Lancer maintenant</>}
                   </Button>
                 )}
-                <Button onClick={() => handleCreateMeeting(isAdmin ? 'scheduled' : 'pending')} disabled={!newMeeting.title || newMeeting.participants.length === 0}>
-                  {isAdmin ? "Programmer" : "Envoyer la demande"}
+                <Button onClick={() => handleCreateMeeting(isAdmin ? 'scheduled' : 'pending')} disabled={isSubmitting || !newMeeting.title || newMeeting.participants.length === 0}>
+                  {isSubmitting ? <><span className="animate-spin mr-2 h-4 w-4 border-2 border-current border-t-transparent rounded-full inline-block" /> En cours...</> : (isAdmin ? "Programmer" : "Envoyer la demande")}
                 </Button>
               </div>
             </DialogContent>

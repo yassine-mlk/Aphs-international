@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { SubmitButton } from '@/components/ui/submit-button';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -472,9 +473,9 @@ const WorkGroupsContent: React.FC = () => {
             <Button variant="outline" onClick={() => setCreateDialogOpen(false)} className="h-9">
               Annuler
             </Button>
-            <Button onClick={handleCreate} disabled={!formData.name.trim()} className="h-9 bg-aps-navy hover:bg-aps-navy/90">
+            <SubmitButton onClick={handleCreate} disabled={!formData.name.trim()} className="h-9 bg-aps-navy hover:bg-aps-navy/90" loadingText="Création...">
               Créer le groupe
-            </Button>
+            </SubmitButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>

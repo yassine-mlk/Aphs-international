@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { SubmitButton } from '@/components/ui/submit-button';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -1584,11 +1585,11 @@ const ProjectStructureTab: React.FC<ProjectStructureTabProps> = ({
             <Button variant="outline" onClick={() => setIsAssignDialogOpen(false)}>
               Annuler
             </Button>
-            <Button onClick={handleSubmitAssignment}>
+            <SubmitButton onClick={handleSubmitAssignment} loadingText="Assignation...">
               {selectedTask && getAssignment(selectedTask.phase, selectedTask.section, selectedTask.subsection, selectedTask.taskName)
                 ? 'Mettre à jour'
                 : 'Assigner'}
-            </Button>
+            </SubmitButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>
