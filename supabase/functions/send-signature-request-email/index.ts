@@ -1,7 +1,5 @@
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
-// Resend API pour envoyer des emails
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
 const FROM_EMAIL = (Deno.env.get('FROM_EMAIL') || 'onboarding@resend.dev').trim();
 
@@ -18,15 +16,8 @@ const getCorsHeaders = (req?: Request) => {
   };
 };
 
-// DEPRECATED: use getCorsHeaders(req) instead
-const corsHeaders = {
-  'Access-Control-Allow-Origin': 'https://www.aps-construction.com',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Access-Control-Max-Age': '86400',
-};
+const APP_URL = 'https://www.aps-construction.com';
 
-// Générer un token aléatoire sécurisé
 const generateToken = (): string => {
   const array = new Uint8Array(32);
   crypto.getRandomValues(array);
@@ -35,9 +26,97 @@ const generateToken = (): string => {
     .substring(0, 32);
 };
 
-serve(async (req) => {
+function adjustColor(hex: string, amount: number): string {
+  hex = hex.replace('#', '');
+  const r = Math.max(0, Math.min(255, parseInt(hex.substring(0, 2), 16) + amount));
+  const g = Math.max(0, Math.min(255, parseInt(hex.substring(2, 4), 16) + amount));
+  const b = Math.max(0, Math.min(255, parseInt(hex.substring(4, 6), 16) + amount));
+  return '#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('');
+}
+
+function buildSignatureEmail(vars: {
+  recipientName: string;
+  uploadedByName: string;
+  documentName: string;
+  projectName?: string;
+  signatureLink: string;
+  expiresAt: string;
+}): string {
+  const accent = '#2563eb';
+  return [
+    '<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">',
+    '<title>Document à signer</title></head>',
+    '<body style="margin:0;padding:0;background-color:#f0f2f5;font-family:Arial,Helvetica,sans-serif;">',
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f0f2f5;padding:32px 16px;">',
+    '<tr><td align="center">',
+
+    // Container
+    '<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">',
+
+    // Logo Bar
+    '<tr><td style="padding:24px 32px;background:#ffffff;border-bottom:1px solid #f0f2f5;" align="left">',
+    '<table role="presentation" cellpadding="0" cellspacing="0"><tr>',
+    '<td style="width:40px;height:40px;background:' + accent + ';border-radius:10px;text-align:center;vertical-align:middle;" align="center">',
+    '<span style="color:#ffffff;font-size:18px;font-weight:800;font-family:Arial,sans-serif;line-height:40px;">A</span></td>',
+    '<td style="padding-left:12px;"><span style="font-family:Arial,sans-serif;font-size:20px;font-weight:800;color:#0f172a;letter-spacing:-0.5px;">APS</span>',
+    '<span style="font-family:Arial,sans-serif;font-size:11px;color:#94a3b8;display:block;line-height:1.2;letter-spacing:0.5px;">CONSTRUCTION</span></td>',
+    '</tr></table></td></tr>',
+
+    // Header
+    '<tr><td style="background:linear-gradient(135deg,' + accent + ' 0%,' + adjustColor(accent, -25) + ' 100%);padding:36px 40px;" align="left">',
+    '<table role="presentation" cellpadding="0" cellspacing="0"><tr>',
+    '<td style="padding-right:16px;vertical-align:middle;"><span style="font-size:32px;line-height:1;">📄</span></td>',
+    '<td><h1 style="margin:0;font-family:Arial,sans-serif;font-size:22px;font-weight:700;color:#ffffff;line-height:1.3;">Document à signer</h1>',
+    '<p style="margin:4px 0 0 0;font-family:Arial,sans-serif;font-size:13px;color:rgba(255,255,255,0.8);">Signature électronique requise</p></td>',
+    '</tr></table></td></tr>',
+
+    // Body
+    '<tr><td style="padding:36px 40px;">',
+    '<p style="margin:0 0 20px 0;font-family:Arial,sans-serif;font-size:15px;color:#334155;line-height:1.6;">Bonjour <strong>' + vars.recipientName + '</strong>,</p>',
+    '<p style="margin:0 0 24px 0;font-family:Arial,sans-serif;font-size:15px;color:#334155;line-height:1.6;"><strong>' + vars.uploadedByName + '</strong> vous demande de signer électroniquement un document' + (vars.projectName ? ' pour le projet <strong>' + vars.projectName + '</strong>' : '') + '.</p>',
+
+    // Document Info Card
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;margin:0 0 24px 0;">',
+    '<tr><td colspan="2" style="padding:16px 20px 8px 20px;font-family:Arial,sans-serif;font-size:13px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid #e2e8f0;">Détails du document</td></tr>',
+    '<tr><td style="padding:12px 20px;font-family:Arial,sans-serif;font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;width:120px;">Document</td>',
+    '<td style="padding:12px 20px;font-family:Arial,sans-serif;font-size:14px;color:#0f172a;font-weight:600;">' + vars.documentName + '</td></tr>',
+    (vars.projectName ? '<tr><td style="padding:8px 20px;font-family:Arial,sans-serif;font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Projet</td><td style="padding:8px 20px;font-family:Arial,sans-serif;font-size:14px;color:#0f172a;font-weight:600;">' + vars.projectName + '</td></tr>' : ''),
+    '<tr><td style="padding:8px 20px 12px 20px;font-family:Arial,sans-serif;font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Envoyé par</td>',
+    '<td style="padding:8px 20px 12px 20px;font-family:Arial,sans-serif;font-size:14px;color:#0f172a;font-weight:600;">' + vars.uploadedByName + '</td></tr>',
+    '</table>',
+
+    // CTA Button
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:8px 0 24px 0;">',
+    '<a href="' + vars.signatureLink + '" style="display:inline-block;background:' + accent + ';color:#ffffff;font-family:Arial,sans-serif;font-size:16px;font-weight:700;text-decoration:none;padding:16px 48px;border-radius:10px;letter-spacing:0.3px;box-shadow:0 4px 12px rgba(37,99,235,0.3);">Signer le document</a>',
+    '</td></tr></table>',
+
+    // Warning
+    '<div style="background:#fffbeb;border-left:4px solid #f59e0b;padding:16px 20px;border-radius:0 8px 8px 0;margin:0 0 24px 0;">',
+    '<p style="margin:0;font-family:Arial,sans-serif;font-size:13px;color:#92400e;line-height:1.6;">',
+    '<strong>⚠️ Important :</strong> Ce lien est personnel et sécurisé. Ne le partagez pas. Il expire le <strong>' + vars.expiresAt + '</strong>.</p></div>',
+
+    // Fallback link
+    '<p style="margin:0;font-family:Arial,sans-serif;font-size:12px;color:#94a3b8;line-height:1.5;">Si le bouton ne fonctionne pas, copiez ce lien :<br>',
+    '<a href="' + vars.signatureLink + '" style="color:#2563eb;word-break:break-all;font-size:12px;">' + vars.signatureLink + '</a></p>',
+    '</td></tr>',
+
+    // Footer
+    '<tr><td style="padding:24px 40px;background:#f8fafc;border-top:1px solid #e2e8f0;">',
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>',
+    '<td><p style="margin:0 0 4px 0;font-family:Arial,sans-serif;font-size:11px;color:#94a3b8;line-height:1.5;">Cet email a été envoyé automatiquement. Merci de ne pas y répondre.</p>',
+    '<p style="margin:0;font-family:Arial,sans-serif;font-size:11px;color:#cbd5e1;">&copy; 2025 APS Construction &mdash; Tous droits r&eacute;serv&eacute;s</p></td>',
+    '<td width="80" align="right" style="vertical-align:middle;">',
+    '<a href="' + APP_URL + '" style="display:inline-block;width:32px;height:32px;background:' + accent + ';border-radius:8px;text-align:center;line-height:32px;text-decoration:none;">',
+    '<span style="color:#ffffff;font-size:14px;font-weight:800;font-family:Arial,sans-serif;">A</span></a></td>',
+    '</tr></table></td></tr>',
+
+    '</table></td></tr></table></body></html>'
+  ].join('');
+}
+
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: getCorsHeaders(req) });
+    return new Response('ok', { status: 200, headers: getCorsHeaders(req) });
   }
 
   try {
@@ -50,51 +129,36 @@ serve(async (req) => {
       );
     }
 
-    // Créer le client Supabase avec la clé service role
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') || '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
     );
 
-    const appUrl = Deno.env.get('APP_URL') || 'https://app.aps.com';
+    const appUrl = Deno.env.get('APP_URL') || APP_URL;
     const results = [];
 
-    // Fonction pour envoyer un email via Resend
     const sendEmail = async (to: string, subject: string, html: string) => {
       if (!RESEND_API_KEY) {
         console.log('RESEND_API_KEY not set, skipping email send');
         return { id: 'test-mode-no-api-key' };
       }
-
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${RESEND_API_KEY}`
-        },
-        body: JSON.stringify({
-          from: FROM_EMAIL,
-          to: to,
-          subject: subject,
-          html: html
-        })
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${RESEND_API_KEY}` },
+        body: JSON.stringify({ from: FROM_EMAIL, to, subject, html })
       });
-
       if (!res.ok) {
         const error = await res.text();
         throw new Error(`Failed to send email: ${error}`);
       }
-
       return await res.json();
     };
 
-    // Pour chaque destinataire, générer un token et envoyer l'email
     for (const recipient of recipients) {
       const token = generateToken();
       const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 7); // Expire dans 7 jours
+      expiresAt.setDate(expiresAt.getDate() + 7);
 
-      // Mettre à jour le document_recipient avec le token
       const { error: updateError } = await supabaseClient
         .from('document_recipients')
         .update({
@@ -105,121 +169,37 @@ serve(async (req) => {
 
       if (updateError) {
         console.error('Error updating recipient:', updateError);
-        results.push({
-          recipientId: recipient.recipientId,
-          success: false,
-          error: 'Failed to generate token'
-        });
+        results.push({ recipientId: recipient.recipientId, success: false, error: 'Failed to generate token' });
         continue;
       }
 
-      // Construire le lien de signature
       const signatureLink = `${appUrl}/signer/${token}`;
 
-      // Préparer l'email
-      const emailSubject = `Document à signer : ${documentName}`;
-      const emailBody = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <style>
-    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
-    .container { max-width: 600px; margin: 0 auto; background: #f9fafb; }
-    .header { background: #2563eb; color: white; padding: 30px 20px; text-align: center; }
-    .header h1 { margin: 0; font-size: 24px; }
-    .content { padding: 30px 20px; }
-    .document-info { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-    .document-info h2 { margin-top: 0; color: #1f2937; font-size: 18px; }
-    .info-row { margin: 10px 0; }
-    .info-label { color: #6b7280; font-size: 14px; }
-    .info-value { color: #1f2937; font-weight: 500; }
-    .button-container { text-align: center; margin: 30px 0; }
-    .button { display: inline-block; background: #2563eb; color: white; padding: 16px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px; }
-    .button:hover { background: #1d4ed8; }
-    .warning { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; font-size: 14px; color: #92400e; }
-    .footer { text-align: center; color: #9ca3af; font-size: 12px; padding: 20px; }
-    .link-fallback { word-break: break-all; color: #2563eb; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1>📄 Document à signer</h1>
-    </div>
-    
-    <div class="content">
-      <p>Bonjour ${recipient.name},</p>
-      
-      <p><strong>${uploadedByName}</strong> vous demande de signer électroniquement un document${projectName ? ` pour le projet <strong>${projectName}</strong>` : ''}.</p>
-      
-      <div class="document-info">
-        <h2>Détails du document</h2>
-        <div class="info-row">
-          <span class="info-label">Nom du document :</span><br>
-          <span class="info-value">${documentName}</span>
-        </div>
-        ${projectName ? `
-        <div class="info-row">
-          <span class="info-label">Projet :</span><br>
-          <span class="info-value">${projectName}</span>
-        </div>
-        ` : ''}
-        <div class="info-row">
-          <span class="info-label">Envoyé par :</span><br>
-          <span class="info-value">${uploadedByName}</span>
-        </div>
-      </div>
-      
-      <div class="button-container">
-        <a href="${signatureLink}" class="button">Signer le document</a>
-      </div>
-      
-      <div class="warning">
-        <strong>⚠️ Important :</strong> Ce lien est personnel et sécurisé. Ne le partagez pas. 
-        Il expire le <strong>${expiresAt.toLocaleDateString('fr-FR')}</strong>.
-      </div>
-      
-      <p style="font-size: 14px; color: #6b7280;">
-        Si le bouton ne fonctionne pas, copiez et collez ce lien dans votre navigateur :<br>
-        <span class="link-fallback">${signatureLink}</span>
-      </p>
-    </div>
-    
-    <div class="footer">
-      <p>Cet email a été envoyé automatiquement par APS.</p>
-      <p>© 2025 APS - Tous droits réservés</p>
-    </div>
-  </div>
-</body>
-</html>
-      `;
+      const emailBody = buildSignatureEmail({
+        recipientName: recipient.name,
+        uploadedByName,
+        documentName,
+        projectName,
+        signatureLink,
+        expiresAt: expiresAt.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }),
+      });
 
-      // Envoyer l'email via Resend
       let emailSent = false;
       try {
         if (recipient.email && RESEND_API_KEY) {
-          await sendEmail(recipient.email, emailSubject, emailBody);
+          await sendEmail(recipient.email, `Document à signer : ${documentName}`, emailBody);
           emailSent = true;
           console.log(`Email sent to ${recipient.email}`);
-        } else if (!RESEND_API_KEY) {
-          console.log('RESEND_API_KEY not configured, email not sent');
         }
       } catch (emailError) {
         console.error(`Failed to send email to ${recipient.email}:`, emailError);
       }
-      
+
       results.push({
-        recipientId: recipient.recipientId,
-        email: recipient.email,
-        name: recipient.name,
-        token: token,
-        success: true,
-        emailSent,
-        signatureLink
+        recipientId: recipient.recipientId, email: recipient.email, name: recipient.name,
+        token, success: true, emailSent, signatureLink
       });
 
-      // Créer une notification pour l'intervenant dans l'app
       const { error: notifError } = await supabaseClient
         .from('notifications')
         .insert({
@@ -227,26 +207,15 @@ serve(async (req) => {
           type: 'file_validation_request',
           title: 'Document à signer',
           message: `${uploadedByName} vous demande de signer "${documentName}"`,
-          data: {
-            documentId,
-            projectId,
-            signatureToken: token,
-            signatureLink
-          },
+          data: { documentId, projectId, signatureToken: token, signatureLink },
           is_read: false
         });
 
-      if (notifError) {
-        console.error('Error creating notification:', notifError);
-      }
+      if (notifError) console.error('Error creating notification:', notifError);
     }
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        message: `Signature requests sent to ${results.length} recipients`,
-        results
-      }),
+      JSON.stringify({ success: true, message: `Signature requests sent to ${results.length} recipients`, results }),
       { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
 
