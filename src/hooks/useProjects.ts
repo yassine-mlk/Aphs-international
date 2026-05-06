@@ -101,10 +101,47 @@ export function useProjects() {
         // On importe dynamiquement pour éviter les cycles ou charger inutilement
         const { projectStructure, realizationStructure } = await import('@/data/project-structure');
         
-        const defaultStructure: any[] = [
-          ...projectStructure.map((s, i) => ({ ...s, phase: 'conception', order_index: i })),
-          ...realizationStructure.map((s, i) => ({ ...s, phase: 'realisation', order_index: i }))
-        ];
+        const conception = projectStructure.map((s, si) => ({
+          id: `temp-sec-${si}`,
+          title: s.title,
+          phase: 'conception',
+          order_index: si,
+          items: s.items.map((it, ii) => ({
+            id: `temp-item-${si}-${ii}`,
+            section_id: `temp-sec-${si}`,
+            title: it.title,
+            order_index: ii,
+            tasks: it.tasks.map((t, ti) => ({
+              id: `temp-task-${si}-${ii}-${ti}`,
+              item_id: `temp-item-${si}-${ii}`,
+              title: t,
+              order_index: ti,
+              info_sheet: ''
+            }))
+          }))
+        }));
+
+        const realisation = realizationStructure.map((s, si) => ({
+          id: `temp-sec-r-${si}`,
+          title: s.title,
+          phase: 'realisation',
+          order_index: si,
+          items: s.items.map((it, ii) => ({
+            id: `temp-item-r-${si}-${ii}`,
+            section_id: `temp-sec-r-${si}`,
+            title: it.title,
+            order_index: ii,
+            tasks: it.tasks.map((t, ti) => ({
+              id: `temp-task-r-${si}-${ii}-${ti}`,
+              item_id: `temp-item-r-${si}-${ii}`,
+              title: t,
+              order_index: ti,
+              info_sheet: ''
+            }))
+          }))
+        }));
+        
+        const defaultStructure = [...conception, ...realisation];
         
         return snapshotCustomStructure(projectId, defaultStructure);
       }
