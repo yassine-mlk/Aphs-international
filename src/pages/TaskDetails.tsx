@@ -46,7 +46,7 @@ import {
   TASK_STATUS_COLORS,
   TaskStatus
 } from '@/types/taskAssignment';
-import { VisaWorkflow, VisaSubmission, VisaOpinion, VISA_OPINION_LABELS, calculateWorkflowProgress } from '@/types/visaWorkflow';
+import { VisaOpinion } from '@/types/visaWorkflow';
 
 import { TaskHeader } from '@/components/TaskDetails/TaskHeader';
 import { TaskInfoCard } from '@/components/TaskDetails/TaskInfoCard';
@@ -128,6 +128,7 @@ const TaskDetails: React.FC = () => {
   const [validationComment, setValidationComment] = useState('');
   const [selectedSubmissionId, setSelectedSubmissionId] = useState<string | null>(null);
   const [isReassignModalOpen, setIsReassignModalOpen] = useState(false);
+  const [tenantId, setTenantId] = useState<string | null>(null);
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [reassignForm, setReassignForm] = useState<{
     executor_id: string;
@@ -142,6 +143,41 @@ const TaskDetails: React.FC = () => {
     deadline: '',
     comment: ''
   });
+
+  // Charger le tenantId dès que task est chargé
+  useEffect(() => {
+    if (task?.project_id) {
+      const fetchTenant = async () => {
+        const { data } = await supabase
+          .from('projects')
+          .select('tenant_id')
+          .eq('id', task.project_id)
+          .maybeSingle();
+        if (data?.tenant_id) {
+          setTenantId(data.tenant_id);
+        }
+      };
+      fetchTenant();
+    }
+  }, [task?.project_id]);
+
+  // Charger les utilisateurs du tenant quand le modal s'ouvre
+  useEffect(() => {
+    if (isReassignModalOpen && tenantId) {
+      const fetchUsers = async () => {
+        const { data } = await supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name, role')
+          .eq('tenant_id', tenantId)
+          .neq('role', 'admin') // Exclure les admins comme dans l'onglet structure
+          .neq('is_super_admin', true);
+        if (data) {
+          setAllUsers(data);
+        }
+      };
+      fetchUsers();
+    }
+  }, [isReassignModalOpen, tenantId]);
 
   // Vérifier si un utilisateur est dans la liste des validateurs
   const isUserValidator = (userId: string, validators: any[]) => {

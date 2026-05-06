@@ -5,7 +5,9 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { AlertTriangle, CheckCircle2, RotateCcw, Users, History, ListChecks, ChevronUp, ChevronDown, X, AlertCircle, Loader2 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
+import { AlertTriangle, CheckCircle2, RotateCcw, Users, History, ListChecks, ChevronUp, ChevronDown, X, AlertCircle, Loader2, Search } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 interface TaskAdminActionsProps {
@@ -51,7 +53,14 @@ export const TaskAdminActions: React.FC<TaskAdminActionsProps> = ({
   reassignValidators,
   user
 }) => {
+  const [userSearchQuery, setUserSearchQuery] = React.useState('');
+
   if (!isAdmin || !task) return null;
+
+  const filteredUsers = allUsers.filter(u => 
+    (u.first_name + ' ' + u.last_name).toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+    u.role.toLowerCase().includes(userSearchQuery.toLowerCase())
+  );
 
   // Cas pour Workflow Séquentiel
   if (isSequential) {
@@ -140,12 +149,6 @@ export const TaskAdminActions: React.FC<TaskAdminActionsProps> = ({
                   variant="outline"
                   className="w-full h-12 font-black text-xs uppercase tracking-widest border-purple-200 text-purple-700 hover:bg-purple-50"
                   onClick={async () => {
-                    // Charger les utilisateurs pour le sélecteur
-                    const { data: profiles } = await supabase
-                      .from('profiles')
-                      .select('user_id, first_name, last_name, role');
-                    if (profiles) setAllUsers(profiles);
-                    
                     // Initialiser le formulaire avec les données actuelles
                     setReassignForm({
                       executor_id: task.assigned_to[0] || '',
@@ -198,19 +201,34 @@ export const TaskAdminActions: React.FC<TaskAdminActionsProps> = ({
                   {/* 1. EXÉCUTANT */}
                   <div className="space-y-3">
                     <Label className="text-[10px] font-black uppercase tracking-widest text-gray-500">1. Exécutant (rédacteur)</Label>
-                    <div className="bg-gray-50 p-3 rounded-xl border border-gray-200">
-                      <select 
-                        className="w-full bg-transparent text-sm font-bold focus:outline-none"
-                        value={reassignForm.executor_id}
-                        onChange={(e) => setReassignForm((prev: any) => ({ ...prev, executor_id: e.target.value }))}
-                      >
-                        <option value="">Sélectionner un exécutant</option>
-                        {allUsers.map(u => (
-                          <option key={u.user_id} value={u.user_id}>
-                            {u.first_name} {u.last_name} ({u.role})
-                          </option>
+                    <div className="bg-white p-3 rounded-xl border border-gray-200 space-y-3">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                        <Input 
+                          placeholder="Rechercher..." 
+                          className="pl-9 h-9 text-xs rounded-lg"
+                          value={userSearchQuery}
+                          onChange={(e) => setUserSearchQuery(e.target.value)}
+                        />
+                      </div>
+                      <div className="max-h-40 overflow-y-auto space-y-1 pr-1">
+                        {filteredUsers.map(u => (
+                          <label key={u.user_id} className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded-lg cursor-pointer transition-colors border border-transparent hover:border-gray-100">
+                            <Checkbox 
+                              checked={reassignForm.executor_id === u.user_id}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setReassignForm((prev: any) => ({ ...prev, executor_id: u.user_id }));
+                                }
+                              }}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-bold truncate">{u.first_name} {u.last_name}</p>
+                              <p className="text-[10px] text-gray-500 uppercase tracking-tighter">{u.role}</p>
+                            </div>
+                          </label>
                         ))}
-                      </select>
+                      </div>
                     </div>
                   </div>
 
@@ -251,16 +269,32 @@ export const TaskAdminActions: React.FC<TaskAdminActionsProps> = ({
                   <div className="space-y-2 border-2 border-dashed border-gray-100 p-4 rounded-2xl">
                     {reassignForm.validators.map((v: any, idx: number) => (
                       <div key={v.user_id} className="flex items-center gap-3 p-3 bg-white rounded-xl border border-gray-100 shadow-sm group">
-                        <span className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-[10px] font-black">
+                        <span className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-[10px] font-black shrink-0">
                           {idx + 1}
                         </span>
-                        <span className="flex-1 text-sm font-bold text-gray-700">{participantNames[v.user_id] || "Utilisateur"}</span>
+                        <span className="flex-1 text-sm font-bold text-gray-700 truncate">{participantNames[v.user_id] || "Utilisateur"}</span>
                         
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-2 bg-gray-50 px-2 py-1 rounded border shrink-0">
+                          <span className="text-[10px] text-gray-500 uppercase font-black">Délai (j)</span>
+                          <input
+                            type="number"
+                            min="1"
+                            className="w-10 h-6 text-xs p-1 border-0 focus:outline-none bg-transparent font-bold text-blue-700"
+                            value={v.days_limit}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value) || 1;
+                              const newList = [...reassignForm.validators];
+                              newList[idx].days_limit = val;
+                              setReassignForm((prev: any) => ({ ...prev, validators: newList }));
+                            }}
+                          />
+                        </div>
+
+                        <div className="flex items-center gap-0.5 border-l pl-2">
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7"
+                            className="h-8 w-8"
                             disabled={idx === 0}
                             onClick={() => {
                               const newList = [...reassignForm.validators];
@@ -273,7 +307,7 @@ export const TaskAdminActions: React.FC<TaskAdminActionsProps> = ({
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7"
+                            className="h-8 w-8"
                             disabled={idx === reassignForm.validators.length - 1}
                             onClick={() => {
                               const newList = [...reassignForm.validators];
@@ -286,7 +320,7 @@ export const TaskAdminActions: React.FC<TaskAdminActionsProps> = ({
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50"
+                            className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
                             onClick={() => {
                               setReassignForm((prev: any) => ({
                                 ...prev,
@@ -300,34 +334,31 @@ export const TaskAdminActions: React.FC<TaskAdminActionsProps> = ({
                       </div>
                     ))}
 
-                    {reassignForm.validators.length === 0 && (
-                      <p className="text-center py-6 text-xs text-gray-400 italic">Aucun validateur sélectionné.</p>
-                    )}
-
                     <div className="pt-2">
-                      <select 
-                        className="w-full p-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-blue-600 focus:outline-none cursor-pointer"
-                        onChange={(e) => {
-                          const userId = e.target.value;
-                          if (userId && !reassignForm.validators.some((v: any) => v.user_id === userId)) {
-                            setReassignForm((prev: any) => ({
-                              ...prev,
-                              validators: [...prev.validators, { user_id: userId, days_limit: 5 }]
-                            }));
-                          }
-                          e.target.value = "";
-                        }}
-                      >
-                        <option value="">+ Ajouter un validateur...</option>
-                        {allUsers
+                      <div className="max-h-40 overflow-y-auto space-y-1 bg-gray-50 p-2 rounded-xl border border-dashed border-gray-200">
+                        <p className="text-[10px] font-black uppercase text-gray-400 mb-2 px-1">Cliquer pour ajouter un validateur</p>
+                        {filteredUsers
                           .filter(u => !reassignForm.validators.some((v: any) => v.user_id === u.user_id) && u.user_id !== reassignForm.executor_id)
                           .map(u => (
-                            <option key={u.user_id} value={u.user_id}>
-                              {u.first_name} {u.last_name}
-                            </option>
+                            <div 
+                              key={u.user_id} 
+                              className="flex items-center gap-2 p-2 hover:bg-white rounded-lg cursor-pointer transition-all border border-transparent hover:border-gray-100 shadow-none hover:shadow-sm"
+                              onClick={() => {
+                                setReassignForm((prev: any) => ({
+                                  ...prev,
+                                  validators: [...prev.validators, { user_id: u.user_id, days_limit: 5 }]
+                                }));
+                              }}
+                            >
+                              <div className="h-6 w-6 bg-gray-200 rounded text-[10px] flex items-center justify-center font-bold text-gray-500">
+                                {u.first_name[0]}{u.last_name[0]}
+                              </div>
+                              <span className="flex-1 text-xs font-bold text-gray-700">{u.first_name} {u.last_name}</span>
+                              <Badge variant="outline" className="text-[9px] px-1 h-4">{u.role}</Badge>
+                            </div>
                           ))
                         }
-                      </select>
+                      </div>
                     </div>
                   </div>
                 </div>
