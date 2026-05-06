@@ -161,23 +161,40 @@ const TaskDetails: React.FC = () => {
     }
   }, [task?.project_id]);
 
-  // Charger les utilisateurs du tenant quand le modal s'ouvre
+  // Charger les utilisateurs membres du projet quand le modal s'ouvre
   useEffect(() => {
-    if (isReassignModalOpen && tenantId) {
-      const fetchUsers = async () => {
-        const { data } = await supabase
+    if (isReassignModalOpen && task?.project_id) {
+      const fetchProjectMembers = async () => {
+        // 1. Récupérer les user_id des membres du projet
+        const { data: memberData, error: memberError } = await supabase
+          .from('membre')
+          .select('user_id')
+          .eq('project_id', task.project_id);
+        
+        if (memberError || !memberData) return;
+        
+        const memberUserIds = memberData.map(m => m.user_id);
+        
+        if (memberUserIds.length === 0) {
+          setAllUsers([]);
+          return;
+        }
+
+        // 2. Récupérer les profiles de ces membres
+        const { data: profiles } = await supabase
           .from('profiles')
           .select('user_id, first_name, last_name, role')
-          .eq('tenant_id', tenantId)
-          .neq('role', 'admin') // Exclure les admins comme dans l'onglet structure
+          .in('user_id', memberUserIds)
+          .neq('role', 'admin')
           .neq('is_super_admin', true);
-        if (data) {
-          setAllUsers(data);
+          
+        if (profiles) {
+          setAllUsers(profiles);
         }
       };
-      fetchUsers();
+      fetchProjectMembers();
     }
-  }, [isReassignModalOpen, tenantId]);
+  }, [isReassignModalOpen, task?.project_id]);
 
   // Vérifier si un utilisateur est dans la liste des validateurs
   const isUserValidator = (userId: string, validators: any[]) => {
