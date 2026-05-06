@@ -48,7 +48,7 @@ import ImageUpload from '@/components/ImageUpload';
 import { Project, ProjectFormData, PROJECT_STATUSES } from '../types/project';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ProjectListSkeleton } from '@/components/Skeletons';
-import { projectStructure, realizationStructure } from '@/data/project-structure';
+import { ProjectStructureManager } from '@/components/project/ProjectStructureManager';
 
 interface CustomStructureItem {
   phase_id: 'conception' | 'realisation';
@@ -101,18 +101,7 @@ const Projects: React.FC = () => {
 
   // États pour le formulaire multi-étapes et l'édition de structure
   const [createStep, setCreateStep] = useState<1 | 2>(1);
-  const [customStructure, setCustomStructure] = useState<TenantSection[]>([]);
-  const [loadingStructure, setLoadingStructure] = useState(false);
-  const [structurePhase, setStructurePhase] = useState<'conception' | 'realisation'>('conception');
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
-  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editValue, setEditValue] = useState('');
-  
-  // États pour l'ajout d'éléments
-  const [addingToId, setAddingToId] = useState<string | null>(null);
-  const [addingType, setAddingType] = useState<'item' | 'task' | 'section' | null>(null);
-  const [newValue, setNewValue] = useState('');
+  const [newlyCreatedProjectId, setNewlyCreatedProjectId] = useState<string | null>(null);
   
   // Charger tenant_id de l'admin connecté
   useEffect(() => {
@@ -332,7 +321,7 @@ const Projects: React.FC = () => {
     setIsCreateDialogOpen(true);
   };
 
-  // Passer à l'étape suivante (Structure)
+  // Passer à l'étape suivante (Structure) - Crée le projet en base
   const handleNextStep = async () => {
     if (!newProject.name.trim() || !newProject.description.trim() || !newProject.start_date) {
       toast({
@@ -343,338 +332,6 @@ const Projects: React.FC = () => {
       return;
     }
 
-    setCreateStep(2);
-    if (customStructure.length === 0) {
-      await loadDefaultStructure();
-    }
-  };
-
-  // Charger la structure par défaut (du tenant ou hardcoded)
-  const loadDefaultStructure = async () => {
-    if (!tenantId) return;
-    setLoadingStructure(true);
-    try {
-      // Tenter de charger la structure du tenant
-      const { data: sections } = await supabase
-        .from('tenant_project_sections')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .order('order_index');
-
-      if (sections && sections.length > 0) {
-        const built: TenantSection[] = await Promise.all(
-          sections.map(async (sec: any) => {
-            const { data: items } = await supabase
-              .from('tenant_project_items')
-              .select('*')
-              .eq('section_id', sec.id)
-              .order('order_index');
-            
-            const builtItems: TenantItem[] = await Promise.all(
-              (items || []).map(async (item: any) => {
-                const { data: tasks } = await supabase
-                  .from('tenant_project_tasks')
-                  .select('*')
-                  .eq('item_id', item.id)
-                  .order('order_index');
-                
-                // Charger aussi les fiches informatives
-                const taskIds = (tasks || []).map(t => t.id);
-                let infoSheetsMap: Record<string, string> = {};
-                if (taskIds.length > 0) {
-                  const { data: sheets } = await supabase
-                    .from('tenant_task_info_sheets')
-                    .select('*')
-                    .in('tenant_task_id', taskIds);
-                  (sheets || []).forEach(s => { infoSheetsMap[s.tenant_task_id] = s.info_sheet; });
-                }
-
-                return { 
-                  ...item, 
-                  tasks: (tasks || []).map(t => ({ ...t, info_sheet: infoSheetsMap[t.id] || '' })) 
-                };
-              })
-            );
-            return { ...sec, items: builtItems };
-          })
-        );
-        setCustomStructure(built);
-      } else {
-        // Si pas de structure tenant, utiliser les défauts hardcodés
-        const conception = projectStructure.map((s, si) => ({
-          id: `temp-sec-${si}`,
-          title: s.title,
-          phase: 'conception',
-          order_index: si,
-          items: s.items.map((it, ii) => ({
-            id: `temp-item-${si}-${ii}`,
-            section_id: `temp-sec-${si}`,
-            title: it.title,
-            order_index: ii,
-            tasks: it.tasks.map((t, ti) => ({
-              id: `temp-task-${si}-${ii}-${ti}`,
-              item_id: `temp-item-${si}-${ii}`,
-              title: t,
-              order_index: ti,
-              info_sheet: ''
-            }))
-          }))
-        }));
-
-        const realisation = realizationStructure.map((s, si) => ({
-          id: `temp-sec-r-${si}`,
-          title: s.title,
-          phase: 'realisation',
-          order_index: si,
-          items: s.items.map((it, ii) => ({
-            id: `temp-item-r-${si}-${ii}`,
-            section_id: `temp-sec-r-${si}`,
-            title: it.title,
-            order_index: ii,
-            tasks: it.tasks.map((t, ti) => ({
-              id: `temp-task-r-${si}-${ii}-${ti}`,
-              item_id: `temp-item-r-${si}-${ii}`,
-              title: t,
-              order_index: ti,
-              info_sheet: ''
-            }))
-          }))
-        }));
-
-        setCustomStructure([...conception, ...realisation] as TenantSection[]);
-      }
-    } catch (error) {
-      console.error("Error loading structure:", error);
-    } finally {
-      setLoadingStructure(false);
-    }
-  };
-
-  // Fonctions de modification de la structure locale
-  const toggleSection = (id: string) =>
-    setExpandedSections(p => { const s = new Set(p); s.has(id) ? s.delete(id) : s.add(id); return s; });
-  const toggleItem = (id: string) =>
-    setExpandedItems(p => { const s = new Set(p); s.has(id) ? s.delete(id) : s.add(id); return s; });
-
-  const addSection = () => {
-    if (!newValue.trim()) {
-      toast({ title: 'Erreur', description: 'Le titre de la section ne peut pas être vide.', variant: 'destructive' });
-      return;
-    }
-    const newSection: TenantSection = {
-      id: `new-sec-${Date.now()}`,
-      title: newValue.trim(),
-      phase: structurePhase,
-      order_index: customStructure.filter(s => s.phase === structurePhase).length,
-      items: []
-    };
-    setCustomStructure([...customStructure, newSection]);
-    setNewValue('');
-    setAddingType(null);
-  };
-
-  const deleteSection = (id: string) => {
-    setCustomStructure(customStructure.filter(s => s.id !== id));
-  };
-
-  const addItem = (sectionId: string) => {
-    if (!newValue.trim()) {
-      toast({ title: 'Erreur', description: 'Le titre du lot ne peut pas être vide.', variant: 'destructive' });
-      return;
-    }
-    setCustomStructure(customStructure.map(s => {
-      if (s.id === sectionId) {
-        return {
-          ...s,
-          items: [...s.items, {
-            id: `new-item-${Date.now()}`,
-            section_id: sectionId,
-            title: newValue.trim(),
-            order_index: s.items.length,
-            tasks: []
-          }]
-        };
-      }
-      return s;
-    }));
-    setNewValue('');
-    setAddingToId(null);
-    setAddingType(null);
-  };
-
-  const deleteItem = (sectionId: string, itemId: string) => {
-    setCustomStructure(customStructure.map(s => {
-      if (s.id === sectionId) {
-        return { ...s, items: s.items.filter(i => i.id !== itemId) };
-      }
-      return s;
-    }));
-  };
-
-  const addTask = (sectionId: string, itemId: string) => {
-    if (!newValue.trim()) {
-      toast({ title: 'Erreur', description: 'Le titre de la tâche ne peut pas être vide.', variant: 'destructive' });
-      return;
-    }
-    setCustomStructure(customStructure.map(s => {
-      if (s.id === sectionId) {
-        return {
-          ...s,
-          items: s.items.map(i => {
-            if (i.id === itemId) {
-              return {
-                ...i,
-                tasks: [...i.tasks, {
-                  id: `new-task-${Date.now()}`,
-                  item_id: itemId,
-                  title: newValue.trim(),
-                  order_index: i.tasks.length,
-                  info_sheet: ''
-                }]
-              };
-            }
-            return i;
-          })
-        };
-      }
-      return s;
-    }));
-    setNewValue('');
-    setAddingToId(null);
-    setAddingType(null);
-  };
-
-  const deleteTask = (sectionId: string, itemId: string, taskId: string) => {
-    setCustomStructure(customStructure.map(s => {
-      if (s.id === sectionId) {
-        return {
-          ...s,
-          items: s.items.map(i => {
-            if (i.id === itemId) {
-              return { ...i, tasks: i.tasks.filter(t => t.id !== taskId) };
-            }
-            return i;
-          })
-        };
-      }
-      return s;
-    }));
-  };
-
-  const moveSection = (sectionId: string, direction: 'up' | 'down') => {
-    const phaseSections = customStructure.filter(s => s.phase === structurePhase);
-    const index = phaseSections.findIndex(s => s.id === sectionId);
-    if (index === -1) return;
-    if (direction === 'up' && index === 0) return;
-    if (direction === 'down' && index === phaseSections.length - 1) return;
-
-    const newIndex = direction === 'up' ? index - 1 : index + 1;
-    const newPhaseSections = [...phaseSections];
-    [newPhaseSections[index], newPhaseSections[newIndex]] = [newPhaseSections[newIndex], newPhaseSections[index]];
-
-    // Reconstruire customStructure en préservant l'ordre de l'autre phase
-    const otherPhaseSections = customStructure.filter(s => s.phase !== structurePhase);
-    setCustomStructure([...otherPhaseSections, ...newPhaseSections]);
-  };
-
-  const moveItem = (sectionId: string, itemId: string, direction: 'up' | 'down') => {
-    setCustomStructure(customStructure.map(s => {
-      if (s.id === sectionId) {
-        const index = s.items.findIndex(i => i.id === itemId);
-        if (index === -1) return s;
-        if (direction === 'up' && index === 0) return s;
-        if (direction === 'down' && index === s.items.length - 1) return s;
-
-        const newIndex = direction === 'up' ? index - 1 : index + 1;
-        const newItems = [...s.items];
-        [newItems[index], newItems[newIndex]] = [newItems[newIndex], newItems[index]];
-        return { ...s, items: newItems };
-      }
-      return s;
-    }));
-  };
-
-  const moveTask = (sectionId: string, itemId: string, taskId: string, direction: 'up' | 'down') => {
-    setCustomStructure(customStructure.map(s => {
-      if (s.id === sectionId) {
-        return {
-          ...s,
-          items: s.items.map(i => {
-            if (i.id === itemId) {
-              const index = i.tasks.findIndex(t => t.id === taskId);
-              if (index === -1) return i;
-              if (direction === 'up' && index === 0) return i;
-              if (direction === 'down' && index === i.tasks.length - 1) return i;
-
-              const newIndex = direction === 'up' ? index - 1 : index + 1;
-              const newTasks = [...i.tasks];
-              [newTasks[index], newTasks[newIndex]] = [newTasks[newIndex], newTasks[index]];
-              return { ...i, tasks: newTasks };
-            }
-            return i;
-          })
-        };
-      }
-      return s;
-    }));
-  };
-
-  const saveEdit = () => {
-    if (!editingId || !editValue.trim()) {
-      setEditingId(null);
-      return;
-    }
-    setCustomStructure(customStructure.map(s => {
-      if (s.id === editingId) return { ...s, title: editValue };
-      return {
-        ...s,
-        items: s.items.map(i => {
-          if (i.id === editingId) return { ...i, title: editValue };
-          return {
-            ...i,
-            tasks: i.tasks.map(t => {
-              if (t.id === editingId) return { ...t, title: editValue };
-              return t;
-            })
-          };
-        })
-      };
-    }));
-    setEditingId(null);
-    setEditValue('');
-  };
-
-  // Soumettre le nouveau projet
-  const handleSubmitNewProject = async () => {
-    // Validation des champs obligatoires
-    if (!newProject.name.trim()) {
-      toast({
-        title: "Erreur",
-        description: "Le nom du projet est obligatoire",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!newProject.description.trim()) {
-      toast({
-        title: "Erreur",
-        description: "La description du projet est obligatoire",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!newProject.start_date) {
-      toast({
-        title: "Erreur",
-        description: "La date de début est obligatoire",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Validation que la date de fin est après la date de début
     if (newProject.end_date && newProject.end_date < newProject.start_date) {
       toast({
         title: "Erreur",
@@ -683,8 +340,6 @@ const Projects: React.FC = () => {
       });
       return;
     }
-
-    // Validation des champs de base uniquement
 
     try {
       // Vérifier le quota de projets
@@ -712,26 +367,12 @@ const Projects: React.FC = () => {
         status: 'active' as const
       };
       
-      // Utiliser createProject qui crée aussi le snapshot de structure (avec customStructure si présente)
-      const result = await createProject(projectData, user?.id || '', customStructure);
+      // Utiliser createProject qui crée aussi le snapshot de structure (avec structure par défaut)
+      const result = await createProject(projectData, user?.id || '', undefined);
       
       if (result) {
-        setIsCreateDialogOpen(false);
-        // Réinitialiser le formulaire
-        setNewProject({
-          name: '',
-          description: '',
-          start_date: new Date().toISOString().split('T')[0],
-          end_date: '',
-          image_url: '',
-          company_id: '',
-          status: 'active',
-          show_info_sheets: true
-        });
-        setCreateStep(1);
-        setCustomStructure([]);
-        // Recharger les projets
-        fetchProjects();
+        setNewlyCreatedProjectId(result.id);
+        setCreateStep(2);
       }
     } catch (error) {
       toast({
@@ -740,6 +381,26 @@ const Projects: React.FC = () => {
         variant: "destructive",
       });
     }
+  };
+
+  // Terminer la création (le projet est déjà sauvegardé)
+  const handleFinishCreation = () => {
+    setIsCreateDialogOpen(false);
+    // Réinitialiser le formulaire
+    setNewProject({
+      name: '',
+      description: '',
+      start_date: new Date().toISOString().split('T')[0],
+      end_date: '',
+      image_url: '',
+      company_id: '',
+      status: 'active',
+      show_info_sheets: true
+    });
+    setCreateStep(1);
+    setNewlyCreatedProjectId(null);
+    // Recharger les projets
+    fetchProjects();
   };
 
   // Préparer la modification d'un projet
@@ -1134,314 +795,17 @@ const Projects: React.FC = () => {
               </div>
             ) : (
               <div className="py-6 space-y-6">
-                <div className="flex items-center justify-between sticky top-0 bg-white z-10 pb-4 border-b">
-                  <div className="flex items-center gap-4">
-                    <div className="flex gap-1 p-1 bg-gray-100 rounded-lg">
-                      <Button 
-                        variant={structurePhase === 'conception' ? 'secondary' : 'ghost'} 
-                        size="sm" 
-                        onClick={() => setStructurePhase('conception')}
-                        className={`text-xs h-8 ${structurePhase === 'conception' ? 'shadow-sm bg-white font-bold' : ''}`}
-                      >
-                        <Layers className="h-3.5 w-3.5 mr-1.5" /> Phase Conception
-                      </Button>
-                      <Button 
-                        variant={structurePhase === 'realisation' ? 'secondary' : 'ghost'} 
-                        size="sm" 
-                        onClick={() => setStructurePhase('realisation')}
-                        className={`text-xs h-8 ${structurePhase === 'realisation' ? 'shadow-sm bg-white font-bold' : ''}`}
-                      >
-                        <Target className="h-3.5 w-3.5 mr-1.5" /> Phase Réalisation
-                      </Button>
-                    </div>
-                  </div>
-                  <Button 
-                    size="sm" 
-                    className="bg-aps-teal hover:bg-aps-navy h-8"
-                    onClick={() => { setAddingType('section'); setAddingToId(null); setNewValue(''); }}
-                  >
-                    <PlusCircle className="h-4 w-4 mr-1.5" /> Ajouter une étape
-                  </Button>
-                </div>
-
-                {loadingStructure ? (
+                {newlyCreatedProjectId ? (
+                  <ProjectStructureManager projectId={newlyCreatedProjectId} tenantId={tenantId} />
+                ) : (
                   <div className="flex flex-col items-center justify-center py-12 space-y-4">
                     <Loader2 className="h-8 w-8 animate-spin text-aps-teal" />
-                    <p className="text-sm text-muted-foreground italic font-medium">Initialisation de la structure...</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {customStructure.filter(s => s.phase === structurePhase).map((sec, si) => {
-                      const sectionLabel = String.fromCharCode(65 + si);
-                      const isExpanded = expandedSections.has(sec.id);
-                      
-                      return (
-                        <div key={sec.id} className="border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow bg-white border-gray-100">
-                          {/* Section Header - Style IntervenantDetails */}
-                          <div className={`flex items-center gap-3 px-4 py-3 cursor-pointer select-none ${isExpanded ? 'bg-gray-50 border-b' : 'bg-[#F8F9FA]'}`}>
-                            <div 
-                              className="flex items-center gap-3 flex-1"
-                              onClick={() => toggleSection(sec.id)}
-                            >
-                              <Badge className="bg-[#1A237E] text-white font-bold min-w-[1.8rem] h-6 flex items-center justify-center rounded">
-                                {sectionLabel}
-                              </Badge>
-                              
-                              {editingId === sec.id ? (
-                                <Input 
-                                  value={editValue} 
-                                  onChange={e => setEditValue(e.target.value)} 
-                                  className="h-8 text-sm font-bold bg-white focus-visible:ring-aps-teal"
-                                  autoFocus 
-                                  onClick={e => e.stopPropagation()} 
-                                  onKeyDown={e => e.key === 'Enter' && saveEdit()} 
-                                  onBlur={saveEdit}
-                                />
-                              ) : (
-                                <span className="font-bold text-[15px] text-gray-900">{sec.title}</span>
-                              )}
-                              
-                              <div className="ml-auto flex items-center gap-2">
-                                <Badge variant="outline" className="text-[10px] bg-white text-gray-400 font-medium">
-                                  {sec.items.length} lots
-                                </Badge>
-                                {isExpanded ? <ChevronDown className="h-4 w-4 text-gray-400" /> : <ChevronRight className="h-4 w-4 text-gray-400" />}
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-1 pl-2 border-l ml-2">
-                              <div className="flex flex-col gap-0.5 mr-1">
-                                <Button size="icon" variant="ghost" className="h-4 w-4 text-gray-400 hover:text-aps-teal" onClick={() => moveSection(sec.id, 'up')} title="Monter">
-                                  <ChevronUp className="h-3 w-3" />
-                                </Button>
-                                <Button size="icon" variant="ghost" className="h-4 w-4 text-gray-400 hover:text-aps-teal" onClick={() => moveSection(sec.id, 'down')} title="Descendre">
-                                  <ChevronDown className="h-3 w-3" />
-                                </Button>
-                              </div>
-                              <Button size="icon" variant="ghost" className="h-8 w-8 text-gray-400 hover:text-aps-teal" onClick={() => { setEditingId(sec.id); setEditValue(sec.title); }}>
-                                <Pencil className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button size="icon" variant="ghost" className="h-8 w-8 text-gray-400 hover:text-red-500" onClick={() => deleteSection(sec.id)}>
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button size="icon" variant="ghost" className="h-8 w-8 text-aps-teal hover:bg-aps-teal/10" onClick={() => { 
-                                setAddingType('item'); 
-                                setAddingToId(sec.id); 
-                                setNewValue('');
-                                if (!expandedSections.has(sec.id)) {
-                                  toggleSection(sec.id);
-                                }
-                              }}>
-                                <Plus className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-
-                          {/* Items (Lots) */}
-                          <AnimatePresence>
-                            {isExpanded && (
-                              <motion.div 
-                                initial={{ height: 0, opacity: 0 }}
-                                animate={{ height: 'auto', opacity: 1 }}
-                                exit={{ height: 0, opacity: 0 }}
-                                className="overflow-hidden"
-                              >
-                                <div className="p-1 space-y-[1px] bg-gray-50/50">
-                                  {sec.items.map((item, ii) => {
-                                    const itemLabel = `${sectionLabel}${ii + 1}`;
-                                    const isItemExpanded = expandedItems.has(item.id);
-                                    
-                                    return (
-                                      <div key={item.id} className="bg-white border-l-[3px] border-l-gray-200 hover:border-l-aps-teal/50 transition-colors">
-                                        <div className="flex items-center gap-3 px-4 py-2.5 group">
-                                          <div 
-                                            className="flex items-center gap-3 flex-1 cursor-pointer"
-                                            onClick={() => toggleItem(item.id)}
-                                          >
-                                            <span className="font-semibold text-gray-400 text-xs min-w-[2.2rem]">{itemLabel}</span>
-                                            
-                                            {editingId === item.id ? (
-                                              <Input 
-                                                value={editValue} 
-                                                onChange={e => setEditValue(e.target.value)} 
-                                                className="h-7 text-sm font-semibold bg-white"
-                                                autoFocus 
-                                                onClick={e => e.stopPropagation()} 
-                                                onKeyDown={e => e.key === 'Enter' && saveEdit()} 
-                                                onBlur={saveEdit}
-                                              />
-                                            ) : (
-                                              <span className="text-sm font-semibold text-gray-700">{item.title}</span>
-                                            )}
-
-                                            <div className="ml-auto flex items-center gap-2">
-                                              <span className="text-[10px] text-gray-300 font-medium">
-                                                {item.tasks.length} tâches
-                                              </span>
-                                              {isItemExpanded ? <ChevronDown className="h-3.5 w-3.5 text-gray-300" /> : <ChevronRight className="h-3.5 w-3.5 text-gray-300" />}
-                                            </div>
-                                          </div>
-
-                                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity pl-2 border-l border-gray-100">
-                                            <div className="flex flex-col gap-0.5 mr-1">
-                                              <Button size="icon" variant="ghost" className="h-4 w-4 text-gray-400 hover:text-aps-teal" onClick={() => moveItem(sec.id, item.id, 'up')} title="Monter">
-                                                <ChevronUp className="h-3 w-3" />
-                                              </Button>
-                                              <Button size="icon" variant="ghost" className="h-4 w-4 text-gray-400 hover:text-aps-teal" onClick={() => moveItem(sec.id, item.id, 'down')} title="Descendre">
-                                                <ChevronDown className="h-3 w-3" />
-                                              </Button>
-                                            </div>
-                                            <Button size="icon" variant="ghost" className="h-7 w-7 text-gray-400 hover:text-aps-teal" onClick={() => { setEditingId(item.id); setEditValue(item.title); }}>
-                                              <Pencil className="h-3 w-3" />
-                                            </Button>
-                                            <Button size="icon" variant="ghost" className="h-7 w-7 text-gray-400 hover:text-red-500" onClick={() => deleteItem(sec.id, item.id)}>
-                                              <Trash2 className="h-3 w-3" />
-                                            </Button>
-                                            <Button size="icon" variant="ghost" className="h-7 w-7 text-aps-teal hover:bg-aps-teal/10" onClick={() => { 
-                                              setAddingType('task'); 
-                                              setAddingToId(item.id); 
-                                              setNewValue('');
-                                              if (!expandedItems.has(item.id)) {
-                                                toggleItem(item.id);
-                                              }
-                                            }}>
-                                              <Plus className="h-3.5 w-3.5" />
-                                            </Button>
-                                          </div>
-                                        </div>
-
-                                        {/* Tasks */}
-                                        <AnimatePresence>
-                                          {isItemExpanded && (
-                                            <motion.div 
-                                              initial={{ height: 0, opacity: 0 }}
-                                              animate={{ height: 'auto', opacity: 1 }}
-                                              exit={{ height: 0, opacity: 0 }}
-                                              className="bg-gray-50/30 overflow-hidden"
-                                            >
-                                              <div className="py-1 space-y-[1px]">
-                                                {item.tasks.map((task, ti) => (
-                                                  <div key={task.id} className="flex items-center gap-3 py-2 px-4 pl-14 hover:bg-white group transition-colors">
-                                                    <div className="flex-1 min-w-0">
-                                                      <div className="flex items-center gap-2">
-                                                        <span className="text-[10px] text-gray-300 font-medium shrink-0">{itemLabel}.{ti + 1}</span>
-                                                        {editingId === task.id ? (
-                                                          <Input 
-                                                            value={editValue} 
-                                                            onChange={e => setEditValue(e.target.value)} 
-                                                            className="h-7 text-xs bg-white"
-                                                            autoFocus 
-                                                            onKeyDown={e => e.key === 'Enter' && saveEdit()} 
-                                                            onBlur={saveEdit}
-                                                          />
-                                                        ) : (
-                                                          <span className="text-[13px] text-gray-600 truncate">{task.title}</span>
-                                                        )}
-                                                      </div>
-                                                    </div>
-                                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                                                      <div className="flex flex-col gap-0.5 mr-1">
-                                                        <Button size="icon" variant="ghost" className="h-3 w-3 text-gray-400 hover:text-aps-teal" onClick={() => moveTask(sec.id, item.id, task.id, 'up')} title="Monter">
-                                                          <ChevronUp className="h-2 w-2" />
-                                                        </Button>
-                                                        <Button size="icon" variant="ghost" className="h-3 w-3 text-gray-400 hover:text-aps-teal" onClick={() => moveTask(sec.id, item.id, task.id, 'down')} title="Descendre">
-                                                          <ChevronDown className="h-2 w-2" />
-                                                        </Button>
-                                                      </div>
-                                                      <Button size="icon" variant="ghost" className="h-6 w-6 text-gray-400 hover:text-aps-teal" onClick={() => { setEditingId(task.id); setEditValue(task.title); }}>
-                                                        <Pencil className="h-3 w-3" />
-                                                      </Button>
-                                                      <Button size="icon" variant="ghost" className="h-6 w-6 text-gray-400 hover:text-red-500" onClick={() => deleteTask(sec.id, item.id, task.id)}>
-                                                        <Trash2 className="h-3 w-3" />
-                                                      </Button>
-                                                    </div>
-                                                  </div>
-                                                ))}
-
-                                                {addingType === 'task' && addingToId === item.id && (
-                                                  <div className="flex items-center gap-2 p-2 pl-14 bg-aps-teal/5">
-                                                    <Input 
-                                                      value={newValue} 
-                                                      onChange={e => setNewValue(e.target.value)} 
-                                                      placeholder="Nom de la tâche..."
-                                                      className="h-8 text-xs focus-visible:ring-aps-teal bg-white"
-                                                      autoFocus
-                                                      onKeyDown={e => e.key === 'Enter' && addTask(sec.id, item.id)}
-                                                    />
-                                                    <div className="flex gap-1">
-                                                      <Button size="sm" className="h-8 w-8 p-0 bg-aps-teal" onClick={() => addTask(sec.id, item.id)}>
-                                                        <Check className="h-4 w-4" />
-                                                      </Button>
-                                                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setAddingType(null)}>
-                                                        <X className="h-4 w-4" />
-                                                      </Button>
-                                                    </div>
-                                                  </div>
-                                                )}
-                                              </div>
-                                            </motion.div>
-                                          )}
-                                        </AnimatePresence>
-                                      </div>
-                                    );
-                                  })}
-
-                                  {addingType === 'item' && addingToId === sec.id && (
-                                    <div className="flex items-center gap-2 p-3 bg-aps-teal/5 ml-4">
-                                      <Input 
-                                        value={newValue} 
-                                        onChange={e => setNewValue(e.target.value)} 
-                                        placeholder="Nom du nouveau lot..."
-                                        className="h-9 text-sm focus-visible:ring-aps-teal bg-white"
-                                        autoFocus
-                                        onKeyDown={e => e.key === 'Enter' && addItem(sec.id)}
-                                      />
-                                      <Button size="sm" className="bg-aps-teal" onClick={() => addItem(sec.id)}>
-                                        <Plus className="h-4 w-4 mr-1.5" /> Ajouter le lot
-                                      </Button>
-                                      <Button size="sm" variant="ghost" onClick={() => setAddingType(null)}>
-                                        <X className="h-4 w-4" />
-                                      </Button>
-                                    </div>
-                                  )}
-                                </div>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                        </div>
-                      );
-                    })}
-
-                    {addingType === 'section' && (
-                      <motion.div 
-                        initial={{ scale: 0.95, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        className="flex items-center gap-3 p-4 border-2 border-dashed border-aps-teal/30 bg-aps-teal/5 rounded-xl"
-                      >
-                        <Input 
-                          value={newValue} 
-                          onChange={e => setNewValue(e.target.value)} 
-                          placeholder="Nom de l'étape (A, B, C...)"
-                          className="h-10 focus-visible:ring-aps-teal bg-white font-bold"
-                          autoFocus
-                          onKeyDown={e => e.key === 'Enter' && addSection()}
-                        />
-                        <div className="flex gap-2">
-                          <Button className="bg-aps-teal" onClick={addSection}>
-                            <Check className="h-4 w-4 mr-1.5" /> Valider
-                          </Button>
-                          <Button variant="ghost" onClick={() => setAddingType(null)}>
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </motion.div>
-                    )}
+                    <p className="text-sm text-muted-foreground italic font-medium">Création du projet...</p>
                   </div>
                 )}
               </div>
             )}
           </div>
-
           <DialogFooter className="flex-shrink-0 border-t pt-4 mt-2">
             {createStep === 1 ? (
               <>
@@ -1452,18 +816,8 @@ const Projects: React.FC = () => {
               </>
             ) : (
               <>
-                <Button variant="ghost" onClick={() => setCreateStep(1)} className="mr-auto">
-                  <ArrowLeft className="mr-2 h-4 w-4" /> Retour
-                </Button>
-                <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Annuler</Button>
-                <Button onClick={handleSubmitNewProject} className="bg-aps-teal hover:bg-aps-navy" disabled={loading}>
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Création...
-                    </>
-                  ) : (
-                    'Créer le projet'
-                  )}
+                <Button onClick={handleFinishCreation} className="bg-aps-teal hover:bg-aps-navy ml-auto">
+                  Terminer
                 </Button>
               </>
             )}
