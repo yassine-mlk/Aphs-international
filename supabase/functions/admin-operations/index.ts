@@ -156,6 +156,21 @@ serve(async (req) => {
           update_notifications: true
         }, { onConflict: 'user_id' })
 
+      // Envoi de l'email de bienvenue
+      await supabaseAdmin.functions.invoke('send-notification-email', {
+        body: {
+          to: email,
+          type: 'welcome_email',
+          data: {
+            email: email,
+            password: password,
+            firstName: additionalData?.first_name || '',
+            lastName: additionalData?.last_name || '',
+            role: role
+          }
+        }
+      }).catch(err => console.error('Erreur lors de l\'envoi de l\'email de bienvenue:', err))
+
       return new Response(
         JSON.stringify({ success: true, userId: authData.user.id }),
         { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }

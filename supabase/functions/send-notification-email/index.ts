@@ -235,6 +235,29 @@ function getEmailContent(type: string, data: Record<string, string>): {
 
   switch (type) {
 
+    // ── Email de Bienvenue ───────────────────────────────────────────────────
+    case 'welcome_email': {
+      const subject = `[APS Construction] Bienvenue sur la plateforme`;
+      const infoRows = [
+        { label: 'Identifiant', value: data.email || '—' },
+        { label: 'Mot de passe', value: data.password || '—' },
+        { label: 'Rôle', value: data.role === 'admin' ? 'Administrateur' : (data.role || 'Intervenant') },
+      ];
+      const html = buildEmail({
+        accentColor: '#0ea5e9', // Sky blue for welcome
+        badgeText: 'BIENVENUE',
+        title: 'Bienvenue sur APS Construction',
+        greeting: data.firstName ? `Bonjour ${data.firstName},` : 'Bonjour,',
+        body: [
+          `<p style="margin:0 0 16px 0;">Votre compte a été créé avec succès. Voici vos identifiants temporaires pour vous connecter au portail. Il est vivement conseillé de modifier ce mot de passe dès votre première connexion.</p>`,
+          infoCard(infoRows, '#0ea5e9'),
+        ].join('\n'),
+        buttonText: 'Se connecter au portail',
+        buttonUrl: APP_URL,
+      });
+      return { subject, html };
+    }
+
     // ── Tâche assignée ───────────────────────────────────────────────────────
     case 'task_assigned': {
       const subject = `[APS Construction] Nouvelle tâche assignée${data.taskTitle ? ' : ' + data.taskTitle : ''}`;
