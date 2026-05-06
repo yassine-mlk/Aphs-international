@@ -40,7 +40,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { PHASE_LABELS } from '@/types/taskAssignment';
+import { 
+  PHASE_LABELS,
+  TASK_STATUS_LABELS,
+  TASK_STATUS_COLORS,
+  TaskStatus
+} from '@/types/taskAssignment';
 import { VisaWorkflow, VisaSubmission, VisaOpinion, VISA_OPINION_LABELS, calculateWorkflowProgress } from '@/types/visaWorkflow';
 
 import { TaskHeader } from '@/components/TaskDetails/TaskHeader';
