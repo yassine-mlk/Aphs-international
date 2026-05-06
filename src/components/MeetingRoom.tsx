@@ -3,6 +3,7 @@ import {
   LiveKitRoom,
   VideoConference,
   formatChatMessageLinks,
+  useChat,
 } from '@livekit/components-react';
 import '@livekit/components-styles';
 import { useAuth } from '@/contexts/AuthContext';
@@ -20,12 +21,47 @@ interface Props {
   isAdmin: boolean;
 }
 
+// Composant invisible pour sauvegarder l'historique du chat
+function ChatSaver({ roomId }: { roomId: string }) {
+  const { chatMessages } = useChat();
+  const { user } = useAuth();
+  const savedMessagesRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!user) return;
+    
+    chatMessages.forEach(async (msg) => {
+      // Pour éviter les doublons, on sauvegarde uniquement si on est l'expéditeur du message
+      if (msg.from?.identity === user.id && !savedMessagesRef.current.has(msg.id)) {
+        savedMessagesRef.current.add(msg.id);
+        
+        try {
+          // Si la table video_meeting_chat existe
+          await supabase.from('video_meeting_chat').insert({
+            meeting_id: roomId,
+            user_id: user.id,
+            message: msg.message,
+            timestamp: new Date(msg.timestamp).toISOString()
+          });
+        } catch (e) {
+          // Fail silent si la table n'est pas encore créée
+          console.error("Erreur sauvegarde chat:", e);
+        }
+      }
+    });
+  }, [chatMessages, roomId, user]);
+
+  return null;
+}
+
 export default function MeetingRoom({ roomId, onLeave, isAdmin }: Props) {
   const { user } = useAuth();
   const { toast } = useToast();
   const { leaveMeeting } = useVideoConference();
   const [token, setToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [meetingStatus, setMeetingStatus] = useState<string | null>(null);
+  const [isCreator, setIsCreator] = useState(false);
   
   // États pour l'enregistrement
   const [isRecording, setIsRecording] = useState(false);
@@ -44,8 +80,19 @@ export default function MeetingRoom({ roomId, onLeave, isAdmin }: Props) {
       }
       
       try {
+        const { data: meeting } = await supabase
+          .from('video_meetings')
+          .select('status, created_by')
+          .eq('id', roomId)
+          .single();
+          
+        if (meeting) {
+          setMeetingStatus(meeting.status);
+          setIsCreator(meeting.created_by === user.id);
+        }
+
         const name = `${user.user_metadata?.first_name || ''} ${user.user_metadata?.last_name || ''}`.trim() || user.email || 'Anonyme';
-        const token = await getLiveKitToken(roomId, name, user.id);
+        const token = await getLiveKitToken(roomId, name, user.id, isAdmin);
         setToken(token);
       } catch (e: any) {
         console.error("Failed to get LiveKit token:", e);
@@ -70,6 +117,7 @@ export default function MeetingRoom({ roomId, onLeave, isAdmin }: Props) {
         filter: `id=eq.${roomId}`
       }, (payload) => {
         const newStatus = payload.new.status;
+        setMeetingStatus(newStatus);
         if (newStatus === 'completed' || newStatus === 'cancelled') {
           toast({
             title: "Réunion terminée",
@@ -91,12 +139,15 @@ export default function MeetingRoom({ roomId, onLeave, isAdmin }: Props) {
           .eq('id', roomId)
           .single();
           
-        if (data && (data.status === 'completed' || data.status === 'cancelled')) {
-          toast({
-            title: "Réunion terminée",
-            description: "La session a été clôturée.",
-          });
-          handleDisconnected();
+        if (data) {
+          setMeetingStatus(data.status);
+          if (data.status === 'completed' || data.status === 'cancelled') {
+            toast({
+              title: "Réunion terminée",
+              description: "La session a été clôturée.",
+            });
+            handleDisconnected();
+          }
         }
       } catch (e) {
         // Ignorer les erreurs réseau silencieuses
@@ -247,6 +298,22 @@ export default function MeetingRoom({ roomId, onLeave, isAdmin }: Props) {
     );
   }
 
+  if (meetingStatus === 'scheduled' && !isAdmin && !isCreator) {
+    return (
+      <div className="fixed inset-0 bg-[#1a1a1a] z-50 flex flex-col items-center justify-center text-white">
+        <Loader2 className="w-12 h-12 animate-spin text-primary mb-6" />
+        <h2 className="text-2xl font-bold mb-2">Salle d'attente</h2>
+        <p className="text-lg text-muted-foreground mb-8">En attente de l'organisateur...</p>
+        <button 
+          onClick={onLeave}
+          className="px-6 py-2 bg-secondary/20 hover:bg-secondary/40 rounded-lg font-medium transition-colors"
+        >
+          Quitter
+        </button>
+      </div>
+    );
+  }
+
   if (!token) {
     return (
       <div className="fixed inset-0 bg-[#1a1a1a] z-50 flex flex-col items-center justify-center text-white">
@@ -265,6 +332,8 @@ export default function MeetingRoom({ roomId, onLeave, isAdmin }: Props) {
         .lk-control-bar { background-color: #111 !important; border-top: 1px solid rgba(255,255,255,0.05) !important; }
         .lk-button { border-radius: 12px !important; }
         .lk-participant-name { font-weight: 600 !important; }
+        ${!isAdmin ? '.lk-button[data-lk-source="screen_share"] { display: none !important; }' : ''}
+        .lk-participant[data-lk-speaking="true"] .lk-video-container { border: 3px solid #22c55e !important; transition: border-color 0.2s ease; }
       `}</style>
       <LiveKitRoom
         video={true}
@@ -278,6 +347,7 @@ export default function MeetingRoom({ roomId, onLeave, isAdmin }: Props) {
         <VideoConference 
           chatMessageFormatter={formatChatMessageLinks}
         />
+        <ChatSaver roomId={roomId} />
         
         {/* Contrôles d'enregistrement pour l'admin */}
         {isAdmin && (

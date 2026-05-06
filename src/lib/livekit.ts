@@ -4,9 +4,9 @@ import { supabase } from '@/lib/supabase';
  * Service pour générer des tokens LiveKit via Edge Function.
  * Les secrets LiveKit sont uniquement côté serveur (Edge Function).
  */
-export async function getLiveKitToken(roomName: string, participantName: string, userId: string) {
+export async function getLiveKitToken(roomName: string, participantName: string, userId: string, isAdmin: boolean = false) {
   const { data, error } = await supabase.functions.invoke('get-livekit-token', {
-    body: { roomName, participantName, userId },
+    body: { roomName, participantName, userId, isAdmin },
   });
 
   if (error) {

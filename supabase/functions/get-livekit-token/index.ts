@@ -28,7 +28,7 @@ serve(async (req) => {
   }
 
   try {
-    const { roomName, participantName, userId } = await req.json()
+    const { roomName, participantName, userId, isAdmin } = await req.json()
 
     const apiKey = Deno.env.get('LIVEKIT_API_KEY')
     const apiSecret = Deno.env.get('LIVEKIT_API_SECRET')
@@ -47,7 +47,8 @@ serve(async (req) => {
       room: roomName,
       canPublish: true,
       canSubscribe: true,
-      canPublishData: true
+      canPublishData: true,
+      roomAdmin: isAdmin === true
     })
 
     const token = await at.toJwt()
