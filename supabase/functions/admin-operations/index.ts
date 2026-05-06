@@ -221,14 +221,21 @@ serve(async (req) => {
     // ==================== DELETE USER ====================
     if (action === 'deleteUser') {
       const { userId } = data
+      console.log(`Suppression de l'utilisateur: ${userId}`);
 
       // Verify not deleting an admin
-      const { data: targetUser } = await supabaseAdmin.auth.admin.getUserById(userId)
-      if (targetUser?.user?.user_metadata?.role === 'admin') {
-        return new Response(
-          JSON.stringify({ error: "Impossible de supprimer un administrateur" }),
-          { status: 403, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
-        )
+      try {
+        const { data: targetUser, error: getError } = await supabaseAdmin.auth.admin.getUserById(userId)
+        if (getError) {
+           console.warn(`Avertissement: Impossible de trouver l'utilisateur auth ${userId}:`, getError.message);
+        } else if (targetUser?.user?.user_metadata?.role === 'admin') {
+          return new Response(
+            JSON.stringify({ error: "Impossible de supprimer un administrateur" }),
+            { status: 403, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+          )
+        }
+      } catch (e) {
+        console.error("Erreur lors de la vérification du rôle:", e.message);
       }
 
       // Clean up associated data
@@ -236,28 +243,51 @@ serve(async (req) => {
         { table: 'conversation_participants', column: 'user_id' },
         { table: 'message_reads', column: 'user_id' },
         { table: 'workgroup_members', column: 'user_id' },
+        { table: 'membre', column: 'user_id' },
+        { table: 'video_meeting_participants', column: 'user_id' },
+        { table: 'document_recipients', column: 'user_id' },
       ]
 
       for (const { table, column } of tables) {
         try {
-          await supabaseAdmin.from(table).delete().eq(column, userId)
-        } catch { /* non-blocking */ }
+          const { error: delError } = await supabaseAdmin.from(table).delete().eq(column, userId)
+          if (delError) console.warn(`Erreur non-bloquante lors de la suppression dans ${table}:`, delError.message);
+        } catch (e) {
+          console.warn(`Exception lors du cleanup de ${table}:`, e.message);
+        }
       }
 
       // Anonymize messages
       try {
-        await supabaseAdmin.rpc('anonymize_user_messages', { user_id_param: userId })
-      } catch { /* non-blocking */ }
+        const { error: rpcError } = await supabaseAdmin.rpc('anonymize_user_messages', { user_id_param: userId })
+        if (rpcError) console.warn("Erreur RPC anonymize_user_messages:", rpcError.message);
+      } catch (e) {
+        console.warn("Exception RPC anonymize_user_messages:", e.message);
+      }
 
       // Delete profile
       try {
-        await supabaseAdmin.from('profiles').delete().eq('user_id', userId)
-      } catch { /* non-blocking */ }
+        const { error: profError } = await supabaseAdmin.from('profiles').delete().eq('user_id', userId)
+        if (profError) console.warn("Erreur lors de la suppression du profil:", profError.message);
+      } catch (e) {
+        console.warn("Exception lors de la suppression du profil:", e.message);
+      }
 
       // Delete auth user
-      const { error } = await supabaseAdmin.auth.admin.deleteUser(userId)
-      if (error) throw error
+      const { error: deleteAuthError } = await supabaseAdmin.auth.admin.deleteUser(userId)
+      if (deleteAuthError) {
+        console.error("Erreur fatale lors de la suppression Auth:", deleteAuthError.message);
+        // Si l'utilisateur n'existe plus, on considère ça comme un succès
+        if (deleteAuthError.message?.includes('not found') || deleteAuthError.status === 404) {
+          return new Response(
+            JSON.stringify({ success: true, message: "L'utilisateur n'existait déjà plus" }),
+            { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+          )
+        }
+        throw deleteAuthError
+      }
 
+      console.log(`Utilisateur ${userId} supprimé avec succès`);
       return new Response(
         JSON.stringify({ success: true }),
         { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
