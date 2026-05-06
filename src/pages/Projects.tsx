@@ -317,7 +317,6 @@ const Projects: React.FC = () => {
       status: 'active',
       show_info_sheets: true
     });
-    setCustomStructure([]);
     setIsCreateDialogOpen(true);
   };
 
