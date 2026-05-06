@@ -232,13 +232,16 @@ function VideoConferenceContent() {
     setIsJoining(true);
   };
 
-  const startMeeting = () => {
+  const startMeeting = async () => {
     if (meetingToJoin) {
-      setActiveMeetingId(meetingToJoin);
-      localStorage.setItem('active_video_meeting', meetingToJoin);
-      setIsJoining(false);
-      setMeetingToJoin(null);
+      const success = await joinMeeting(meetingToJoin);
+      if (success) {
+        setActiveMeetingId(meetingToJoin);
+        localStorage.setItem('active_video_meeting', meetingToJoin);
+      }
     }
+    setIsJoining(false);
+    setMeetingToJoin(null);
   };
 
   const cancelJoin = () => {
@@ -430,10 +433,7 @@ function VideoConferenceContent() {
                       key={meeting.id} 
                       meeting={meeting} 
                       isAdmin={isAdmin}
-                      onJoin={() => {
-                        joinMeeting(meeting.id);
-                        confirmJoin(meeting.id);
-                      }}
+                      onJoin={() => confirmJoin(meeting.id)}
                       onComplete={() => updateMeetingStatus(meeting.id, 'completed')}
                       onCancel={() => updateMeetingStatus(meeting.id, 'cancelled')}
                       onEdit={() => handleEditMeeting(meeting)}
@@ -684,6 +684,8 @@ function MeetingCard({ meeting, isAdmin, onJoin, onComplete, onCancel, onEdit }:
   onCancel: () => void,
   onEdit: () => void
 }) {
+  const isEarly = !isAdmin && meeting.status === 'scheduled' && meeting.scheduled_at && new Date(meeting.scheduled_at).getTime() > new Date().getTime() + 5 * 60 * 1000;
+
   return (
     <Card className="flex flex-col">
       <CardHeader>
@@ -706,12 +708,12 @@ function MeetingCard({ meeting, isAdmin, onJoin, onComplete, onCancel, onEdit }:
         </div>
         <div className="flex items-center text-sm text-muted-foreground">
           <Users className="mr-2 h-4 w-4" />
-          Cliquez sur rejoindre pour participer
+          {isEarly ? "Revenez 5 min avant le début" : "Cliquez sur rejoindre pour participer"}
         </div>
       </CardContent>
       <div className="p-6 pt-0 flex gap-2">
-        <Button className="flex-1" onClick={onJoin}>
-          Rejoindre
+        <Button className="flex-1" onClick={onJoin} disabled={isEarly}>
+          {isEarly ? "Trop tôt" : "Rejoindre"}
         </Button>
         {isAdmin && (
           <Dialog>

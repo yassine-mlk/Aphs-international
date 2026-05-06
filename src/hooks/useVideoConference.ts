@@ -317,14 +317,35 @@ export function useVideoConference() {
     if (authStatus !== 'authenticated' || !user?.id || !effectiveTenantId) return;
 
     try {
-      const now = new Date().toISOString();
+      const now = new Date();
+      const nowIso = now.toISOString();
+
+      // Check meeting status and scheduled time before joining
+      const { data: meetingData, error: fetchError } = await supabase
+        .from('video_meetings')
+        .select('status, started_at, scheduled_at, created_by')
+        .eq('id', meetingId)
+        .single();
+        
+      if (fetchError) throw fetchError;
+      
+      if (meetingData.status === 'scheduled' && meetingData.scheduled_at) {
+        const scheduledTime = new Date(meetingData.scheduled_at);
+        const isAdmin = user?.user_metadata?.role === 'admin';
+        const isCreator = meetingData.created_by === user.id;
+        
+        // Block joining if more than 5 minutes early
+        if (!isAdmin && !isCreator && scheduledTime.getTime() > now.getTime() + 5 * 60 * 1000) {
+          throw new Error("Cette réunion n'a pas encore commencé. Veuillez patienter jusqu'à 5 minutes avant l'heure prévue.");
+        }
+      }
       
       // 1. Mettre à jour le statut du participant
       const { error } = await supabase
         .from('video_meeting_participants')
         .update({ 
           status: 'present',
-          joined_at: now
+          joined_at: nowIso
         })
         .eq('meeting_id', meetingId)
         .eq('user_id', user.id);
@@ -332,29 +353,25 @@ export function useVideoConference() {
       if (error) throw error;
 
       // 2. Si c'est le premier à rejoindre et que le statut est 'scheduled', passer à 'active'
-      const { data: meeting } = await supabase
-        .from('video_meetings')
-        .select('status, started_at')
-        .eq('id', meetingId)
-        .single();
-      
-      if (meeting && meeting.status === 'scheduled') {
+      if (meetingData.status === 'scheduled') {
         await supabase
           .from('video_meetings')
           .update({ 
             status: 'active',
-            started_at: meeting.started_at || now 
+            started_at: meetingData.started_at || nowIso 
           })
           .eq('id', meetingId);
       }
       
       fetchMeetings();
+      return true;
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Erreur lors de la connexion",
+        title: "Connexion refusée",
         description: error.message
       });
+      return false;
     }
   };
 

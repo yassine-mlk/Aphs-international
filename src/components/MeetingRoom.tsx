@@ -82,8 +82,30 @@ export default function MeetingRoom({ roomId, onLeave, isAdmin }: Props) {
       })
       .subscribe();
 
+    // Polling de sécurité (fallback) au cas où le Webhook Realtime saute
+    const checkStatusInterval = setInterval(async () => {
+      try {
+        const { data } = await supabase
+          .from('video_meetings')
+          .select('status')
+          .eq('id', roomId)
+          .single();
+          
+        if (data && (data.status === 'completed' || data.status === 'cancelled')) {
+          toast({
+            title: "Réunion terminée",
+            description: "La session a été clôturée.",
+          });
+          handleDisconnected();
+        }
+      } catch (e) {
+        // Ignorer les erreurs réseau silencieuses
+      }
+    }, 15000);
+
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(checkStatusInterval);
     };
   }, [roomId, user, toast, serverUrl]);
 
