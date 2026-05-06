@@ -103,7 +103,7 @@ const IntervenantProjectDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { fetchData, getUsers } = useSupabase();
+  const { fetchData } = useSupabase();
   const { user, status } = useAuth();
 
   const [project, setProject] = useState<Project | null>(null);
@@ -284,33 +284,46 @@ const IntervenantProjectDetails: React.FC = () => {
   // Charger les intervenants
   useEffect(() => {
     const fetchIntervenants = async () => {
-      if (status !== 'authenticated') return;
+      if (!id || status !== 'authenticated' || !isMember) return;
       try {
-        const userData = await getUsers();
+        // 1. Récupérer d'abord tous les IDs des membres du projet
+        const { data: memberData, error: memberError } = await supabase
+          .from('membre')
+          .select('user_id')
+          .eq('project_id', id);
         
-        if (userData && userData.users) {
-          const formattedUsers = userData.users
-            .filter((user: any) => {
-              const isAdmin = user.user_metadata?.role === 'admin';
-              return !isAdmin && !user.banned;
-            })
-            .map((user: any) => ({
-              id: user.id,
-              email: user.email || '',
-              first_name: user.user_metadata?.first_name || user.user_metadata?.name?.split(' ')[0] || 'Prénom',
-              last_name: user.user_metadata?.last_name || user.user_metadata?.name?.split(' ').slice(1).join(' ') || 'Nom',
-              role: user.user_metadata?.role || 'intervenant',
-              specialty: user.user_metadata?.specialty || 'Non spécifié'
-            }));
+        if (memberError) throw memberError;
+        const memberIds = memberData.map(m => m.user_id);
+        
+        if (memberIds.length === 0) return;
+
+        // 2. Récupérer les profils correspondants
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('user_id, email, first_name, last_name, role, specialty')
+          .in('user_id', memberIds);
+
+        if (profilesError) throw profilesError;
+        
+        if (profilesData) {
+          const formattedUsers = profilesData.map((profile: any) => ({
+            id: profile.user_id,
+            email: profile.email || '',
+            first_name: profile.first_name || 'Prénom',
+            last_name: profile.last_name || 'Nom',
+            role: profile.role || 'intervenant',
+            specialty: profile.specialty || 'Non spécifié'
+          }));
           
           setIntervenants(formattedUsers);
         }
       } catch (error) {
+        console.error("Erreur lors de la récupération des intervenants:", error);
       }
     };
     
     fetchIntervenants();
-  }, [getUsers, status]);
+  }, [id, isMember, status]);
 
   // Obtenir les noms des intervenants
   const getIntervenantNames = (userIds: string | string[]) => {

@@ -212,7 +212,9 @@ export const TaskAdminActions: React.FC<TaskAdminActionsProps> = ({
                         />
                       </div>
                       <div className="max-h-40 overflow-y-auto space-y-1 pr-1">
-                        {filteredUsers.map(u => (
+                        {filteredUsers
+                          .filter(u => !reassignForm.validators.some((v: any) => v.user_id === u.user_id))
+                          .map(u => (
                           <label key={u.user_id} className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded-lg cursor-pointer transition-colors border border-transparent hover:border-gray-100">
                             <Checkbox 
                               checked={reassignForm.executor_id === u.user_id}
@@ -383,6 +385,12 @@ export const TaskAdminActions: React.FC<TaskAdminActionsProps> = ({
                   className="bg-purple-600 hover:bg-purple-700 font-black text-xs uppercase tracking-widest px-8 h-12 shadow-lg shadow-purple-100"
                   disabled={!reassignForm.executor_id || reassignForm.validators.length === 0 || !reassignForm.deadline || submitting}
                   onClick={async () => {
+                    // Validation finale de non-recouvrement
+                    if (reassignForm.validators.some((v: any) => v.user_id === reassignForm.executor_id)) {
+                      alert("Un intervenant ne peut pas être à la fois exécuteur et validateur.");
+                      return;
+                    }
+
                     setSubmitting(true);
                     const success = await reassignValidators(
                       task.id, 
