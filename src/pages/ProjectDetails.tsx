@@ -312,7 +312,7 @@ const ProjectDetails: React.FC = () => {
             </>
           )}
           
-          {(isAdmin || currentUserMember?.can_view_info_sheets) && (
+          {false && (
             <TabsTrigger value="info-sheets" className="data-[state=active]:bg-white">
               <FileCheck className="h-4 w-4 mr-2" />
               Fiches Informatives
@@ -365,7 +365,7 @@ const ProjectDetails: React.FC = () => {
           </>
         )}
 
-        {(isAdmin || currentUserMember?.can_view_info_sheets) && (
+        {false && (
           <TabsContent value="info-sheets">
             <ProjectInfoSheetsTab 
               projectId={id || ''}
