@@ -383,7 +383,7 @@ const IntervenantDashboard: React.FC = () => {
       };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, status, loadStats, supabase]);
+  }, [user?.id, status, tenant?.id, loadStats, supabase]);
 
   // Fonctions utilitaires
   // Fonction pour formater la date

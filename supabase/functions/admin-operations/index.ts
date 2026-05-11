@@ -149,7 +149,7 @@ serve(async (req) => {
 
       // Créer le membership tenant si tenant_id fourni
       if (tenantId) {
-        await supabaseAdmin
+        const { error: memberError } = await supabaseAdmin
           .from('tenant_members')
           .insert({
             user_id: authData.user.id,
@@ -159,7 +159,7 @@ serve(async (req) => {
             invited_by: caller?.id,
             joined_at: new Date().toISOString(),
           })
-          .catch(err => console.error('Erreur non-bloquante création membership:', err.message))
+        if (memberError) throw memberError
       }
 
       // Envoi de l'email de bienvenue
@@ -246,6 +246,7 @@ serve(async (req) => {
 
       // Clean up associated data
       const tables = [
+        { table: 'tenant_members', column: 'user_id' },
         { table: 'conversation_participants', column: 'user_id' },
         { table: 'message_reads', column: 'user_id' },
         { table: 'workgroup_members', column: 'user_id' },
