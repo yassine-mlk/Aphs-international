@@ -261,26 +261,6 @@ const InviteIntervenantDialog: React.FC<InviteIntervenantDialogProps> = ({ onSuc
                 required
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="invite-firstname">Prénom</Label>
-                <Input
-                  id="invite-firstname"
-                  placeholder="Jean"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="invite-lastname">Nom</Label>
-                <Input
-                  id="invite-lastname"
-                  placeholder="Dupont"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                />
-              </div>
-            </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={isSubmitting}>
                 Annuler
