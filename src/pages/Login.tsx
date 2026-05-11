@@ -79,6 +79,9 @@ const Login: React.FC = () => {
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
+            <a href="/" className="inline-flex items-center text-sm text-gray-500 hover:text-blue-600 font-medium mb-4 transition-colors">
+              ← Retour à l'accueil
+            </a>
             <img src="/aps-logo.svg" alt="APS Construction" className="h-24 mx-auto mb-6" />
             <p className="text-gray-500 font-medium">Connectez-vous pour accéder à votre espace</p>
           </div>
