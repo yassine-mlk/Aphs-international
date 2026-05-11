@@ -195,7 +195,8 @@ const IntervenantDashboard: React.FC = () => {
       const { data: taskAssignments, error: taskError } = await supabase
         .from('task_assignments_view')
         .select('project_id')
-        .eq('tenant_id', tenant.id);
+        .eq('tenant_id', tenant.id)
+        .contains('assigned_to', [user.id]);
 
       if (taskError) throw taskError;
 
