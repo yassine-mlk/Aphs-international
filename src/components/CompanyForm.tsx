@@ -58,13 +58,16 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess, mode }) =
     const bucketName = 'logos';
 
     try {
+      if (!supabase) throw new Error('Supabase not initialized');
       setUploadProgress(10); // Indiquer que l'upload commence
       
       // Supprimer la vérification d'existence du bucket
       // Nous supposons que le bucket a été créé manuellement dans la console Supabase
       
+      if (!supabase) throw new Error('Supabase not initialized');
       setUploadProgress(30); // Progression
       
+      if (!supabase) throw new Error('Supabase not initialized');
       // Upload du fichier
       const { data, error } = await supabase.storage
         .from(bucketName)
@@ -78,6 +81,7 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess, mode }) =
       
       setUploadProgress(70); // Fichier uploadé
 
+      if (!supabase) throw new Error('Supabase not initialized');
       // Get public URL for the uploaded file
       const { data: urlData } = supabase.storage
         .from(bucketName)
@@ -143,7 +147,7 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess, mode }) =
         pays,
         secteur: secteur || specialite, // Garder pour compatibilité avec l'existant
         specialite,
-        logo_url: logoUrl
+        logo_url: logoUrl ?? undefined // Convertir null en undefined pour le type
       };
       
       let result;

@@ -41,7 +41,11 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const playNotificationSound = useCallback(() => {
     if (audioRef.current) {
-      audioRef.current.play().catch(e => console.log('Audio play failed:', e));
+      audioRef.current.play().catch(e => {
+        if (import.meta.env.DEV) {
+          console.error('Audio play failed:', e);
+        }
+      });
     }
   }, []);
 

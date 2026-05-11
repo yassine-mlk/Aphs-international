@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTenant } from '@/contexts/TenantContext';
 import { UserRole, SPECIALTIES, Profile } from '../types/profile';
 import { Company } from '../types/company';
 import { Workgroup as WorkGroup, WorkgroupMember as WorkGroupMember } from '../types/workgroup';
@@ -36,6 +37,7 @@ export interface Intervenant extends Partial<Profile> {
 export function useSupabase() {
   const { toast } = useToast();
   const { status } = useAuth();
+  const { tenant } = useTenant();
 
   /**
    * Récupère les données d'une table
@@ -566,21 +568,13 @@ export function useSupabase() {
    */
   const getCompanies = useCallback(async (): Promise<Company[]> => {
     try {
-      // Récupérer le profil pour avoir le tenant_id
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return [];
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('tenant_id, is_super_admin')
-        .eq('user_id', user.id)
-        .single();
-
       let query = supabase.from('companies').select('*');
       
-      // Si ce n'est pas un super admin, on filtre par tenant
-      if (profile && !profile.is_super_admin && profile.tenant_id) {
-        query = query.eq('tenant_id', profile.tenant_id);
+      if (tenant?.id) {
+        query = query.eq('tenant_id', tenant.id);
       }
 
       const { data, error } = await query.order('name');
@@ -596,7 +590,7 @@ export function useSupabase() {
       });
       return [];
     }
-  }, [toast]);
+  }, [toast, tenant?.id]);
 
   /**
    * Ajoute une nouvelle entreprise
@@ -605,23 +599,16 @@ export function useSupabase() {
     companyData: Omit<Company, 'id' | 'created_at' | 'updated_at'>
   ): Promise<{ success: boolean; company?: Company; error?: Error }> => {
     try {
-      // Récupérer le tenant_id de l'utilisateur actuel
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Non authentifié");
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('tenant_id')
-        .eq('user_id', user.id)
-        .single();
-
-      if (!profile?.tenant_id) throw new Error("Aucun tenant associé à votre compte");
+      if (!tenant?.id) throw new Error("Aucun tenant associé à votre compte");
 
       const { data, error } = await supabase
         .from('companies')
         .insert({
           ...companyData,
-          tenant_id: profile.tenant_id, // Force le tenant_id
+          tenant_id: tenant.id,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
@@ -644,7 +631,7 @@ export function useSupabase() {
       });
       return { success: false, error: error as Error };
     }
-  }, [toast]);
+  }, [toast, tenant?.id]);
 
   /**
    * Met à jour une entreprise existante

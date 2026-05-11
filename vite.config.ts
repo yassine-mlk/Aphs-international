@@ -22,6 +22,7 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
+    chunkSizeWarningLimit: 700000, // Increased since LiveKit (623kB) and Recharts (407kB) are expected
     rollupOptions: {
       output: {
         manualChunks: {

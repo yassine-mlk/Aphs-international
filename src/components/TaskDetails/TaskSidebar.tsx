@@ -173,7 +173,11 @@ export const TaskSidebar: React.FC<TaskSidebarProps> = ({
             <Label className="text-xs text-gray-500 uppercase">Fin prévue pour la remise (Exécuteurs)</Label>
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4 text-blue-500" />
-              <span className="font-semibold">{new Date(task.deadline).toLocaleDateString('fr-FR')}</span>
+              <span className="font-semibold">
+                {task.deadline && !task.deadline.startsWith('1970') && !task.deadline.startsWith('0001')
+                  ? new Date(task.deadline).toLocaleDateString('fr-FR')
+                  : 'À définir'}
+              </span>
             </div>
           </div>
           
@@ -183,7 +187,7 @@ export const TaskSidebar: React.FC<TaskSidebarProps> = ({
               <Clock className="h-4 w-4 text-amber-500" />
               <span className="font-semibold text-amber-700">
                 {task.validation_deadline && !task.validation_deadline.startsWith('1970') && !task.validation_deadline.startsWith('0001')
-                  ? new Date(task.validation_deadline).toLocaleDateString('fr-FR') 
+                  ? new Date(task.validation_deadline).toLocaleDateString('fr-FR')
                   : 'À définir'}
               </span>
             </div>

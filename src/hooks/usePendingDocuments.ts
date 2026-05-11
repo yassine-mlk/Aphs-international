@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
@@ -16,6 +16,8 @@ export interface PendingDocument {
   uploaded_at: string;
   status: 'pending' | 'signed' | 'rejected';
 }
+
+let nextChannelId = 0;
 
 export function usePendingDocuments() {
   const [pendingDocs, setPendingDocs] = useState<PendingDocument[]>([]);
@@ -108,14 +110,25 @@ export function usePendingDocuments() {
     }
   }, [status, user?.id, toast]);
 
+  // Référence pour tracker le canal
+  const channelRef = useRef<any>(null);
+
   // Souscription temps réel aux changements
   useEffect(() => {
     if (status !== 'authenticated' || !user?.id) return;
 
     fetchPendingDocuments();
 
+    // Nettoyer l'ancien canal avant d'en créer un nouveau
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+
+    const channelId = `pending-documents-${user.id}-${nextChannelId++}`;
+
     const channel = supabase
-      .channel('pending-documents')
+      .channel(channelId)
       .on(
         'postgres_changes',
         {
@@ -130,8 +143,13 @@ export function usePendingDocuments() {
       )
       .subscribe();
 
+    channelRef.current = channel;
+
     return () => {
-      supabase.removeChannel(channel);
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
     };
   }, [status, user?.id, fetchPendingDocuments]);
 
@@ -198,6 +216,9 @@ export function usePendingDocuments() {
             }
           });
         } catch (emailError) {
+          if (import.meta.env.DEV) {
+            console.error('Error sending signed email:', emailError);
+          }
         }
       }
 

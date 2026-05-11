@@ -20,29 +20,12 @@ export function useVideoConference() {
 
   // Déterminer l'ID du tenant de manière robuste
   useEffect(() => {
-    const resolveTenantId = async () => {
-      if (authStatus !== 'authenticated') return;
-      if (tenant?.id) {
-        setEffectiveTenantId(tenant.id);
-        return;
-      }
-
-      if (user?.id) {
-        // Fallback: chercher dans le profil
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('tenant_id')
-          .eq('user_id', user.id)
-          .single();
-        
-        if (!error && data?.tenant_id) {
-          setEffectiveTenantId(data.tenant_id);
-        }
-      }
-    };
-
-    resolveTenantId();
-  }, [authStatus, tenant?.id, user?.id]);
+    if (authStatus !== 'authenticated') return;
+    if (tenant?.id) {
+      setEffectiveTenantId(tenant.id);
+      return;
+    }
+  }, [authStatus, tenant?.id]);
 
   const fetchMeetings = useCallback(async () => {
     if (authStatus !== 'authenticated' || !effectiveTenantId) return;
@@ -75,7 +58,9 @@ export function useVideoConference() {
   }, [fetchMeetings, authStatus]);
 
   const createMeeting = async (data: CreateVideoMeetingData) => {
-    console.log("createMeeting called with data:", data);
+    if (import.meta.env.DEV) {
+      console.log("createMeeting called with data:", data);
+    }
     
     // Vérifier s'il y a des participants
     if (!data.participants || data.participants.length === 0) {
@@ -87,13 +72,8 @@ export function useVideoConference() {
       return null;
     }
     
-    // Utiliser effectiveTenantId ou tenant?.id ou chercher une dernière fois
-    let tId = effectiveTenantId || tenant?.id;
-    
-    if (!tId && authStatus === 'authenticated' && user?.id) {
-      const { data: prof } = await supabase.from('profiles').select('tenant_id').eq('user_id', user.id).single();
-      tId = prof?.tenant_id;
-    }
+    // Utiliser effectiveTenantId ou tenant?.id
+    const tId = effectiveTenantId || tenant?.id;
 
     if (authStatus !== 'authenticated' || !user?.id || !tId) {
       console.warn("Missing user or tenant ID", { userId: user?.id, tenantId: tId });
@@ -111,7 +91,9 @@ export function useVideoConference() {
         ? data.scheduled_at 
         : null;
 
-      console.log("Inserting meeting for tenant:", tId);
+      if (import.meta.env.DEV) {
+        console.log("Inserting meeting for tenant:", tId);
+      }
       // 1. Créer la réunion
       const { data: meeting, error: meetingError } = await supabase
         .from('video_meetings')
@@ -133,11 +115,15 @@ export function useVideoConference() {
         throw meetingError;
       }
 
-      console.log("Meeting inserted:", meeting);
+      if (import.meta.env.DEV) {
+        console.log("Meeting inserted:", meeting);
+      }
 
       // 2. Ajouter les participants et notifier
       if (data.participants && data.participants.length > 0) {
-        console.log("Adding participants:", data.participants);
+        if (import.meta.env.DEV) {
+          console.log("Adding participants:", data.participants);
+        }
         const participantsData = data.participants.map(userId => ({
           meeting_id: meeting.id,
           user_id: userId,
@@ -168,7 +154,9 @@ export function useVideoConference() {
 
         // Notifier les participants si la réunion est programmée
         if (data.status === 'scheduled') {
-          console.log("Sending notifications to participants...");
+          if (import.meta.env.DEV) {
+            console.log("Sending notifications to participants...");
+          }
           for (const userId of data.participants) {
             await sendNotification({
               userId,
@@ -193,7 +181,9 @@ export function useVideoConference() {
 
       // Notifier l'admin si c'est une demande (pending)
       if (data.status === 'pending') {
-        console.log("Sending notification to admin...");
+        if (import.meta.env.DEV) {
+          console.log("Sending notification to admin...");
+        }
         const adminIds = await getTenantAdmins(tId);
         const intervenantName = `${user.user_metadata?.first_name || ''} ${user.user_metadata?.last_name || ''}`.trim() || user.email || 'Un intervenant';
         const dateText = scheduledAt ? new Date(scheduledAt).toLocaleString('fr-FR') : 'Non spécifiée';

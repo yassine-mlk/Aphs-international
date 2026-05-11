@@ -10,12 +10,12 @@ interface SEOHeadProps {
 }
 
 const SEOHead: React.FC<SEOHeadProps> = ({
-  title = "APS International - Plateforme de gestion de projets BTP",
-  description = "Solution SaaS complète pour la gestion de projets de construction. Suivez vos chantiers, collaborez avec vos équipes et livrez avec excellence.",
-  keywords = "gestion de projets BTP, construction, chantier, collaboration, APS International, logiciel BTP, suivi de chantier",
-  ogImage = "/og-image.jpg",
-  ogUrl = typeof window !== 'undefined' ? window.location.href : "https://aps-international.com",
-  canonical = typeof window !== 'undefined' ? window.location.href : "https://aps-international.com"
+  title = "APS Construction | Plateforme de Gestion de Projets de Construction",
+  description = "APS Construction est la plateforme SaaS de référence pour la gestion de projets de construction. Suivi de chantier, gestion documentaire, visas et collaboration d'équipes en temps réel.",
+  keywords = "aps construction, plateforme gestion projet construction, logiciel BTP, suivi de chantier, gestion documentaire BTP, APS, APS International",
+  ogImage = "/aps-logo.svg",
+  ogUrl = typeof window !== 'undefined' ? window.location.href : "https://www.aps-construction.com",
+  canonical = typeof window !== 'undefined' ? window.location.href : "https://www.aps-construction.com"
 }) => {
   React.useEffect(() => {
     // Update document title
@@ -55,7 +55,7 @@ const SEOHead: React.FC<SEOHeadProps> = ({
       { property: 'og:image', content: ogImage },
       { property: 'og:url', content: ogUrl },
       { property: 'og:type', content: 'website' },
-      { property: 'og:site_name', content: 'APS International' }
+      { property: 'og:site_name', content: 'APS Construction' }
     ];
 
     ogTags.forEach(tag => {
@@ -89,25 +89,22 @@ const SEOHead: React.FC<SEOHeadProps> = ({
     // Add structured data (JSON-LD)
     const structuredData = {
       "@context": "https://schema.org",
-      "@type": "Organization",
-      "name": "APS International",
-      "url": "https://aps-international.com",
-      "logo": "https://aps-international.com/logo.png",
+      "@type": "SoftwareApplication",
+      "name": "APS Construction",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web",
+      "url": "https://www.aps-construction.com",
+      "logo": "https://www.aps-construction.com/aps-logo.svg",
       "description": description,
-      "address": {
-        "@type": "PostalAddress",
-        "addressLocality": "Bordeaux",
-        "addressCountry": "France"
+      "publisher": {
+        "@type": "Organization",
+        "name": "APS International"
       },
-      "contactPoint": {
-        "@type": "ContactPoint",
-        "telephone": "+33640164997",
-        "contactType": "customer service",
-        "email": "contact@aps-international.com"
-      },
-      "sameAs": [
-        "https://www.linkedin.com/company/aps-international"
-      ]
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "EUR"
+      }
     };
 
     let structuredDataScript = document.querySelector('#structured-data') as HTMLScriptElement;

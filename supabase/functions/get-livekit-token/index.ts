@@ -1,18 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { AccessToken } from "https://esm.sh/livekit-server-sdk@1.2.7"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { getCorsHeaders, corsHeaders } from '../_shared/cors.ts';
 
-const ALLOWED_ORIGINS = ['https://www.aps-construction.com', 'https://aps-construction.com'];
 
-const getCorsHeaders = (req?: Request) => {
-  const origin = req?.headers?.get('origin') || '';
-  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
-  return {
-    'Access-Control-Allow-Origin': allowedOrigin,
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Access-Control-Max-Age': '86400',
-  };
-};
 
 // DEPRECATED: use getCorsHeaders(req) instead
 const corsHeaders = {
@@ -28,7 +19,46 @@ serve(async (req) => {
   }
 
   try {
+    // Create Supabase admin client for auth verification
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    )
+
+    // Verify caller's JWT
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Aucun token d\'authentification fourni' }),
+        { status: 401, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const token = authHeader.replace('Bearer ', '')
+    const { data: { user: caller }, error: verifyError } = await supabaseAdmin.auth.getUser(token)
+
+    if (verifyError || !caller) {
+      return new Response(
+        JSON.stringify({ error: 'Token invalide' }),
+        { status: 401, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+      )
+    }
+
     const { roomName, participantName, userId, isAdmin } = await req.json()
+
+    // Verify the requesting user matches the userId in the request
+    if (caller.id !== userId) {
+      return new Response(
+        JSON.stringify({ error: 'userId ne correspond pas au token d\'authentification' }),
+        { status: 403, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+      )
+    }
 
     const apiKey = Deno.env.get('LIVEKIT_API_KEY')
     const apiSecret = Deno.env.get('LIVEKIT_API_SECRET')
@@ -51,10 +81,10 @@ serve(async (req) => {
       roomAdmin: isAdmin === true
     })
 
-    const token = await at.toJwt()
+    const jwt = await at.toJwt()
 
     return new Response(
-      JSON.stringify({ token }),
+      JSON.stringify({ token: jwt }),
       { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } },
     )
   } catch (error) {

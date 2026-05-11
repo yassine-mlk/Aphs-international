@@ -23,6 +23,12 @@ import { ActivityIcon } from '@/components/ActivityIcon';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DashboardSkeleton } from '@/components/Skeletons';
 import { Skeleton } from '@/components/ui/skeleton';
+import { OverdueByAssigneeCard } from '@/components/dashboard/OverdueByAssignee';
+import { BurnRateChart } from '@/components/dashboard/BurnRateChart';
+import { VelocityChart } from '@/components/dashboard/VelocityChart';
+import { ValidationRateChart } from '@/components/dashboard/ValidationRateChart';
+import { WorkloadDistribution } from '@/components/dashboard/WorkloadDistribution';
+import { RiskScoreCard } from '@/components/dashboard/RiskScoreCard';
 
 interface DashboardStats {
   totalProjects: number;
@@ -122,13 +128,18 @@ const AdminDashboard: React.FC = () => {
       }).length;
 
       // Charger les intervenants
-      const intervenants = await fetchData<any>('profiles', {
-        columns: 'user_id, role, company',
-        filters: [
-          { column: 'role', operator: 'neq', value: 'admin' },
-          { column: 'tenant_id', operator: 'eq', value: tenant.id }
-        ]
-      }) || [];
+      const { data: memberRows } = await supabase
+        .from('tenant_members')
+        .select('user_id, role, profiles!tenant_members_user_id_profiles_fkey(company)')
+        .eq('tenant_id', tenant.id)
+        .neq('role', 'admin')
+        .eq('status', 'active');
+
+      const intervenants: any[] = (memberRows || []).map((m: any) => ({
+        user_id: m.user_id,
+        role: m.role,
+        company: m.profiles?.company || null
+      }));
 
       // Charger les tâches depuis task_assignments_view (vue consolidée)
       const taskAssignmentsData = await fetchData<any>('task_assignments_view', {
@@ -581,6 +592,28 @@ const AdminDashboard: React.FC = () => {
             </motion.div>
           )}
         </div>
+
+        {/* SECTION KPIs Avancés */}
+        <motion.div variants={itemVariants} className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <OverdueByAssigneeCard tenantId={tenant?.id} />
+            <BurnRateChart tenantId={tenant?.id} />
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <ValidationRateChart tenantId={tenant?.id} />
+            <WorkloadDistribution tenantId={tenant?.id} />
+          </div>
+        </motion.div>
+
+        {/* SECTION Projets à risque */}
+        <motion.div variants={itemVariants}>
+          <RiskScoreCard tenantId={tenant?.id} />
+        </motion.div>
+
+        {/* SECTION Vélocité */}
+        <motion.div variants={itemVariants}>
+          <VelocityChart tenantId={tenant?.id} />
+        </motion.div>
 
         {/* SECTION 3: Deux colonnes À traiter */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

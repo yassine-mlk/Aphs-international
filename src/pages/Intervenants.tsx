@@ -19,10 +19,11 @@ import {
 } from "@/components/ui/select";
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import CreateUserForm from "@/components/CreateUserForm";
+import InviteIntervenantDialog from "@/components/InviteIntervenantDialog";
 import EditUserForm from "@/components/EditUserForm";
 import { useSupabase, SPECIALTIES } from '../hooks/useSupabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTenant } from '@/contexts/TenantContext';
 import { supabase } from '@/lib/supabase';
 import {
   AlertDialog,
@@ -38,7 +39,6 @@ import {
   ArrowUpDown, 
   Users, 
   Search, 
-  UserPlus, 
   Building2, 
   GraduationCap, 
   Mail, 
@@ -151,9 +151,9 @@ const Intervenants: React.FC = () => {
   const { toast } = useToast();
   const { adminDeleteUser, supabase: supabaseHook } = useSupabase();
   const { user: authUser, status } = useAuth();
+  const { tenant } = useTenant();
   const [intervenants, setIntervenants] = useState<Intervenant[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedIntervenant, setSelectedIntervenant] = useState<Intervenant | null>(null);
@@ -175,49 +175,39 @@ const Intervenants: React.FC = () => {
   const [specialtyFilter, setSpecialtyFilter] = useState<string>('');
 
   useEffect(() => {
-    if (status === 'authenticated' && authUser?.id) {
+    if (status === 'authenticated' && authUser?.id && tenant?.id) {
       fetchIntervenants();
     }
-  }, [authUser?.id, status]);
+  }, [authUser?.id, tenant?.id, status]);
 
   const fetchIntervenants = async () => {
     if (status !== 'authenticated' || !authUser) return;
+    if (!tenant?.id) return;
     setLoading(true);
     try {
 
-      // Récupérer le tenant_id du user connecté
-      const { data: myProfile } = await supabase
-        .from('profiles')
-        .select('tenant_id')
-        .eq('user_id', authUser.id)
-        .maybeSingle();
-
-      if (!myProfile?.tenant_id) {
-        setIntervenants([]);
-        return;
-      }
-
-      // Récupérer uniquement les membres du même tenant, hors admins
-      const { data: profiles, error } = await supabase
-        .from('profiles')
-        .select('user_id, email, first_name, last_name, role, specialty, company, status, created_at')
-        .eq('tenant_id', myProfile.tenant_id)
+      // Récupérer les membres du tenant courant via tenant_members (hors admins)
+      const { data: members, error } = await supabase
+        .from('tenant_members')
+        .select('user_id, role, joined_at, status, profiles!tenant_members_user_id_profiles_fkey(email, first_name, last_name, specialty, company, created_at)')
+        .eq('tenant_id', tenant.id)
         .neq('role', 'admin')
-        .neq('is_super_admin', true);
+        .eq('status', 'active');
 
       if (error) throw error;
 
-      const formattedUsers: Intervenant[] = (profiles || []).map(p => {
-        const joinDateRaw = new Date(p.created_at);
+      const formattedUsers: Intervenant[] = (members || []).map(m => {
+        const profile = (m as any).profiles || {};
+        const joinDateRaw = new Date(m.joined_at || profile.created_at);
         return {
-          id: p.user_id,
-          first_name: p.first_name || '',
-          last_name: p.last_name || '',
-          email: p.email || '',
-          role: p.role || 'intervenant',
-          specialty: p.specialty || '',
-          company: p.company || 'Indépendant',
-          status: p.status === 'inactive' ? 'inactive' as const : 'active' as const,
+          id: m.user_id,
+          first_name: profile.first_name || '',
+          last_name: profile.last_name || '',
+          email: profile.email || '',
+          role: m.role || 'intervenant',
+          specialty: profile.specialty || '',
+          company: profile.company || 'Indépendant',
+          status: profile.status === 'inactive' ? 'inactive' as const : 'active' as const,
           joinDate: joinDateRaw.toLocaleDateString('fr-FR'),
           joinDateRaw
         };
@@ -225,6 +215,7 @@ const Intervenants: React.FC = () => {
 
       setIntervenants(formattedUsers);
     } catch (error) {
+      console.error("fetchIntervenants error:", error);
       toast({
         title: "Erreur",
         description: "Impossible de récupérer la liste des utilisateurs",
@@ -302,9 +293,8 @@ const Intervenants: React.FC = () => {
     }
   };
 
-  // Fermer le dialogue après avoir ajouté ou modifié un utilisateur
+  // Fermer le dialogue après avoir modifié un utilisateur
   const handleDialogClose = () => {
-    setCreateDialogOpen(false);
     setEditDialogOpen(false);
     fetchIntervenants();
   };
@@ -512,23 +502,7 @@ const Intervenants: React.FC = () => {
             <span className="text-4xl font-light text-blue-600">{intervenants.length}</span>
             <span className="text-xs uppercase tracking-widest text-gray-400 block font-semibold">Total Membres</span>
           </div>
-          <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-blue-600 hover:bg-blue-700 shadow-sm h-11 px-6 rounded-xl font-bold gap-2">
-                <UserPlus className="h-5 w-5" />
-                Ajouter
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-lg">
-              <DialogHeader>
-                <DialogTitle>Ajouter un nouvel intervenant</DialogTitle>
-                <DialogDescription>
-                  Créez un compte pour un nouvel intervenant. Celui-ci pourra ensuite se connecter avec ces identifiants.
-                </DialogDescription>
-              </DialogHeader>
-              <CreateUserForm onSuccess={handleDialogClose} />
-            </DialogContent>
-          </Dialog>
+          <InviteIntervenantDialog onSuccess={() => { fetchIntervenants(); }} />
         </div>
       </div>
 

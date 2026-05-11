@@ -7,13 +7,13 @@ const cors = require('cors');
 const server = http.createServer();
 
 // Configurer CORS pour la production - RESTREINDRE AUX DOMAINES AUTORISÉS
-const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'https://www.aps-construction.com,https://aps-construction.com').split(',');
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'https://www.aps-construction.com,https://aps-construction.com,http://localhost:5173,http://localhost:8080').split(',');
 
 const corsOptions = {
   origin: function (origin, callback) {
     // Autoriser les requêtes sans origin (health checks, etc.)
     if (!origin) return callback(null, true);
-    if (ALLOWED_ORIGINS.includes(origin)) {
+    if (ALLOWED_ORIGINS.includes('*') || ALLOWED_ORIGINS.includes(origin)) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));

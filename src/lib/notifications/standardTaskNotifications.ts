@@ -221,11 +221,15 @@ export async function notifyStandardTaskSubmission(taskId: string, executorId: s
 
   // Vérifier si TOUS les executors ont soumis
   const allSubmitted = await checkAllExecutorsSubmitted(taskId);
-  console.log('allSubmitted check:', allSubmitted);
+  if (import.meta.env.DEV) {
+    console.log('allSubmitted check:', allSubmitted);
+  }
   if (allSubmitted) {
     // Notifier TOUS les admins du tenant
     const adminIds = await getTenantAdmins(task.tenant_id);
-    console.log('Notifying admins (allSubmitted):', adminIds);
+    if (import.meta.env.DEV) {
+      console.log('Notifying admins (allSubmitted):', adminIds);
+    }
     for (const adminId of adminIds) {
       await sendNotification({
         userId: adminId,
@@ -257,7 +261,9 @@ export async function notifyValidatorReview(taskId: string, validatorId: string,
 
   // Notifier TOUS les admins du tenant
   const adminIds = await getTenantAdmins(task.tenant_id);
-  console.log('Notifying admins (reviewSubmitted):', adminIds);
+  if (import.meta.env.DEV) {
+    console.log('Notifying admins (reviewSubmitted):', adminIds);
+  }
   for (const adminId of adminIds) {
     await sendNotification({
       userId: adminId,
@@ -272,10 +278,14 @@ export async function notifyValidatorReview(taskId: string, validatorId: string,
 
   // Vérifier si TOUS les validators ont répondu
   const allReviewed = await checkAllValidatorsReviewed(taskId);
-  console.log('allReviewed check:', allReviewed);
+  if (import.meta.env.DEV) {
+    console.log('allReviewed check:', allReviewed);
+  }
   if (allReviewed) {
     // Notifier TOUS les admins pour qu'ils statuent
-    console.log('Notifying admins (readyForDecision):', adminIds);
+    if (import.meta.env.DEV) {
+      console.log('Notifying admins (readyForDecision):', adminIds);
+    }
     for (const adminId of adminIds) {
       await sendNotification({
         userId: adminId,

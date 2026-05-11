@@ -56,6 +56,9 @@ export interface Profile {
   push_notifications: boolean;
   message_notifications: boolean;
   update_notifications: boolean;
+  // Multi-tenant (colonne DB legacy, préférer tenant_members)
+  tenant_id?: string;
+  is_super_admin?: boolean;
   created_at: string;
   updated_at: string;
 }

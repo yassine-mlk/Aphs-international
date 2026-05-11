@@ -80,8 +80,10 @@ const initializeSupabase = () => {
 // Initialisation immédiate
 const result = initializeSupabase();
 
-// Export de l'instance (peut être null si la config est absente au démarrage)
-export const supabase = result?.client;
+// Export de l'instance - Lance une erreur si pas initialisé
+export const supabase = result?.client ?? (() => {
+  throw new Error('Supabase client not initialized. Check your .env file.');
+})();
 
 // NOTE: supabaseAdmin a été supprimé pour des raisons de sécurité.
 // La clé SERVICE_ROLE ne doit JAMAIS être exposée côté client.

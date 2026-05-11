@@ -14,12 +14,15 @@ describe('useContactForm', () => {
 
   it('initializes with empty form data', () => {
     const { result } = renderHook(() => useContactForm());
-    
+     
     expect(result.current.formData).toEqual({
       nom: '',
       prenom: '',
       email: '',
       entreprise: '',
+      fonction: '',
+      telephone: '',
+      nbProjets: '1',
       message: ''
     });
     expect(result.current.isLoading).toBe(false);
@@ -60,7 +63,7 @@ describe('useContactForm', () => {
   it('submits valid form successfully', async () => {
     const { result } = renderHook(() => useContactForm());
     
-    // Fill form with valid data
+    // Fill form with ALL required fields
     act(() => {
       result.current.handleInputChange({
         target: { name: 'nom', value: 'Doe' }
@@ -72,16 +75,28 @@ describe('useContactForm', () => {
         target: { name: 'email', value: 'john@example.com' }
       } as React.ChangeEvent<HTMLInputElement>);
       result.current.handleInputChange({
-        target: { name: 'message', value: 'Test message with enough characters' }
+        target: { name: 'entreprise', value: 'Test Corp' }
+      } as React.ChangeEvent<HTMLInputElement>);
+      result.current.handleInputChange({
+        target: { name: 'fonction', value: 'Developer' }
+      } as React.ChangeEvent<HTMLInputElement>);
+      result.current.handleInputChange({
+        target: { name: 'telephone', value: '1234567890' }
+      } as React.ChangeEvent<HTMLInputElement>);
+      result.current.handleInputChange({
+        target: { name: 'nbProjets', value: '5' }
+      } as React.ChangeEvent<HTMLInputElement>);
+      result.current.handleInputChange({
+        target: { name: 'message', value: 'Test message with enough characters for validation' }
       } as React.ChangeEvent<HTMLTextAreaElement>);
     });
-
+    
     // Mock successful API response
     (fetch as any).mockResolvedValueOnce({
       ok: true,
       json: async () => ({})
     });
-
+    
     const form = new Event('submit', { cancelable: true });
     
     await act(async () => {
@@ -96,7 +111,7 @@ describe('useContactForm', () => {
       },
       body: expect.stringContaining('John Doe')
     });
-
+    
     // Check if form is reset after successful submission
     expect(result.current.formData.nom).toBe('');
     expect(result.current.formData.prenom).toBe('');

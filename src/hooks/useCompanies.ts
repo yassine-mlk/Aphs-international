@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useToast } from '@/components/ui/use-toast';
 import { useSupabase } from './useSupabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTenant } from '@/contexts/TenantContext';
 import {
   Company,
   CreateCompanyData,
@@ -18,6 +19,7 @@ export function useCompanies() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const { status } = useAuth();
   const { toast } = useToast();
+  const { tenant } = useTenant();
   const { fetchData, insertData, updateData, deleteData, supabase, getUsers } = useSupabase();
 
   // Récupérer toutes les entreprises du tenant
@@ -27,19 +29,8 @@ export function useCompanies() {
     try {
       const queryFilters = [];
       
-      // Récupérer le profil pour avoir le tenant_id
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return [];
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('tenant_id, is_super_admin')
-        .eq('user_id', user.id)
-        .single();
-
-      // Si ce n'est pas un super admin, on filtre par tenant
-      if (profile && !profile.is_super_admin && profile.tenant_id) {
-        queryFilters.push({ column: 'tenant_id', operator: 'eq', value: profile.tenant_id });
+      if (tenant?.id) {
+        queryFilters.push({ column: 'tenant_id', operator: 'eq', value: tenant.id });
       }
 
       // Ajouter les filtres si fournis
@@ -84,24 +75,16 @@ export function useCompanies() {
 
     setLoading(true);
     try {
-      // Récupérer le profil pour avoir le tenant_id
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return [];
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('tenant_id, is_super_admin')
-        .eq('user_id', user.id)
-        .single();
 
       let query = supabase
         .from('companies')
         .select('*')
         .or(`name.ilike.%${searchTerm}%,pays.ilike.%${searchTerm}%,secteur.ilike.%${searchTerm}%,specialite.ilike.%${searchTerm}%`);
 
-      // Si ce n'est pas un super admin, on filtre par tenant
-      if (profile && !profile.is_super_admin && profile.tenant_id) {
-        query = query.eq('tenant_id', profile.tenant_id);
+      if (tenant?.id) {
+        query = query.eq('tenant_id', tenant.id);
       }
 
       const { data, error } = await query.order('name');
@@ -128,21 +111,13 @@ export function useCompanies() {
     if (status !== 'authenticated') return null;
     setLoading(true);
     try {
-      // Récupérer le profil pour avoir le tenant_id
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('tenant_id, is_super_admin')
-        .eq('user_id', user.id)
-        .single();
+      const queryFilters: { column: string; operator: string; value: any }[] = [{ column: 'id', operator: 'eq', value: id }];
 
-      const queryFilters = [{ column: 'id', operator: 'eq', value: id }];
-
-      // Si ce n'est pas un super admin, on vérifie le tenant
-      if (profile && !profile.is_super_admin && profile.tenant_id) {
-        queryFilters.push({ column: 'tenant_id', operator: 'eq', value: profile.tenant_id });
+      if (tenant?.id) {
+        queryFilters.push({ column: 'tenant_id', operator: 'eq', value: tenant.id });
       }
 
       const companies = await fetchData<Company>('companies', {
@@ -178,21 +153,14 @@ export function useCompanies() {
 
     setLoading(true);
     try {
-      // Récupérer le tenant_id
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('tenant_id')
-        .eq('user_id', user.id)
-        .single();
-
-      if (!profile?.tenant_id) throw new Error("Aucun tenant associé à votre compte");
+      if (!tenant?.id) throw new Error("Aucun tenant associé à votre compte");
 
       const newCompany = await insertData<Company>('companies', {
         ...companyData,
-        tenant_id: profile.tenant_id
+        tenant_id: tenant.id
       } as any);
 
       if (newCompany) {

@@ -84,13 +84,24 @@ const ProjectInfoTab: React.FC<ProjectInfoTabProps> = ({
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      const [assignmentsRes, profilesRes] = await Promise.all([
+      const [assignmentsRes, memberRes] = await Promise.all([
         supabase.from('task_assignments_view').select('*').eq('project_id', project.id),
-        supabase.from('profiles').select('user_id, first_name, last_name')
+        supabase.from('membre').select('user_id').eq('project_id', project.id)
       ]);
-      
+
+      const memberIds = (memberRes.data || []).map(m => m.user_id);
+      let profilesData: any[] = [];
+
+      if (memberIds.length > 0) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name')
+          .in('user_id', memberIds);
+        profilesData = data || [];
+      }
+
       setAssignments(assignmentsRes.data || []);
-      setIntervenants(profilesRes.data || []);
+      setIntervenants(profilesData);
       setLoading(false);
     };
     fetchData();

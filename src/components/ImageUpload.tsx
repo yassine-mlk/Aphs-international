@@ -78,6 +78,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         });
       }, 200);
 
+      if (!supabase) throw new Error('Supabase not initialized');
       // Upload vers Supabase Storage
       const { data, error } = await supabase.storage
         .from(bucketName)
@@ -94,6 +95,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
 
       setUploadProgress(90);
 
+      if (!supabase) throw new Error('Supabase not initialized');
       // Obtenir l'URL publique
       const { data: urlData } = supabase.storage
         .from(bucketName)

@@ -4,12 +4,25 @@ import { supabase } from '../lib/supabase';
 
 export type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
 
+export interface AvailableTenant {
+  id: string;
+  name: string;
+  role: string;
+  slug: string;
+}
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   role: string | null;
   isSuperAdmin: boolean;
   status: AuthStatus;
+  activeTenantId: string | null;
+  showTenantSelector: boolean;
+  availableTenants: AvailableTenant[];
+  setActiveTenantId: (id: string | null) => void;
+  setRole: (role: string | null) => void;
+  fetchAvailableTenants: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ user: User | null; error: Error | null }>;
   signOut: () => Promise<void>;
 }
@@ -22,6 +35,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [role, setRole] = useState<string | null>(null);
   const [isSuperAdmin, setIsSuperAdmin] = useState<boolean>(false);
   const [status, setStatus] = useState<AuthStatus>('loading');
+  const [activeTenantId, setActiveTenantIdState] = useState<string | null>(null);
+  const [showTenantSelector, setShowTenantSelector] = useState(false);
+  const [availableTenants, setAvailableTenants] = useState<AvailableTenant[]>([]);
+
+  const setActiveTenantId = useCallback((id: string | null) => {
+    setActiveTenantIdState(id);
+    if (id) {
+      setShowTenantSelector(false);
+      try { localStorage.setItem('aps_active_tenant', id); } catch {}
+    } else {
+      try { localStorage.removeItem('aps_active_tenant'); } catch {}
+    }
+  }, []);
 
   const mountedRef = useRef(true);
   const statusRef = useRef<AuthStatus>('loading');
@@ -42,13 +68,55 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const getRoleFromUser = useCallback((u: User | null): string | null => {
-    if (!u) return null;
-    const meta = u.user_metadata as unknown;
-    if (!meta || typeof meta !== 'object') return null;
-    const roleValue = (meta as Record<string, unknown>).role;
-    return typeof roleValue === 'string' ? roleValue : null;
-  }, []);
+  const fetchAvailableTenants = useCallback(async (userId: string) => {
+    if (!supabase) return;
+    try {
+      const { data } = await withTimeout(
+        supabase
+          .from('tenant_members')
+          .select('tenant_id, role, tenants!inner(name, slug)')
+          .eq('user_id', userId)
+          .eq('status', 'active'),
+        5000
+      );
+
+      if (!mountedRef.current) return;
+
+      if (data && data.length > 0) {
+        const tenants: AvailableTenant[] = data.map((m: any) => ({
+          id: m.tenant_id,
+          name: m.tenants?.name || '',
+          role: m.role || 'intervenant',
+          slug: m.tenants?.slug || '',
+        }));
+
+        setAvailableTenants(tenants);
+
+        if (tenants.length === 1) {
+          setActiveTenantId(tenants[0].id);
+          setRole(tenants[0].role);
+          setShowTenantSelector(false);
+        } else {
+          // Vérifier si un tenant était précédemment sélectionné
+          let savedId: string | null = null;
+          try { savedId = localStorage.getItem('aps_active_tenant'); } catch {}
+
+          const savedTenant = savedId ? tenants.find(t => t.id === savedId) : null;
+          if (savedTenant) {
+            setActiveTenantId(savedTenant.id);
+            setRole(savedTenant.role);
+            setShowTenantSelector(false);
+          } else {
+            setShowTenantSelector(true);
+          }
+        }
+      } else {
+        setAvailableTenants([]);
+        setShowTenantSelector(false);
+      }
+    } catch {
+    }
+  }, [withTimeout]);
 
   const fetchUserProfile = useCallback(async (userId: string) => {
     if (!supabase) return;
@@ -67,7 +135,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!mountedRef.current) return;
 
       if (data) {
-        if (typeof data.role === 'string') setRole(data.role);
         setIsSuperAdmin(data.is_super_admin === true);
       }
     } catch {
@@ -78,16 +145,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setSession(nextSession);
     setUser(nextSession.user);
     setStatus('authenticated');
-    const metaRole = getRoleFromUser(nextSession.user);
-    if (metaRole) setRole(metaRole);
     fetchUserProfile(nextSession.user.id);
-  }, [fetchUserProfile, getRoleFromUser]);
+    fetchAvailableTenants(nextSession.user.id);
+  }, [fetchUserProfile, fetchAvailableTenants]);
 
   const setUnauthenticated = useCallback(() => {
     setSession(null);
     setUser(null);
     setRole(null);
     setIsSuperAdmin(false);
+    setActiveTenantId(null);
+    setShowTenantSelector(false);
+    setAvailableTenants([]);
     setStatus('unauthenticated');
   }, []);
 
@@ -139,7 +208,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!mountedRef.current) return;
       
-      console.log('Auth state change event:', event);
+      if (import.meta.env.DEV) {
+        console.log('Auth state change event:', event);
+      }
       
       if (nextSession) {
         setAuthenticated(nextSession);
@@ -227,9 +298,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     role,
     isSuperAdmin,
     status,
+    activeTenantId,
+    showTenantSelector,
+    availableTenants,
+    setActiveTenantId,
+    setRole,
+    fetchAvailableTenants,
     signIn,
     signOut,
-  }), [isSuperAdmin, role, session, signIn, signOut, status, user]);
+  }), [isSuperAdmin, role, session, signIn, signOut, status, user, activeTenantId, showTenantSelector, availableTenants, setActiveTenantId, setRole, fetchAvailableTenants]);
 
   return (
     <AuthContext.Provider value={value}>

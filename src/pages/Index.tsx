@@ -142,7 +142,11 @@ const Index: React.FC = () => {
 
   return (
     <>
-      <SEOHead />
+      <SEOHead 
+        title="APS Construction | Le Logiciel de Suivi de Chantier & Gestion de Projets BTP"
+        description="APS Construction simplifie la gestion de vos projets de construction. Centralisez vos documents, suivez vos chantiers et collaborez avec vos intervenants."
+        keywords="logiciel btp, suivi de chantier, gestion de projet construction, aps construction, plateforme collaborative btp"
+      />
       <div className="min-h-screen bg-white text-black font-sans selection:bg-blue-600 selection:text-white">
       {/* Styles globaux */}
       <style>{`
@@ -282,7 +286,7 @@ const Index: React.FC = () => {
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <div className="flex items-center justify-between h-20">
             <a href="/" className="flex items-center gap-3 group">
-              <img src="/aps-logo.svg" alt="APS Construction" className="h-10 group-hover:scale-110 transition-transform" />
+              <img src="/aps-logo.svg" alt="APS Construction" className="h-16 group-hover:scale-105 transition-transform" />
             </a>
 
             <div className="hidden md:flex items-center gap-8">
@@ -391,7 +395,7 @@ const Index: React.FC = () => {
                 <span className="block mt-2">
                   <span className="text-stroke relative">
                     de construction
-                    <svg className="absolute -bottom-2 left-0 w-full" viewBox="0 0 200 8" fill="none">
+                    <svg className="absolute -bottom-2 left-0 w-full" viewBox="0 0 200 8" fill="none" aria-hidden="true">
                       <path d="M0 4C50 4 50 0 100 0C150 0 150 8 200 4" stroke="#2563eb" strokeWidth="3" strokeLinecap="round" className="animate-draw" />
                     </svg>
                   </span>
@@ -399,9 +403,9 @@ const Index: React.FC = () => {
                 <span className="block mt-2">sans perdre le fil</span>
               </h1>
               
-              <p className="text-xl text-gray-600 mb-10 max-w-lg leading-relaxed">
-                APS Construction centralise l'ensemble de vos intervenants, phases, documents et validations sur une seule plateforme. De l'étude préalable à la réception des travaux.
-              </p>
+              <h2 className="text-xl text-gray-600 mb-10 max-w-lg leading-relaxed font-normal">
+                APS Construction centralise l'ensemble de vos intervenants, phases, documents et validations sur une seule plateforme de suivi de chantier. De l'étude préalable à la réception des travaux.
+              </h2>
 
               {/* CTA Buttons */}
               <div className="flex flex-col sm:flex-row gap-4">

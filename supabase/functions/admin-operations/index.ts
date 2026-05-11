@@ -1,18 +1,9 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { getCorsHeaders, corsHeaders } from '../_shared/cors.ts';
 
-const ALLOWED_ORIGINS = ['https://www.aps-construction.com', 'https://aps-construction.com'];
 
-const getCorsHeaders = (req?: Request) => {
-  const origin = req?.headers?.get('origin') || '';
-  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
-  return {
-    'Access-Control-Allow-Origin': allowedOrigin,
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Access-Control-Max-Age': '86400',
-  };
-};
+
 
 // DEPRECATED: use getCorsHeaders(req) instead
 const corsHeaders = {
@@ -86,11 +77,11 @@ serve(async (req) => {
           .maybeSingle()
 
         const { count: currentCount } = await supabaseAdmin
-          .from('profiles')
-          .select('user_id', { count: 'exact', head: true })
+          .from('tenant_members')
+          .select('id', { count: 'exact', head: true })
           .eq('tenant_id', tenantId)
           .neq('role', 'admin')
-          .neq('is_super_admin', true)
+          .eq('status', 'active')
 
         const max = tenantData?.max_intervenants ?? null
         if (max !== null && (currentCount ?? 0) >= max) {
@@ -155,6 +146,21 @@ serve(async (req) => {
           message_notifications: true,
           update_notifications: true
         }, { onConflict: 'user_id' })
+
+      // Créer le membership tenant si tenant_id fourni
+      if (tenantId) {
+        await supabaseAdmin
+          .from('tenant_members')
+          .insert({
+            user_id: authData.user.id,
+            tenant_id: tenantId,
+            role: role,
+            status: 'active',
+            invited_by: caller?.id,
+            joined_at: new Date().toISOString(),
+          })
+          .catch(err => console.error('Erreur non-bloquante création membership:', err.message))
+      }
 
       // Envoi de l'email de bienvenue
       await supabaseAdmin.functions.invoke('send-notification-email', {

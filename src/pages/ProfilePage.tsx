@@ -10,6 +10,7 @@ import { User, Camera, Loader2, Lock, Package, FolderOpen, Users, HardDrive } fr
 import { useToast } from '@/components/ui/use-toast';
 import { useSupabase } from '../hooks/useSupabase';
 import { useAuth } from "@/contexts/AuthContext";
+import { useTenant } from "@/contexts/TenantContext";
 import { supabase } from "@/lib/supabase";
 import { uploadToR2 } from "@/lib/r2";
 
@@ -26,6 +27,8 @@ const ProfilePage: React.FC = () => {
 
   const [profileForm, setProfileForm] = useState({ firstName: '', lastName: '', email: '', phone: '', bio: '', avatarUrl: '' });
   const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
+
+  const { tenant } = useTenant();
 
   const [userSettingsState, setUserSettingsState] = useState<any>(null);
 
@@ -66,25 +69,23 @@ const ProfilePage: React.FC = () => {
   }, [currentUser?.id, status]);
 
   useEffect(() => {
-    if (status !== 'authenticated' || !isAdmin || !currentUser?.id) return;
+    if (status !== 'authenticated' || !isAdmin || !tenant?.id) return;
     const loadTenantPlan = async () => {
-      const { data: profile } = await supabase.from('profiles').select('tenant_id').eq('user_id', currentUser.id).maybeSingle();
-      if (!profile?.tenant_id) return;
-      const { data: tenant } = await supabase.from('tenants').select('name, plan, status, max_projects, max_intervenants, max_storage_gb, trial_ends_at').eq('id', profile.tenant_id).maybeSingle();
-      if (!tenant) return;
+      const { data: tenantData } = await supabase.from('tenants').select('name, plan, status, max_projects, max_intervenants, max_storage_gb, trial_ends_at').eq('id', tenant.id).maybeSingle();
+      if (!tenantData) return;
       const [{ count: projCount }, { count: intervCount }] = await Promise.all([
-        supabase.from('projects').select('id', { count: 'exact', head: true }).eq('tenant_id', profile.tenant_id),
-        supabase.from('profiles').select('user_id', { count: 'exact', head: true }).eq('tenant_id', profile.tenant_id).neq('role', 'admin')
+        supabase.from('projects').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id),
+        supabase.from('tenant_members').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id).neq('role', 'admin').eq('status', 'active')
       ]);
       setTenantPlan({
-        name: tenant.name, plan: tenant.plan, status: tenant.status,
-        maxProjects: tenant.max_projects, maxIntervenants: tenant.max_intervenants, maxStorageGb: tenant.max_storage_gb,
+        name: tenantData.name, plan: tenantData.plan, status: tenantData.status,
+        maxProjects: tenantData.max_projects, maxIntervenants: tenantData.max_intervenants, maxStorageGb: tenantData.max_storage_gb,
         currentProjects: projCount ?? 0, currentIntervenants: intervCount ?? 0,
-        trialEndsAt: tenant.trial_ends_at
+        trialEndsAt: tenantData.trial_ends_at
       });
     };
     loadTenantPlan();
-  }, [isAdmin, currentUser?.id, status]);
+  }, [isAdmin, tenant?.id, status]);
 
 
   const handleProfileSubmit = async (e: React.FormEvent) => {

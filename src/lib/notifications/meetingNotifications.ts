@@ -6,16 +6,18 @@ import { supabase } from '@/lib/supabase';
  * Notifier l'admin quand un intervenant demande une visio
  */
 export async function notifyMeetingRequest(intervenantId: string, subject: string, date?: string) {
-  const { data: profile } = await supabase
-    .from('profiles')
+  const { data: membership } = await supabase
+    .from('tenant_members')
     .select('tenant_id')
     .eq('user_id', intervenantId)
-    .single();
+    .eq('status', 'active')
+    .limit(1)
+    .maybeSingle();
 
-  if (!profile) return;
+  if (!membership) return;
 
   const intervenantName = await getUserName(intervenantId);
-  const adminIds = await getTenantAdmins(profile.tenant_id);
+  const adminIds = await getTenantAdmins(membership.tenant_id);
   const dateText = date ? new Date(date).toLocaleString('fr-FR') : 'Non spécifiée';
 
   // Envoyer à tous les admins du tenant

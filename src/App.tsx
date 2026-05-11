@@ -10,6 +10,8 @@ import { TenantProvider } from "./contexts/TenantContext";
 import { NotificationProvider } from "./contexts/NotificationContext";
 import { useAuth } from "./contexts/AuthContext";
 import StorageInitializer from "./components/StorageInitializer";
+import ErrorBoundary from "./components/ErrorBoundary";
+import TenantSelectorPage from "./components/TenantSelectorPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -24,26 +26,32 @@ const queryClient = new QueryClient({
 });
 
 const App = () => {
-  const { user, status } = useAuth();
+  const { user, status, showTenantSelector } = useAuth();
+
+  if (status === 'authenticated' && showTenantSelector) {
+    return <TenantSelectorPage />;
+  }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <TenantProvider>
-          <TooltipProvider>
-            <UploadProvider>
-              <NotificationProvider>
-                <Toaster />
-                <Sonner />
-                {/* Initialisation du stockage Supabase */}
-                {status === 'authenticated' && user && <StorageInitializer />}
-                <AppRoutes />
-              </NotificationProvider>
-            </UploadProvider>
-          </TooltipProvider>
-        </TenantProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <TenantProvider>
+            <TooltipProvider>
+              <UploadProvider>
+                <NotificationProvider>
+                  <Toaster />
+                  <Sonner />
+                  {/* Initialisation du stockage Supabase */}
+                  {status === 'authenticated' && user && <StorageInitializer />}
+                  <AppRoutes />
+                </NotificationProvider>
+              </UploadProvider>
+            </TooltipProvider>
+          </TenantProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 };
 

@@ -1,17 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { getCorsHeaders } from '../_shared/cors.ts';
 
-const ALLOWED_ORIGINS = ['https://www.aps-construction.com', 'https://aps-construction.com', 'http://localhost:5173'];
 
-const getCorsHeaders = (req?: Request) => {
-  const origin = req?.headers?.get('origin') || '';
-  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
-  return {
-    'Access-Control-Allow-Origin': allowedOrigin,
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Access-Control-Max-Age': '86400',
-  };
-};
+
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {

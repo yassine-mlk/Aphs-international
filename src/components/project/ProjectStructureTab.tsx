@@ -375,11 +375,24 @@ const ProjectStructureTab: React.FC<ProjectStructureTabProps> = ({
     setLoadingIntervenants(true);
     try {
       const { data, error } = await supabase
-        .from('profiles')
-        .select('user_id, first_name, last_name, email, specialty');
+        .from('tenant_members')
+        .select('user_id, role, profiles!tenant_members_user_id_profiles_fkey(first_name, last_name, email, specialty)')
+        .eq('tenant_id', tenantId)
+        .neq('role', 'admin')
+        .eq('status', 'active');
 
       if (error) throw error;
-      setIntervenants(data || []);
+      const mapped = (data || []).map((m: any) => {
+        const p = m.profiles || {};
+        return {
+          user_id: m.user_id,
+          first_name: p.first_name || '',
+          last_name: p.last_name || '',
+          email: p.email || '',
+          specialty: p.specialty || ''
+        };
+      });
+      setIntervenants(mapped);
     } catch (error) {
     } finally {
       setLoadingIntervenants(false);

@@ -1,49 +1,31 @@
--- =========================================
--- SCRIPT DE MISE À JOUR DU SCHÉMA DE NOTIFICATIONS
--- À exécuter dans Supabase SQL Editor
--- =========================================
+-- Script pour ajouter les colonnes de traduction à la table notifications
+-- Exécuter ce script dans l'éditeur SQL de Supabase
 
--- Ajouter le nouveau type de notification 'task_status_changed'
--- D'abord, supprimer la contrainte existante
-ALTER TABLE notifications 
-DROP CONSTRAINT IF EXISTS notifications_type_check;
+-- Ajouter les colonnes pour les clés de traduction
+ALTER TABLE notifications
+ADD COLUMN IF NOT EXISTS title_key TEXT,
+ADD COLUMN IF NOT EXISTS message_key TEXT,
+ADD COLUMN IF NOT EXISTS title_params JSONB DEFAULT '{}',
+ADD COLUMN IF NOT EXISTS message_params JSONB DEFAULT '{}';
 
--- Recréer la contrainte avec le nouveau type
-ALTER TABLE notifications 
-ADD CONSTRAINT notifications_type_check 
-CHECK (type IN (
-    'file_uploaded', 'task_validated', 'new_message', 'meeting_request',
-    'task_assigned', 'project_added', 'task_validation_request', 
-    'file_validation_request', 'message_received', 'meeting_invitation',
-    'meeting_accepted', 'meeting_declined', 'meeting_request_approved',
-    'meeting_request_rejected', 'meeting_started', 'task_status_changed'
-));
+-- Ajouter des commentaires pour documenter les colonnes
+COMMENT ON COLUMN notifications.title_key IS 'Clé de traduction pour le titre de la notification';
+COMMENT ON COLUMN notifications.message_key IS 'Clé de traduction pour le message de la notification';
+COMMENT ON COLUMN notifications.title_params IS 'Paramètres JSON pour le formatage du titre traduit';
+COMMENT ON COLUMN notifications.message_params IS 'Paramètres JSON pour le formatage du message traduit';
 
--- Vérifier que la mise à jour s'est bien passée
-SELECT 
-    conname as constraint_name,
-    pg_get_constraintdef(oid) as constraint_definition
-FROM pg_constraint 
-WHERE conrelid = 'notifications'::regclass 
-AND contype = 'c';
+-- Mettre à jour les notifications existantes avec les clés de traduction
+UPDATE notifications 
+SET 
+  title_key = type,
+  message_key = type,
+  title_params = '{}',
+  message_params = '{}'
+WHERE title_key IS NULL OR message_key IS NULL;
 
--- Afficher les types de notifications supportés
-SELECT unnest(enum_range(NULL::text)) as supported_notification_types
-FROM (
-    SELECT 'file_uploaded'::text
-    UNION SELECT 'task_validated'
-    UNION SELECT 'new_message'
-    UNION SELECT 'meeting_request'
-    UNION SELECT 'task_assigned'
-    UNION SELECT 'project_added'
-    UNION SELECT 'task_validation_request'
-    UNION SELECT 'file_validation_request'
-    UNION SELECT 'message_received'
-    UNION SELECT 'meeting_invitation'
-    UNION SELECT 'meeting_accepted'
-    UNION SELECT 'meeting_declined'
-    UNION SELECT 'meeting_request_approved'
-    UNION SELECT 'meeting_request_rejected'
-    UNION SELECT 'meeting_started'
-    UNION SELECT 'task_status_changed'
-) as types; 
+-- Créer un index pour améliorer les performances des requêtes sur les clés de traduction
+CREATE INDEX IF NOT EXISTS idx_notifications_title_key ON notifications(title_key);
+CREATE INDEX IF NOT EXISTS idx_notifications_message_key ON notifications(message_key);
+
+-- Afficher un message de succès
+SELECT 'Schéma de la table notifications mis à jour avec succès pour les traductions' AS message; 

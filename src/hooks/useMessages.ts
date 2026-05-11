@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useSupabase } from './useSupabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useTenant } from '@/contexts/TenantContext';
 import { useToast } from '@/components/ui/use-toast';
 import { PostgrestSingleResponse } from '@supabase/supabase-js';
 import { useNotificationTriggers } from './useNotificationTriggers';
@@ -67,6 +68,7 @@ export interface Contact {
 export function useMessages() {
   const { supabase, getUsers } = useSupabase();
   const { user, status } = useAuth();
+  const { tenant } = useTenant();
   const { toast } = useToast();
   const [loading, setLoading] = useState<boolean>(false);
   const { notifyNewMessage } = useNotificationTriggers();
@@ -78,39 +80,38 @@ export function useMessages() {
     try {
       if (!silent) setLoading(true);
       
-      
       // Récupérer les contacts autorisés (ceux dans ses workgroups ou autorisés par admin)
       const { data: contacts, error: contactsError } = await supabase
         .rpc('get_available_contacts', { p_user_id: user.id });
       
       if (contactsError) {
         console.error("Erreur RPC get_available_contacts:", contactsError);
-        // Fallback sécurisé: uniquement les utilisateurs du même tenant
-        const { data: myProfile } = await supabase
-          .from('profiles')
-          .select('tenant_id')
-          .eq('user_id', user.id)
-          .maybeSingle();
+        // Fallback sécurisé: utilisateurs du même tenant via tenant_members
+        if (!tenant?.id) return [];
+        const { data: members } = await supabase
+          .from('tenant_members')
+          .select('user_id')
+          .eq('tenant_id', tenant.id)
+          .eq('status', 'active');
           
-        if (myProfile?.tenant_id) {
-          const { data: profiles } = await supabase
-            .from('profiles')
-            .select('user_id, email, first_name, last_name, role, specialty, avatar_url')
-            .eq('tenant_id', myProfile.tenant_id)
-            .neq('user_id', user.id)
-            .eq('status', 'active');
-            
-          if (profiles) {
-            return profiles.map(p => ({
-              id: p.user_id,
-              email: p.email || '',
-              first_name: p.first_name || '',
-              last_name: p.last_name || '',
-              role: p.role || 'intervenant',
-              specialty: p.specialty || '',
-              avatar_url: p.avatar_url
-            }));
-          }
+        const memberIds = (members || []).map(m => m.user_id).filter(id => id !== user.id);
+        if (memberIds.length === 0) return [];
+
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('user_id, email, first_name, last_name, role, specialty, avatar_url')
+          .in('user_id', memberIds);
+
+        if (profiles) {
+          return profiles.map(p => ({
+            id: p.user_id,
+            email: p.email || '',
+            first_name: p.first_name || '',
+            last_name: p.last_name || '',
+            role: p.role || 'intervenant',
+            specialty: p.specialty || '',
+            avatar_url: p.avatar_url
+          }));
         }
         return [];
       }
@@ -135,7 +136,7 @@ export function useMessages() {
     } finally {
       setLoading(false);
     }
-  }, [status, user, supabase]);
+  }, [status, user, supabase, tenant?.id]);
 
   // Récupérer toutes les conversations de l'utilisateur
   const getConversations = useCallback(async (silent = false): Promise<Conversation[]> => {
@@ -145,8 +146,10 @@ export function useMessages() {
       if (!silent) setLoading(true);
       
       // Instead of using the direct query that's failing, use our new function
+      const rpcParams: { p_user_id: string; p_tenant_id?: string } = { p_user_id: user.id };
+      if (tenant?.id) rpcParams.p_tenant_id = tenant.id;
       const rpcCall = supabase
-        .rpc('get_user_conversations', { p_user_id: user.id });
+        .rpc('get_user_conversations', rpcParams);
       
       // Add timeout of 8 seconds to the fetch operation
       const response = await withTimeout(
@@ -439,7 +442,7 @@ export function useMessages() {
     } finally {
       setLoading(false);
     }
-  }, [status, user, supabase, toast]);
+  }, [status, user, supabase, toast, tenant?.id]);
 
   // Envoyer un message
   const sendMessage = useCallback(async (conversationId: string, content: string): Promise<Message | null> => {

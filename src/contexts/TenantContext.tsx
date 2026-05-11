@@ -121,6 +121,7 @@ export function useSuperAdmin() {
             try {
               await supabase.rpc('delete_auth_user', { user_id: userId });
             } catch (e) {
+              console.error('Error deleting auth user:', e);
             }
           }
         }
@@ -286,13 +287,13 @@ export function useSuperAdmin() {
       // Compter les intervenants et projets réels par tenant
       const tenantIds = (data || []).map(t => t.id);
 
-      const [profilesRes, projectsRes] = await Promise.all([
+      const [membersRes, projectsRes] = await Promise.all([
         supabase
-          .from('profiles')
-          .select('tenant_id, role')
+          .from('tenant_members')
+          .select('tenant_id')
           .in('tenant_id', tenantIds)
           .neq('role', 'admin')
-          .neq('is_super_admin', true),
+          .eq('status', 'active'),
         supabase
           .from('projects')
           .select('tenant_id')
@@ -303,8 +304,8 @@ export function useSuperAdmin() {
       const intervenantCountMap: Record<string, number> = {};
       const projectCountMap: Record<string, number> = {};
 
-      (profilesRes.data || []).forEach(p => {
-        if (p.tenant_id) intervenantCountMap[p.tenant_id] = (intervenantCountMap[p.tenant_id] || 0) + 1;
+      (membersRes.data || []).forEach(m => {
+        if (m.tenant_id) intervenantCountMap[m.tenant_id] = (intervenantCountMap[m.tenant_id] || 0) + 1;
       });
       (projectsRes.data || []).forEach(p => {
         if (p.tenant_id) projectCountMap[p.tenant_id] = (projectCountMap[p.tenant_id] || 0) + 1;
@@ -762,6 +763,7 @@ export function useSuperAdmin() {
       try {
         await supabase.rpc('delete_auth_user', { user_id: userId });
       } catch (e) {
+        console.error('Error deleting auth user:', e);
       }
 
       toast({
@@ -800,7 +802,7 @@ export function useSuperAdmin() {
 
 // Provider principal
 export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, status } = useAuth();
+  const { user, status, activeTenantId, showTenantSelector, setActiveTenantId, setRole } = useAuth();
   const { toast } = useToast();
   
   const [tenant, setTenant] = useState<Tenant | null>(null);
@@ -839,6 +841,55 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
   }, []);
 
+  const loadTenantById = useCallback(async (tenantId: string) => {
+    if (!user?.id) return;
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const { data: membership, error: membershipError } = await supabase
+        .from('tenant_members')
+        .select('*, tenant:tenants(*)')
+        .eq('tenant_id', tenantId)
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .single();
+
+      if (membershipError || !membership) throw membershipError || new Error('Membership not found');
+
+      const t = membership.tenant;
+
+      const loadedTenant: Tenant = {
+        id: t.id, name: t.name, slug: t.slug,
+        ownerEmail: t.owner_email, ownerUserId: t.owner_user_id,
+        plan: t.plan, plan_limits: t.plan_limits,
+        maxProjects: t.max_projects, maxIntervenants: t.max_intervenants, maxStorageGb: t.max_storage_gb,
+        currentProjectsCount: t.current_projects_count || 0,
+        currentIntervenantsCount: t.current_intervenants_count || 0,
+        currentStorageUsedBytes: t.current_storage_used_bytes || 0,
+        status: t.status, trialEndsAt: t.trial_ends_at,
+        subscriptionStartsAt: t.subscription_starts_at, subscriptionEndsAt: t.subscription_ends_at,
+        createdAt: t.created_at, updatedAt: t.updated_at, settings: t.settings || {}
+      };
+
+      const loadedMember: TenantMember = {
+        id: membership.id, tenantId: membership.tenant_id, userId: membership.user_id,
+        role: membership.role, invitedBy: membership.invited_by,
+        invitedAt: membership.invited_at, joinedAt: membership.joined_at,
+        status: membership.status, createdAt: membership.created_at, updatedAt: membership.updated_at
+      };
+
+      setTenant(loadedTenant);
+      setMember(loadedMember);
+      setRole(loadedMember.role);
+      updateUsage(loadedTenant);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user?.id, setRole, updateUsage]);
+
   // Charger le tenant courant
   useEffect(() => {
     const loadTenant = async () => {
@@ -846,6 +897,18 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setTenant(null);
         setMember(null);
         setIsLoading(false);
+        return;
+      }
+
+      // Si le sélecteur est affiché (multi-tenants), on attend le choix de l'utilisateur
+      if (showTenantSelector) {
+        setIsLoading(false);
+        return;
+      }
+
+      // Si un tenant actif est déjà défini, le charger
+      if (activeTenantId) {
+        await loadTenantById(activeTenantId);
         return;
       }
 
@@ -867,22 +930,21 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (membershipError) throw membershipError;
 
         if (!memberships || memberships.length === 0) {
-          // 1. Essayer de charger via profiles.tenant_id si aucun membership explicite trouvé
+          // Fallback: essayer via profiles.tenant_id (legacy)
           const { data: profile } = await supabase
             .from('profiles')
             .select('tenant_id, is_super_admin')
             .eq('user_id', user.id)
             .single();
 
-          if (profile?.tenant_id) {
-            // Recharger le tenant via cet ID
-            const { data: tenantData, error: tenantError } = await supabase
+          if (profile?.tenant_id && profile?.is_super_admin) {
+            const { data: tenantData } = await supabase
               .from('tenants')
               .select('*')
               .eq('id', profile.tenant_id)
               .single();
 
-            if (!tenantError && tenantData) {
+            if (tenantData) {
               const loadedTenant: Tenant = {
                 id: tenantData.id,
                 name: tenantData.name,
@@ -907,6 +969,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               };
 
               setTenant(loadedTenant);
+              setActiveTenantId(tenantData.id);
               updateUsage(loadedTenant);
               setIsLoading(false);
               return;
@@ -923,7 +986,14 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           return;
         }
 
-        // Sélectionner le premier tenant actif
+        if (memberships.length > 1) {
+          // Plusieurs tenants → laisser AuthContext gérer le sélecteur
+          // Ne pas charger de tenant par défaut
+          setIsLoading(false);
+          return;
+        }
+
+        // Un seul membership → charger automatiquement
         const activeMembership = memberships[0];
         const tenantData = activeMembership.tenant;
 
@@ -965,6 +1035,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
         setTenant(loadedTenant);
         setMember(loadedMember);
+        setActiveTenantId(tenantData.id);
         updateUsage(loadedTenant);
 
       } catch (err: any) {
@@ -975,7 +1046,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
 
     loadTenant();
-  }, [status, user?.id, toast, updateUsage]);
+  }, [status, user?.id, activeTenantId, showTenantSelector, setActiveTenantId, toast, updateUsage]);
 
   // Fonctions de vérification des quotas
   const canAddProject = useCallback(() => {
@@ -1082,6 +1153,9 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         updatedAt: membership.updated_at
       });
 
+      setActiveTenantId(tenantId);
+      setRole(membership.role);
+
       toast({
         title: "Tenant changé",
         description: `Vous êtes maintenant sur ${tenantData.name}`,
@@ -1096,7 +1170,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } finally {
       setIsLoading(false);
     }
-  }, [user?.id, toast]);
+  }, [user?.id, setRole, toast]);
 
   const refreshTenant = useCallback(async () => {
     if (!tenant?.id) return;

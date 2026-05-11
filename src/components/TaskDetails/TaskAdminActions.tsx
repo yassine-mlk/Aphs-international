@@ -96,7 +96,9 @@ export const TaskAdminActions: React.FC<TaskAdminActionsProps> = ({
                 <Button 
                   className={`w-full h-12 font-black text-xs uppercase tracking-widest shadow-md ${isBlocked ? 'bg-orange-600 hover:bg-orange-700' : 'bg-green-600 hover:bg-green-700'}`}
                   onClick={async () => {
-                    console.log('Force close triggered for task:', task.id);
+                    if (import.meta.env.DEV) {
+                      console.log('Force close triggered for task:', task.id);
+                    }
                     if (window.confirm("Êtes-vous sûr ? Cette action est irréversible.")) {
                       setSubmitting(true);
                       const success = await submitAdminDecision(task.id, 'closed');
@@ -123,7 +125,9 @@ export const TaskAdminActions: React.FC<TaskAdminActionsProps> = ({
                   variant="outline"
                   className="w-full h-12 font-black text-xs uppercase tracking-widest border-blue-200 text-blue-700 hover:bg-blue-50"
                   onClick={async () => {
-                    console.log('Relaunch circuit triggered for task:', task.id);
+                    if (import.meta.env.DEV) {
+                      console.log('Relaunch circuit triggered for task:', task.id);
+                    }
                     setSubmitting(true);
                     const success = await submitAdminDecision(task.id, 'relaunch_complete');
                     if (success) {

@@ -101,7 +101,6 @@ const NotificationTestPanel: React.FC = () => {
       icon: <TestTube className="h-4 w-4" />,
       color: 'bg-yellow-500',
       action: () => notifyTaskValidationRequest(
-        user?.id || 'test-user',
         testParams.taskName,
         testParams.intervenantName,
         testParams.projectName
@@ -113,7 +112,6 @@ const NotificationTestPanel: React.FC = () => {
       icon: <File className="h-4 w-4" />,
       color: 'bg-red-500',
       action: () => notifyFileValidationRequest(
-        user?.id || 'test-user',
         testParams.fileName,
         testParams.uploaderName,
         testParams.projectName

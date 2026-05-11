@@ -167,60 +167,33 @@ const ProjectMembersTab: React.FC<ProjectMembersTabProps> = ({
   // Charger les intervenants du tenant
   const fetchTenantIntervenants = async () => {
     if (!tenantId) {
-      // Si pas de tenantId, charger tous les intervenants
-      setLoadingIntervenants(true);
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('user_id, first_name, last_name, email, company, specialty, avatar_url')
-          .neq('role', 'admin')
-          .neq('is_super_admin', true);
-
-        if (error) throw error;
-        // Mapper les profiles au format Intervenant
-        const mapped = (data || []).map(p => ({
-          user_id: p.user_id,
-          first_name: p.first_name || '',
-          last_name: p.last_name || '',
-          email: p.email || '',
-          company: p.company,
-          specialty: p.specialty,
-          avatar_url: (p as any).avatar_url
-        }));
-        setTenantIntervenants(mapped);
-      } catch (error) {
-        toast({
-          title: 'Erreur',
-          description: 'Impossible de charger les intervenants',
-          variant: 'destructive'
-        });
-      } finally {
-        setLoadingIntervenants(false);
-      }
+      setTenantIntervenants([]);
       return;
     }
 
     setLoadingIntervenants(true);
     try {
-      // Récupérer les intervenants du tenant via la colonne tenant_id
+      // Récupérer les membres du tenant via tenant_members
       const { data, error } = await supabase
-        .from('profiles')
-        .select('user_id, first_name, last_name, email, company, specialty, avatar_url')
+        .from('tenant_members')
+        .select('user_id, role, profiles!tenant_members_user_id_profiles_fkey(first_name, last_name, email, company, specialty, avatar_url)')
         .eq('tenant_id', tenantId)
         .neq('role', 'admin')
-        .neq('is_super_admin', true);
+        .eq('status', 'active');
 
       if (error) throw error;
-      // Mapper les profiles au format Intervenant
-      const mapped = (data || []).map(p => ({
-        user_id: p.user_id,
-        first_name: p.first_name || '',
-        last_name: p.last_name || '',
-        email: p.email || '',
-        company: p.company,
-        specialty: p.specialty,
-        avatar_url: (p as any).avatar_url
-      }));
+      const mapped = (data || []).map((m: any) => {
+        const profile = m.profiles || {};
+        return {
+          user_id: m.user_id,
+          first_name: profile.first_name || '',
+          last_name: profile.last_name || '',
+          email: profile.email || '',
+          company: profile.company,
+          specialty: profile.specialty,
+          avatar_url: profile.avatar_url
+        };
+      });
       setTenantIntervenants(mapped);
     } catch (error) {
       toast({
@@ -265,6 +238,7 @@ const ProjectMembersTab: React.FC<ProjectMembersTabProps> = ({
         project_id: projectId,
         user_id: userId,
         role: 'membre',
+        tenant_id: tenantId,
         added_at: new Date().toISOString()
       }));
 

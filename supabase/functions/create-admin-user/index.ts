@@ -1,18 +1,9 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { getCorsHeaders, corsHeaders } from '../_shared/cors.ts';
 
-const ALLOWED_ORIGINS = ['https://www.aps-construction.com', 'https://aps-construction.com'];
 
-const getCorsHeaders = (req?: Request) => {
-  const origin = req?.headers?.get('origin') || '';
-  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
-  return {
-    'Access-Control-Allow-Origin': allowedOrigin,
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Access-Control-Max-Age': '86400',
-  };
-};
+
 
 // DEPRECATED: use getCorsHeaders(req) instead
 const corsHeaders = {

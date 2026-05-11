@@ -51,6 +51,8 @@ const WorkGroupsContent: React.FC = () => {
     getAvailableUsers
   } = useWorkGroups();
   
+  console.log("WorkGroupsContent render - workGroups:", workGroups);
+  
   const [searchQuery, setSearchQuery] = useState("");
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);

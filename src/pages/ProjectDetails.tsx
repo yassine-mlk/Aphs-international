@@ -31,6 +31,7 @@ import ProjectInfoSheetsTab from '@/components/project/ProjectInfoSheetsTab';
 import { ProjectStructureManager } from '@/components/project/ProjectStructureManager';
 import { useSupabase } from '@/hooks/useSupabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTenant } from '@/contexts/TenantContext';
 import { useProjectStructure } from '@/hooks/useProjectStructure';
 
 interface Project {
@@ -84,6 +85,7 @@ const ProjectDetails: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const { user, role, status } = useAuth();
+  const { tenant } = useTenant();
   const { supabase } = useSupabase();
 
   const [project, setProject] = useState<Project | null>(null);
@@ -138,12 +140,6 @@ const ProjectDetails: React.FC = () => {
     };
   }, [id, status]);
 
-  useEffect(() => {
-    if (!id || status !== 'authenticated') return;
-    supabase.from('projects').select('tenant_id').eq('id', id).maybeSingle()
-      .then(({ data }) => { if (data?.tenant_id) setTenantId(data.tenant_id); });
-  }, [id, status]);
-
   const fetchProjectDetails = async () => {
     if (status !== 'authenticated') return;
     try {
@@ -155,7 +151,17 @@ const ProjectDetails: React.FC = () => {
 
       if (error) throw error;
       if (data) {
+        if (tenant?.id && data.tenant_id && data.tenant_id !== tenant.id) {
+          toast({
+            title: "Accès refusé",
+            description: "Ce projet n'appartient pas à votre espace de travail actif",
+            variant: "destructive",
+          });
+          navigate('/dashboard/projets');
+          return;
+        }
         setProject(data);
+        if (data.tenant_id) setTenantId(data.tenant_id);
       }
     } catch (error) {
       toast({
@@ -175,7 +181,8 @@ const ProjectDetails: React.FC = () => {
       const { data, error } = await supabase
         .from('membre')
         .select('*')
-        .eq('project_id', id);
+        .eq('project_id', id)
+        .eq('tenant_id', tenantId);
 
       if (error) throw error;
       if (data) {
@@ -210,13 +217,14 @@ const ProjectDetails: React.FC = () => {
   };
 
   const handleDeleteProject = async () => {
-    if (!id) return;
+    if (!id || !tenantId) return;
     
     try {
       const { error } = await supabase
         .from('projects')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('tenant_id', tenantId);
 
       if (error) throw error;
 

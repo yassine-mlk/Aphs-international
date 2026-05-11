@@ -1,6 +1,7 @@
 import { useCallback, useState, useEffect } from 'react';
 import { useSupabase } from './useSupabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useTenant } from '@/contexts/TenantContext';
 import { useToast } from '@/components/ui/use-toast';
 
 // Types simplifiés pour les groupes de travail
@@ -64,6 +65,7 @@ export interface AvailableUser {
 export function useWorkGroups() {
   const { supabase } = useSupabase();
   const { user, status } = useAuth();
+  const { tenant } = useTenant();
   const { toast } = useToast();
   const [loading, setLoading] = useState<boolean>(false);
   const [workGroups, setWorkGroups] = useState<WorkGroupWithMessaging[]>([]);
@@ -75,9 +77,11 @@ export function useWorkGroups() {
     try {
       setLoading(true);
       
-      // Utiliser la nouvelle fonction RPC simplifiée
+      const rpcParams: { p_user_id: string; p_tenant_id?: string } = { p_user_id: user.id };
+      if (tenant?.id) rpcParams.p_tenant_id = tenant.id;
       const { data: workgroupsData, error: workgroupsError } = await supabase
-        .rpc('get_user_workgroups_simple', { p_user_id: user.id });
+        .rpc('get_user_workgroups_simple', rpcParams);
+      console.log("get_user_workgroups_simple response:", JSON.stringify(workgroupsData), workgroupsError);
 
       if (workgroupsError) {
         throw workgroupsError;
@@ -152,7 +156,7 @@ export function useWorkGroups() {
     } finally {
       setLoading(false);
     }
-  }, [status, user, supabase]);
+  }, [status, user, supabase, tenant?.id]);
 
   // Charger les groupes au montage
   useEffect(() => {
@@ -161,35 +165,33 @@ export function useWorkGroups() {
     }
   }, [fetchWorkGroups, status]);
 
-  // Récupérer les utilisateurs disponibles directement depuis profiles (filtrés par tenant)
+  // Récupérer les utilisateurs disponibles (filtrés par tenant)
   const getAvailableUsers = useCallback(async (): Promise<AvailableUser[]> => {
     try {
-      if (status !== 'authenticated' || !user?.id) return [];
+      if (status !== 'authenticated' || !user?.id || !tenant?.id) return [];
 
-      // Récupérer le tenant_id de l'utilisateur connecté
-      const { data: myProfile, error: profileError } = await supabase
-        .from('profiles')
-        .select('tenant_id')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      // Récupérer les membres actifs du tenant, hors admins
+      const { data: members, error: membersError } = await supabase
+        .from('tenant_members')
+        .select('user_id, role')
+        .eq('tenant_id', tenant.id)
+        .eq('status', 'active')
+        .neq('role', 'admin');
 
-      if (profileError || !myProfile?.tenant_id) {
-        console.error("Impossible de récupérer le tenant_id de l'utilisateur");
-        return [];
-      }
+      if (membersError || !members || members.length === 0) return [];
 
-      // Récupérer uniquement les membres du même tenant, hors admins (comme dans Intervenants.tsx)
+      const memberIds = members.map(m => m.user_id);
+
       const { data: profilesData, error } = await supabase
         .from('profiles')
-        .select('user_id, email, first_name, last_name, role, specialty, status')
-        .eq('tenant_id', myProfile.tenant_id)
-        .eq('status', 'active')
-        .neq('role', 'admin')
-        .neq('is_super_admin', true);
+        .select('user_id, email, first_name, last_name, specialty, status')
+        .in('user_id', memberIds)
+        .eq('status', 'active');
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
+
+      // Fusionner les rôles depuis tenant_members
+      const roleMap = new Map(members.map(m => [m.user_id, m.role]));
 
       const availableUsers: AvailableUser[] = (profilesData || []).map(profile => ({
         id: profile.user_id,
@@ -199,7 +201,7 @@ export function useWorkGroups() {
         name: profile.first_name && profile.last_name 
           ? `${profile.first_name} ${profile.last_name}`
           : profile.email,
-        role: profile.role,
+        role: roleMap.get(profile.user_id) || 'intervenant',
         specialty: profile.specialty || '',
         status: profile.status
       }));
@@ -210,7 +212,7 @@ export function useWorkGroups() {
       console.error('Error in getAvailableUsers:', error);
       return [];
     }
-  }, [status, supabase, user?.id]);
+  }, [status, supabase, user?.id, tenant?.id]);
 
   // Créer un groupe de travail (version corrigée)
   const createWorkGroup = useCallback(async (
@@ -231,6 +233,7 @@ export function useWorkGroups() {
         });
 
       if (workgroupError) {
+        console.error("create_workgroup_simple RPC error:", workgroupError);
         throw workgroupError;
       }
 
@@ -256,6 +259,7 @@ export function useWorkGroups() {
       await fetchWorkGroups();
       return workgroupId;
     } catch (error) {
+      console.error("createWorkGroup caught error:", error);
       toast({
         title: "Erreur",
         description: "Impossible de créer le groupe de travail",
@@ -312,38 +316,20 @@ export function useWorkGroups() {
     try {
       setLoading(true);
 
-      // 1. D'abord supprimer la conversation associée au workgroup si elle existe
-      // pour s'assurer que les messages sont nettoyés (même si le cascade DB devrait le faire)
-      const { data: convData } = await supabase
-        .from('conversations')
-        .select('id')
-        .eq('workgroup_id', workgroupId)
-        .eq('type', 'workgroup')
-        .maybeSingle();
-
-      if (convData) {
-        await supabase
-          .from('conversations')
-          .delete()
-          .eq('id', convData.id);
-      }
-
-      // 2. Supprimer le workgroup (ceci devrait aussi supprimer les membres via cascade)
       const { error } = await supabase
-        .from('workgroups')
-        .delete()
-        .eq('id', workgroupId);
+        .rpc('delete_workgroup', { p_workgroup_id: workgroupId });
 
       if (error) throw error;
 
       toast({
         title: "Succès",
-        description: "Groupe de travail supprimé ainsi que sa conversation",
+        description: "Groupe de travail supprimé",
       });
 
       await fetchWorkGroups();
       return true;
     } catch (error) {
+      console.error("deleteWorkGroup error:", error);
       toast({
         title: "Erreur",
         description: "Impossible de supprimer le groupe",

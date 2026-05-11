@@ -11,11 +11,15 @@ export function useProjects() {
   const [loading, setLoading] = useState(false);
 
   // Récupérer tous les projets avec filtres optionnels
-  const getProjects = useCallback(async (filters?: ProjectFilters): Promise<Project[]> => {
+  const getProjects = useCallback(async (filters?: ProjectFilters & { tenant_id?: string }): Promise<Project[]> => {
     if (status !== 'authenticated') return [];
     setLoading(true);
     try {
       const queryFilters = [];
+
+      if (filters?.tenant_id) {
+        queryFilters.push({ column: 'tenant_id', operator: 'eq', value: filters.tenant_id });
+      }
       
       if (filters?.status) {
         queryFilters.push({ column: 'status', operator: 'eq', value: filters.status });
@@ -97,7 +101,9 @@ export function useProjects() {
       // SI LE TENANT N'A PAS DE STRUCTURE (Nouveau compte)
       // On va utiliser la structure par défaut (hardcoded)
       if (!sections || sections.length === 0) {
-        console.log("Tenant has no structure, using hardcoded defaults...");
+        if (import.meta.env.DEV) {
+          console.log("Tenant has no structure, using hardcoded defaults...");
+        }
         // On importe dynamiquement pour éviter les cycles ou charger inutilement
         const { projectStructure, realizationStructure } = await import('@/data/project-structure');
         
@@ -506,11 +512,17 @@ export function useProjects() {
   }, [getProjects]);
 
   // Récupérer les projets créés par un utilisateur
-  const getProjectsByUser = useCallback(async (userId: string): Promise<Project[]> => {
+  const getProjectsByUser = useCallback(async (userId: string, tenantId?: string): Promise<Project[]> => {
     if (status !== 'authenticated') return [];
     try {
+      const filters: { column: string; operator: string; value: any }[] = [
+        { column: 'created_by', operator: 'eq', value: userId }
+      ];
+      if (tenantId) {
+        filters.push({ column: 'tenant_id', operator: 'eq', value: tenantId });
+      }
       const projects = await fetchData<Project>('projects', {
-        filters: [{ column: 'created_by', operator: 'eq', value: userId }],
+        filters,
         order: { column: 'created_at', ascending: false }
       });
 
@@ -526,10 +538,15 @@ export function useProjects() {
   }, [fetchData, toast]);
 
   // Rechercher des projets par nom ou description
-  const searchProjects = useCallback(async (searchTerm: string): Promise<Project[]> => {
+  const searchProjects = useCallback(async (searchTerm: string, tenantId?: string): Promise<Project[]> => {
     if (status !== 'authenticated') return [];
     try {
+      const filters: { column: string; operator: string; value: any }[] = [];
+      if (tenantId) {
+        filters.push({ column: 'tenant_id', operator: 'eq', value: tenantId });
+      }
       const projects = await fetchData<Project>('projects', {
+        filters: filters.length > 0 ? filters : undefined,
         order: { column: 'created_at', ascending: false }
       });
 

@@ -20,7 +20,8 @@ import {
   LayoutGrid,
   ChevronRight,
   FileCheck,
-  PenTool
+  PenTool,
+  User
 } from 'lucide-react';
 import { useSupabase } from '@/hooks/useSupabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -209,7 +210,9 @@ const IntervenantDashboard: React.FC = () => {
       // Fusionner les IDs uniques
       const allProjectIds = Array.from(new Set([...projectIdsFromMembers, ...projectIdsFromTasks]));
 
-      console.log('Project IDs for Intervenant:', allProjectIds);
+      if (import.meta.env.DEV) {
+        console.log('Project IDs for Intervenant:', allProjectIds);
+      }
 
       let projects = [];
       if (allProjectIds.length > 0) {
@@ -664,6 +667,76 @@ const IntervenantDashboard: React.FC = () => {
                 </motion.div>
               )}
             </div>
+
+            {/* Section des tâches en retard */}
+            {(() => {
+              const now = new Date();
+              const completedStatuses = ['approved', 'vso', 'vao', 'closed'];
+              const myOverdueTasks = allTasks.filter((t: any) =>
+                t.deadline &&
+                new Date(t.deadline) < now &&
+                !completedStatuses.includes(t.status)
+              );
+              if (myOverdueTasks.length === 0) return null;
+              return (
+                <motion.div variants={itemVariants}>
+                  <Card className="border-0 shadow-sm bg-white rounded-2xl overflow-hidden">
+                    <CardHeader className="border-b border-gray-50 pb-4">
+                      <div className="flex items-center gap-2">
+                        <div className="p-2 bg-red-50 rounded-lg">
+                          <AlertTriangle className="h-5 w-5 text-red-600" />
+                        </div>
+                        <CardTitle className="text-lg font-bold">Mes tâches en retard</CardTitle>
+                        <Badge className="bg-red-500 text-white font-bold ml-auto">
+                          {myOverdueTasks.length}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-0 divide-y divide-gray-50">
+                      {myOverdueTasks.slice(0, 5).map((task: any) => {
+                        const delayDays = Math.ceil(
+                          (now.getTime() - new Date(task.deadline).getTime()) / (1000 * 60 * 60 * 24)
+                        );
+                        return (
+                          <div
+                            key={task.id}
+                            className="flex items-center p-4 hover:bg-gray-50 transition-colors group cursor-pointer"
+                            onClick={() => navigate(`/dashboard/tasks/${task.id}`)}
+                          >
+                            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-50 flex items-center justify-center">
+                              <User className="h-5 w-5 text-red-500" />
+                            </div>
+                            <div className="ml-3 flex-1 min-w-0">
+                              <p className="text-sm font-bold text-gray-900 truncate">
+                                {task.task_name || 'Tâche sans nom'}
+                              </p>
+                              <p className="text-xs text-gray-500 truncate">{task.project_name}</p>
+                            </div>
+                            <div className="text-right ml-3">
+                              <p className="text-sm font-bold text-red-600">+{delayDays}j</p>
+                              <p className="text-[10px] text-gray-400">retard</p>
+                            </div>
+                            <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-gray-500 transition-colors ml-2" />
+                          </div>
+                        );
+                      })}
+                      {myOverdueTasks.length > 5 && (
+                        <div className="p-3 text-center">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs text-gray-500 font-bold"
+                            onClick={() => navigate('/dashboard/tasks')}
+                          >
+                            Voir les {myOverdueTasks.length - 5} autres →
+                          </Button>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              );
+            })()}
             
             {preferences.showRecentActivities && (
               <motion.div 

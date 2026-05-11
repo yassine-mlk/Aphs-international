@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
+import { useTenant } from '@/contexts/TenantContext';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { 
@@ -33,6 +34,7 @@ import {
   FolderKanban,
   FileSignature
 } from 'lucide-react';
+import TenantSwitcher from '@/components/TenantSwitcher';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -83,6 +85,7 @@ const DashboardLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
+  const { tenant } = useTenant();
   const { user: authUser, role, isSuperAdmin: authIsSuperAdmin, signOut } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const { count: pendingDocsCount } = usePendingDocuments();
@@ -322,6 +325,7 @@ const DashboardLayout: React.FC = () => {
           </div>
           
           <div className="flex items-center gap-4">
+            <TenantSwitcher />
             <NotificationBell />
             
             <Button 
@@ -342,7 +346,7 @@ const DashboardLayout: React.FC = () => {
         
         <div className="p-4 md:p-8">
           <Suspense fallback={<LoadingSpinner />}>
-            <Outlet />
+            <Outlet key={tenant?.id} />
           </Suspense>
         </div>
       </SidebarInset>

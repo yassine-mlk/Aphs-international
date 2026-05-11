@@ -28,6 +28,10 @@ function ChatSaver({ roomId }: { roomId: string }) {
   const savedMessagesRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
+    if (!supabase) {
+      console.error('Supabase not initialized');
+      return;
+    }
     if (!user) return;
     
     chatMessages.forEach(async (msg) => {

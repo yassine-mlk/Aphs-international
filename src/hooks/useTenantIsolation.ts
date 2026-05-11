@@ -83,7 +83,7 @@ export function useTenantIsolation() {
     // Combine membre table et tenant_members
     const [{ data: membres }, { data: tenantMembres }] = await Promise.all([
       supabase.from('membre').select('*').eq('tenant_id', tenantId),
-      supabase.from('tenant_members').select('*, profiles:user_id(*)').eq('tenant_id', tenantId)
+      supabase.from('tenant_members').select('*, profiles!tenant_members_user_id_profiles_fkey(*)').eq('tenant_id', tenantId)
     ]);
 
     return {

@@ -2,8 +2,8 @@
 
 export type TenantPlan = 'starter' | 'pro' | 'business' | 'custom';
 export type TenantStatus = 'active' | 'trial' | 'suspended' | 'cancelled';
-export type TenantMemberRole = 'admin' | 'intervenant' | 'viewer';
-export type TenantMemberStatus = 'pending' | 'active' | 'deactivated';
+export type TenantMemberRole = 'admin' | 'intervenant';
+export type TenantMemberStatus = 'active' | 'invited' | 'suspended';
 
 export interface PlanLimits {
   max_intervenants_per_project: number;

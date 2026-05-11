@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useSupabase } from "../hooks/useSupabase";
 import { useAuth } from "../contexts/AuthContext";
+import { useTenant } from '@/contexts/TenantContext';
 
 // Types
 interface Project {
@@ -52,6 +53,7 @@ const IntervenantProjects: React.FC = () => {
   const { toast } = useToast();
   const { fetchData, supabase } = useSupabase();
   const { user, status } = useAuth();
+  const { tenant } = useTenant();
   
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,18 +70,20 @@ const IntervenantProjects: React.FC = () => {
 
     if (!silent) setLoading(true);
     try {
-      // Récupérer les projets dont l'utilisateur est membre
+      // Récupérer les projets du tenant actif dont l'utilisateur est membre
       const { data: memberData, error: memberError } = await supabase
         .from('membre')
         .select('*')
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .eq('tenant_id', tenant?.id);
 
       if (memberError) throw memberError;
 
-      // On récupère aussi les projets où l'utilisateur est directement assigné à une tâche
+      // On récupère aussi les projets du tenant actif où l'utilisateur est directement assigné à une tâche
       const { data: taskAssignments, error: taskError } = await supabase
         .from('task_assignments_view')
-        .select('project_id');
+        .select('project_id')
+        .eq('tenant_id', tenant?.id);
 
       if (taskError) throw taskError;
 
@@ -93,7 +97,9 @@ const IntervenantProjects: React.FC = () => {
 
       // Fusionner les IDs uniques
       const projectIds = Array.from(new Set([...projectIdsFromMembers, ...projectIdsFromTasks]));
-      console.log('Project IDs for Intervenant Projects:', projectIds);
+      if (import.meta.env.DEV) {
+        console.log('Project IDs for Intervenant Projects:', projectIds);
+      }
 
       if (projectIds.length === 0) {
         setProjects([]);
@@ -118,6 +124,7 @@ const IntervenantProjects: React.FC = () => {
       const { data: projectsData, error } = await supabase
         .from('projects')
         .select('*')
+        .eq('tenant_id', tenant?.id)
         .in('id', projectIds);
 
       if (error) throw error;
@@ -165,7 +172,7 @@ const IntervenantProjects: React.FC = () => {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [user?.id, status, fetchData, supabase, toast]);
+  }, [user?.id, status, fetchData, supabase, toast, tenant?.id]);
 
   // Ref pour stabiliser sans recréer la subscription
   const loadProjectsRef = useRef(loadProjects);
@@ -199,7 +206,7 @@ const IntervenantProjects: React.FC = () => {
       supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, status]);
+  }, [user?.id, status, tenant?.id]);
 
   // Filtrer les projets selon la recherche
   const filteredProjects = projects.filter(project =>

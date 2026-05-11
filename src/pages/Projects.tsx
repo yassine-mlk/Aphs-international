@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useSupabase } from '@/hooks/useSupabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTenant } from '@/contexts/TenantContext';
 import { supabase } from '@/lib/supabase';
 import { useProjects } from '@/hooks/useProjects';
 import {
@@ -76,11 +77,11 @@ const Projects: React.FC = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { user, status } = useAuth();
+  const { tenant } = useTenant();
   const { deleteData, updateData } = useSupabase();
   const { createProject } = useProjects();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tenantId, setTenantId] = useState<string | null>(null);
   const [maxProjects, setMaxProjects] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [projectStats, setProjectStats] = useState<Record<string, ProjectStatItem>>({});
@@ -91,44 +92,34 @@ const Projects: React.FC = () => {
   const [newProject, setNewProject] = useState<ProjectFormData>({
     name: '',
     description: '',
-    start_date: new Date().toISOString().split('T')[0], // Date d'aujourd'hui par défaut
+    start_date: new Date().toISOString().split('T')[0],
     end_date: '',
     image_url: '',
     company_id: '',
     status: 'active',
     show_info_sheets: true
   });
-
   // États pour le formulaire multi-étapes et l'édition de structure
   const [createStep, setCreateStep] = useState<1 | 2>(1);
   const [newlyCreatedProjectId, setNewlyCreatedProjectId] = useState<string | null>(null);
-  
-  // Charger tenant_id de l'admin connecté
+  // Charger les infos du tenant depuis le contexte
   useEffect(() => {
-    if (status !== 'authenticated' || !user?.id) return;
-    supabase
-      .from('profiles')
-      .select('tenant_id')
-      .eq('user_id', user.id)
-      .maybeSingle()
-      .then(({ data: profile }) => {
-        if (!profile?.tenant_id) return;
-        setTenantId(profile.tenant_id);
-        supabase
-          .from('tenants')
-          .select('max_projects')
-          .eq('id', profile.tenant_id)
-          .maybeSingle()
-          .then(({ data: tenant }) => {
-            if (tenant?.max_projects) setMaxProjects(tenant.max_projects);
-          });
-      });
-  }, [user?.id, status]);
+    if (tenant?.id) {
+      supabase
+        .from('tenants')
+        .select('max_projects')
+        .eq('id', tenant.id)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data?.max_projects) setMaxProjects(data.max_projects);
+        });
+    }
+  }, [tenant?.id]);
 
   // Charger les projets au chargement de la page
   useEffect(() => {
     if (status === 'authenticated' && user?.id) fetchProjects();
-  }, [tenantId, user?.id, status]);
+  }, [tenant?.id, user?.id, status]);
 
   // Récupérer les projets depuis Supabase
   const fetchProjects = async () => {
@@ -140,8 +131,8 @@ const Projects: React.FC = () => {
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (tenantId) {
-        query = query.eq('tenant_id', tenantId);
+      if (tenant?.id) {
+        query = query.eq('tenant_id', tenant.id);
       }
 
       const { data, error } = await query;
@@ -342,11 +333,11 @@ const Projects: React.FC = () => {
 
     try {
       // Vérifier le quota de projets
-      if (tenantId && maxProjects !== null) {
+      if (tenant?.id && maxProjects !== null) {
         const { count } = await supabase
           .from('projects')
           .select('id', { count: 'exact', head: true })
-          .eq('tenant_id', tenantId);
+          .eq('tenant_id', tenant.id);
         if ((count ?? 0) >= maxProjects) {
           toast({
             title: "Quota atteint",
@@ -362,7 +353,7 @@ const Projects: React.FC = () => {
         ...newProject,
         company_id: newProject.company_id || null,
         end_date: null, // Toujours null lors de la création initiale comme demandé
-        tenant_id: tenantId || null,
+        tenant_id: tenant?.id || null,
         status: 'active' as const
       };
       
@@ -795,7 +786,7 @@ const Projects: React.FC = () => {
             ) : (
               <div className="py-6 space-y-6">
                 {newlyCreatedProjectId ? (
-                  <ProjectStructureManager projectId={newlyCreatedProjectId} tenantId={tenantId} />
+                  <ProjectStructureManager projectId={newlyCreatedProjectId} tenantId={tenant?.id || null} />
                 ) : (
                   <div className="flex flex-col items-center justify-center py-12 space-y-4">
                     <Loader2 className="h-8 w-8 animate-spin text-aps-teal" />

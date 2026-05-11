@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTenant } from '@/contexts/TenantContext';
 
 // Interface pour les statistiques du tableau de bord
 export interface DashboardStats {
@@ -46,6 +47,7 @@ export interface RecentActivity {
 
 export function useDashboardStats() {
   const { status } = useAuth();
+  const { tenant } = useTenant();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [chartData, setChartData] = useState<ChartData[]>([]);
@@ -63,10 +65,12 @@ export function useDashboardStats() {
       pendingProjects: 0
     };
     try {
-      // Récupérer tous les projets
-      const { data: projects, error: projectsError } = await supabase
+      // Récupérer les projets du tenant actif
+      let query = supabase
         .from('projects')
         .select('id, name, status, created_at');
+      if (tenant?.id) query = query.eq('tenant_id', tenant.id);
+      const { data: projects, error: projectsError } = await query;
 
       if (projectsError) throw projectsError;
 
@@ -89,7 +93,7 @@ export function useDashboardStats() {
         pendingProjects: 0
       };
     }
-  }, []);
+  }, [tenant?.id]);
 
   const fetchIntervenantStats = useCallback(async () => {
     if (status !== 'authenticated') return {
@@ -97,45 +101,20 @@ export function useDashboardStats() {
       activeIntervenants: 0
     };
     try {
-      // Récupérer depuis la table profiles
-      let users: any[] = [];
-      
-      const { data: profilesData, error: profilesError } = await supabase
-        .from('profiles')
-        .select('user_id, email, first_name, last_name, role, specialty');
-
-      if (!profilesError && profilesData && profilesData.length > 0) {
-        users = profilesData;
+      if (!tenant?.id) {
+        return { totalIntervenants: 0, activeIntervenants: 0 };
       }
 
-      // Si toujours pas de données, essayer avec les assignations réelles via la vue
-      if (users.length === 0) {
-        // Récupérer les utilisateurs uniques depuis task_assignments_view
-        const { data: taskUsers, error: taskError } = await supabase
-          .from('task_assignments_view')
-          .select('user_id');
-
-        if (!taskError && taskUsers) {
-          // Compter les utilisateurs uniques
-          const uniqueUsers = new Set(taskUsers.map(t => t.user_id));
-          users = Array.from(uniqueUsers).map(id => ({ id, role: 'intervenant' }));
-        }
-      }
-
-      // Filtrer les intervenants (excluant les admins)
-      const intervenants = users.filter(u => 
-        u.role !== 'admin' && 
-        u.specialty !== 'admin' &&
-        u.id // Assurez-vous qu'il y a un ID
-      );
-      
-      const totalIntervenants = intervenants.length;
-      // Pour l'instant, considérer tous les intervenants comme actifs
-      const activeIntervenants = totalIntervenants;
+      const { count: totalIntervenants } = await supabase
+        .from('tenant_members')
+        .select('id', { count: 'exact', head: true })
+        .eq('tenant_id', tenant.id)
+        .neq('role', 'admin')
+        .eq('status', 'active');
 
       return {
-        totalIntervenants,
-        activeIntervenants
+        totalIntervenants: totalIntervenants ?? 0,
+        activeIntervenants: totalIntervenants ?? 0
       };
     } catch (error) {
       return {
@@ -143,7 +122,7 @@ export function useDashboardStats() {
         activeIntervenants: 0
       };
     }
-  }, []);
+  }, [tenant?.id]);
 
   const fetchTaskStats = useCallback(async () => {
     if (status !== 'authenticated') return {
@@ -153,10 +132,12 @@ export function useDashboardStats() {
       overdueTasks: 0
     };
     try {
-      // Récupérer toutes les tâches depuis la vue unifiée
-      const { data: tasks, error: tasksError } = await supabase
+      // Récupérer les tâches du tenant actif
+      let query = supabase
         .from('task_assignments_view')
         .select('id, status, deadline, created_at');
+      if (tenant?.id) query = query.eq('tenant_id', tenant.id);
+      const { data: tasks, error: tasksError } = await query;
 
       if (tasksError) throw tasksError;
 
@@ -188,17 +169,19 @@ export function useDashboardStats() {
         overdueTasks: 0
       };
     }
-  }, []);
+  }, [tenant?.id]);
 
   const fetchUpcomingEvents = useCallback(async () => {
     if (status !== 'authenticated') return [];
     try {
-      // Récupérer les projets avec des dates importantes
-      const { data: projects, error: projectsError } = await supabase
+      // Récupérer les projets du tenant actif avec des dates importantes
+      let projectsQuery = supabase
         .from('projects')
         .select('id, name, deadline, status')
         .not('deadline', 'is', null)
-        .gt('deadline', new Date().toISOString())
+        .gt('deadline', new Date().toISOString());
+      if (tenant?.id) projectsQuery = projectsQuery.eq('tenant_id', tenant.id);
+      const { data: projects, error: projectsError } = await projectsQuery
         .order('deadline', { ascending: true })
         .limit(5);
 
@@ -213,10 +196,12 @@ export function useDashboardStats() {
         description: `Date limite pour le projet ${project.name}`
       })) || [];
 
-      // Récupérer les tâches (pour le calendrier)
-      const { data: tasks, error: tasksError } = await supabase
+      // Récupérer les tâches du tenant actif (pour le calendrier)
+      let tasksQuery = supabase
         .from('task_assignments_view')
-        .select('id, task_name, deadline, project_id, comment')
+        .select('id, task_name, deadline, project_id, comment');
+      if (tenant?.id) tasksQuery = tasksQuery.eq('tenant_id', tenant.id);
+      const { data: tasks, error: tasksError } = await tasksQuery
         .order('deadline', { ascending: true });
 
       if (!tasksError && tasks) {
@@ -240,7 +225,7 @@ export function useDashboardStats() {
     } catch (error) {
       return [];
     }
-  }, []);
+  }, [tenant?.id]);
 
   const fetchChartData = useCallback(async () => {
     if (status !== 'authenticated') return [];
@@ -251,12 +236,14 @@ export function useDashboardStats() {
 
       const completedStatuses = ['approved', 'vso', 'vao'];
 
-      const { data: tasks, error: tasksError } = await supabase
+      let tasksQuery = supabase
         .from('task_assignments_view')
         .select('updated_at, status')
         .in('status', completedStatuses)
         .not('updated_at', 'is', null)
         .gt('updated_at', oneYearAgo.toISOString());
+      if (tenant?.id) tasksQuery = tasksQuery.eq('tenant_id', tenant.id);
+      const { data: tasks, error: tasksError } = await tasksQuery;
 
       if (tasksError) throw tasksError;
 
@@ -289,17 +276,19 @@ export function useDashboardStats() {
     } catch (error) {
       return [];
     }
-  }, []);
+  }, [tenant?.id]);
 
   const fetchRecentActivities = useCallback(async () => {
     if (status !== 'authenticated') return [];
     try {
       const activities: RecentActivity[] = [];
 
-      // Récupérer les projets récents
-      const { data: recentProjects } = await supabase
+      // Récupérer les projets récents du tenant actif
+      let recentProjectsQuery = supabase
         .from('projects')
-        .select('id, name, status, created_at')
+        .select('id, name, status, created_at');
+      if (tenant?.id) recentProjectsQuery = recentProjectsQuery.eq('tenant_id', tenant.id);
+      const { data: recentProjects } = await recentProjectsQuery
         .order('created_at', { ascending: false })
         .limit(3);
 
@@ -316,10 +305,12 @@ export function useDashboardStats() {
         });
       }
 
-      // Récupérer les tâches récentes via la vue pour avoir le nom du projet
-      const { data: recentTasks } = await supabase
+      // Récupérer les tâches récentes du tenant actif via la vue
+      let recentTasksQuery = supabase
         .from('task_assignments_view')
-        .select('id, task_name, status, created_at, project_name')
+        .select('id, task_name, status, created_at, project_name');
+      if (tenant?.id) recentTasksQuery = recentTasksQuery.eq('tenant_id', tenant.id);
+      const { data: recentTasks } = await recentTasksQuery
         .order('created_at', { ascending: false })
         .limit(3);
 
@@ -344,7 +335,7 @@ export function useDashboardStats() {
     } catch (error) {
       return [];
     }
-  }, []);
+  }, [tenant?.id]);
 
   const fetchAllData = useCallback(async (silent = false) => {
     if (status !== 'authenticated') return;
