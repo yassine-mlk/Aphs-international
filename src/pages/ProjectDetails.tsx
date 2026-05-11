@@ -181,8 +181,7 @@ const ProjectDetails: React.FC = () => {
       const { data, error } = await supabase
         .from('membre')
         .select('*')
-        .eq('project_id', id)
-        .eq('tenant_id', tenantId);
+        .eq('project_id', id);
 
       if (error) throw error;
       if (data) {
