@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { TaskListSkeleton } from '@/components/Skeletons';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTenant } from '@/contexts/TenantContext';
 import { supabase } from '@/lib/supabase';
 import {
   Select,
@@ -101,6 +102,7 @@ const Tasks: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, status: authStatus } = useAuth();
+  const { tenant } = useTenant();
   
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -120,16 +122,22 @@ const Tasks: React.FC = () => {
     if (authStatus === 'authenticated' && user?.id) {
       loadTasks();
     }
-  }, [user?.id, authStatus]);
+  }, [user?.id, authStatus, tenant?.id]);
 
   const loadTasks = async () => {
     if (authStatus !== 'authenticated' || !user?.id) return;
     
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      let query = supabase
         .from('task_assignments_view')
         .select('*');
+
+      if (tenant?.id) {
+        query = query.eq('tenant_id', tenant.id);
+      }
+
+      const { data, error } = await query;
         
       if (error) throw error;
       
