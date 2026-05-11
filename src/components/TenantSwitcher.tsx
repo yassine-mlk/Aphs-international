@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Building2, Check, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -21,12 +22,14 @@ const roleLabels: Record<string, string> = {
 const TenantSwitcher: React.FC = () => {
   const { tenant, switchTenant, isLoading } = useTenant();
   const { availableTenants, activeTenantId, setActiveTenantId } = useAuth();
+  const navigate = useNavigate();
 
   if (!tenant || availableTenants.length <= 1) return null;
 
   const handleSwitch = async (tenantId: string) => {
     setActiveTenantId(tenantId);
     await switchTenant(tenantId);
+    navigate('/dashboard');
   };
 
   return (
