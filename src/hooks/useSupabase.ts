@@ -542,12 +542,13 @@ export function useSupabase() {
    * Supprime un utilisateur via Edge Function admin-operations
    */
   const adminDeleteUser = useCallback(async (
-    userId: string
+    userId: string,
+    tenantId?: string
   ): Promise<{ success: boolean; error?: Error }> => {
     if (status !== 'authenticated') return { success: false, error: new Error('Non authentifié') };
     try {
       const { data, error } = await supabase.functions.invoke('admin-operations', {
-        body: { action: 'deleteUser', userId },
+        body: { action: 'deleteUser', userId, tenantId },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);

@@ -226,23 +226,59 @@ serve(async (req) => {
 
     // ==================== DELETE USER ====================
     if (action === 'deleteUser') {
-      const { userId } = data
-      console.log(`Suppression de l'utilisateur: ${userId}`);
+      const { userId, tenantId } = data
+      console.log(`Suppression de l'utilisateur: ${userId}, tenantId: ${tenantId}`);
 
-      // Verify not deleting an admin
-      try {
-        const { data: targetUser, error: getError } = await supabaseAdmin.auth.admin.getUserById(userId)
-        if (getError) {
-           console.warn(`Avertissement: Impossible de trouver l'utilisateur auth ${userId}:`, getError.message);
-        } else if (targetUser?.user?.user_metadata?.role === 'admin') {
-          return new Response(
-            JSON.stringify({ error: "Impossible de supprimer un administrateur" }),
-            { status: 403, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
-          )
+      // Vérifier si l'utilisateur est admin d'UN AUTRE tenant actif
+      let isAdminElsewhere = false
+      if (tenantId) {
+        try {
+          const { data: otherMemberships } = await supabaseAdmin
+            .from('tenant_members')
+            .select('role')
+            .eq('user_id', userId)
+            .neq('tenant_id', tenantId)
+            .eq('status', 'active')
+          isAdminElsewhere = otherMemberships?.some(m => m.role === 'admin') ?? false
+        } catch (e) {
+          console.warn("Impossible de vérifier les autres memberships:", e.message);
         }
-      } catch (e) {
-        console.error("Erreur lors de la vérification du rôle:", e.message);
       }
+
+      if (isAdminElsewhere) {
+        // RETRAIT : l'utilisateur est admin ailleurs → ne retirer QUE du tenant courant
+        console.log(`Utilisateur ${userId} admin ailleurs → retrait partiel du tenant ${tenantId}`);
+        
+        try {
+          const { error: mError } = await supabaseAdmin
+            .from('tenant_members')
+            .delete()
+            .eq('user_id', userId)
+            .eq('tenant_id', tenantId)
+          if (mError) throw mError
+        } catch (e) {
+          console.error("Erreur lors du retrait tenant_members:", e.message);
+        }
+
+        try {
+          const { error: mmError } = await supabaseAdmin
+            .from('membre')
+            .delete()
+            .eq('user_id', userId)
+            .eq('tenant_id', tenantId)
+          if (mmError) throw mmError
+        } catch (e) {
+          console.error("Erreur lors du retrait membre:", e.message);
+        }
+
+        return new Response(
+          JSON.stringify({ success: true, message: "Utilisateur retiré du tenant" }),
+          { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // DESTRUCTION COMPLÈTE : l'utilisateur n'est admin nulle part ailleurs
+      console.log(`Utilisateur ${userId} non-admin ailleurs → destruction complète`);
 
       // Clean up associated data
       const tables = [

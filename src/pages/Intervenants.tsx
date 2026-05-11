@@ -237,7 +237,7 @@ const Intervenants: React.FC = () => {
 
   const handleDelete = async (id: string) => {
     try {
-      const { success, error } = await adminDeleteUser(id);
+      const { success, error } = await adminDeleteUser(id, tenant?.id);
       
       if (success) {
         toast({
@@ -939,9 +939,9 @@ const Intervenants: React.FC = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
             <AlertDialogDescription>
-              Êtes-vous sûr de vouloir supprimer l'intervenant {selectedIntervenant ? getDisplayName(selectedIntervenant) : ''} ?
+              Êtes-vous sûr de vouloir retirer {selectedIntervenant ? getDisplayName(selectedIntervenant) : ''} de cet espace ?
               <br />
-              Cette action est irréversible et supprimera définitivement cet utilisateur et toutes ses données.
+              S'il possède un rôle administrateur dans un autre espace, celui-ci sera conservé.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
