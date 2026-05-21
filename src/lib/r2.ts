@@ -54,19 +54,47 @@ async function uploadSimple(file: File | Blob, path: string): Promise<string> {
   return publicUrl;
 }
 
+const PART_SIZE = 20 * 1024 * 1024; // 20 Mo par part
+const UPLOAD_CONCURRENCY = 6; // 6 uploads en parallèle max
+const MAX_RETRIES = 2;
+
+async function uploadPartWithRetry(
+  url: string,
+  blob: Blob,
+  retries: number = MAX_RETRIES
+): Promise<string> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch(url, { method: 'PUT', body: blob });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response.headers.get('ETag') || '';
+    } catch (err) {
+      if (attempt === retries) throw err;
+      await new Promise(r => setTimeout(r, (attempt + 1) * 500));
+    }
+  }
+  throw new Error('Upload de part échoué');
+}
+
 /**
  * Upload multipart pour les gros fichiers (jusqu'à 5Go)
+ * Toutes les presigned URLs sont générées en 1 seul appel Edge Function.
+ * Les parts sont uploadées en parallèle avec retry.
  */
 async function uploadMultipart(
   file: File | Blob,
   path: string,
   onProgress?: (progress: number) => void
 ): Promise<string> {
+  const numParts = Math.ceil(file.size / PART_SIZE);
+
+  // 1. Initialisation : récupère TOUTES les presigned URLs en 1 appel
   const { data: initData, error: initError } = await supabase.functions.invoke('r2-upload', {
     body: {
       action: 'initMultipartUpload',
       path,
       contentType: file.type || 'application/octet-stream',
+      numParts,
     },
   });
 
@@ -74,51 +102,46 @@ async function uploadMultipart(
     throw new Error(initData?.error || initError?.message || "Impossible d'initialiser l'upload multipart");
   }
 
-  const { uploadId } = initData;
-  if (!uploadId) throw new Error("Impossible d'obtenir un ID d'upload");
+  const { uploadId, partUrls, publicUrl } = initData;
+  if (!uploadId || !partUrls?.length) throw new Error("Impossible d'obtenir un ID d'upload");
+
+  const parts: { ETag: string; PartNumber: number }[] = [];
+  let completedParts = 0;
+
+  // 2. Upload concurrent des parts avec retry
+  async function uploadPart(index: number): Promise<void> {
+    const partNumber = index + 1;
+    const start = index * PART_SIZE;
+    const end = Math.min(start + PART_SIZE, file.size);
+    const partBlob = file.slice(start, end);
+
+    // L'url est à l'index `index` du tableau reçu
+    const etag = await uploadPartWithRetry(partUrls[index], partBlob);
+
+    parts.push({ ETag: etag, PartNumber: partNumber });
+
+    completedParts++;
+    if (onProgress) {
+      onProgress(Math.round((completedParts / numParts) * 100));
+    }
+  }
 
   try {
-    const PART_SIZE = 5 * 1024 * 1024; // 5 Mo
-    const numParts = Math.ceil(file.size / PART_SIZE);
-    const parts: { ETag: string; PartNumber: number }[] = [];
-
+    // Pool de concurrence : lance les uploads par lots de UPLOAD_CONCURRENCY
+    const executing = new Set<Promise<void>>();
     for (let i = 0; i < numParts; i++) {
-      const start = i * PART_SIZE;
-      const end = Math.min(start + PART_SIZE, file.size);
-      const partBlob = file.slice(start, end);
-
-      const { data: partData, error: partError } = await supabase.functions.invoke('r2-upload', {
-        body: {
-          action: 'getPartUploadUrl',
-          path,
-          uploadId,
-          partNumber: i + 1,
-        },
-      });
-
-      if (partError || partData?.error) {
-        throw new Error(`Erreur lors de l'obtention de l'URL pour la partie ${i + 1}`);
-      }
-
-      const partResponse = await fetch(partData.partUrl, {
-        method: 'PUT',
-        body: partBlob,
-      });
-
-      if (!partResponse.ok) {
-        throw new Error(`Upload de la partie ${i + 1} échoué`);
-      }
-
-      parts.push({
-        ETag: partResponse.headers.get('ETag') || '',
-        PartNumber: i + 1,
-      });
-
-      if (onProgress) {
-        onProgress(Math.round(((i + 1) / numParts) * 100));
+      const p = uploadPart(i).finally(() => executing.delete(p));
+      executing.add(p);
+      if (executing.size >= UPLOAD_CONCURRENCY) {
+        await Promise.race(executing);
       }
     }
+    await Promise.all(executing);
 
+    // Trier les parts par PartNumber (le order peut varier avec la concurrence)
+    parts.sort((a, b) => a.PartNumber - b.PartNumber);
+
+    // 3. Finalisation
     const { data: completeData, error: completeError } = await supabase.functions.invoke('r2-upload', {
       body: {
         action: 'completeMultipartUpload',
@@ -132,8 +155,20 @@ async function uploadMultipart(
       throw new Error(completeData?.error || completeError?.message || "Erreur lors de la finalisation de l'upload");
     }
 
-    return completeData.publicUrl;
+    return completeData.publicUrl || publicUrl;
   } catch (error) {
+    // Nettoyage : annuler l'upload multipart pour éviter les parts orphelines
+    try {
+      await supabase.functions.invoke('r2-upload', {
+        body: {
+          action: 'abortMultipartUpload',
+          path,
+          uploadId,
+        },
+      });
+    } catch {
+      // Échec du nettoyage non bloquant
+    }
     throw error;
   }
 }

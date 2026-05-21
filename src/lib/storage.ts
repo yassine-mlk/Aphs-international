@@ -35,17 +35,19 @@ export const uploadFile = async (
   path: string,
   useR2: boolean = false
 ): Promise<string> => {
-  // Si R2 est configuré et demandé, l'utiliser
   if (useR2) {
     try {
       const { uploadToR2 } = await import('./r2');
       return await uploadToR2(file, path);
     } catch (r2Error) {
-      // Fallback vers Storage
-      return await uploadToStorage(file, path);
+      // Fallback vers Supabase Storage uniquement pour les petits fichiers
+      // (limite plan gratuit Supabase : 10 Mo)
+      if (file.size <= 10 * 1024 * 1024) {
+        return await uploadToStorage(file, path);
+      }
+      throw r2Error;
     }
   }
 
-  // Par défaut, utiliser Supabase Storage
   return await uploadToStorage(file, path);
 };

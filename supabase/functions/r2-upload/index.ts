@@ -1,5 +1,12 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { S3Client, PutObjectCommand, CreateMultipartUploadCommand, UploadPartCommand, CompleteMultipartUploadCommand } from 'npm:@aws-sdk/client-s3@3.679.0'
+import {
+  S3Client,
+  PutObjectCommand,
+  CreateMultipartUploadCommand,
+  UploadPartCommand,
+  CompleteMultipartUploadCommand,
+  AbortMultipartUploadCommand,
+} from 'npm:@aws-sdk/client-s3@3.679.0'
 import { getSignedUrl } from 'npm:@aws-sdk/s3-request-presigner@3.679.0'
 
 const ALLOWED_ORIGINS = ['https://www.aps-construction.com', 'https://aps-construction.com']
@@ -89,7 +96,7 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Initialize multipart upload
+    // Initialize multipart upload and generate ALL part presigned URLs server-side
     if (action === 'initMultipartUpload') {
       const command = new CreateMultipartUploadCommand({
         Bucket: R2_BUCKET_NAME,
@@ -98,26 +105,47 @@ Deno.serve(async (req) => {
       })
 
       const result = await s3Client.send(command)
+      const uploadId = result.UploadId
+      if (!uploadId) throw new Error("Impossible d'obtenir un UploadId")
+
+      const numParts = body.numParts
+      if (!numParts || typeof numParts !== 'number' || numParts < 1) {
+        throw new Error('numParts invalide')
+      }
+
+      // Générer TOUTES les presigned URLs localement (pas d'appel réseau)
+      const partUrls: string[] = []
+      for (let i = 1; i <= numParts; i++) {
+        const partCommand = new UploadPartCommand({
+          Bucket: R2_BUCKET_NAME,
+          Key: path,
+          UploadId: uploadId,
+          PartNumber: i,
+        })
+        const url = await getSignedUrl(s3Client, partCommand, { expiresIn: 7200 })
+        partUrls.push(url)
+      }
+
+      const publicUrl = R2_PUBLIC_DOMAIN
+        ? `${R2_PUBLIC_DOMAIN}/${path}`
+        : `https://${R2_BUCKET_NAME}.${R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${path}`
 
       return new Response(
-        JSON.stringify({ uploadId: result.UploadId }),
+        JSON.stringify({ uploadId, partUrls, publicUrl }),
         { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       )
     }
 
-    // Get presigned URL for a specific part
-    if (action === 'getPartUploadUrl') {
-      const command = new UploadPartCommand({
+    // Abort a failed multipart upload to clean up R2
+    if (action === 'abortMultipartUpload') {
+      await s3Client.send(new AbortMultipartUploadCommand({
         Bucket: R2_BUCKET_NAME,
         Key: path,
         UploadId: body.uploadId,
-        PartNumber: body.partNumber,
-      })
-
-      const partUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 })
+      }))
 
       return new Response(
-        JSON.stringify({ partUrl }),
+        JSON.stringify({ success: true }),
         { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       )
     }
