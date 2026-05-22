@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { History, Clock, FileText } from 'lucide-react';
+import { History, Clock, Download, FileText } from 'lucide-react';
 import { VisaOpinion } from '@/types/visaWorkflow';
 
 interface TaskFullHistoryProps {
@@ -13,6 +13,15 @@ interface TaskFullHistoryProps {
   getHistoryActionLabel: (action: string, details: any) => string;
   getHistoryIcon: (action: string) => React.ReactNode;
 }
+
+const getFileUrlFromHistory = (item: any, workflow: any): string | null => {
+  if (item.details?.file_url) return item.details.file_url;
+  if (item.details?.submission_id && workflow?.submissions) {
+    const submission = workflow.submissions.find((s: any) => s.id === item.details.submission_id);
+    if (submission?.file_url) return submission.file_url;
+  }
+  return null;
+};
 
 export const TaskFullHistory: React.FC<TaskFullHistoryProps> = ({
   task,
@@ -116,8 +125,23 @@ export const TaskFullHistory: React.FC<TaskFullHistoryProps> = ({
                   
                   {item.action === 'submission' && item.details?.file_name && (
                     <div className="mt-2 flex items-center gap-2 text-[11px] font-bold text-blue-600">
-                      <FileText className="h-3 w-3" />
-                      {item.details.file_name}
+                      <FileText className="h-3 w-3 flex-shrink-0" />
+                      {(() => {
+                        const fileUrl = getFileUrlFromHistory(item, workflow);
+                        return fileUrl ? (
+                          <a
+                            href={fileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 hover:underline"
+                          >
+                            {item.details.file_name}
+                            <Download className="h-3 w-3" />
+                          </a>
+                        ) : (
+                          <span>{item.details.file_name}</span>
+                        );
+                      })()}
                       {item.details.version && <Badge className="h-4 text-[8px] px-1 bg-blue-600">Indice {item.details.version_label || '?'}</Badge>}
                     </div>
                   )}
