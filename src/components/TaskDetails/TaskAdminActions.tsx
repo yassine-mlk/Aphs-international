@@ -7,7 +7,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, CheckCircle2, RotateCcw, Users, History, ListChecks, ChevronUp, ChevronDown, X, AlertCircle, Loader2, Search } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, RotateCcw, Users, History, ListChecks, ChevronUp, ChevronDown, X, AlertCircle, Loader2, Search, Eye } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/lib/supabase';
 
 interface TaskAdminActionsProps {
@@ -54,8 +55,55 @@ export const TaskAdminActions: React.FC<TaskAdminActionsProps> = ({
   user
 }) => {
   const [userSearchQuery, setUserSearchQuery] = React.useState('');
+  const [togglingTransparency, setTogglingTransparency] = React.useState(false);
 
   if (!isAdmin || !task) return null;
+
+  // Toggle Mode Transparence (toujours visible pour l'admin)
+  const handleToggleTransparency = async () => {
+    setTogglingTransparency(true);
+    try {
+      const { error } = await supabase.rpc('toggle_task_transparency', {
+        p_task_id: task.id,
+        p_transparency_mode: !task.transparency_mode
+      });
+      if (error) throw error;
+      setTask((prev: any) => prev ? { ...prev, transparency_mode: !prev.transparency_mode } : null);
+      loadTaskDetails();
+    } catch (error) {
+      console.error('Erreur lors du basculement du mode transparence:', error);
+    } finally {
+      setTogglingTransparency(false);
+    }
+  };
+
+  const transparencyCard = (
+    <Card className="border-blue-100 mb-4">
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className={`p-2 rounded-lg ${task.transparency_mode ? 'bg-blue-100' : 'bg-gray-100'}`}>
+              <Eye className={`h-5 w-5 ${task.transparency_mode ? 'text-blue-600' : 'text-gray-400'}`} />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-gray-900">Mode Transparence</p>
+              <p className="text-xs text-gray-500">
+                {task.transparency_mode
+                  ? "Les intervenants voient toutes les soumissions et tous les avis."
+                  : "Les intervenants ne voient que leurs propres soumissions."}
+              </p>
+            </div>
+          </div>
+          <Switch
+            checked={task.transparency_mode}
+            onCheckedChange={handleToggleTransparency}
+            disabled={togglingTransparency}
+            className={task.transparency_mode ? 'data-[state=checked]:bg-blue-600' : ''}
+          />
+        </div>
+      </CardContent>
+    </Card>
+  );
 
   const filteredUsers = allUsers.filter(u => 
     (u.first_name + ' ' + u.last_name).toLowerCase().includes(userSearchQuery.toLowerCase()) ||
@@ -73,6 +121,7 @@ export const TaskAdminActions: React.FC<TaskAdminActionsProps> = ({
     if (showAdminDecision) {
       return (
         <>
+          {transparencyCard}
           <Card className={`border-2 shadow-xl ${isBlocked ? 'border-red-200 bg-red-50/10' : 'border-green-200 bg-green-50/10'}`}>
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-3 text-lg font-black">
@@ -432,18 +481,21 @@ export const TaskAdminActions: React.FC<TaskAdminActionsProps> = ({
     // BUG 1: Afficher un badge vert fixe si clôturé
     if (task.closed_at) {
       return (
-        <div className="bg-green-100 border border-green-200 text-green-800 p-4 rounded-xl flex items-center gap-3 shadow-sm">
-          <CheckCircle2 className="h-6 w-6 text-green-600" />
-          <div>
-            <p className="font-black text-sm uppercase tracking-wider">Tâche clôturée</p>
-            <p className="text-xs font-medium">
-              Par {participantNames[task.closed_by || ''] || 'l\'administrateur'} le {new Date(task.closed_at).toLocaleString('fr-FR')}
-            </p>
+        <>
+          {transparencyCard}
+          <div className="bg-green-100 border border-green-200 text-green-800 p-4 rounded-xl flex items-center gap-3 shadow-sm">
+            <CheckCircle2 className="h-6 w-6 text-green-600" />
+            <div>
+              <p className="font-black text-sm uppercase tracking-wider">Tâche clôturée</p>
+              <p className="text-xs font-medium">
+                Par {participantNames[task.closed_by || ''] || 'l\'administrateur'} le {new Date(task.closed_at).toLocaleString('fr-FR')}
+              </p>
+            </div>
           </div>
-        </div>
+        </>
       );
     }
-    return null;
+    return transparencyCard;
   }
 
   // Cas pour Standard
@@ -453,37 +505,40 @@ export const TaskAdminActions: React.FC<TaskAdminActionsProps> = ({
 
   if (!isTaskClosed && allValidatorsResponded) {
     return (
-      <Card className="border-purple-200 bg-purple-50/20">
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2 text-purple-800">
-            <ListChecks className="h-5 w-5" />
-            Décisions Admin
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid grid-cols-1 gap-2">
-            <Button 
-              variant="outline" 
-              className="justify-start border-green-200 hover:bg-green-50 text-green-700"
-              onClick={() => handleAdminDecision('approved')}
-              disabled={submitting}
-            >
-              <CheckCircle2 className="h-4 w-4 mr-2" />
-              Approuver
-            </Button>
-            <Button 
-              variant="outline" 
-              className="justify-start border-blue-200 hover:bg-blue-50 text-blue-700"
-              onClick={() => handleAdminDecision('relaunch_partial')}
-              disabled={submitting}
-            >
-              <History className="h-4 w-4 mr-2" />
-              Relancer
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <>
+        {transparencyCard}
+        <Card className="border-purple-200 bg-purple-50/20">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2 text-purple-800">
+              <ListChecks className="h-5 w-5" />
+              Décisions Admin
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-1 gap-2">
+              <Button 
+                variant="outline" 
+                className="justify-start border-green-200 hover:bg-green-50 text-green-700"
+                onClick={() => handleAdminDecision('approved')}
+                disabled={submitting}
+              >
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+                Approuver
+              </Button>
+              <Button 
+                variant="outline" 
+                className="justify-start border-blue-200 hover:bg-blue-50 text-blue-700"
+                onClick={() => handleAdminDecision('relaunch_partial')}
+                disabled={submitting}
+              >
+                <History className="h-4 w-4 mr-2" />
+                Relancer
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </>
     );
   }
-  return null;
+  return transparencyCard;
 };
